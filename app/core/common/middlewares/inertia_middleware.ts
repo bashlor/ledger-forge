@@ -1,0 +1,66 @@
+import type { HttpContext } from '@adonisjs/core/http'
+import type { NextFn } from '@adonisjs/core/types/http'
+
+import BaseInertiaMiddleware from '@adonisjs/inertia/inertia_middleware'
+
+import '../../user_management/http/types/auth_session_context.js'
+
+export default class InertiaMiddleware extends BaseInertiaMiddleware {
+  async handle(ctx: HttpContext, next: NextFn) {
+    await this.init(ctx)
+
+    const output = await next()
+    this.dispose(ctx)
+
+    return output
+  }
+
+  share(ctx: HttpContext) {
+    /**
+     * The share method is called every time an Inertia page is rendered.
+     * In some cases (e.g., 404), middleware may not have run yet, so
+     * we must handle missing properties gracefully.
+     */
+    const { session } = ctx as Partial<HttpContext>
+
+    const notification: null | { message: string; type: 'error' | 'success' } =
+      session?.flashMessages.get('notification') ?? null
+
+    /**
+     * Auth session data — populated by SilentAuthMiddleware.
+     * Shared with all Inertia pages for SSR/client-side rendering.
+     */
+    const authUser = ctx.authSession?.user
+
+    return {
+      errors: ctx.inertia.always(this.getValidationErrors(ctx)),
+      flash: ctx.inertia.always({
+        notification,
+      }),
+      user: ctx.inertia.always(
+        authUser
+          ? {
+              email: authUser.email,
+              fullName: authUser.name,
+              id: authUser.id,
+              image: authUser.image ?? null,
+              initials: this.getInitials(authUser.name, authUser.email),
+            }
+          : undefined
+      ),
+    }
+  }
+
+  private getInitials(name: null | string, email: string): string {
+    const [first, last] = name ? name.split(' ') : email.split('@')
+    if (first && last) {
+      return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase()
+    }
+    return `${first.slice(0, 2)}`.toUpperCase()
+  }
+}
+
+declare module '@adonisjs/inertia/types' {
+  export interface SharedProps extends MiddlewareSharedProps {}
+  type MiddlewareSharedProps = InferSharedProps<InertiaMiddleware>
+}

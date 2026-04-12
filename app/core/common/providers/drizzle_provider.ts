@@ -1,0 +1,46 @@
+import type { ApplicationService } from '@adonisjs/core/types'
+
+import { Executor } from '#core/accounting/infra/executor'
+import env from '#start/env'
+import { drizzle as drizzlePostgres, type PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import postgres from 'postgres'
+
+import { DrizzleLogger } from '../drizzle/drizzle_logger.js'
+import * as schema from '../drizzle/index.js'
+
+let postgresClient: null | ReturnType<typeof postgres> = null
+
+declare module '@adonisjs/core/types' {
+  interface ContainerBindings {
+    drizzle: PostgresJsDatabase<typeof schema>
+  }
+}
+
+export default class DrizzleProvider {
+  constructor(protected app: ApplicationService) {}
+
+  register() {
+    this.app.container.singleton('drizzle', () => {
+      postgresClient = postgres({
+        database: env.get('DB_DATABASE'),
+        host: env.get('DB_HOST'),
+        password: env.get('DB_PASSWORD'),
+        port: env.get('DB_PORT'),
+        user: env.get('DB_USER'),
+      })
+      return drizzlePostgres(postgresClient, { logger: new DrizzleLogger(), schema })
+    })
+
+    this.app.container.singleton(Executor, async (resolver) => {
+      const db = await resolver.make('drizzle')
+      return new Executor(db)
+    })
+  }
+
+  async shutdown() {
+    if (postgresClient) {
+      await postgresClient.end()
+      postgresClient = null
+    }
+  }
+}
