@@ -1,0 +1,83 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          cache: pnpm
+          node-version: 24
+
+      - name: Prepare test environment
+        run: cp .env.test.example .env.test
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+  frontend-unit:
+    name: Frontend unit tests
+    runs-on: ubuntu-latest
+    needs: quality
+    permissions:
+      contents: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          cache: pnpm
+          node-version: 24
+
+      - name: Prepare test environment
+        run: cp .env.test.example .env.test
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Frontend component tests
+        run: pnpm test:unit:frontend
+
+  backend-unit:
+    name: Backend unit tests
+    runs-on: ubuntu-latest
+    needs: quality
+    permissions:
+      contents: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          cache: pnpm
+          node-version: 24
+
+      - name: Prepare test environment
+        run: cp .env.test.example .env.test
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Backend unit tests
+        run: pnpm test:unit:backend
