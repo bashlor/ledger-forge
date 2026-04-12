@@ -1,4 +1,6 @@
-import { accountingStore } from '#core/accounting/services/mock_accounting_store'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+
+import { customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
   AuthenticationPort,
@@ -7,12 +9,16 @@ import {
 } from '#core/user_management/domain/authentication'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
+import { eq } from 'drizzle-orm'
+import { v7 as uuidv7 } from 'uuid'
+
+import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 
 const fakeUser: AuthProviderUser = {
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   email: 'test@example.com',
   emailVerified: true,
-  id: 'user_test',
+  id: 'user_test_customers',
   image: null,
   name: 'Test User',
 }
@@ -56,20 +62,34 @@ class FakeAuth extends AuthenticationPort {
   async verifyEmail(): Promise<void> {}
 }
 
+let db: PostgresJsDatabase<any>
+
 function authCookie() {
   return `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}`
 }
 
 test.group('Customers routes | create, update, delete rules', (group) => {
-  group.each.setup(() => {
+  let cleanup: () => Promise<void>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+    db = await app.container.make('drizzle')
+
     const auth = new FakeAuth()
     app.container.bindValue(AuthenticationPort, auth)
     app.container.bindValue('authAdapter', auth)
   })
 
-  test('creates a customer via POST /customers', async ({ assert, client }) => {
-    const before = accountingStore.listCustomers().length
+  group.each.setup(async () => {
+    await db.delete(journalEntries)
+    await db.delete(invoices)
+    await db.delete(customers)
+  })
 
+  group.teardown(async () => cleanup())
+
+  test('creates a customer via POST /customers', async ({ assert, client }) => {
     const response = await client
       .post('/customers')
       .header('cookie', authCookie())
@@ -84,19 +104,24 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
 
-    const after = accountingStore.listCustomers()
-    assert.equal(after.length, before + 1)
-    const created = after.find((c) => c.company === 'Feat Test Co')
-    assert.isDefined(created)
-    assert.equal(created?.email, 'feat-test@example.com')
+    const rows = await db.select().from(customers)
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].company, 'Feat Test Co')
+    assert.equal(rows[0].email, 'feat-test@example.com')
   })
 
   test('updates a customer via PUT /customers/:id', async ({ assert, client }) => {
-    const target = accountingStore.listCustomers().find((c) => c.id === 'client-3')
-    assert.isDefined(target)
+    const id = uuidv7()
+    await db.insert(customers).values({
+      company: 'Kestrel Analytics',
+      email: 'nina@kestrel.test',
+      id,
+      name: 'Nina Rossi',
+      phone: '+33 6 20 30 40 50',
+    })
 
     const response = await client
-      .put('/customers/client-3')
+      .put(`/customers/${id}`)
       .header('cookie', authCookie())
       .redirects(0)
       .form({
@@ -110,13 +135,11 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
 
-    const updated = accountingStore.listCustomers().find((c) => c.id === 'client-3')
-    assert.equal(updated?.company, 'Kestrel Analytics Updated')
+    const [updated] = await db.select().from(customers).where(eq(customers.id, id))
+    assert.equal(updated.company, 'Kestrel Analytics Updated')
   })
 
   test('rejects PUT /customers/:id when customer does not exist', async ({ assert, client }) => {
-    const before = accountingStore.listCustomers().length
-
     const response = await client
       .put('/customers/unknown-client-id')
       .header('cookie', authCookie())
@@ -128,13 +151,14 @@ test.group('Customers routes | create, update, delete rules', (group) => {
         phone: '+1 000',
       })
 
-    assert.notEqual(response.status(), 200)
-    assert.equal(accountingStore.listCustomers().length, before)
+    // HTML form requests map DomainError through presentAuthError → redirect back (302), not 404.
+    response.assertStatus(302)
+
+    const rows = await db.select().from(customers)
+    assert.equal(rows.length, 0)
   })
 
   test('rejects POST /customers when validation fails', async ({ assert, client }) => {
-    const before = accountingStore.listCustomers().length
-
     const response = await client
       .post('/customers')
       .header('cookie', authCookie())
@@ -147,19 +171,39 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       })
 
     response.assertStatus(302)
-    assert.equal(accountingStore.listCustomers().length, before)
+
+    const rows = await db.select().from(customers)
+    assert.equal(rows.length, 0)
   })
 
   test('does not delete a customer referenced by invoices', async ({ assert, client }) => {
-    const before = accountingStore.listCustomers().find((c) => c.id === 'client-1')
-    assert.isDefined(before)
+    const customerId = uuidv7()
+    await db.insert(customers).values({
+      company: 'Linked Co',
+      email: 'linked@example.com',
+      id: customerId,
+      name: 'Linked User',
+      phone: '+1 555 0200',
+    })
+
+    await db.insert(invoices).values({
+      customerId,
+      customerName: 'Linked Co',
+      dueDate: '2026-04-30',
+      id: uuidv7(),
+      invoiceNumber: 'INV-2026-FEAT-001',
+      issueDate: '2026-04-01',
+      status: 'draft',
+    })
 
     const response = await client
-      .delete('/customers/client-1')
+      .delete(`/customers/${customerId}`)
       .header('cookie', authCookie())
       .redirects(0)
 
     response.assertStatus(302)
-    assert.isDefined(accountingStore.listCustomers().find((c) => c.id === 'client-1'))
+
+    const custRows = await db.select().from(customers).where(eq(customers.id, customerId))
+    assert.equal(custRows.length, 1)
   })
 })
