@@ -3,8 +3,8 @@ import { useState } from 'react'
 
 import type { CreateExpenseInput, ExpenseListDto } from '~/lib/types'
 
-import { DateScopeSummary } from '~/components/date_scope_summary'
 import { useDateScope } from '~/components/date_scope_provider'
+import { DateScopeSummary } from '~/components/date_scope_summary'
 import { DrawerPanel } from '~/components/drawer_panel'
 import { PageHeader } from '~/components/page_header'
 import { StatusBadge } from '~/components/status_badge'
