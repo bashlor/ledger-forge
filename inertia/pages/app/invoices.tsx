@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import type { CreateInvoiceInput, CustomerDto, InvoiceDto, InvoiceLineInput } from '~/lib/types'
 
@@ -28,30 +28,122 @@ interface EditableInvoiceLine extends InvoiceLineInput {
 
 const VAT_OPTIONS = [0, 5.5, 10, 20]
 
-export default function InvoicesPage({
-  customers,
-  initialCustomerId,
-  initialInvoiceId,
-  invoices: initialInvoices,
-  mode,
-}: InertiaProps<{
+interface InvoicesPageProps {
   customers: CustomerDto[]
   initialCustomerId: null | string
   initialInvoiceId: null | string
   invoices: InvoiceDto[]
   mode: 'new' | 'view'
-}>) {
+}
+
+export default function InvoicesPage(props: InertiaProps<InvoicesPageProps>) {
+  const resetKey = `${props.mode}|${props.initialInvoiceId}|${props.initialCustomerId}|${props.invoices.map((i) => i.id).join(':')}`
+  return <InvoicesContent key={resetKey} {...props} />
+}
+
+function buildPayload(form: ReturnType<typeof createInitialForm>): CreateInvoiceInput {
+  return {
+    customerId: form.customerId,
+    dueDate: form.dueDate,
+    issueDate: form.issueDate,
+    lines: form.lines.map((line) => ({
+      description: line.description.trim(),
+      quantity: Number(line.quantity),
+      unitPrice: Number(line.unitPrice),
+      vatRate: Number(line.vatRate),
+    })),
+  }
+}
+
+function createEditableLine(line?: InvoiceLineInput): EditableInvoiceLine {
+  return {
+    key: crypto.randomUUID(),
+    ...(line ?? createEmptyInvoiceLine()),
+  }
+}
+
+function createInitialForm(customerId = '') {
+  const issueDate = todayValue()
+  return {
+    customerId,
+    dueDate: plusDays(issueDate, 15),
+    issueDate,
+    lines: [createEditableLine()],
+  }
+}
+
+function createInitialState(
+  customers: CustomerDto[],
+  invoices: InvoiceDto[],
+  initialCustomerId: null | string,
+  initialInvoiceId: null | string,
+  mode: 'new' | 'view'
+) {
+  if (mode === 'new') {
+    return {
+      form: createInitialForm(customers[0]?.id ?? ''),
+      isCreating: true,
+      selectedInvoiceId: null,
+    }
+  }
+
+  if (initialInvoiceId) {
+    const selectedInvoice = invoices.find((invoice) => invoice.id === initialInvoiceId)
+    if (selectedInvoice) {
+      return {
+        form: invoiceToForm(selectedInvoice),
+        isCreating: false,
+        selectedInvoiceId: selectedInvoice.id,
+      }
+    }
+  }
+
+  const customerIdValid =
+    initialCustomerId && customers.some((customer) => customer.id === initialCustomerId)
+      ? initialCustomerId
+      : null
+
+  if (customerIdValid) {
+    const firstForCustomer = invoices.find((invoice) => invoice.customerId === customerIdValid)
+    if (firstForCustomer) {
+      return {
+        form: invoiceToForm(firstForCustomer),
+        isCreating: false,
+        selectedInvoiceId: firstForCustomer.id,
+      }
+    }
+
+    return {
+      form: createInitialForm(customerIdValid),
+      isCreating: true,
+      selectedInvoiceId: null,
+    }
+  }
+
+  return {
+    form: createInitialForm(customers[0]?.id ?? ''),
+    isCreating: false,
+    selectedInvoiceId: null,
+  }
+}
+
+function InvoicesContent({
+  customers,
+  initialCustomerId,
+  initialInvoiceId,
+  invoices,
+  mode,
+}: InertiaProps<InvoicesPageProps>) {
   const { scope } = useDateScope()
   const initialState = createInitialState(
     customers,
-    initialInvoices,
+    invoices,
     initialCustomerId,
     initialInvoiceId,
     mode
   )
 
   const [form, setForm] = useState(initialState.form)
-  const [invoices, setInvoices] = useState(initialInvoices)
   const [isCreating, setIsCreating] = useState(initialState.isCreating)
   const [saving, setSaving] = useState(false)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<null | string>(
@@ -63,20 +155,6 @@ export default function InvoicesPage({
     [invoices, selectedInvoiceId]
   )
   const editingInvoice = selectedInvoice && canEditInvoice(selectedInvoice)
-  useEffect(() => {
-    const nextState = createInitialState(
-      customers,
-      initialInvoices,
-      initialCustomerId,
-      initialInvoiceId,
-      mode
-    )
-
-    setInvoices(initialInvoices)
-    setForm(nextState.form)
-    setIsCreating(nextState.isCreating)
-    setSelectedInvoiceId(nextState.selectedInvoiceId)
-  }, [customers, initialCustomerId, initialInvoiceId, initialInvoices, mode])
 
   const effectiveCustomerId = form.customerId || customers[0]?.id || ''
   const scopedInvoices = invoices.filter((invoice) => isDateWithinScope(invoice.issueDate, scope))
@@ -814,92 +892,6 @@ export default function InvoicesPage({
       </div>
     </>
   )
-}
-
-function buildPayload(form: ReturnType<typeof createInitialForm>): CreateInvoiceInput {
-  return {
-    customerId: form.customerId,
-    dueDate: form.dueDate,
-    issueDate: form.issueDate,
-    lines: form.lines.map((line) => ({
-      description: line.description.trim(),
-      quantity: Number(line.quantity),
-      unitPrice: Number(line.unitPrice),
-      vatRate: Number(line.vatRate),
-    })),
-  }
-}
-
-function createEditableLine(line?: InvoiceLineInput): EditableInvoiceLine {
-  return {
-    key: crypto.randomUUID(),
-    ...(line ?? createEmptyInvoiceLine()),
-  }
-}
-
-function createInitialForm(customerId = '') {
-  const issueDate = todayValue()
-  return {
-    customerId,
-    dueDate: plusDays(issueDate, 15),
-    issueDate,
-    lines: [createEditableLine()],
-  }
-}
-
-function createInitialState(
-  customers: CustomerDto[],
-  invoices: InvoiceDto[],
-  initialCustomerId: null | string,
-  initialInvoiceId: null | string,
-  mode: 'new' | 'view'
-) {
-  if (mode === 'new') {
-    return {
-      form: createInitialForm(customers[0]?.id ?? ''),
-      isCreating: true,
-      selectedInvoiceId: null,
-    }
-  }
-
-  if (initialInvoiceId) {
-    const selectedInvoice = invoices.find((invoice) => invoice.id === initialInvoiceId)
-    if (selectedInvoice) {
-      return {
-        form: invoiceToForm(selectedInvoice),
-        isCreating: false,
-        selectedInvoiceId: selectedInvoice.id,
-      }
-    }
-  }
-
-  const customerIdValid =
-    initialCustomerId && customers.some((customer) => customer.id === initialCustomerId)
-      ? initialCustomerId
-      : null
-
-  if (customerIdValid) {
-    const firstForCustomer = invoices.find((invoice) => invoice.customerId === customerIdValid)
-    if (firstForCustomer) {
-      return {
-        form: invoiceToForm(firstForCustomer),
-        isCreating: false,
-        selectedInvoiceId: firstForCustomer.id,
-      }
-    }
-
-    return {
-      form: createInitialForm(customerIdValid),
-      isCreating: true,
-      selectedInvoiceId: null,
-    }
-  }
-
-  return {
-    form: createInitialForm(customers[0]?.id ?? ''),
-    isCreating: false,
-    selectedInvoiceId: null,
-  }
 }
 
 function invoiceToForm(invoice: InvoiceDto) {
