@@ -33,6 +33,16 @@ export interface CustomerDto {
   totalInvoiced?: number
 }
 
+export interface CustomerListDto extends PaginatedList<CustomerDto> {
+  summary: CustomerSummaryDto
+}
+
+export interface CustomerSummaryDto {
+  linkedCustomers: number
+  totalCount: number
+  totalInvoiced: number
+}
+
 export interface DashboardDto {
   recentInvoices: DashboardRecentInvoiceDto[]
   summary: {
@@ -74,12 +84,6 @@ export interface ExpenseDto {
   id: string
   label: string
   status: ExpenseStatus
-}
-
-export interface ExpenseListDto {
-  items: ExpenseDto[]
-  pagination: PaginationMetaDto
-  summary: ExpenseSummaryDto
 }
 
 export type ExpenseStatus = 'confirmed' | 'draft'
@@ -131,8 +135,4 @@ export interface PaginationMetaDto {
   perPage: number
   totalItems: number
   totalPages: number
-}
-
-export interface ValidationErrors {
-  [field: string]: string[]
 }
