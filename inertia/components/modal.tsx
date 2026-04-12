@@ -116,57 +116,59 @@ export function Modal({
         className="pointer-events-none fixed inset-0 z-[70] overflow-y-auto p-3 sm:p-6"
         role="dialog"
       >
-        <div
-          className={`pointer-events-auto relative mx-auto my-6 w-full overflow-hidden rounded-[1.75rem] border border-outline-variant/15 bg-surface-container-lowest shadow-ambient ring-1 ring-black/[0.04] sm:my-10 ${sizeClasses[size]}`}
-          onClick={(event) => event.stopPropagation()}
-          ref={dialogRef}
-          tabIndex={-1}
-        >
-          <div aria-hidden="true" className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/55 to-transparent" />
-          <div aria-hidden="true" className="absolute inset-x-6 top-0 h-px bg-outline-variant/15" />
+        <div className="flex min-h-full items-center justify-center">
+          <div
+            className={`pointer-events-auto relative w-full overflow-hidden rounded-[1.75rem] border border-outline-variant/15 bg-surface-container-lowest shadow-ambient ring-1 ring-black/[0.04] ${sizeClasses[size]}`}
+            onClick={(event) => event.stopPropagation()}
+            ref={dialogRef}
+            tabIndex={-1}
+          >
+            <div aria-hidden="true" className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/55 to-transparent" />
+            <div aria-hidden="true" className="absolute inset-x-6 top-0 h-px bg-outline-variant/15" />
 
-          <div className="relative max-h-[calc(100dvh-2rem)] overflow-y-auto px-6 pb-6 pt-6 sm:max-h-[calc(100dvh-5rem)] sm:px-7 sm:pb-7">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 rounded-full border border-outline-variant/15 bg-surface-container-low px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  Workspace control
-                </div>
-                <h2
-                  className="mt-4 font-headline text-2xl font-extrabold tracking-tight text-on-surface sm:text-[1.7rem]"
-                  id={titleId}
-                >
-                  {title}
-                </h2>
-                {description ? (
-                  <p
-                    className="mt-3 max-w-[34rem] text-sm leading-7 text-on-surface-variant sm:text-[15px]"
-                    id={descriptionId}
+            <div className="relative max-h-[calc(100dvh-2rem)] overflow-y-auto px-6 pb-6 pt-6 sm:max-h-[calc(100dvh-5rem)] sm:px-7 sm:pb-7">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-outline-variant/15 bg-surface-container-low px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    Workspace control
+                  </div>
+                  <h2
+                    className="mt-4 font-headline text-2xl font-extrabold tracking-tight text-on-surface sm:text-[1.7rem]"
+                    id={titleId}
                   >
-                    {description}
-                  </p>
-                ) : null}
+                    {title}
+                  </h2>
+                  {description ? (
+                    <p
+                      className="mt-3 max-w-[34rem] text-sm leading-7 text-on-surface-variant sm:text-[15px]"
+                      id={descriptionId}
+                    >
+                      {description}
+                    </p>
+                  ) : null}
+                </div>
+
+                <button
+                  aria-label="Close dialog"
+                  className="shrink-0 rounded-xl p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+                  onClick={onClose}
+                  ref={closeButtonRef}
+                  type="button"
+                >
+                  <AppIcon name="close" size={18} />
+                </button>
               </div>
 
-              <button
-                aria-label="Close dialog"
-                className="shrink-0 rounded-xl p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
-                onClick={onClose}
-                ref={closeButtonRef}
-                type="button"
-              >
-                <AppIcon name="close" size={18} />
-              </button>
+              <div className="mt-6">{children}</div>
+
+              {footer ? (
+                <>
+                  <div aria-hidden="true" className="mt-6 border-t border-outline-variant/10" />
+                  <div className="mt-6 flex flex-wrap items-center justify-end gap-3">{footer}</div>
+                </>
+              ) : null}
             </div>
-
-            <div className="mt-6">{children}</div>
-
-            {footer ? (
-              <>
-                <div aria-hidden="true" className="mt-6 border-t border-outline-variant/10" />
-                <div className="mt-6 flex flex-wrap items-center justify-end gap-3">{footer}</div>
-              </>
-            ) : null}
           </div>
         </div>
       </div>

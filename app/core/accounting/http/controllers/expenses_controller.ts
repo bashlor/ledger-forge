@@ -1,17 +1,21 @@
+import type { DateFilter } from '#core/accounting/services/expense_service'
 import type { HttpContext } from '@adonisjs/core/http'
 
 import { ExpenseService } from '#core/accounting/services/expense_service'
-import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'
-import { createExpenseValidator, expenseParamsValidator } from '../validators/expense.js'
+import {
+  createExpenseValidator,
+  expenseIndexValidator,
+  expenseParamsValidator,
+} from '../validators/expense.js'
 
 const PER_PAGE = 5
 
 export default class ExpensesController {
   @inject()
-  async confirm(ctx: HttpContext, expenseService: ExpenseService) {
+  async confirmDraftExpense(ctx: HttpContext, expenseService: ExpenseService) {
     const { params } = await ctx.request.validateUsing(expenseParamsValidator)
 
     await flashAction(
@@ -21,11 +25,11 @@ export default class ExpensesController {
       'Could not confirm the expense.'
     )
 
-    return ctx.response.redirect(this.expensesUrl(ctx))
+    return this.redirectToExpenses(ctx)
   }
 
   @inject()
-  async destroy(ctx: HttpContext, expenseService: ExpenseService) {
+  async deleteDraftExpense(ctx: HttpContext, expenseService: ExpenseService) {
     const { params } = await ctx.request.validateUsing(expenseParamsValidator)
 
     await flashAction(
@@ -35,16 +39,22 @@ export default class ExpensesController {
       'Could not delete the expense.'
     )
 
-    return ctx.response.redirect(this.expensesUrl(ctx))
+    return this.redirectToExpenses(ctx)
   }
 
   @inject()
   async index(ctx: HttpContext, expenseService: ExpenseService) {
-    const page = Number(ctx.request.input('page') ?? 1)
+    const { endDate, page, startDate } = await ctx.request.validateUsing(expenseIndexValidator)
+    const dateFilter: DateFilter | undefined =
+      startDate && endDate ? { endDate, startDate } : undefined
 
-    return renderInertiaPage(ctx.inertia, 'app/expenses', {
-      expenses: await expenseService.listExpenses(Number.isFinite(page) ? page : 1, PER_PAGE),
-    })
+    return ctx.inertia.render(
+      'app/expenses' as never,
+      {
+        expenses: await expenseService.listExpenses(page ?? 1, PER_PAGE, dateFilter),
+        summary: ctx.inertia.defer(() => expenseService.getSummary(dateFilter) as never, 'summary'),
+      } as never
+    )
   }
 
   @inject()
@@ -58,12 +68,21 @@ export default class ExpensesController {
       'Could not save the expense.'
     )
 
-    return ctx.response.redirect('/expenses')
+    return this.redirectToExpenses(ctx)
   }
 
-  private expensesUrl(ctx: HttpContext) {
-    const page = Number(ctx.request.input('page') ?? 1)
-    const safePage = Number.isFinite(page) && page > 1 ? page : 0
-    return safePage ? `/expenses?page=${safePage}` : '/expenses'
+  private redirectToExpenses(ctx: HttpContext) {
+    const page = Number(ctx.request.input('page'))
+    const startDate = ctx.request.input('startDate')
+    const endDate = ctx.request.input('endDate')
+    const qs: Record<string, number | string> = {}
+
+    if (Number.isFinite(page) && page > 1) qs.page = page
+    if (startDate) qs.startDate = startDate
+    if (endDate) qs.endDate = endDate
+
+    return ctx.response
+      .redirect()
+      .toRoute('expenses.page', [], Object.keys(qs).length > 0 ? { qs } : undefined)
   }
 }

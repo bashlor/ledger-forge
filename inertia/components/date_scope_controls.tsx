@@ -8,7 +8,6 @@ import { AppIcon } from '~/components/app_icon'
 import { useDateScope } from '~/components/date_scope_provider'
 import { Modal } from '~/components/modal'
 import { createCurrentMonthDateScope, isValidDateRange } from '~/lib/date_scope'
-import { formatTopbarDate } from '~/lib/format'
 
 export function DateScopeControls() {
   const { resetToCurrentMonth, scope, setCustomRange, shiftBackward, shiftForward } = useDateScope()
@@ -36,43 +35,33 @@ export function DateScopeControls() {
 
   return (
     <>
-      <div className="flex items-center gap-1 rounded-2xl border border-outline-variant/12 bg-white/80 p-1 shadow-sm backdrop-blur-md">
+      <div className="flex items-center gap-1">
         <button
           aria-label="Previous period"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-on-surface-variant transition-colors hover:border-outline-variant/15 hover:bg-surface-container-low hover:text-on-surface"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
           onClick={shiftBackward}
           type="button"
         >
-          <AppIcon name="chevron_left" size={16} />
+          <AppIcon name="chevron_left" size={18} />
         </button>
 
-        <div className="min-w-[9.5rem] rounded-xl bg-surface-container-low/80 px-3 py-1.5 text-center sm:min-w-[10.5rem]">
-          <p className="font-headline text-[13px] font-extrabold text-on-surface sm:text-sm">
-            {scope.label}
-          </p>
-          <p className="mt-0.5 text-[10px] text-on-surface-variant">
-            {formatTopbarDate(scope.startDate)} to {formatTopbarDate(scope.endDate)}
-          </p>
-        </div>
-
         <button
-          aria-label="Next period"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-on-surface-variant transition-colors hover:border-outline-variant/15 hover:bg-surface-container-low hover:text-on-surface"
-          onClick={shiftForward}
-          type="button"
-        >
-          <AppIcon name="chevron_right" size={16} />
-        </button>
-
-        <div aria-hidden="true" className="hidden h-7 w-px bg-outline-variant/15 sm:block" />
-
-        <button
-          className="inline-flex h-9 items-center gap-2 rounded-xl border border-outline-variant/15 bg-surface-container-low/80 px-3 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
+          className="rounded-lg px-3 py-1.5 text-center transition-colors hover:bg-surface-container-low"
           onClick={openModal}
           type="button"
         >
-          <AppIcon name="date_range" size={16} />
-          <span className="hidden sm:inline">Filter</span>
+          <p className="font-headline text-sm font-bold tabular-nums text-on-surface">
+            {scope.label}
+          </p>
+        </button>
+
+        <button
+          aria-label="Next period"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
+          onClick={shiftForward}
+          type="button"
+        >
+          <AppIcon name="chevron_right" size={18} />
         </button>
       </div>
 
