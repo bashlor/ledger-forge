@@ -1,7 +1,78 @@
 import { sql } from 'drizzle-orm'
-import { check, date, integer, pgSchema, text, timestamp } from 'drizzle-orm/pg-core'
+import { check, date, integer, pgSchema, text, timestamp, unique } from 'drizzle-orm/pg-core'
 
 export const mainSchema = pgSchema('main')
+
+// ---------------------------------------------------------------------------
+// Customers
+// ---------------------------------------------------------------------------
+
+export const customers = mainSchema.table('customers', {
+  company: text('company').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  email: text('email').notNull(),
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  note: text('note'),
+  phone: text('phone').notNull(),
+})
+
+// ---------------------------------------------------------------------------
+// Invoices
+// ---------------------------------------------------------------------------
+
+export const invoices = mainSchema.table(
+  'invoices',
+  {
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    customerName: text('customer_name').notNull(),
+    dueDate: date('due_date', { mode: 'string' }),
+    id: text('id').primaryKey(),
+    invoiceNumber: text('invoice_number').notNull().unique(),
+    issueDate: date('issue_date', { mode: 'string' }),
+    status: text('status', { enum: ['draft', 'issued', 'paid'] })
+      .notNull()
+      .default('draft'),
+    subtotalExclTaxCents: integer('subtotal_excl_tax_cents').notNull().default(0),
+    totalInclTaxCents: integer('total_incl_tax_cents').notNull().default(0),
+    totalVatCents: integer('total_vat_cents').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [check('invoices_status_check', sql`${table.status} IN ('draft', 'issued', 'paid')`)]
+)
+
+// ---------------------------------------------------------------------------
+// Invoice lines
+// ---------------------------------------------------------------------------
+
+export const invoiceLines = mainSchema.table(
+  'invoice_lines',
+  {
+    description: text('description').notNull(),
+    id: text('id').primaryKey(),
+    invoiceId: text('invoice_id')
+      .notNull()
+      .references(() => invoices.id, { onDelete: 'cascade' }),
+    lineNumber: integer('line_number').notNull(),
+    lineTotalExclTaxCents: integer('line_total_excl_tax_cents').notNull(),
+    lineTotalInclTaxCents: integer('line_total_incl_tax_cents').notNull(),
+    lineTotalVatCents: integer('line_total_vat_cents').notNull(),
+    quantityCents: integer('quantity_cents').notNull(),
+    unitPriceCents: integer('unit_price_cents').notNull(),
+    vatRateCents: integer('vat_rate_cents').notNull(),
+  },
+  (table) => [unique('invoice_lines_invoice_line_unique').on(table.invoiceId, table.lineNumber)]
+)
+
+// ---------------------------------------------------------------------------
+// Expenses
+// ---------------------------------------------------------------------------
 
 export const expenses = mainSchema.table(
   'expenses',
@@ -22,23 +93,28 @@ export const expenses = mainSchema.table(
   ]
 )
 
+// ---------------------------------------------------------------------------
+// Journal entries
+// ---------------------------------------------------------------------------
+
 export const journalEntries = mainSchema.table(
   'journal_entries',
   {
     amountCents: integer('amount_cents').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     date: date('date', { mode: 'string' }).notNull(),
-    expenseId: text('expense_id')
-      .notNull()
-      .references(() => expenses.id),
+    expenseId: text('expense_id').references(() => expenses.id),
     id: text('id').primaryKey(),
+    invoiceId: text('invoice_id').references(() => invoices.id),
     label: text('label').notNull(),
-    type: text('type', { enum: ['expense'] })
-      .notNull()
-      .default('expense'),
+    type: text('type', { enum: ['expense', 'invoice'] }).notNull(),
   },
   (table) => [
     check('journal_entries_amount_positive', sql`${table.amountCents} > 0`),
-    check('journal_entries_type_check', sql`${table.type} IN ('expense')`),
+    check('journal_entries_type_check', sql`${table.type} IN ('expense', 'invoice')`),
+    check(
+      'journal_entries_source_xor',
+      sql`(${table.expenseId} IS NOT NULL)::int + (${table.invoiceId} IS NOT NULL)::int = 1`
+    ),
   ]
 )
