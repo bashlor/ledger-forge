@@ -4,6 +4,7 @@ import router from '@adonisjs/core/services/router'
 const AccountingPagesController = () => import('../http/controllers/accounting_pages_controller.js')
 const CustomersController = () => import('../http/controllers/customers_controller.js')
 const ExpensesController = () => import('../http/controllers/expenses_controller.js')
+const InvoicesController = () => import('../http/controllers/invoices_controller.js')
 
 router
   .group(() => {
@@ -25,19 +26,15 @@ router
       .delete('/expenses/:id', [ExpensesController, 'deleteDraftExpense'])
       .as('expenses.delete_draft')
 
-    router.get('/invoices', [AccountingPagesController, 'invoicesIndex']).as('invoices.page')
-    router.post('/invoices', [AccountingPagesController, 'invoiceStore']).as('invoices.store')
+    router.get('/invoices', [InvoicesController, 'index']).as('invoices.page')
+    router.post('/invoices', [InvoicesController, 'store']).as('invoices.store')
     router
-      .put('/invoices/:id/draft', [AccountingPagesController, 'invoiceUpdateDraft'])
+      .put('/invoices/:id/draft', [InvoicesController, 'updateDraft'])
       .as('invoices.update_draft')
+    router.post('/invoices/:id/issue', [InvoicesController, 'issue']).as('invoices.issue')
     router
-      .post('/invoices/:id/issue', [AccountingPagesController, 'invoiceIssue'])
-      .as('invoices.issue')
-    router
-      .post('/invoices/:id/mark-paid', [AccountingPagesController, 'invoiceMarkPaid'])
+      .post('/invoices/:id/mark-paid', [InvoicesController, 'markPaid'])
       .as('invoices.mark_paid')
-    router
-      .delete('/invoices/:id', [AccountingPagesController, 'invoiceDestroy'])
-      .as('invoices.destroy')
+    router.delete('/invoices/:id', [InvoicesController, 'destroy']).as('invoices.destroy')
   })
   .use(middleware.auth())
