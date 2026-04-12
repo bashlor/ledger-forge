@@ -36,7 +36,7 @@ export default defineConfig({
           include: ['inertia/**/*.test.ts', 'inertia/**/*.test.tsx'],
           name: 'frontend',
           restoreMocks: true,
-          setupFiles: ['./inertia/test-setup.ts'],
+          setupFiles: ['./inertia/test_setup.ts'],
         },
       },
     ],
