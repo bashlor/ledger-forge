@@ -143,16 +143,15 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     const response = await client
       .put('/customers/unknown-client-id')
       .header('cookie', authCookie())
-      .redirects(0)
-      .form({
+      .header('accept', 'application/json')
+      .json({
         company: 'Ghost Co',
         email: 'ghost@example.com',
         name: 'Ghost',
         phone: '+1 000',
       })
 
-    // HTML form requests map DomainError through presentAuthError → redirect back (302), not 404.
-    response.assertStatus(302)
+    response.assertStatus(404)
 
     const rows = await db.select().from(customers)
     assert.equal(rows.length, 0)
