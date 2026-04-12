@@ -1,5 +1,6 @@
 import type { StatusPageRange, StatusPageRenderer } from '@adonisjs/core/types/http'
 
+import { DomainError } from '#core/shared/domain_error'
 import { ExceptionHandler, type HttpContext } from '@adonisjs/core/http'
 import app from '@adonisjs/core/services/app'
 
@@ -81,6 +82,10 @@ export default class HttpExceptionHandler extends ExceptionHandler {
    * @note You should not attempt to send a response from this method.
    */
   async report(error: unknown, ctx: HttpContext) {
+    // Expected 404s are handled above; logging them at error level adds noise in tests and dev.
+    if (error instanceof DomainError && error.type === 'not_found') {
+      return
+    }
     return super.report(error, ctx)
   }
 }

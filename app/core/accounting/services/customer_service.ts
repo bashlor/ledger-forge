@@ -1,44 +1,256 @@
-import type { CreateCustomerRequest } from '#core/accounting/services/mock_accounting_store'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import { accountingStore } from '#core/accounting/services/mock_accounting_store'
+import { customers, invoices } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
+import { and, count, eq, inArray, sql } from 'drizzle-orm'
+import { v7 as uuidv7 } from 'uuid'
+
+export interface CreateCustomerInput {
+  company: string
+  email: string
+  name: string
+  note?: string
+  phone: string
+}
+
+export interface CustomerListResult {
+  items: CustomerDto[]
+  pagination: {
+    page: number
+    perPage: number
+    totalItems: number
+    totalPages: number
+  }
+  summary: {
+    linkedCustomers: number
+    totalCount: number
+    totalInvoiced: number
+  }
+}
+
+interface CustomerDto {
+  canDelete: boolean
+  company: string
+  deleteBlockReason?: string
+  email: string
+  id: string
+  invoiceCount: number
+  name: string
+  note?: string
+  phone: string
+  totalInvoiced: number
+}
+
+type CustomerRow = typeof customers.$inferSelect
 
 export class CustomerService {
-  async createCustomer(input: CreateCustomerRequest) {
-    return accountingStore.createCustomer(input)
+  constructor(private readonly db: PostgresJsDatabase<any>) {}
+
+  async createCustomer(input: CreateCustomerInput): Promise<CustomerDto> {
+    const [row] = await this.db
+      .insert(customers)
+      .values({
+        company: input.company.trim(),
+        email: input.email.trim(),
+        id: uuidv7(),
+        name: input.name.trim(),
+        note: input.note?.trim() || undefined,
+        phone: input.phone.trim(),
+      })
+      .returning()
+
+    return toCustomerDto(row, { invoiceCount: 0, totalInvoicedCents: 0 })
   }
 
-  async deleteCustomer(id: string) {
-    try {
-      accountingStore.deleteCustomer(id)
-    } catch (error) {
-      throw toDomainError(error)
+  async deleteCustomer(id: string): Promise<void> {
+    const [{ invCount }] = await this.db
+      .select({ invCount: count() })
+      .from(invoices)
+      .where(eq(invoices.customerId, id))
+
+    if (invCount > 0) {
+      throw new DomainError(
+        'This customer is referenced by one or more invoices.',
+        'business_logic_error'
+      )
+    }
+
+    const [deleted] = await this.db.delete(customers).where(eq(customers.id, id)).returning({
+      id: customers.id,
+    })
+
+    if (!deleted) {
+      throw new DomainError('Customer not found.', 'not_found')
     }
   }
 
-  async listCustomersPage(page: number, perPage: number) {
-    return accountingStore.listCustomersPage(page, perPage)
+  async listCustomersPage(page = 1, perPage = 5): Promise<CustomerListResult> {
+    const [{ totalCount }] = await this.db.select({ totalCount: count() }).from(customers)
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / perPage))
+    const safePage = Math.min(Math.max(page, 1), totalPages)
+    const offset = (safePage - 1) * perPage
+
+    const [{ linkedCustomers }] = await this.db
+      .select({
+        linkedCustomers: sql<number>`count(distinct ${invoices.customerId})::int`.mapWith(Number),
+      })
+      .from(invoices)
+
+    const [{ totalInvoicedCents }] = await this.db
+      .select({
+        totalInvoicedCents:
+          sql<number>`coalesce(sum(${invoices.totalInclTaxCents}) filter (where ${invoices.status} <> 'draft'), 0)::bigint`.mapWith(
+            Number
+          ),
+      })
+      .from(invoices)
+
+    const rows = await this.db
+      .select()
+      .from(customers)
+      .orderBy(customers.company)
+      .limit(perPage)
+      .offset(offset)
+
+    if (rows.length === 0) {
+      return {
+        items: [],
+        pagination: {
+          page: safePage,
+          perPage,
+          totalItems: totalCount,
+          totalPages,
+        },
+        summary: {
+          linkedCustomers,
+          totalCount,
+          totalInvoiced: Number(totalInvoicedCents ?? 0) / 100,
+        },
+      }
+    }
+
+    const ids = rows.map((r) => r.id)
+    const aggRows = await this.db
+      .select({
+        customerId: invoices.customerId,
+        invoiceCount: sql<number>`count(${invoices.id})::int`.mapWith(Number),
+        totalInvoicedCents:
+          sql<number>`coalesce(sum(case when ${invoices.status} <> 'draft' then ${invoices.totalInclTaxCents} else 0 end), 0)::bigint`.mapWith(
+            Number
+          ),
+      })
+      .from(invoices)
+      .where(inArray(invoices.customerId, ids))
+      .groupBy(invoices.customerId)
+
+    const aggById = new Map(
+      aggRows.map((a) => [
+        a.customerId,
+        { invoiceCount: a.invoiceCount, totalInvoicedCents: a.totalInvoicedCents },
+      ])
+    )
+
+    const items = rows.map((row) => {
+      const agg = aggById.get(row.id) ?? { invoiceCount: 0, totalInvoicedCents: 0 }
+      return toCustomerDto(row, agg)
+    })
+
+    return {
+      items,
+      pagination: {
+        page: safePage,
+        perPage,
+        totalItems: totalCount,
+        totalPages,
+      },
+      summary: {
+        linkedCustomers,
+        totalCount,
+        totalInvoiced: Number(totalInvoicedCents ?? 0) / 100,
+      },
+    }
   }
 
-  async updateCustomer(id: string, input: CreateCustomerRequest) {
-    try {
-      return accountingStore.updateCustomer(id, input)
-    } catch (error) {
-      throw toDomainError(error)
+  async updateCustomer(id: string, input: CreateCustomerInput): Promise<CustomerDto> {
+    const [existing] = await this.db.select().from(customers).where(eq(customers.id, id))
+
+    if (!existing) {
+      throw new DomainError('Customer not found.', 'not_found')
+    }
+
+    const company = input.company.trim()
+    const companyChanged = existing.company !== company
+
+    await this.db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(customers)
+        .set({
+          company,
+          email: input.email.trim(),
+          name: input.name.trim(),
+          note: input.note?.trim() || undefined,
+          phone: input.phone.trim(),
+        })
+        .where(eq(customers.id, id))
+        .returning()
+
+      if (!updated) {
+        throw new DomainError('Customer not found.', 'not_found')
+      }
+
+      if (companyChanged) {
+        await tx
+          .update(invoices)
+          .set({ customerName: company })
+          .where(and(eq(invoices.customerId, id), eq(invoices.status, 'draft')))
+      }
+    })
+
+    const [row] = await this.db.select().from(customers).where(eq(customers.id, id))
+    const agg = await this.invoiceAggregateForCustomer(id)
+    return toCustomerDto(row!, agg)
+  }
+
+  private async invoiceAggregateForCustomer(customerId: string): Promise<{
+    invoiceCount: number
+    totalInvoicedCents: number
+  }> {
+    const [row] = await this.db
+      .select({
+        invoiceCount: sql<number>`count(${invoices.id})::int`.mapWith(Number),
+        totalInvoicedCents:
+          sql<number>`coalesce(sum(case when ${invoices.status} <> 'draft' then ${invoices.totalInclTaxCents} else 0 end), 0)::bigint`.mapWith(
+            Number
+          ),
+      })
+      .from(invoices)
+      .where(eq(invoices.customerId, customerId))
+
+    return {
+      invoiceCount: row?.invoiceCount ?? 0,
+      totalInvoicedCents: row?.totalInvoicedCents ?? 0,
     }
   }
 }
 
-function toDomainError(error: unknown): DomainError | unknown {
-  if (!(error instanceof Error)) return error
-
-  if (error.name === 'CustomerInvoicesConflictError') {
-    return new DomainError(error.message, 'business_logic_error')
+function toCustomerDto(
+  row: CustomerRow,
+  agg: { invoiceCount: number; totalInvoicedCents: number }
+): CustomerDto {
+  const canDelete = agg.invoiceCount === 0
+  return {
+    canDelete,
+    company: row.company,
+    deleteBlockReason: canDelete
+      ? undefined
+      : 'This customer is referenced by one or more invoices.',
+    email: row.email,
+    id: row.id,
+    invoiceCount: agg.invoiceCount,
+    name: row.name,
+    note: row.note ?? undefined,
+    phone: row.phone,
+    totalInvoiced: agg.totalInvoicedCents / 100,
   }
-
-  if (error.message.includes('not found')) {
-    return new DomainError(error.message, 'not_found')
-  }
-
-  return error
 }
