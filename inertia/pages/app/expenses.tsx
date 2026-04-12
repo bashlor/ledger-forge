@@ -1,9 +1,10 @@
 import { Head, router } from '@inertiajs/react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { CreateExpenseInput, ExpenseDto, ExpenseSummaryDto, PaginationMetaDto } from '~/lib/types'
 
 import { useDateScope } from '~/components/date_scope_provider'
+import { Modal } from '~/components/modal'
 import { PageHeader } from '~/components/page_header'
 
 import type { InertiaProps } from '../../types'
@@ -12,6 +13,8 @@ import { CreateDrawer } from './expenses/create_drawer'
 import { Pagination } from './expenses/pagination'
 import { SummaryCards, SummaryCardsSkeleton } from './expenses/summary_cards'
 import { ExpenseTable } from './expenses/table'
+
+type PendingAction = { id: string; kind: 'confirm' | 'delete'; label: string }
 
 type Props = InertiaProps<{
   expenses: { items: ExpenseDto[]; pagination: PaginationMetaDto }
@@ -23,6 +26,7 @@ export default function ExpensesPage({ expenses, summary }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [processingId, setProcessingId] = useState<null | string>(null)
+  const [pendingAction, setPendingAction] = useState<null | PendingAction>(null)
   const cachedSummary = useRef<ExpenseSummaryDto | null>(null)
 
   if (summary) cachedSummary.current = summary
@@ -56,28 +60,40 @@ export default function ExpensesPage({ expenses, summary }: Props) {
     })
   }
 
-  function handleConfirm(id: string) {
-    router.post(
-      `/expenses/${id}/confirm-draft`,
-      { ...dateQs(), page: expenses.pagination.page },
-      {
+  function requestConfirm(id: string) {
+    const expense = expenses.items.find((e) => e.id === id)
+    setPendingAction({ id, kind: 'confirm', label: expense?.label ?? 'this expense' })
+  }
+
+  function requestDelete(id: string) {
+    const expense = expenses.items.find((e) => e.id === id)
+    setPendingAction({ id, kind: 'delete', label: expense?.label ?? 'this expense' })
+  }
+
+  const executeAction = useCallback(() => {
+    if (!pendingAction) return
+    const { id, kind } = pendingAction
+    setPendingAction(null)
+
+    if (kind === 'confirm') {
+      router.post(
+        `/expenses/${id}/confirm-draft`,
+        { ...dateQs(), page: expenses.pagination.page },
+        {
+          onFinish: () => setProcessingId(null),
+          onStart: () => setProcessingId(id),
+          preserveScroll: true,
+        }
+      )
+    } else {
+      router.delete(`/expenses/${id}`, {
+        data: { ...dateQs(), page: expenses.pagination.page },
         onFinish: () => setProcessingId(null),
         onStart: () => setProcessingId(id),
         preserveScroll: true,
-      }
-    )
-  }
-
-  function handleDelete(id: string) {
-    if (!window.confirm('Delete this draft expense?')) return
-
-    router.delete(`/expenses/${id}`, {
-      data: { ...dateQs(), page: expenses.pagination.page },
-      onFinish: () => setProcessingId(null),
-      onStart: () => setProcessingId(id),
-      preserveScroll: true,
-    })
-  }
+      })
+    }
+  }, [pendingAction, expenses.pagination.page, scope.startDate, scope.endDate])
 
   return (
     <>
@@ -118,8 +134,8 @@ export default function ExpensesPage({ expenses, summary }: Props) {
 
           <ExpenseTable
             items={expenses.items}
-            onConfirm={handleConfirm}
-            onDelete={handleDelete}
+            onConfirm={requestConfirm}
+            onDelete={requestDelete}
             processingId={processingId}
           />
 
@@ -137,6 +153,42 @@ export default function ExpensesPage({ expenses, summary }: Props) {
           )}
         </section>
       </div>
+
+      <Modal
+        description={
+          pendingAction?.kind === 'confirm'
+            ? `This will mark "${pendingAction.label}" as confirmed. Confirmed expenses cannot be reverted to draft.`
+            : `This will permanently delete the draft "${pendingAction?.label}".`
+        }
+        footer={
+          <>
+            <button
+              className="rounded-lg bg-surface-container-highest px-4 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high"
+              onClick={() => setPendingAction(null)}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                pendingAction?.kind === 'delete'
+                  ? 'bg-error text-on-error hover:bg-error/90'
+                  : 'text-on-primary milled-steel-gradient hover:opacity-95'
+              }`}
+              onClick={executeAction}
+              type="button"
+            >
+              {pendingAction?.kind === 'confirm' ? 'Confirm expense' : 'Delete draft'}
+            </button>
+          </>
+        }
+        onClose={() => setPendingAction(null)}
+        open={pendingAction !== null}
+        size="sm"
+        title={pendingAction?.kind === 'confirm' ? 'Confirm expense' : 'Delete draft'}
+      >
+        <p className="text-sm text-on-surface-variant">This action cannot be undone.</p>
+      </Modal>
     </>
   )
 }
