@@ -7,7 +7,12 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    react(),
+    react({
+      babel: {
+        plugins: [['babel-plugin-react-compiler']],
+      },
+      include: [/\/inertia\/.*\.[jt]sx?$/],
+    }),
     inertia({ ssr: { enabled: false, entrypoint: 'inertia/ssr.tsx' } }),
     adonisjs({
       entrypoints: ['inertia/app.tsx'],
