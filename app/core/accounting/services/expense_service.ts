@@ -2,7 +2,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { expenses } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
-import { and, count, desc, eq, sql, sum } from 'drizzle-orm'
+import { and, count, desc, eq, gte, lte, sql, sum } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 export interface CreateExpenseInput {
@@ -10,6 +10,18 @@ export interface CreateExpenseInput {
   category: string
   date: string
   label: string
+}
+
+export interface DateFilter {
+  endDate: string
+  startDate: string
+}
+
+export interface ExpenseSummary {
+  confirmedCount: number
+  draftCount: number
+  totalAmount: number
+  totalCount: number
 }
 
 interface ExpenseDto {
@@ -30,12 +42,6 @@ interface ExpenseListResult {
     perPage: number
     totalItems: number
     totalPages: number
-  }
-  summary: {
-    confirmedCount: number
-    draftCount: number
-    totalAmount: number
-    totalCount: number
   }
 }
 
@@ -87,8 +93,8 @@ export class ExpenseService {
     }
   }
 
-  async listExpenses(page = 1, perPage = 5): Promise<ExpenseListResult> {
-    const [summary] = await this.db
+  async getSummary(dateFilter?: DateFilter): Promise<ExpenseSummary> {
+    const [row] = await this.db
       .select({
         confirmedCount:
           sql<number>`count(*) filter (where ${expenses.status} = 'confirmed')`.mapWith(Number),
@@ -101,8 +107,24 @@ export class ExpenseService {
         totalCount: count(),
       })
       .from(expenses)
+      .where(dateCondition(dateFilter))
 
-    const { confirmedCount, draftCount, totalAmountCents, totalCount } = summary
+    return {
+      confirmedCount: row.confirmedCount,
+      draftCount: row.draftCount,
+      totalAmount: Number(row.totalAmountCents ?? 0) / 100,
+      totalCount: row.totalCount,
+    }
+  }
+
+  async listExpenses(page = 1, perPage = 5, dateFilter?: DateFilter): Promise<ExpenseListResult> {
+    const where = dateCondition(dateFilter)
+
+    const [{ totalCount }] = await this.db
+      .select({ totalCount: count() })
+      .from(expenses)
+      .where(where)
+
     const totalPages = Math.max(1, Math.ceil(totalCount / perPage))
     const safePage = Math.min(Math.max(page, 1), totalPages)
     const offset = (safePage - 1) * perPage
@@ -110,6 +132,7 @@ export class ExpenseService {
     const rows = await this.db
       .select()
       .from(expenses)
+      .where(where)
       .orderBy(desc(expenses.date), expenses.label)
       .limit(perPage)
       .offset(offset)
@@ -121,12 +144,6 @@ export class ExpenseService {
         perPage,
         totalItems: totalCount,
         totalPages,
-      },
-      summary: {
-        confirmedCount,
-        draftCount,
-        totalAmount: Number(totalAmountCents ?? 0) / 100,
-        totalCount,
       },
     }
   }
@@ -142,6 +159,11 @@ export class ExpenseService {
       existing ? 'business_logic_error' : 'not_found'
     )
   }
+}
+
+function dateCondition(filter?: DateFilter) {
+  if (!filter) return undefined
+  return and(gte(expenses.date, filter.startDate), lte(expenses.date, filter.endDate))
 }
 
 function toExpenseDto(row: ExpenseRow): ExpenseDto {

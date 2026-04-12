@@ -165,8 +165,6 @@ test.group('ExpenseService | listExpenses', (group) => {
     assert.equal(result.pagination.totalItems, 0)
     assert.equal(result.pagination.totalPages, 1)
     assert.equal(result.pagination.page, 1)
-    assert.equal(result.summary.totalCount, 0)
-    assert.equal(result.summary.totalAmount, 0)
   })
 
   test('sorts by date descending then label ascending', async ({ assert }) => {
@@ -216,12 +214,12 @@ test.group('ExpenseService | listExpenses', (group) => {
     await service.confirmExpense(toConfirm1.id)
     await service.confirmExpense(toConfirm2.id)
 
-    const result = await service.listExpenses()
+    const summary = await service.getSummary()
 
-    assert.equal(result.summary.totalCount, 3)
-    assert.equal(result.summary.confirmedCount, 2)
-    assert.equal(result.summary.draftCount, 1)
-    assert.equal(result.summary.totalAmount, 50.5)
+    assert.equal(summary.totalCount, 3)
+    assert.equal(summary.confirmedCount, 2)
+    assert.equal(summary.draftCount, 1)
+    assert.equal(summary.totalAmount, 50.5)
   })
 
   test('clamps page to valid range', async ({ assert }) => {
@@ -232,5 +230,40 @@ test.group('ExpenseService | listExpenses', (group) => {
 
     const tooLow = await service.listExpenses(-1, 5)
     assert.equal(tooLow.pagination.page, 1)
+  })
+
+  test('filters by date range', async ({ assert }) => {
+    await service.createExpense(makeInput({ date: '2026-01-15', label: 'Jan' }))
+    await service.createExpense(makeInput({ date: '2026-02-10', label: 'Feb' }))
+    await service.createExpense(makeInput({ date: '2026-03-20', label: 'Mar' }))
+
+    const result = await service.listExpenses(1, 10, {
+      endDate: '2026-02-28',
+      startDate: '2026-02-01',
+    })
+
+    assert.equal(result.items.length, 1)
+    assert.equal(result.items[0].label, 'Feb')
+    assert.equal(result.pagination.totalItems, 1)
+  })
+
+  test('getSummary respects date filter', async ({ assert }) => {
+    const jan = await service.createExpense(makeInput({ amount: 10, date: '2026-01-15' }))
+    await service.createExpense(makeInput({ amount: 20, date: '2026-02-10' }))
+    await service.confirmExpense(jan.id)
+
+    const all = await service.getSummary()
+    assert.equal(all.totalCount, 2)
+    assert.equal(all.totalAmount, 10)
+
+    const janOnly = await service.getSummary({ endDate: '2026-01-31', startDate: '2026-01-01' })
+    assert.equal(janOnly.totalCount, 1)
+    assert.equal(janOnly.confirmedCount, 1)
+    assert.equal(janOnly.totalAmount, 10)
+
+    const febOnly = await service.getSummary({ endDate: '2026-02-28', startDate: '2026-02-01' })
+    assert.equal(febOnly.totalCount, 1)
+    assert.equal(febOnly.draftCount, 1)
+    assert.equal(febOnly.totalAmount, 0)
   })
 })

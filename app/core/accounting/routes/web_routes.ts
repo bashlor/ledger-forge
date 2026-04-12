@@ -7,16 +7,24 @@ const ExpensesController = () => import('../http/controllers/expenses_controller
 router
   .group(() => {
     router.get('/', [AccountingPagesController, 'home']).as('home')
+
     router.get('/dashboard', [AccountingPagesController, 'dashboard']).as('dashboard')
+
     router.get('/customers', [AccountingPagesController, 'customersIndex']).as('customers.page')
     router.post('/customers', [AccountingPagesController, 'customerStore']).as('customers.store')
     router
       .delete('/customers/:id', [AccountingPagesController, 'customerDestroy'])
       .as('customers.destroy')
+
     router.get('/expenses', [ExpensesController, 'index']).as('expenses.page')
     router.post('/expenses', [ExpensesController, 'store']).as('expenses.store')
-    router.post('/expenses/:id/confirm', [ExpensesController, 'confirm']).as('expenses.confirm')
-    router.delete('/expenses/:id', [ExpensesController, 'destroy']).as('expenses.destroy')
+    router
+      .post('/expenses/:id/confirm-draft', [ExpensesController, 'confirmDraftExpense'])
+      .as('expenses.confirm_draft')
+    router
+      .delete('/expenses/:id', [ExpensesController, 'deleteDraftExpense'])
+      .as('expenses.delete_draft')
+
     router.get('/invoices', [AccountingPagesController, 'invoicesIndex']).as('invoices.page')
     router.post('/invoices', [AccountingPagesController, 'invoiceStore']).as('invoices.store')
     router

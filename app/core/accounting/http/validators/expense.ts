@@ -16,6 +16,14 @@ export const createExpenseValidator = vine.create({
   label: vine.string().trim().minLength(1).maxLength(255),
 })
 
+const isoDate = vine.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+export const expenseIndexValidator = vine.create({
+  endDate: isoDate.clone().optional(),
+  page: vine.number().min(1).optional(),
+  startDate: isoDate.clone().optional(),
+})
+
 export const expenseParamsValidator = vine.create({
   params: vine.object({
     id: vine.string().uuid(),
