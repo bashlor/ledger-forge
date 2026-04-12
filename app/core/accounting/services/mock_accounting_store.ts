@@ -1,3 +1,11 @@
+export interface CreateCustomerRequest {
+  company: string
+  email: string
+  name: string
+  note?: string
+  phone: string
+}
+
 export interface CustomerResponse {
   canDelete: boolean
   company: string
@@ -57,7 +65,6 @@ export interface InvoiceLineResponse extends InvoiceLineRequest {
   lineTotalInclTax: number
   lineVatAmount: number
 }
-
 export interface InvoiceResponse {
   customerId: string
   customerName: string
@@ -71,15 +78,8 @@ export interface InvoiceResponse {
   totalInclTax: number
   totalVat: number
 }
-export type InvoiceStatus = 'draft' | 'issued' | 'paid'
 
-interface CreateCustomerRequest {
-  company: string
-  email: string
-  name: string
-  note?: string
-  phone: string
-}
+export type InvoiceStatus = 'draft' | 'issued' | 'paid'
 
 interface CreateExpenseRequest {
   amount: number
@@ -441,6 +441,34 @@ class MockAccountingStore {
       .sort((left, right) => left.company.localeCompare(right.company))
   }
 
+  listCustomersPage(page = 1, perPage = 5) {
+    const all = this.listCustomers()
+    const totalItems = all.length
+    const totalPages = Math.max(1, Math.ceil(totalItems / perPage))
+    const safePage = Math.min(Math.max(page, 1), totalPages)
+    const start = (safePage - 1) * perPage
+    const items = all.slice(start, start + perPage)
+    const linkedCustomers = all.filter((customer) => (customer.invoiceCount ?? 0) > 0).length
+    const totalInvoiced = roundCurrency(
+      all.reduce((sum, customer) => sum + (customer.totalInvoiced ?? 0), 0)
+    )
+
+    return {
+      items,
+      pagination: {
+        page: safePage,
+        perPage,
+        totalItems,
+        totalPages,
+      },
+      summary: {
+        linkedCustomers,
+        totalCount: totalItems,
+        totalInvoiced,
+      },
+    }
+  }
+
   listExpenses(page = 1, perPage = 5) {
     const items = [...this.expenses].sort((left, right) => {
       const byDate = sortDateDesc(left.date, right.date)
@@ -495,6 +523,49 @@ class MockAccountingStore {
 
     const updated = { ...current, status: 'paid' } satisfies InvoiceResponse
     this.replaceInvoice(updated)
+    return updated
+  }
+
+  updateCustomer(id: string, payload: Partial<CreateCustomerRequest>): CustomerResponse {
+    const company = payload.company?.trim() ?? ''
+    const email = payload.email?.trim() ?? ''
+    const name = payload.name?.trim() ?? ''
+    const note = payload.note?.trim() || undefined
+    const phone = payload.phone?.trim() ?? ''
+
+    if (!company || !email || !name || !phone) {
+      throw new Error('All required customer fields must be provided.')
+    }
+
+    const index = this.customers.findIndex((customer) => customer.id === id)
+    if (index === -1) {
+      throw new Error('Customer not found.')
+    }
+
+    const previous = this.customers[index]
+    const companyChanged = previous.company !== company
+
+    const updated = {
+      ...previous,
+      company,
+      email,
+      name,
+      note,
+      phone,
+    } satisfies CustomerResponse
+
+    this.customers = this.customers.map((customer, entryIndex) =>
+      entryIndex === index ? updated : customer
+    )
+
+    if (companyChanged) {
+      this.invoices = this.invoices.map((invoice) =>
+        invoice.customerId === id && invoice.status === 'draft'
+          ? { ...invoice, customerName: company }
+          : invoice
+      )
+    }
+
     return updated
   }
 

@@ -2,6 +2,7 @@ import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 
 const AccountingPagesController = () => import('../http/controllers/accounting_pages_controller.js')
+const CustomersController = () => import('../http/controllers/customers_controller.js')
 const ExpensesController = () => import('../http/controllers/expenses_controller.js')
 
 router
@@ -10,11 +11,10 @@ router
 
     router.get('/dashboard', [AccountingPagesController, 'dashboard']).as('dashboard')
 
-    router.get('/customers', [AccountingPagesController, 'customersIndex']).as('customers.page')
-    router.post('/customers', [AccountingPagesController, 'customerStore']).as('customers.store')
-    router
-      .delete('/customers/:id', [AccountingPagesController, 'customerDestroy'])
-      .as('customers.destroy')
+    router.get('/customers', [CustomersController, 'index']).as('customers.page')
+    router.post('/customers', [CustomersController, 'store']).as('customers.store')
+    router.put('/customers/:id', [CustomersController, 'update']).as('customers.update')
+    router.delete('/customers/:id', [CustomersController, 'destroy']).as('customers.destroy')
 
     router.get('/expenses', [ExpensesController, 'index']).as('expenses.page')
     router.post('/expenses', [ExpensesController, 'store']).as('expenses.store')
