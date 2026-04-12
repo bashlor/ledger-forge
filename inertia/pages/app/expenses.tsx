@@ -62,7 +62,6 @@ export default function ExpensesPage({ expenses, summary }: Props) {
       { ...dateQs(), page: expenses.pagination.page },
       {
         onFinish: () => setProcessingId(null),
-        only: ['expenses'],
         onStart: () => setProcessingId(id),
         preserveScroll: true,
       }
@@ -75,7 +74,6 @@ export default function ExpensesPage({ expenses, summary }: Props) {
     router.delete(`/expenses/${id}`, {
       data: { ...dateQs(), page: expenses.pagination.page },
       onFinish: () => setProcessingId(null),
-      only: ['expenses'],
       onStart: () => setProcessingId(id),
       preserveScroll: true,
     })
