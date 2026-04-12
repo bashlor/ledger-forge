@@ -22,6 +22,13 @@
       "when": 1776007884500,
       "tag": "0002_remarkable_energizer",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776016208506,
+      "tag": "0003_fat_warpath",
+      "breakpoints": true
     }
   ]
 }

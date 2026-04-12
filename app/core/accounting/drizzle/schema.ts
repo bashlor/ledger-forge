@@ -21,3 +21,24 @@ export const expenses = mainSchema.table(
     check('expenses_amount_positive', sql`${table.amountCents} > 0`),
   ]
 )
+
+export const journalEntries = mainSchema.table(
+  'journal_entries',
+  {
+    amountCents: integer('amount_cents').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    date: date('date', { mode: 'string' }).notNull(),
+    expenseId: text('expense_id')
+      .notNull()
+      .references(() => expenses.id),
+    id: text('id').primaryKey(),
+    label: text('label').notNull(),
+    type: text('type', { enum: ['expense'] })
+      .notNull()
+      .default('expense'),
+  },
+  (table) => [
+    check('journal_entries_amount_positive', sql`${table.amountCents} > 0`),
+    check('journal_entries_type_check', sql`${table.type} IN ('expense')`),
+  ]
+)
