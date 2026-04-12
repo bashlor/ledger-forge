@@ -1,0 +1,23 @@
+import vine from '@vinejs/vine'
+
+const EXPENSE_CATEGORIES = [
+  'Software',
+  'Infrastructure',
+  'Office',
+  'Travel',
+  'Services',
+  'Other',
+] as const
+
+export const createExpenseValidator = vine.create({
+  amount: vine.number().positive().max(999_999_999_999.99),
+  category: vine.enum(EXPENSE_CATEGORIES),
+  date: vine.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  label: vine.string().trim().minLength(1).maxLength(255),
+})
+
+export const expenseParamsValidator = vine.create({
+  params: vine.object({
+    id: vine.string().uuid(),
+  }),
+})

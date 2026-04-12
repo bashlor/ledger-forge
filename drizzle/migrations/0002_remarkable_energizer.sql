@@ -1,0 +1,2 @@
+ALTER TABLE "main"."expenses" ADD CONSTRAINT "expenses_status_check" CHECK ("main"."expenses"."status" IN ('draft', 'confirmed'));--> statement-breakpoint
+ALTER TABLE "main"."expenses" ADD CONSTRAINT "expenses_amount_positive" CHECK ("main"."expenses"."amount_cents" > 0);

@@ -2,6 +2,7 @@ import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 
 const AccountingPagesController = () => import('../http/controllers/accounting_pages_controller.js')
+const ExpensesController = () => import('../http/controllers/expenses_controller.js')
 
 router
   .group(() => {
@@ -12,14 +13,10 @@ router
     router
       .delete('/customers/:id', [AccountingPagesController, 'customerDestroy'])
       .as('customers.destroy')
-    router.get('/expenses', [AccountingPagesController, 'expensesIndex']).as('expenses.page')
-    router.post('/expenses', [AccountingPagesController, 'expenseStore']).as('expenses.store')
-    router
-      .post('/expenses/:id/confirm', [AccountingPagesController, 'expenseConfirm'])
-      .as('expenses.confirm')
-    router
-      .delete('/expenses/:id', [AccountingPagesController, 'expenseDestroy'])
-      .as('expenses.destroy')
+    router.get('/expenses', [ExpensesController, 'index']).as('expenses.page')
+    router.post('/expenses', [ExpensesController, 'store']).as('expenses.store')
+    router.post('/expenses/:id/confirm', [ExpensesController, 'confirm']).as('expenses.confirm')
+    router.delete('/expenses/:id', [ExpensesController, 'destroy']).as('expenses.destroy')
     router.get('/invoices', [AccountingPagesController, 'invoicesIndex']).as('invoices.page')
     router.post('/invoices', [AccountingPagesController, 'invoiceStore']).as('invoices.store')
     router

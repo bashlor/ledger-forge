@@ -1,4 +1,3 @@
-import { Executor } from '#core/accounting/infra/executor'
 import * as schema from '#core/common/drizzle/index'
 import { AuthenticationPort } from '#core/user_management/domain/authentication'
 import { BetterAuthAdapter } from '#core/user_management/infra/auth/better_auth_adapter'
@@ -28,7 +27,6 @@ export function bindTestServices(context: TestPostgresContext): void {
   app.container.bindValue('betterAuth', context.betterAuth)
   app.container.bindValue('authAdapter', context.authAdapter)
   app.container.bindValue(AuthenticationPort, context.authAdapter)
-  app.container.bindValue(Executor, new Executor(context.db))
 }
 
 export async function createTestPostgresContext(): Promise<TestPostgresContext> {
