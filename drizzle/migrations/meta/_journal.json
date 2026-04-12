@@ -8,6 +8,20 @@
       "when": 1772752713988,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776005088000,
+      "tag": "0001_slim_enchantress",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776007884500,
+      "tag": "0002_remarkable_energizer",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,5 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 
-import { Executor } from '#core/accounting/infra/executor'
 import env from '#start/env'
 import { drizzle as drizzlePostgres, type PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
@@ -29,11 +28,6 @@ export default class DrizzleProvider {
         user: env.get('DB_USER'),
       })
       return drizzlePostgres(postgresClient, { logger: new DrizzleLogger(), schema })
-    })
-
-    this.app.container.singleton(Executor, async (resolver) => {
-      const db = await resolver.make('drizzle')
-      return new Executor(db)
     })
   }
 

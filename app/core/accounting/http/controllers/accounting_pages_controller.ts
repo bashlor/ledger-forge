@@ -3,8 +3,6 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { accountingStore } from '#core/accounting/services/mock_accounting_store'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 
-const EXPENSES_PER_PAGE = 5
-
 export default class AccountingPagesController {
   async customerDestroy(ctx: HttpContext) {
     try {
@@ -48,63 +46,6 @@ export default class AccountingPagesController {
     return renderInertiaPage(inertia, 'app/dashboard', {
       dashboard: accountingStore.getDashboard(),
     })
-  }
-
-  async expenseConfirm(ctx: HttpContext) {
-    const page = this.pageNumber(ctx)
-
-    try {
-      accountingStore.confirmExpense(ctx.request.param('id'))
-      this.flashNotification(ctx, 'Expense confirmed.', 'success')
-    } catch (error) {
-      this.flashNotification(
-        ctx,
-        this.messageFromError(error, 'Could not confirm the expense.'),
-        'error'
-      )
-    }
-
-    return ctx.response.redirect(this.expensesUrl(page))
-  }
-
-  async expenseDestroy(ctx: HttpContext) {
-    const page = this.pageNumber(ctx)
-
-    try {
-      accountingStore.deleteExpense(ctx.request.param('id'))
-      this.flashNotification(ctx, 'Draft expense deleted.', 'success')
-    } catch (error) {
-      this.flashNotification(
-        ctx,
-        this.messageFromError(error, 'Could not delete the expense.'),
-        'error'
-      )
-    }
-
-    return ctx.response.redirect(this.expensesUrl(page))
-  }
-
-  async expensesIndex({ inertia, request }: HttpContext) {
-    const page = Number(request.input('page') ?? 1)
-
-    return renderInertiaPage(inertia, 'app/expenses', {
-      expenses: accountingStore.listExpenses(Number.isFinite(page) ? page : 1, EXPENSES_PER_PAGE),
-    })
-  }
-
-  async expenseStore(ctx: HttpContext) {
-    try {
-      accountingStore.createExpense(ctx.request.only(['amount', 'category', 'date', 'label']))
-      this.flashNotification(ctx, 'Expense saved as draft.', 'success')
-    } catch (error) {
-      this.flashNotification(
-        ctx,
-        this.messageFromError(error, 'Could not save the expense.'),
-        'error'
-      )
-    }
-
-    return ctx.response.redirect(this.expensesUrl(1))
   }
 
   async home({ response }: HttpContext) {
@@ -207,10 +148,6 @@ export default class AccountingPagesController {
     return ctx.response.redirect(this.invoicesUrl({ invoice: id }))
   }
 
-  private expensesUrl(page: number) {
-    return page > 1 ? `/expenses?page=${page}` : '/expenses'
-  }
-
   private flashNotification(ctx: HttpContext, message: string, type: 'error' | 'success') {
     ctx.session.flash('notification', { message, type })
   }
@@ -228,10 +165,5 @@ export default class AccountingPagesController {
   private messageFromError(error: unknown, fallback: string) {
     if (error instanceof Error && error.message) return error.message
     return fallback
-  }
-
-  private pageNumber(ctx: HttpContext) {
-    const page = Number(ctx.request.input('page') ?? 1)
-    return Number.isFinite(page) && page > 0 ? page : 1
   }
 }
