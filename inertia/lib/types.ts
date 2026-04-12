@@ -33,18 +33,6 @@ export interface CustomerDto {
   totalInvoiced?: number
 }
 
-export interface DateRange {
-  endDate: string
-  startDate: string
-}
-
-export interface DateScope extends DateRange {
-  label: string
-  mode: DateScopeMode
-}
-
-export type DateScopeMode = 'custom' | 'month'
-
 export interface DashboardDto {
   recentInvoices: DashboardRecentInvoiceDto[]
   summary: {
@@ -64,6 +52,18 @@ export interface DashboardRecentInvoiceDto {
   status: InvoiceStatus
   totalInclTax: number
 }
+
+export interface DateRange {
+  endDate: string
+  startDate: string
+}
+
+export interface DateScope extends DateRange {
+  label: string
+  mode: DateScopeMode
+}
+
+export type DateScopeMode = 'custom' | 'month'
 
 export interface ExpenseDto {
   amount: number

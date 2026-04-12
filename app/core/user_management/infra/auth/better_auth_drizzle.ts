@@ -80,8 +80,7 @@ export async function createBetterAuth(
       level: 'debug',
       log: (level, message, ...args) => {
         const isRoutineAuthFailure =
-          typeof message === 'string' &&
-          /invalid.*(credential|password|email)/i.test(message)
+          typeof message === 'string' && /invalid.*(credential|password|email)/i.test(message)
 
         if (isRoutineAuthFailure) {
           appLogger.trace({ args, source: 'better-auth' }, message)

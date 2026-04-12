@@ -1,24 +1,24 @@
 import type { FormEvent } from 'react'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+
+import type { DateRange } from '~/lib/types'
 
 import { AppIcon } from '~/components/app_icon'
 import { useDateScope } from '~/components/date_scope_provider'
 import { Modal } from '~/components/modal'
 import { createCurrentMonthDateScope, isValidDateRange } from '~/lib/date_scope'
 import { formatTopbarDate } from '~/lib/format'
-import type { DateRange } from '~/lib/types'
 
 export function DateScopeControls() {
   const { resetToCurrentMonth, scope, setCustomRange, shiftBackward, shiftForward } = useDateScope()
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<DateRange>({ endDate: scope.endDate, startDate: scope.startDate })
 
-  useEffect(() => {
-    if (!modalOpen) {
-      setForm({ endDate: scope.endDate, startDate: scope.startDate })
-    }
-  }, [modalOpen, scope.endDate, scope.startDate])
+  function openModal() {
+    setForm({ endDate: scope.endDate, startDate: scope.startDate })
+    setModalOpen(true)
+  }
 
   const invalidRange = useMemo(() => !isValidDateRange(form), [form])
   const isCurrentMonth =
@@ -68,7 +68,7 @@ export function DateScopeControls() {
 
         <button
           className="inline-flex h-9 items-center gap-2 rounded-xl border border-outline-variant/15 bg-surface-container-low/80 px-3 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
-          onClick={() => setModalOpen(true)}
+          onClick={openModal}
           type="button"
         >
           <AppIcon name="date_range" size={16} />

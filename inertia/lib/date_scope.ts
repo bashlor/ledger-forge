@@ -38,6 +38,18 @@ export function createMonthDateScope(year: number, monthIndex: number): DateScop
   }
 }
 
+export function formatDateScopeCaption(scope: DateScope) {
+  return scope.mode === 'month' ? `${scope.startDate} -> ${scope.endDate}` : 'Custom range'
+}
+
+export function isDateWithinScope(value: string, scope: DateScope) {
+  return value >= scope.startDate && value <= scope.endDate
+}
+
+export function isValidDateRange(range: DateRange) {
+  return Boolean(range.startDate) && Boolean(range.endDate) && range.startDate <= range.endDate
+}
+
 export function shiftDateScope(scope: DateScope, delta: -1 | 1): DateScope {
   if (scope.mode === 'month') {
     const start = parseDateOnly(scope.startDate)
@@ -54,23 +66,8 @@ export function shiftDateScope(scope: DateScope, delta: -1 | 1): DateScope {
   })
 }
 
-export function isDateWithinScope(value: string, scope: DateScope) {
-  return value >= scope.startDate && value <= scope.endDate
-}
-
-export function isValidDateRange(range: DateRange) {
-  return Boolean(range.startDate) && Boolean(range.endDate) && range.startDate <= range.endDate
-}
-
-export function formatDateScopeCaption(scope: DateScope) {
-  return scope.mode === 'month' ? `${scope.startDate} -> ${scope.endDate}` : 'Custom range'
-}
-
-function formatRangeLabel(range: DateRange) {
-  const start = parseDateOnly(range.startDate)
-  const end = parseDateOnly(range.endDate)
-
-  return `${rangeFormatter.format(start)} - ${rangeFormatter.format(end)}`
+function addUtcDays(date: Date, days: number) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days))
 }
 
 function differenceInDaysInclusive(startDate: string, endDate: string) {
@@ -78,8 +75,11 @@ function differenceInDaysInclusive(startDate: string, endDate: string) {
   return Math.floor(diffMs / 86_400_000) + 1
 }
 
-function addUtcDays(date: Date, days: number) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days))
+function formatRangeLabel(range: DateRange) {
+  const start = parseDateOnly(range.startDate)
+  const end = parseDateOnly(range.endDate)
+
+  return `${rangeFormatter.format(start)} - ${rangeFormatter.format(end)}`
 }
 
 function parseDateOnly(value: string) {

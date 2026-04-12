@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import type { DateRange, DateScope } from '~/lib/types'
 
 import { createContext, useContext, useState } from 'react'
+
+import type { DateRange, DateScope } from '~/lib/types'
 
 import {
   createCurrentMonthDateScope,
@@ -10,11 +11,11 @@ import {
 } from '~/lib/date_scope'
 
 interface DateScopeContextValue {
+  resetToCurrentMonth: () => void
   scope: DateScope
   setCustomRange: (range: DateRange) => void
   shiftBackward: () => void
   shiftForward: () => void
-  resetToCurrentMonth: () => void
 }
 
 const DateScopeContext = createContext<DateScopeContextValue | null>(null)

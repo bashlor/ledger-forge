@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 
 import { AppIcon } from '~/components/app_icon'
@@ -35,11 +35,6 @@ export function Modal({
   const dialogRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const previousFocusedElementRef = useRef<HTMLElement | null>(null)
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
-
-  useEffect(() => {
-    setPortalTarget(document.body)
-  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -105,7 +100,7 @@ export function Modal({
     return () => document.removeEventListener('keydown', handleKey)
   }, [onClose, open])
 
-  if (!open || !portalTarget) return null
+  if (!open) return null
 
   return createPortal(
     <>
@@ -177,7 +172,7 @@ export function Modal({
       </div>
     </>
     ,
-    portalTarget
+    document.body
   )
 }
 

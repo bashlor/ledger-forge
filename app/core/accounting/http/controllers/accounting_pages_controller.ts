@@ -1,7 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
-import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { accountingStore } from '#core/accounting/services/mock_accounting_store'
+import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 
 const EXPENSES_PER_PAGE = 5
 
