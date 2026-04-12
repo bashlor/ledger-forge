@@ -44,6 +44,7 @@ export default [
       '**/*_feat.{ts,tsx,js,jsx}',
       '**/*_spec.{ts,tsx,js,jsx}',
       '**/*.spec.{ts,tsx,js,jsx}',
+      '**/*.test.{ts,tsx,js,jsx}',
     ],
     rules: {
       'perfectionist/sort-imports': 'warn',

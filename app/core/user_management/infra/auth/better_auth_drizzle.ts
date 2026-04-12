@@ -85,7 +85,7 @@ export async function createBetterAuth(
         if (isRoutineAuthFailure) {
           appLogger.trace({ args, source: 'better-auth' }, message)
         } else {
-          const pinoLevel = level === 'success' ? 'info' : level
+          const pinoLevel = (level as string) === 'success' ? 'info' : level
           appLogger[pinoLevel]({ args, source: 'better-auth' }, String(message))
         }
       },
