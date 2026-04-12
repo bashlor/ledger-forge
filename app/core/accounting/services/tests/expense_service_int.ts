@@ -1,10 +1,11 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import { expenses } from '#core/accounting/drizzle/schema'
+import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
 import { ExpenseService } from '#core/accounting/services/expense_service'
 import { DomainError } from '#core/shared/domain_error'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
+import { eq } from 'drizzle-orm'
 
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 
@@ -22,6 +23,7 @@ function makeInput(overrides: Partial<Parameters<ExpenseService['createExpense']
 }
 
 async function truncateExpenses() {
+  await db.delete(journalEntries)
   await db.delete(expenses)
 }
 
@@ -102,6 +104,56 @@ test.group('ExpenseService | confirmExpense', (group) => {
 
     assert.instanceOf(error, DomainError)
     assert.equal(error.type, 'business_logic_error')
+  })
+})
+
+test.group('ExpenseService | confirmExpense + journal atomicity', (group) => {
+  let cleanup: () => Promise<void>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+    db = await app.container.make('drizzle')
+    service = new ExpenseService(db)
+  })
+
+  group.each.setup(async () => truncateExpenses())
+  group.teardown(async () => cleanup())
+
+  test('confirms an expense and creates a journal entry atomically', async ({ assert }) => {
+    const created = await service.createExpense(makeInput({ amount: 42, label: 'Atomic test' }))
+    await service.confirmExpense(created.id)
+
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.expenseId, created.id))
+
+    assert.equal(entries.length, 1)
+    assert.equal(entries[0].amountCents, 4200)
+    assert.equal(entries[0].label, 'Atomic test')
+    assert.equal(entries[0].date, '2026-04-01')
+    assert.equal(entries[0].type, 'expense')
+    assert.equal(entries[0].expenseId, created.id)
+  })
+
+  test('does not create a journal entry if the expense is already confirmed', async ({
+    assert,
+  }) => {
+    const created = await service.createExpense(makeInput())
+    await service.confirmExpense(created.id)
+
+    const error = await service.confirmExpense(created.id).catch((e) => e)
+
+    assert.instanceOf(error, DomainError)
+    assert.equal(error.type, 'business_logic_error')
+
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.expenseId, created.id))
+
+    assert.equal(entries.length, 1, 'only the first confirmation created an entry')
   })
 })
 

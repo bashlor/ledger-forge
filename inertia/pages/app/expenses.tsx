@@ -1,7 +1,12 @@
 import { Head, router } from '@inertiajs/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { CreateExpenseInput, ExpenseDto, ExpenseSummaryDto, PaginationMetaDto } from '~/lib/types'
+import type {
+  CreateExpenseInput,
+  ExpenseDto,
+  ExpenseSummaryDto,
+  PaginationMetaDto,
+} from '~/lib/types'
 
 import { useDateScope } from '~/components/date_scope_provider'
 import { Modal } from '~/components/modal'
@@ -115,10 +120,11 @@ export default function ExpensesPage({ expenses, summary }: Props) {
           title="Expenses"
         />
 
-        {cachedSummary.current
-          ? <SummaryCards summary={cachedSummary.current} />
-          : <SummaryCardsSkeleton />
-        }
+        {cachedSummary.current ? (
+          <SummaryCards summary={cachedSummary.current} />
+        ) : (
+          <SummaryCardsSkeleton />
+        )}
 
         <CreateDrawer
           onClose={() => setDrawerOpen(false)}

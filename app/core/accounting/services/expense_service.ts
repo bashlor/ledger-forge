@@ -1,6 +1,6 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import { expenses } from '#core/accounting/drizzle/schema'
+import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
 import { and, count, desc, eq, gte, lte, sql, sum } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
@@ -51,17 +51,28 @@ export class ExpenseService {
   constructor(private readonly db: PostgresJsDatabase<any>) {}
 
   async confirmExpense(id: string): Promise<ExpenseDto> {
-    const [updated] = await this.db
-      .update(expenses)
-      .set({ status: 'confirmed' })
-      .where(and(eq(expenses.id, id), eq(expenses.status, 'draft')))
-      .returning()
+    return this.db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(expenses)
+        .set({ status: 'confirmed' })
+        .where(and(eq(expenses.id, id), eq(expenses.status, 'draft')))
+        .returning()
 
-    if (!updated) {
-      throw await this.notDraftError(id, 'confirmed')
-    }
+      if (!updated) {
+        throw await this.notDraftError(id, 'confirmed')
+      }
 
-    return toExpenseDto(updated)
+      await tx.insert(journalEntries).values({
+        amountCents: updated.amountCents,
+        date: updated.date,
+        expenseId: updated.id,
+        id: uuidv7(),
+        label: updated.label,
+        type: 'expense',
+      })
+
+      return toExpenseDto(updated)
+    })
   }
 
   async createExpense(input: CreateExpenseInput): Promise<ExpenseDto> {
