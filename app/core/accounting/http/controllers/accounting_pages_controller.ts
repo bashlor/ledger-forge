@@ -4,44 +4,6 @@ import { accountingStore } from '#core/accounting/services/mock_accounting_store
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 
 export default class AccountingPagesController {
-  async customerDestroy(ctx: HttpContext) {
-    try {
-      accountingStore.deleteCustomer(ctx.request.param('id'))
-      this.flashNotification(ctx, 'Customer deleted.', 'success')
-    } catch (error) {
-      this.flashNotification(
-        ctx,
-        this.messageFromError(error, 'Could not delete the customer.'),
-        'error'
-      )
-    }
-
-    return ctx.response.redirect('/customers')
-  }
-
-  async customersIndex({ inertia }: HttpContext) {
-    return renderInertiaPage(inertia, 'app/customers', {
-      customers: accountingStore.listCustomers(),
-    })
-  }
-
-  async customerStore(ctx: HttpContext) {
-    try {
-      accountingStore.createCustomer(
-        ctx.request.only(['company', 'email', 'name', 'note', 'phone'])
-      )
-      this.flashNotification(ctx, 'Customer created.', 'success')
-    } catch (error) {
-      this.flashNotification(
-        ctx,
-        this.messageFromError(error, 'Could not save the customer.'),
-        'error'
-      )
-    }
-
-    return ctx.response.redirect('/customers')
-  }
-
   async dashboard({ inertia }: HttpContext) {
     return renderInertiaPage(inertia, 'app/dashboard', {
       dashboard: accountingStore.getDashboard(),

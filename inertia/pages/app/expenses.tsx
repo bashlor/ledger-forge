@@ -5,9 +5,10 @@ import type {
   CreateExpenseInput,
   ExpenseDto,
   ExpenseSummaryDto,
-  PaginationMetaDto,
+  PaginatedList,
 } from '~/lib/types'
 
+import { DataTable } from '~/components/data_table'
 import { useDateScope } from '~/components/date_scope_provider'
 import { Modal } from '~/components/modal'
 import { PageHeader } from '~/components/page_header'
@@ -15,14 +16,13 @@ import { PageHeader } from '~/components/page_header'
 import type { InertiaProps } from '../../types'
 
 import { CreateDrawer } from './expenses/create_drawer'
-import { Pagination } from './expenses/pagination'
 import { SummaryCards, SummaryCardsSkeleton } from './expenses/summary_cards'
 import { ExpenseTable } from './expenses/table'
 
 type PendingAction = { id: string; kind: 'confirm' | 'delete'; label: string }
 
 type Props = InertiaProps<{
-  expenses: { items: ExpenseDto[]; pagination: PaginationMetaDto }
+  expenses: PaginatedList<ExpenseDto>
   summary?: ExpenseSummaryDto
 }>
 
@@ -133,31 +133,26 @@ export default function ExpensesPage({ expenses, summary }: Props) {
           processing={processing}
         />
 
-        <section className="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-ambient-tight">
-          <div className="border-b border-outline-variant/10 px-4 py-3">
-            <h2 className="text-base font-semibold text-on-surface">Expense register</h2>
-          </div>
-
+        <DataTable
+          emptyMessage="No expenses found."
+          isEmpty={expenses.items.length === 0}
+          onPageChange={(page) =>
+            router.get(
+              '/expenses',
+              { ...dateQs(), page },
+              { only: ['expenses'], preserveScroll: true, preserveState: true }
+            )
+          }
+          pagination={expenses.pagination}
+          title="Expense register"
+        >
           <ExpenseTable
             items={expenses.items}
             onConfirm={requestConfirm}
             onDelete={requestDelete}
             processingId={processingId}
           />
-
-          {expenses.items.length > 0 && (
-            <Pagination
-              onPageChange={(page) =>
-                router.get(
-                  '/expenses',
-                  { ...dateQs(), page },
-                  { only: ['expenses'], preserveScroll: true, preserveState: true }
-                )
-              }
-              pagination={expenses.pagination}
-            />
-          )}
-        </section>
+        </DataTable>
       </div>
 
       <Modal
