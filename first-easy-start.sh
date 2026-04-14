@@ -78,6 +78,9 @@ set_env_value 'APP_KEY' "$(openssl rand -hex 32)" "$REPO_ROOT/.env"
 set_env_value 'BETTER_AUTH_SECRET' "$(openssl rand -hex 32)" "$REPO_ROOT/.env"
 set_env_value 'APP_URL' "$APP_URL_FIXED" "$REPO_ROOT/.env"
 
+echo '==> Write Docker secrets from .env'
+bash "$REPO_ROOT/docker/write-docker-secrets.sh" "$REPO_ROOT/.env" "$REPO_ROOT/tmp/docker-secrets/dev" DB_PASSWORD=db_password REDIS_PASSWORD=redis_password
+
 echo '==> Write .env.test from .env.test.example'
 cp "$REPO_ROOT/.env.test.example" "$REPO_ROOT/.env.test"
 set_env_value 'APP_KEY' "$(openssl rand -hex 32)" "$REPO_ROOT/.env.test"

@@ -3,6 +3,7 @@ node_modules
 build
 tmp/*
 !tmp/.gitignore
+tmp/docker-secrets/
 .adonisjs
 
 # Secrets
@@ -33,6 +34,7 @@ yarn-error.log
 
 .tmp
 private_docs
+private_scripts
 
 # Testing
 coverage
