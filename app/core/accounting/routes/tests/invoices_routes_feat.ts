@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
+import { InvoiceService } from '#core/accounting/services/invoice_service'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
   AuthenticationPort,
@@ -11,6 +12,7 @@ import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
 
+import { runSimultaneously } from '../../../../../tests/helpers/concurrency_barrier.js'
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 
 const fakeUser: AuthProviderUser = {
@@ -250,20 +252,21 @@ test.group('Invoices routes | backend invariants', (group) => {
   })
 
   test('concurrent issue requests create only one journal entry', async ({ assert, client }) => {
+    // Simultaneity test model:
+    // - read phase is diagnostic
+    // - conditional write arbitrates the winner
+    // - transaction keeps winner workflow atomic
     const draft = await createDraftViaHttp(client)
-
-    await Promise.allSettled([
-      client
-        .post(`/invoices/${draft.id}/issue`)
-        .header('cookie', authCookie())
-        .redirects(0)
-        .form({}),
-      client
-        .post(`/invoices/${draft.id}/issue`)
-        .header('cookie', authCookie())
-        .redirects(0)
-        .form({}),
+    const service = new InvoiceService(db)
+    const results = await runSimultaneously([
+      (waitAtBarrier) => service.issueInvoice(draft.id, { afterRead: waitAtBarrier }),
+      (waitAtBarrier) => service.issueInvoice(draft.id, { afterRead: waitAtBarrier }),
     ])
+    assert.equal(
+      results.filter((result) => result.status === 'fulfilled').length,
+      1,
+      'only one issue should win in simultaneous execution'
+    )
 
     const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
     assert.equal(row.status, 'issued')
@@ -296,26 +299,23 @@ test.group('Invoices routes | backend invariants', (group) => {
     assert,
     client,
   }) => {
+    // Simultaneity test model:
+    // - read phase is diagnostic
+    // - conditional write arbitrates the winner
+    // - transaction keeps winner workflow atomic
     const draft = await createDraftViaHttp(client)
+    const service = new InvoiceService(db)
 
-    await client
-      .post(`/invoices/${draft.id}/issue`)
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({})
-
-    await Promise.allSettled([
-      client
-        .post(`/invoices/${draft.id}/mark-paid`)
-        .header('cookie', authCookie())
-        .redirects(0)
-        .form({}),
-      client
-        .post(`/invoices/${draft.id}/mark-paid`)
-        .header('cookie', authCookie())
-        .redirects(0)
-        .form({}),
+    await service.issueInvoice(draft.id)
+    const results = await runSimultaneously([
+      (waitAtBarrier) => service.markInvoicePaid(draft.id, { afterRead: waitAtBarrier }),
+      (waitAtBarrier) => service.markInvoicePaid(draft.id, { afterRead: waitAtBarrier }),
     ])
+    assert.equal(
+      results.filter((result) => result.status === 'fulfilled').length,
+      1,
+      'only one mark-paid should win in simultaneous execution'
+    )
 
     const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
     assert.equal(row.status, 'paid')
@@ -337,40 +337,46 @@ test.group('Invoices routes | backend invariants', (group) => {
     assert,
     client,
   }) => {
+    // Simultaneity test model:
+    // - read phase is diagnostic
+    // - conditional write arbitrates each commit point
+    // - transaction keeps each committed workflow atomic
     const draft = await createDraftViaHttp(client)
+    const service = new InvoiceService(db)
 
-    const payloadA = {
-      customerId: TEST_CUSTOMER_ID,
-      dueDate: '2026-05-05',
-      issueDate: '2026-04-20',
-      'lines[0][description]': 'Concurrent update A',
-      'lines[0][quantity]': 1,
-      'lines[0][unitPrice]': 200,
-      'lines[0][vatRate]': 20,
-    }
-
-    const payloadB = {
-      customerId: TEST_CUSTOMER_ID,
-      dueDate: '2026-06-06',
-      issueDate: '2026-04-21',
-      'lines[0][description]': 'Concurrent update B',
-      'lines[0][quantity]': 3,
-      'lines[0][unitPrice]': 150,
-      'lines[0][vatRate]': 10,
-    }
-
-    await Promise.allSettled([
-      client
-        .put(`/invoices/${draft.id}/draft`)
-        .header('cookie', authCookie())
-        .redirects(0)
-        .form(payloadA),
-      client
-        .put(`/invoices/${draft.id}/draft`)
-        .header('cookie', authCookie())
-        .redirects(0)
-        .form(payloadB),
+    const results = await runSimultaneously([
+      (waitAtBarrier) =>
+        service.updateDraft(
+          draft.id,
+          {
+            customerId: TEST_CUSTOMER_ID,
+            dueDate: '2026-05-05',
+            issueDate: '2026-04-20',
+            lines: [
+              { description: 'Concurrent update A', quantity: 1, unitPrice: 200, vatRate: 20 },
+            ],
+          },
+          { afterRead: waitAtBarrier }
+        ),
+      (waitAtBarrier) =>
+        service.updateDraft(
+          draft.id,
+          {
+            customerId: TEST_CUSTOMER_ID,
+            dueDate: '2026-06-06',
+            issueDate: '2026-04-21',
+            lines: [
+              { description: 'Concurrent update B', quantity: 3, unitPrice: 150, vatRate: 10 },
+            ],
+          },
+          { afterRead: waitAtBarrier }
+        ),
     ])
+    assert.equal(
+      results.filter((result) => result.status === 'fulfilled').length,
+      2,
+      'both concurrent updates should complete with last-write-wins semantics'
+    )
 
     const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
     assert.equal(row.status, 'draft')

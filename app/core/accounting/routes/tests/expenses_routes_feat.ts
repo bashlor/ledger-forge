@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
+import { ExpenseService } from '#core/accounting/services/expense_service'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
   AuthenticationPort,
@@ -11,6 +12,7 @@ import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
 
+import { runSimultaneously } from '../../../../../tests/helpers/concurrency_barrier.js'
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 
 const fakeUser: AuthProviderUser = {
@@ -144,6 +146,10 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
   })
 
   test('concurrent confirm requests create only one journal entry', async ({ assert, client }) => {
+    // Simultaneity test model:
+    // - read phase is diagnostic
+    // - conditional write arbitrates the winner
+    // - transaction keeps winner workflow atomic
     await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
       amount: 73.5,
       category: 'Software',
@@ -152,19 +158,16 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     })
 
     const [draft] = await db.select().from(expenses)
-
-    await Promise.allSettled([
-      client
-        .post(`/expenses/${draft.id}/confirm-draft`)
-        .header('cookie', authCookie())
-        .redirects(0)
-        .form({}),
-      client
-        .post(`/expenses/${draft.id}/confirm-draft`)
-        .header('cookie', authCookie())
-        .redirects(0)
-        .form({}),
+    const service = new ExpenseService(db)
+    const results = await runSimultaneously([
+      (waitAtBarrier) => service.confirmExpense(draft.id, { afterRead: waitAtBarrier }),
+      (waitAtBarrier) => service.confirmExpense(draft.id, { afterRead: waitAtBarrier }),
     ])
+    assert.equal(
+      results.filter((result) => result.status === 'fulfilled').length,
+      1,
+      'only one confirm should win in simultaneous execution'
+    )
 
     const [row] = await db.select().from(expenses).where(eq(expenses.id, draft.id))
     assert.equal(row.status, 'confirmed')
@@ -175,6 +178,34 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
       .where(eq(journalEntries.expenseId, draft.id))
 
     assert.equal(entries.length, 1)
+  })
+
+  test('concurrent delete requests remove draft exactly once', async ({ assert, client }) => {
+    // Simultaneity test model:
+    // - read phase is diagnostic
+    // - conditional delete arbitrates the winner
+    // - transaction keeps winner workflow atomic
+    await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
+      amount: 12,
+      category: 'Office',
+      date: '2026-04-16',
+      label: 'Concurrent delete',
+    })
+
+    const [draft] = await db.select().from(expenses)
+    const service = new ExpenseService(db)
+    const results = await runSimultaneously([
+      (waitAtBarrier) => service.deleteExpense(draft.id, { afterRead: waitAtBarrier }),
+      (waitAtBarrier) => service.deleteExpense(draft.id, { afterRead: waitAtBarrier }),
+    ])
+    assert.equal(
+      results.filter((result) => result.status === 'fulfilled').length,
+      1,
+      'only one delete should win in simultaneous execution'
+    )
+
+    const rows = await db.select().from(expenses).where(eq(expenses.id, draft.id))
+    assert.equal(rows.length, 0)
   })
 
   test('cannot delete a confirmed expense', async ({ client }) => {

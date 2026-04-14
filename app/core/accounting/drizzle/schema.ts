@@ -112,6 +112,7 @@ export const journalEntries = mainSchema.table(
   (table) => [
     check('journal_entries_amount_positive', sql`${table.amountCents} > 0`),
     check('journal_entries_type_check', sql`${table.type} IN ('expense', 'invoice')`),
+    unique('journal_entries_expense_unique').on(table.expenseId),
     check(
       'journal_entries_source_xor',
       sql`(${table.expenseId} IS NOT NULL)::int + (${table.invoiceId} IS NOT NULL)::int = 1`

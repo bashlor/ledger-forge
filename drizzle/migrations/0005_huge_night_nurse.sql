@@ -1,0 +1,1 @@
+ALTER TABLE "main"."journal_entries" ADD CONSTRAINT "journal_entries_expense_unique" UNIQUE("expense_id");
