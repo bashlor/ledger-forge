@@ -1,4 +1,6 @@
 import { Form } from '@adonisjs/inertia/react'
+import { type Data } from '@generated/data'
+import { usePage } from '@inertiajs/react'
 
 interface SettingsProps {
   user: null | {
@@ -9,6 +11,7 @@ interface SettingsProps {
 }
 
 export default function Settings({ user }: SettingsProps) {
+  const isAnonymous = usePage<Data.SharedProps>().props.user?.isAnonymous ?? false
   if (!user) {
     return (
       <div className="mx-auto max-w-3xl px-1">
@@ -124,75 +127,77 @@ export default function Settings({ user }: SettingsProps) {
           </Form>
         </section>
 
-        <section className="rounded-[1.75rem] border border-outline-variant/15 bg-surface-container-lowest p-6 shadow-ambient-tight sm:p-7">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Security
-            </p>
-            <h2 className="mt-3 font-headline text-2xl font-extrabold tracking-tight text-on-surface">
-              Change password
-            </h2>
-            <p className="mt-2 text-sm text-on-surface-variant">
-              Keep a username field for browser accessibility and update credentials inline.
-            </p>
-          </div>
+        {!isAnonymous ? (
+          <section className="rounded-[1.75rem] border border-outline-variant/15 bg-surface-container-lowest p-6 shadow-ambient-tight sm:p-7">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                Security
+              </p>
+              <h2 className="mt-3 font-headline text-2xl font-extrabold tracking-tight text-on-surface">
+                Change password
+              </h2>
+              <p className="mt-2 text-sm text-on-surface-variant">
+                Keep a username field for browser accessibility and update credentials inline.
+              </p>
+            </div>
 
-          <Form className="mt-6 space-y-5" route="account.password.update">
-            {({ errors }) => (
-              <>
-                <input
-                  autoComplete="username"
-                  className="sr-only"
-                  defaultValue={user.email}
-                  name="username"
-                  readOnly
-                  tabIndex={-1}
-                  type="text"
-                />
-
-                <div className="grid gap-5">
-                  <Field
-                    autoComplete="current-password"
-                    error={errors.currentPassword}
-                    id="currentPassword"
-                    label="Current password"
-                    name="currentPassword"
-                    type="password"
+            <Form className="mt-6 space-y-5" route="account.password.update">
+              {({ errors }) => (
+                <>
+                  <input
+                    autoComplete="username"
+                    className="sr-only"
+                    defaultValue={user.email}
+                    name="username"
+                    readOnly
+                    tabIndex={-1}
+                    type="text"
                   />
 
-                  <div className="grid gap-5 md:grid-cols-2">
+                  <div className="grid gap-5">
                     <Field
-                      autoComplete="new-password"
-                      error={errors.newPassword}
-                      id="newPassword"
-                      label="New password"
-                      name="newPassword"
+                      autoComplete="current-password"
+                      error={errors.currentPassword}
+                      id="currentPassword"
+                      label="Current password"
+                      name="currentPassword"
                       type="password"
                     />
 
-                    <Field
-                      autoComplete="new-password"
-                      error={errors.newPasswordConfirmation}
-                      id="newPasswordConfirmation"
-                      label="Confirm new password"
-                      name="newPasswordConfirmation"
-                      type="password"
-                    />
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <Field
+                        autoComplete="new-password"
+                        error={errors.newPassword}
+                        id="newPassword"
+                        label="New password"
+                        name="newPassword"
+                        type="password"
+                      />
+
+                      <Field
+                        autoComplete="new-password"
+                        error={errors.newPasswordConfirmation}
+                        id="newPasswordConfirmation"
+                        label="Confirm new password"
+                        name="newPasswordConfirmation"
+                        type="password"
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex justify-end">
-                  <button
-                    className="inline-flex min-w-44 items-center justify-center rounded-xl px-4 py-3 font-headline text-sm font-bold text-on-primary milled-steel-gradient transition-all hover:opacity-95"
-                    type="submit"
-                  >
-                    Change password
-                  </button>
-                </div>
-              </>
-            )}
-          </Form>
-        </section>
+                  <div className="flex justify-end">
+                    <button
+                      className="inline-flex min-w-44 items-center justify-center rounded-xl px-4 py-3 font-headline text-sm font-bold text-on-primary milled-steel-gradient transition-all hover:opacity-95"
+                      type="submit"
+                    >
+                      Change password
+                    </button>
+                  </div>
+                </>
+              )}
+            </Form>
+          </section>
+        ) : null}
       </div>
     </div>
   )

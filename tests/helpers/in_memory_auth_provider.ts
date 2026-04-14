@@ -107,6 +107,24 @@ export class InMemoryAuthProvider extends AuthenticationPort {
     return this.createSession(user)
   }
 
+  async signInAnonymously(): Promise<AuthResult> {
+    const id = randomUUID()
+    const now = new Date()
+    const user = {
+      createdAt: now,
+      email: `anonymous-${id}@example.local`,
+      emailVerified: false,
+      id,
+      image: null,
+      isAnonymous: true,
+      name: 'Anonymous',
+      password: randomUUID(),
+    }
+
+    this.users.set(id, user)
+    return this.createSession(user)
+  }
+
   // =========================================================================
   // User
   // =========================================================================
@@ -128,6 +146,7 @@ export class InMemoryAuthProvider extends AuthenticationPort {
       emailVerified: false,
       id,
       image: null,
+      isAnonymous: false,
       name: name ?? 'User',
       password,
     }
@@ -205,6 +224,7 @@ export class InMemoryAuthProvider extends AuthenticationPort {
       emailVerified: user.emailVerified,
       id: user.id,
       image: user.image,
+      isAnonymous: user.isAnonymous,
       name: user.name,
     }
   }

@@ -2,6 +2,7 @@ import env from '#start/env'
 import appLogger from '@adonisjs/core/services/logger'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
+import { anonymous } from 'better-auth/plugins'
 import { v7 as uuidv7 } from 'uuid'
 
 import { AUTH_COOKIE_PREFIX } from '../../auth_session_cookie.js'
@@ -90,6 +91,7 @@ export async function createBetterAuth(
         }
       },
     },
+    plugins: [anonymous()],
     secret,
     session,
   })

@@ -14,6 +14,7 @@ const guestUser: AuthProviderUser = {
   emailVerified: true,
   id: 'user_guest',
   image: null,
+  isAnonymous: false,
   name: 'Guest User',
 }
 
@@ -44,6 +45,16 @@ class RouteAuthenticationStub extends AuthenticationPort {
       session: {
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'session_token',
+        userId: guestUser.id,
+      },
+      user: guestUser,
+    }
+  }
+  async signInAnonymously(): Promise<AuthResult> {
+    return {
+      session: {
+        expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+        token: 'anonymous_session_token',
         userId: guestUser.id,
       },
       user: guestUser,
@@ -139,6 +150,17 @@ test.group('Auth inertia routes', (group) => {
       password: 'SecureP@ss123',
       passwordConfirmation: 'SecureP@ss123',
     })
+
+    response.assertStatus(302)
+    response.assertHeader('location', '/dashboard')
+    const setCookies = response.headers()['set-cookie']
+    const serializedCookies = Array.isArray(setCookies) ? setCookies.join('; ') : (setCookies ?? '')
+    assert.include(serializedCookies, `${AUTH_SESSION_TOKEN_COOKIE_NAME}=`)
+    assert.notInclude(serializedCookies, 'e:')
+  })
+
+  test('signs in anonymously when anonymous auth succeeds', async ({ assert, client }) => {
+    const response = await client.post('/signin/anonymous').redirects(0).form({})
 
     response.assertStatus(302)
     response.assertHeader('location', '/dashboard')

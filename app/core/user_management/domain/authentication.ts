@@ -4,6 +4,7 @@ export interface AuthProviderUser {
   emailVerified: boolean
   id: string
   image?: null | string
+  isAnonymous: boolean
   name: null | string
 }
 
@@ -38,6 +39,8 @@ export abstract class AuthenticationPort {
   abstract sendVerificationEmail(email: string): Promise<void>
 
   abstract signIn(email: string, password: string): Promise<AuthResult>
+
+  abstract signInAnonymously(): Promise<AuthResult>
 
   abstract signOut(sessionToken: string): Promise<void>
 
