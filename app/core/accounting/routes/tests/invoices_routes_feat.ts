@@ -253,8 +253,16 @@ test.group('Invoices routes | backend invariants', (group) => {
     const draft = await createDraftViaHttp(client)
 
     await Promise.allSettled([
-      client.post(`/invoices/${draft.id}/issue`).header('cookie', authCookie()).redirects(0).form({}),
-      client.post(`/invoices/${draft.id}/issue`).header('cookie', authCookie()).redirects(0).form({}),
+      client
+        .post(`/invoices/${draft.id}/issue`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form({}),
+      client
+        .post(`/invoices/${draft.id}/issue`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form({}),
     ])
 
     const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
@@ -290,7 +298,11 @@ test.group('Invoices routes | backend invariants', (group) => {
   }) => {
     const draft = await createDraftViaHttp(client)
 
-    await client.post(`/invoices/${draft.id}/issue`).header('cookie', authCookie()).redirects(0).form({})
+    await client
+      .post(`/invoices/${draft.id}/issue`)
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
 
     await Promise.allSettled([
       client
@@ -321,7 +333,10 @@ test.group('Invoices routes | backend invariants', (group) => {
     assert.equal(rows.length, 0)
   })
 
-  test('concurrent update-draft requests keep invoice data consistent', async ({ assert, client }) => {
+  test('concurrent update-draft requests keep invoice data consistent', async ({
+    assert,
+    client,
+  }) => {
     const draft = await createDraftViaHttp(client)
 
     const payloadA = {
@@ -345,8 +360,16 @@ test.group('Invoices routes | backend invariants', (group) => {
     }
 
     await Promise.allSettled([
-      client.put(`/invoices/${draft.id}/draft`).header('cookie', authCookie()).redirects(0).form(payloadA),
-      client.put(`/invoices/${draft.id}/draft`).header('cookie', authCookie()).redirects(0).form(payloadB),
+      client
+        .put(`/invoices/${draft.id}/draft`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form(payloadA),
+      client
+        .put(`/invoices/${draft.id}/draft`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form(payloadB),
     ])
 
     const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
@@ -358,16 +381,16 @@ test.group('Invoices routes | backend invariants', (group) => {
         dueDate: '2026-05-05',
         issueDate: '2026-04-20',
         subtotalExclTaxCents: 20_000,
-        totalVatCents: 4_000,
         totalInclTaxCents: 24_000,
+        totalVatCents: 4_000,
       },
       {
         description: 'Concurrent update B',
         dueDate: '2026-06-06',
         issueDate: '2026-04-21',
         subtotalExclTaxCents: 45_000,
-        totalVatCents: 4_500,
         totalInclTaxCents: 49_500,
+        totalVatCents: 4_500,
       },
     ]
 

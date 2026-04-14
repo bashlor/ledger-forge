@@ -154,8 +154,16 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     const [draft] = await db.select().from(expenses)
 
     await Promise.allSettled([
-      client.post(`/expenses/${draft.id}/confirm-draft`).header('cookie', authCookie()).redirects(0).form({}),
-      client.post(`/expenses/${draft.id}/confirm-draft`).header('cookie', authCookie()).redirects(0).form({}),
+      client
+        .post(`/expenses/${draft.id}/confirm-draft`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form({}),
+      client
+        .post(`/expenses/${draft.id}/confirm-draft`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form({}),
     ])
 
     const [row] = await db.select().from(expenses).where(eq(expenses.id, draft.id))
