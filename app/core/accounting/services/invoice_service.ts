@@ -2,7 +2,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
-import { and, count, desc, eq, gte, inArray, lte } from 'drizzle-orm'
+import { and, desc, eq, inArray, like, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 import { calculateLine, calculateTotals, fromDisplayUnits } from './invoice_calculations.js'
@@ -125,17 +125,21 @@ export class InvoiceService {
 
   async deleteDraft(id: string): Promise<void> {
     return this.db.transaction(async (tx) => {
-      const [existing] = await tx.select().from(invoices).where(eq(invoices.id, id))
+      const [deleted] = await tx
+        .delete(invoices)
+        .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
+        .returning({ id: invoices.id })
 
-      if (!existing) {
-        throw new DomainError('Invoice not found.', 'not_found')
-      }
-
-      if (existing.status !== 'draft') {
+      if (!deleted) {
+        const [again] = await tx
+          .select({ id: invoices.id })
+          .from(invoices)
+          .where(eq(invoices.id, id))
+        if (!again) {
+          throw new DomainError('Invoice not found.', 'not_found')
+        }
         throw new DomainError('Only draft invoices can be deleted.', 'business_logic_error')
       }
-
-      await tx.delete(invoices).where(eq(invoices.id, id)).returning({ id: invoices.id })
     })
   }
 
@@ -155,6 +159,14 @@ export class InvoiceService {
         .set({ status: 'issued' })
         .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
         .returning()
+
+      if (!updated) {
+        const [again] = await tx.select().from(invoices).where(eq(invoices.id, id))
+        if (!again) {
+          throw new DomainError('Invoice not found.', 'not_found')
+        }
+        throw new DomainError('Only draft invoices can be issued.', 'business_logic_error')
+      }
 
       await tx.insert(journalEntries).values({
         amountCents: updated.totalInclTaxCents,
@@ -225,6 +237,14 @@ export class InvoiceService {
         .where(and(eq(invoices.id, id), eq(invoices.status, 'issued')))
         .returning()
 
+      if (!updated) {
+        const [again] = await tx.select().from(invoices).where(eq(invoices.id, id))
+        if (!again) {
+          throw new DomainError('Invoice not found.', 'not_found')
+        }
+        throw new DomainError('Only issued invoices can be marked as paid.', 'business_logic_error')
+      }
+
       const lineRows = await tx
         .select()
         .from(invoiceLines)
@@ -267,8 +287,19 @@ export class InvoiceService {
           issueDate: input.issueDate,
           ...totals,
         })
-        .where(eq(invoices.id, id))
+        .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
         .returning()
+
+      if (!updated) {
+        const [again] = await tx
+          .select({ status: invoices.status })
+          .from(invoices)
+          .where(eq(invoices.id, id))
+        if (!again) {
+          throw new DomainError('Invoice not found.', 'not_found')
+        }
+        throw new DomainError('Only draft invoices can be edited.', 'business_logic_error')
+      }
 
       await tx.delete(invoiceLines).where(eq(invoiceLines.invoiceId, id))
 
@@ -296,11 +327,21 @@ export class InvoiceService {
 
 async function nextInvoiceNumber(db: any, issueDate: string): Promise<string> {
   const year = issueDate.slice(0, 4)
-  const [{ total }] = await db
-    .select({ total: count() })
+  const lockKey = `invoice-number-${year}`
+
+  await db.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`)
+
+  const [{ lastSequence }] = await db
+    .select({
+      lastSequence:
+        sql<number>`coalesce(max(((regexp_match(${invoices.invoiceNumber}, ${`^INV-${year}-(\\d+)$`}))[1])::int), 0)`.mapWith(
+          Number
+        ),
+    })
     .from(invoices)
-    .where(and(gte(invoices.issueDate, `${year}-01-01`), lte(invoices.issueDate, `${year}-12-31`)))
-  return `INV-${year}-${String(Number(total) + 1).padStart(3, '0')}`
+    .where(like(invoices.invoiceNumber, `INV-${year}-%`))
+
+  return `INV-${year}-${String((lastSequence ?? 0) + 1).padStart(3, '0')}`
 }
 
 function toInvoiceDto(row: InvoiceRow, lines: InvoiceLineDto[]): InvoiceDto {

@@ -143,6 +143,40 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     assert.equal(entries[0].date, '2026-04-10')
   })
 
+  test('concurrent confirm requests create only one journal entry', async ({ assert, client }) => {
+    await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
+      amount: 73.5,
+      category: 'Software',
+      date: '2026-04-15',
+      label: 'Concurrent confirm',
+    })
+
+    const [draft] = await db.select().from(expenses)
+
+    await Promise.allSettled([
+      client
+        .post(`/expenses/${draft.id}/confirm-draft`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form({}),
+      client
+        .post(`/expenses/${draft.id}/confirm-draft`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form({}),
+    ])
+
+    const [row] = await db.select().from(expenses).where(eq(expenses.id, draft.id))
+    assert.equal(row.status, 'confirmed')
+
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.expenseId, draft.id))
+
+    assert.equal(entries.length, 1)
+  })
+
   test('cannot delete a confirmed expense', async ({ client }) => {
     await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
       amount: 10,
