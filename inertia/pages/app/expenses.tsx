@@ -1,12 +1,7 @@
 import { Head, router } from '@inertiajs/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type {
-  CreateExpenseInput,
-  ExpenseDto,
-  ExpenseSummaryDto,
-  PaginatedList,
-} from '~/lib/types'
+import type { CreateExpenseInput, ExpenseDto, ExpenseSummaryDto, PaginatedList } from '~/lib/types'
 
 import { DataTable } from '~/components/data_table'
 import { useDateScope } from '~/components/date_scope_provider'

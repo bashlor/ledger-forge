@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @source "../**/*.{ts,tsx}";
 
 @theme {
@@ -53,9 +53,9 @@
   --color-tertiary-dim: #005f41;
   --color-tertiary-fixed: #7ff3be;
   --color-tertiary-fixed-dim: #71e4b1;
-  --font-body: "Inter", ui-sans-serif, sans-serif;
-  --font-headline: "Manrope", ui-sans-serif, sans-serif;
-  --font-label: "Inter", ui-sans-serif, sans-serif;
+  --font-body: 'Inter', ui-sans-serif, sans-serif;
+  --font-headline: 'Manrope', ui-sans-serif, sans-serif;
+  --font-label: 'Inter', ui-sans-serif, sans-serif;
   --radius-sm: 0.125rem;
   --radius-md: 0.25rem;
   --radius-lg: 0.25rem;

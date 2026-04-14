@@ -45,7 +45,8 @@ function AppShellFrame({ children }: { children: ReactNode }) {
   const initials = user?.initials ?? getInitials(displayName || email || 'PL')
   const pageLabel = pageLabelForUrl(url)
   const todayLine = formatTopbarDate(new Date().toISOString().slice(0, 10))
-  const showDateScopeControls = url === '/dashboard' || url.startsWith('/expenses') || url.startsWith('/invoices')
+  const showDateScopeControls =
+    url === '/dashboard' || url.startsWith('/expenses') || url.startsWith('/invoices')
 
   useEffect(() => {
     toast.dismiss()

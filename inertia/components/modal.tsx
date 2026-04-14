@@ -123,8 +123,14 @@ export function Modal({
             ref={dialogRef}
             tabIndex={-1}
           >
-            <div aria-hidden="true" className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/55 to-transparent" />
-            <div aria-hidden="true" className="absolute inset-x-6 top-0 h-px bg-outline-variant/15" />
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/55 to-transparent"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-6 top-0 h-px bg-outline-variant/15"
+            />
 
             <div className="relative max-h-[calc(100dvh-2rem)] overflow-y-auto px-6 pb-6 pt-6 sm:max-h-[calc(100dvh-5rem)] sm:px-7 sm:pb-7">
               <div className="flex items-start justify-between gap-4">
@@ -172,8 +178,7 @@ export function Modal({
           </div>
         </div>
       </div>
-    </>
-    ,
+    </>,
     document.body
   )
 }

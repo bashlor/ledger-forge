@@ -12,7 +12,10 @@ import { createCurrentMonthDateScope, isValidDateRange } from '~/lib/date_scope'
 export function DateScopeControls() {
   const { resetToCurrentMonth, scope, setCustomRange, shiftBackward, shiftForward } = useDateScope()
   const [modalOpen, setModalOpen] = useState(false)
-  const [form, setForm] = useState<DateRange>({ endDate: scope.endDate, startDate: scope.startDate })
+  const [form, setForm] = useState<DateRange>({
+    endDate: scope.endDate,
+    startDate: scope.startDate,
+  })
 
   function openModal() {
     setForm({ endDate: scope.endDate, startDate: scope.startDate })
@@ -109,18 +112,20 @@ export function DateScopeControls() {
             </span>
             <input
               className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-              onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, startDate: event.target.value }))
+              }
               type="date"
               value={form.startDate}
             />
           </label>
           <label className="grid gap-2 text-sm text-on-surface-variant">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">
-              End date
-            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">End date</span>
             <input
               className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-              onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, endDate: event.target.value }))
+              }
               type="date"
               value={form.endDate}
             />
