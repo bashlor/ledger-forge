@@ -125,17 +125,21 @@ export class InvoiceService {
 
   async deleteDraft(id: string): Promise<void> {
     return this.db.transaction(async (tx) => {
-      const [existing] = await tx.select().from(invoices).where(eq(invoices.id, id))
+      const [deleted] = await tx
+        .delete(invoices)
+        .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
+        .returning({ id: invoices.id })
 
-      if (!existing) {
-        throw new DomainError('Invoice not found.', 'not_found')
-      }
-
-      if (existing.status !== 'draft') {
+      if (!deleted) {
+        const [again] = await tx
+          .select({ id: invoices.id })
+          .from(invoices)
+          .where(eq(invoices.id, id))
+        if (!again) {
+          throw new DomainError('Invoice not found.', 'not_found')
+        }
         throw new DomainError('Only draft invoices can be deleted.', 'business_logic_error')
       }
-
-      await tx.delete(invoices).where(eq(invoices.id, id)).returning({ id: invoices.id })
     })
   }
 
@@ -155,6 +159,14 @@ export class InvoiceService {
         .set({ status: 'issued' })
         .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
         .returning()
+
+      if (!updated) {
+        const [again] = await tx.select().from(invoices).where(eq(invoices.id, id))
+        if (!again) {
+          throw new DomainError('Invoice not found.', 'not_found')
+        }
+        throw new DomainError('Only draft invoices can be issued.', 'business_logic_error')
+      }
 
       await tx.insert(journalEntries).values({
         amountCents: updated.totalInclTaxCents,
@@ -225,6 +237,14 @@ export class InvoiceService {
         .where(and(eq(invoices.id, id), eq(invoices.status, 'issued')))
         .returning()
 
+      if (!updated) {
+        const [again] = await tx.select().from(invoices).where(eq(invoices.id, id))
+        if (!again) {
+          throw new DomainError('Invoice not found.', 'not_found')
+        }
+        throw new DomainError('Only issued invoices can be marked as paid.', 'business_logic_error')
+      }
+
       const lineRows = await tx
         .select()
         .from(invoiceLines)
@@ -267,8 +287,19 @@ export class InvoiceService {
           issueDate: input.issueDate,
           ...totals,
         })
-        .where(eq(invoices.id, id))
+        .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
         .returning()
+
+      if (!updated) {
+        const [again] = await tx
+          .select({ status: invoices.status })
+          .from(invoices)
+          .where(eq(invoices.id, id))
+        if (!again) {
+          throw new DomainError('Invoice not found.', 'not_found')
+        }
+        throw new DomainError('Only draft invoices can be edited.', 'business_logic_error')
+      }
 
       await tx.delete(invoiceLines).where(eq(invoiceLines.invoiceId, id))
 

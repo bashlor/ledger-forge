@@ -224,6 +224,24 @@ test.group('Invoices routes | backend invariants', (group) => {
     assert.equal(entries[0].date, '2026-04-01')
   })
 
+  test('concurrent issue requests create only one journal entry', async ({ assert, client }) => {
+    const draft = await createDraftViaHttp(client)
+
+    await Promise.allSettled([
+      client.post(`/invoices/${draft.id}/issue`).header('cookie', authCookie()).redirects(0).form({}),
+      client.post(`/invoices/${draft.id}/issue`).header('cookie', authCookie()).redirects(0).form({}),
+    ])
+
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(row.status, 'issued')
+
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.invoiceId, draft.id))
+    assert.equal(entries.length, 1)
+  })
+
   test('mark-paid is rejected for a draft invoice (issued → paid only)', async ({
     assert,
     client,
@@ -239,5 +257,112 @@ test.group('Invoices routes | backend invariants', (group) => {
 
     const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
     assert.equal(row.status, 'draft', 'draft invoice was not changed to paid')
+  })
+
+  test('concurrent mark-paid requests keep a single valid paid transition', async ({
+    assert,
+    client,
+  }) => {
+    const draft = await createDraftViaHttp(client)
+
+    await client.post(`/invoices/${draft.id}/issue`).header('cookie', authCookie()).redirects(0).form({})
+
+    await Promise.allSettled([
+      client
+        .post(`/invoices/${draft.id}/mark-paid`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form({}),
+      client
+        .post(`/invoices/${draft.id}/mark-paid`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form({}),
+    ])
+
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(row.status, 'paid')
+  })
+
+  test('concurrent delete-draft requests leave no invoice row', async ({ assert, client }) => {
+    const draft = await createDraftViaHttp(client)
+
+    await Promise.allSettled([
+      client.delete(`/invoices/${draft.id}`).header('cookie', authCookie()).redirects(0),
+      client.delete(`/invoices/${draft.id}`).header('cookie', authCookie()).redirects(0),
+    ])
+
+    const rows = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(rows.length, 0)
+  })
+
+  test('concurrent update-draft requests keep invoice data consistent', async ({ assert, client }) => {
+    const draft = await createDraftViaHttp(client)
+
+    const payloadA = {
+      customerId: TEST_CUSTOMER_ID,
+      dueDate: '2026-05-05',
+      issueDate: '2026-04-20',
+      'lines[0][description]': 'Concurrent update A',
+      'lines[0][quantity]': 1,
+      'lines[0][unitPrice]': 200,
+      'lines[0][vatRate]': 20,
+    }
+
+    const payloadB = {
+      customerId: TEST_CUSTOMER_ID,
+      dueDate: '2026-06-06',
+      issueDate: '2026-04-21',
+      'lines[0][description]': 'Concurrent update B',
+      'lines[0][quantity]': 3,
+      'lines[0][unitPrice]': 150,
+      'lines[0][vatRate]': 10,
+    }
+
+    await Promise.allSettled([
+      client.put(`/invoices/${draft.id}/draft`).header('cookie', authCookie()).redirects(0).form(payloadA),
+      client.put(`/invoices/${draft.id}/draft`).header('cookie', authCookie()).redirects(0).form(payloadB),
+    ])
+
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(row.status, 'draft')
+
+    const finalOptions = [
+      {
+        description: 'Concurrent update A',
+        dueDate: '2026-05-05',
+        issueDate: '2026-04-20',
+        subtotalExclTaxCents: 20_000,
+        totalVatCents: 4_000,
+        totalInclTaxCents: 24_000,
+      },
+      {
+        description: 'Concurrent update B',
+        dueDate: '2026-06-06',
+        issueDate: '2026-04-21',
+        subtotalExclTaxCents: 45_000,
+        totalVatCents: 4_500,
+        totalInclTaxCents: 49_500,
+      },
+    ]
+
+    const matched = finalOptions.some(
+      (option) =>
+        row.dueDate === option.dueDate &&
+        row.issueDate === option.issueDate &&
+        row.subtotalExclTaxCents === option.subtotalExclTaxCents &&
+        row.totalVatCents === option.totalVatCents &&
+        row.totalInclTaxCents === option.totalInclTaxCents
+    )
+    assert.isTrue(matched)
+
+    const lines = await db
+      .select()
+      .from(invoiceLines)
+      .where(eq(invoiceLines.invoiceId, draft.id))
+      .orderBy(invoiceLines.lineNumber)
+
+    assert.equal(lines.length, 1)
+    assert.include(['Concurrent update A', 'Concurrent update B'], lines[0].description)
   })
 })
