@@ -130,7 +130,7 @@ export class InvoiceService {
       .returning({ id: invoices.id })
 
     if (!deleted) {
-      if(!deleted) {
+      if (!deleted) {
         throw new DomainError('Invoice not found.', 'not_found')
       }
       throw new DomainError('Only draft invoices can be deleted.', 'business_logic_error')
@@ -146,7 +146,7 @@ export class InvoiceService {
         .returning()
 
       if (!updated) {
-        if(!updated) {
+        if (!updated) {
           throw new DomainError('Invoice not found.', 'not_found')
         }
         throw new DomainError('Only draft invoices can be issued.', 'business_logic_error')
@@ -214,7 +214,7 @@ export class InvoiceService {
         .returning()
 
       if (!updated) {
-        if(!updated) {
+        if (!updated) {
           throw new DomainError('Invoice not found.', 'not_found')
         }
         throw new DomainError('Only issued invoices can be marked as paid.', 'business_logic_error')
