@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim@sha256:b506e7321f176aae77317f99d67a24b272c1f09f1d10f1761f2773447d8da26c AS base
+FROM node:24@sha256:80fc934952c8f1b2b4d39907af7211f8a9fff1a4c2cf673fb49099292c251cec AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -17,8 +17,42 @@ RUN pnpm install --frozen-lockfile
 # ----------------------------
 FROM deps AS build
 WORKDIR /app
+ARG BUILD_VALUE_A
+ARG BUILD_APP_URL
+ARG BUILD_VALUE_B
+ARG BUILD_DB_DATABASE
+ARG BUILD_DB_HOST
+ARG BUILD_VALUE_C
+ARG BUILD_DB_PORT
+ARG BUILD_DB_USER
+ARG BUILD_HOST
+ARG BUILD_LOG_LEVEL
+ARG BUILD_PORT
+ARG BUILD_POSTGRES_TEST_IMAGE
+ARG BUILD_REQUIRE_EMAIL_VERIFICATION
+ARG BUILD_SESSION_DRIVER
 COPY . .
-RUN pnpm build -- --package-manager=pnpm
+RUN APP_KEY="${BUILD_VALUE_A}" \
+	APP_URL="${BUILD_APP_URL:-http://localhost:3333}" \
+	BETTER_AUTH_SECRET="${BUILD_VALUE_B}" \
+	DB_DATABASE="${BUILD_DB_DATABASE:-app}" \
+	DB_HOST="${BUILD_DB_HOST:-localhost}" \
+	DB_PASSWORD="${BUILD_VALUE_C}" \
+	DB_PORT="${BUILD_DB_PORT:-5432}" \
+	DB_USER="${BUILD_DB_USER:-app}" \
+	HOST="${BUILD_HOST:-localhost}" \
+	LOG_LEVEL="${BUILD_LOG_LEVEL:-info}" \
+	PORT="${BUILD_PORT:-3333}" \
+	POSTGRES_TEST_IMAGE="${BUILD_POSTGRES_TEST_IMAGE:-postgres:16-alpine}" \
+	REQUIRE_EMAIL_VERIFICATION="${BUILD_REQUIRE_EMAIL_VERIFICATION:-false}" \
+	SESSION_DRIVER="${BUILD_SESSION_DRIVER:-memory}" \
+	pnpm build -- --package-manager=pnpm
+
+FROM base AS runtime_deps
+WORKDIR /app/build
+COPY --from=build /app/build/package.json ./
+COPY --from=build /app/build/pnpm-lock.yaml ./
+RUN pnpm install --prod --frozen-lockfile
 
 # ----------------------------
 # Stage 3: Production runtime (distroless)
@@ -28,8 +62,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # "node ace build" outputs a standalone app under /build with prod deps.
-COPY --from=build --chown=nonroot:nonroot /app/build ./
-USER nonroot:nonroot
+COPY --from=build --chown=node:node /app/build ./
+COPY --from=runtime_deps --chown=node:node /app/build/node_modules ./node_modules
+USER node:node
 
 EXPOSE 3333
-CMD ["node", "bin/server.js"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["node", "-e", "fetch('http://127.0.0.1:3333/health/live').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+CMD ["bin/server.js"]

@@ -1,0 +1,103 @@
+#Test production image build and locally.
+#!!! DO NOT USE IT IN PRODUCTION !!!
+services:
+  postgres:
+    image: docker.io/postgres:17-alpine@sha256:6f30057d31f5861b66f3545d4821f987aacf1dd920765f0acadea0c58ff975b1
+    container_name: ${POSTGRES_CONTAINER_NAME:-accounting-pg-test}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - '127.0.0.1:${DB_PORT:-5432}:5432'
+    environment:
+      POSTGRES_USER: accounting
+      POSTGRES_PASSWORD: accounting
+      POSTGRES_DB: accounting-test
+    volumes:
+      - pg_test_data:/var/lib/postgresql/data
+    networks:
+      - accounting_test_internal
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+      args:
+        BUILD_VALUE_A: ${APP_KEY}
+        BUILD_APP_URL: ${APP_URL}
+        BUILD_VALUE_B: ${BETTER_AUTH_SECRET}
+        BUILD_DB_DATABASE: ${DB_DATABASE}
+        BUILD_DB_HOST: ${DB_HOST}
+        BUILD_VALUE_C: ${DB_PASSWORD}
+        BUILD_DB_PORT: ${DB_PORT}
+        BUILD_DB_USER: ${DB_USER}
+        BUILD_HOST: ${HOST}
+        BUILD_LOG_LEVEL: ${LOG_LEVEL}
+        BUILD_PORT: ${PORT}
+        BUILD_POSTGRES_TEST_IMAGE: ${POSTGRES_TEST_IMAGE:-postgres:17-alpine}
+        BUILD_REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
+        BUILD_SESSION_DRIVER: ${SESSION_DRIVER}
+    env_file:
+      - .env.test
+    environment:
+      APP_URL: http://localhost:${PORT:-3333}
+      DB_HOST: postgres
+      HOST: 0.0.0.0
+      PORT: ${PORT:-3333}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ['node', 'ace', 'migration:run']
+    networks:
+      - accounting_test_internal
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        BUILD_VALUE_A: ${APP_KEY}
+        BUILD_APP_URL: ${APP_URL}
+        BUILD_VALUE_B: ${BETTER_AUTH_SECRET}
+        BUILD_DB_DATABASE: ${DB_DATABASE}
+        BUILD_DB_HOST: ${DB_HOST}
+        BUILD_VALUE_C: ${DB_PASSWORD}
+        BUILD_DB_PORT: ${DB_PORT}
+        BUILD_DB_USER: ${DB_USER}
+        BUILD_HOST: ${HOST}
+        BUILD_LOG_LEVEL: ${LOG_LEVEL}
+        BUILD_PORT: ${PORT}
+        BUILD_POSTGRES_TEST_IMAGE: ${POSTGRES_TEST_IMAGE:-postgres:17-alpine}
+        BUILD_REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
+        BUILD_SESSION_DRIVER: ${SESSION_DRIVER}
+    env_file:
+      - .env.test
+    environment:
+      APP_URL: http://localhost:${PORT:-3333}
+      DB_HOST: postgres
+      HOST: 0.0.0.0
+      PORT: ${PORT:-3333}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - '127.0.0.1:${PORT:-3333}:3333'
+    networks:
+      - accounting_test_internal
+
+volumes:
+  pg_test_data:
+
+networks:
+  accounting_test_internal:
+    driver: bridge
