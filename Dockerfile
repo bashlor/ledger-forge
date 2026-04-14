@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM node:24@sha256:80fc934952c8f1b2b4d39907af7211f8a9fff1a4c2cf673fb49099292c251cec AS base
 
 ENV PNPM_HOME="/pnpm"
@@ -17,12 +18,9 @@ RUN pnpm install --frozen-lockfile
 # ----------------------------
 FROM deps AS build
 WORKDIR /app
-ARG BUILD_VALUE_A
 ARG BUILD_APP_URL
-ARG BUILD_VALUE_B
 ARG BUILD_DB_DATABASE
 ARG BUILD_DB_HOST
-ARG BUILD_VALUE_C
 ARG BUILD_DB_PORT
 ARG BUILD_DB_USER
 ARG BUILD_HOST
@@ -32,12 +30,15 @@ ARG BUILD_POSTGRES_TEST_IMAGE
 ARG BUILD_REQUIRE_EMAIL_VERIFICATION
 ARG BUILD_SESSION_DRIVER
 COPY . .
-RUN APP_KEY="${BUILD_VALUE_A}" \
+RUN --mount=type=secret,id=app_key \
+	--mount=type=secret,id=better_auth_secret \
+	--mount=type=secret,id=db_password \
+	APP_KEY="$(cat /run/secrets/app_key)" \
 	APP_URL="${BUILD_APP_URL:-http://localhost:3333}" \
-	BETTER_AUTH_SECRET="${BUILD_VALUE_B}" \
+	BETTER_AUTH_SECRET="$(cat /run/secrets/better_auth_secret)" \
 	DB_DATABASE="${BUILD_DB_DATABASE:-app}" \
 	DB_HOST="${BUILD_DB_HOST:-localhost}" \
-	DB_PASSWORD="${BUILD_VALUE_C}" \
+	DB_PASSWORD="$(cat /run/secrets/db_password)" \
 	DB_PORT="${BUILD_DB_PORT:-5432}" \
 	DB_USER="${BUILD_DB_USER:-app}" \
 	HOST="${BUILD_HOST:-localhost}" \
@@ -64,8 +65,10 @@ ENV NODE_ENV=production
 # "node ace build" outputs a standalone app under /build with prod deps.
 COPY --from=build --chown=node:node /app/build ./
 COPY --from=runtime_deps --chown=node:node /app/build/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/docker ./docker
 USER node:node
 
 EXPOSE 3333
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["node", "-e", "fetch('http://127.0.0.1:3333/health/live').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+ENTRYPOINT ["/bin/sh", "/app/docker/with-docker-secrets.sh"]
 CMD ["bin/server.js"]

@@ -3,6 +3,7 @@ node_modules
 build
 tmp/*
 !tmp/.gitignore
+tmp/docker-secrets/
 .adonisjs
 
 # Secrets

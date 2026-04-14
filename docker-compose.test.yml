@@ -19,10 +19,45 @@ services:
       - '127.0.0.1:${DB_PORT:-5432}:5432'
     environment:
       POSTGRES_USER: accounting
-      POSTGRES_PASSWORD: accounting
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       POSTGRES_DB: accounting-test
+    secrets:
+      - db_password
     volumes:
       - pg_test_data:/var/lib/postgresql/data
+    networks:
+      - accounting_test_internal
+
+  redis:
+    image: docker.io/redis:7-alpine@sha256:8b81dd37ff027bec4e516d41acfbe9fe2460070dc6d4a4570a2ac5b9d59df065
+    container_name: ${REDIS_CONTAINER_NAME:-accounting-redis-test}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'redis-cli --no-auth-warning -a "$$(cat /run/secrets/redis_password)" ping | grep PONG',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    command:
+      [
+        '/bin/sh',
+        '-ec',
+        'exec redis-server --appendonly yes --requirepass "$$(cat /run/secrets/redis_password)"',
+      ]
+    secrets:
+      - redis_password
+    volumes:
+      - redis_test_data:/data
     networks:
       - accounting_test_internal
 
@@ -32,12 +67,9 @@ services:
       dockerfile: Dockerfile
       target: build
       args:
-        BUILD_VALUE_A: ${APP_KEY}
         BUILD_APP_URL: ${APP_URL}
-        BUILD_VALUE_B: ${BETTER_AUTH_SECRET}
         BUILD_DB_DATABASE: ${DB_DATABASE}
         BUILD_DB_HOST: ${DB_HOST}
-        BUILD_VALUE_C: ${DB_PASSWORD}
         BUILD_DB_PORT: ${DB_PORT}
         BUILD_DB_USER: ${DB_USER}
         BUILD_HOST: ${HOST}
@@ -46,17 +78,42 @@ services:
         BUILD_POSTGRES_TEST_IMAGE: ${POSTGRES_TEST_IMAGE:-postgres:17-alpine}
         BUILD_REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
         BUILD_SESSION_DRIVER: ${SESSION_DRIVER}
-    env_file:
-      - .env.test
+      secrets:
+        - source: app_key
+          target: app_key
+        - source: better_auth_secret
+          target: better_auth_secret
+        - source: db_password
+          target: db_password
     environment:
+      DB_DATABASE: accounting-test
+      DB_PORT: 5432
+      DB_USER: accounting
+      LIMITER_STORE: memory
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_ENV: test
+      POSTGRES_TEST_IMAGE: ${POSTGRES_TEST_IMAGE:-postgres:17-alpine}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
+      SESSION_DRIVER: memory
+      TZ: UTC
       APP_URL: http://localhost:${PORT:-3333}
       DB_HOST: postgres
       HOST: 0.0.0.0
       PORT: ${PORT:-3333}
+    entrypoint: ['/bin/sh', '/app/docker/with-docker-secrets.sh']
     depends_on:
       postgres:
         condition: service_healthy
-    command: ['node', 'ace', 'migration:run']
+      redis:
+        condition: service_healthy
+    command: ['ace', 'migration:run']
+    secrets:
+      - app_key
+      - better_auth_secret
+      - db_password
+      - redis_password
     networks:
       - accounting_test_internal
 
@@ -66,12 +123,9 @@ services:
       dockerfile: Dockerfile
       target: production
       args:
-        BUILD_VALUE_A: ${APP_KEY}
         BUILD_APP_URL: ${APP_URL}
-        BUILD_VALUE_B: ${BETTER_AUTH_SECRET}
         BUILD_DB_DATABASE: ${DB_DATABASE}
         BUILD_DB_HOST: ${DB_HOST}
-        BUILD_VALUE_C: ${DB_PASSWORD}
         BUILD_DB_PORT: ${DB_PORT}
         BUILD_DB_USER: ${DB_USER}
         BUILD_HOST: ${HOST}
@@ -80,9 +134,26 @@ services:
         BUILD_POSTGRES_TEST_IMAGE: ${POSTGRES_TEST_IMAGE:-postgres:17-alpine}
         BUILD_REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
         BUILD_SESSION_DRIVER: ${SESSION_DRIVER}
-    env_file:
-      - .env.test
+      secrets:
+        - source: app_key
+          target: app_key
+        - source: better_auth_secret
+          target: better_auth_secret
+        - source: db_password
+          target: db_password
     environment:
+      DB_DATABASE: accounting-test
+      DB_PORT: 5432
+      DB_USER: accounting
+      LIMITER_STORE: memory
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_ENV: test
+      POSTGRES_TEST_IMAGE: ${POSTGRES_TEST_IMAGE:-postgres:17-alpine}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
+      SESSION_DRIVER: memory
+      TZ: UTC
       APP_URL: http://localhost:${PORT:-3333}
       DB_HOST: postgres
       HOST: 0.0.0.0
@@ -90,13 +161,31 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     ports:
       - '127.0.0.1:${PORT:-3333}:3333'
+    secrets:
+      - app_key
+      - better_auth_secret
+      - db_password
+      - redis_password
     networks:
       - accounting_test_internal
 
 volumes:
   pg_test_data:
+  redis_test_data:
+
+secrets:
+  app_key:
+    file: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/app_key
+  better_auth_secret:
+    file: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/better_auth_secret
+  db_password:
+    file: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/db_password
+  redis_password:
+    file: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/redis_password
 
 networks:
   accounting_test_internal:
