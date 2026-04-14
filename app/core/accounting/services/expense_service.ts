@@ -52,6 +52,14 @@ export class ExpenseService {
 
   async confirmExpense(id: string): Promise<ExpenseDto> {
     return this.db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(expenses).where(eq(expenses.id, id))
+      if(!existing) {
+        throw new DomainError('Expense not found.', 'not_found')
+      }
+      if (existing.status !== 'draft') {
+        throw new DomainError('Only draft expenses can be confirmed.', 'business_logic_error')
+      }
+
       const [updated] = await tx
         .update(expenses)
         .set({ status: 'confirmed' })
@@ -59,7 +67,11 @@ export class ExpenseService {
         .returning()
 
       if (!updated) {
-        throw await this.notDraftError(id, 'confirmed')
+        const [again] = await tx.select().from(expenses).where(eq(expenses.id, id))
+        if(!again) {
+          throw new DomainError('Expense not found.', 'not_found')
+        }
+        throw new DomainError('Only draft expenses can be confirmed.', 'business_logic_error')
       }
 
       await tx.insert(journalEntries).values({
@@ -94,14 +106,28 @@ export class ExpenseService {
   }
 
   async deleteExpense(id: string): Promise<void> {
-    const [deleted] = await this.db
-      .delete(expenses)
-      .where(and(eq(expenses.id, id), eq(expenses.status, 'draft')))
-      .returning({ id: expenses.id })
+    return this.db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(expenses).where(eq(expenses.id, id))
+      if(!existing) {
+        throw new DomainError('Expense not found.', 'not_found')
+      }
+      if (existing.status !== 'draft') {
+        throw new DomainError('Only draft expenses can be deleted.', 'business_logic_error')
+      }
 
-    if (!deleted) {
-      throw await this.notDraftError(id, 'deleted')
-    }
+      const [deleted] = await tx
+        .delete(expenses)
+        .where(and(eq(expenses.id, id), eq(expenses.status, 'draft')))
+        .returning({ id: expenses.id })
+
+      if (!deleted) {
+        const [again] = await tx.select().from(expenses).where(eq(expenses.id, id))
+        if(!again) {
+          throw new DomainError('Expense not found.', 'not_found')
+        }
+        throw new DomainError('Only draft expenses can be deleted.', 'business_logic_error')
+      }
+    })
   }
 
   async getSummary(dateFilter?: DateFilter): Promise<ExpenseSummary> {
@@ -159,17 +185,6 @@ export class ExpenseService {
     }
   }
 
-  private async notDraftError(id: string, action: string): Promise<DomainError> {
-    const [existing] = await this.db
-      .select({ id: expenses.id })
-      .from(expenses)
-      .where(eq(expenses.id, id))
-
-    return new DomainError(
-      existing ? `Only draft expenses can be ${action}.` : 'Expense not found.',
-      existing ? 'business_logic_error' : 'not_found'
-    )
-  }
 }
 
 function dateCondition(filter?: DateFilter) {
