@@ -19,6 +19,14 @@ export interface CustomerForSelectDto {
   phone: string
 }
 
+export interface InvoiceConcurrencyHooks {
+  afterRead?: () => Promise<void>
+}
+
+// ---------------------------------------------------------------------------
+// DTO types (match inertia/lib/types.ts shapes for Inertia props)
+// ---------------------------------------------------------------------------
+
 export interface InvoiceDto {
   customerId: string
   customerName: string
@@ -32,10 +40,6 @@ export interface InvoiceDto {
   totalInclTax: number
   totalVat: number
 }
-
-// ---------------------------------------------------------------------------
-// DTO types (match inertia/lib/types.ts shapes for Inertia props)
-// ---------------------------------------------------------------------------
 
 export interface InvoiceLineDto {
   description: string
@@ -55,18 +59,18 @@ export interface SaveInvoiceDraftInput {
   lines: SaveInvoiceLineInput[]
 }
 
+// ---------------------------------------------------------------------------
+// Row types inferred from schema
+// ---------------------------------------------------------------------------
+
 export interface SaveInvoiceLineInput {
   description: string
   quantity: number
   unitPrice: number
   vatRate: number
 }
-
-// ---------------------------------------------------------------------------
-// Row types inferred from schema
-// ---------------------------------------------------------------------------
-
 type InvoiceLineRow = typeof invoiceLines.$inferSelect
+
 type InvoiceRow = typeof invoices.$inferSelect
 
 // ---------------------------------------------------------------------------
@@ -143,7 +147,7 @@ export class InvoiceService {
     })
   }
 
-  async issueInvoice(id: string): Promise<InvoiceDto> {
+  async issueInvoice(id: string, hooks?: InvoiceConcurrencyHooks): Promise<InvoiceDto> {
     return this.db.transaction(async (tx) => {
       const [existing] = await tx.select().from(invoices).where(eq(invoices.id, id))
       if (!existing) {
@@ -153,6 +157,7 @@ export class InvoiceService {
       if (existing.status !== 'draft') {
         throw new DomainError('Only draft invoices can be issued.', 'business_logic_error')
       }
+      await hooks?.afterRead?.()
 
       const [updated] = await tx
         .update(invoices)
@@ -221,7 +226,7 @@ export class InvoiceService {
     })
   }
 
-  async markInvoicePaid(id: string): Promise<InvoiceDto> {
+  async markInvoicePaid(id: string, hooks?: InvoiceConcurrencyHooks): Promise<InvoiceDto> {
     return this.db.transaction(async (tx) => {
       const [existing] = await tx.select().from(invoices).where(eq(invoices.id, id))
       if (!existing) {
@@ -230,6 +235,7 @@ export class InvoiceService {
       if (existing.status !== 'issued') {
         throw new DomainError('Only issued invoices can be marked as paid.', 'business_logic_error')
       }
+      await hooks?.afterRead?.()
 
       const [updated] = await tx
         .update(invoices)
@@ -255,7 +261,11 @@ export class InvoiceService {
     })
   }
 
-  async updateDraft(id: string, input: SaveInvoiceDraftInput): Promise<InvoiceDto> {
+  async updateDraft(
+    id: string,
+    input: SaveInvoiceDraftInput,
+    hooks?: InvoiceConcurrencyHooks
+  ): Promise<InvoiceDto> {
     return this.db.transaction(async (tx) => {
       const [existing] = await tx
         .select({ status: invoices.status })
@@ -266,6 +276,7 @@ export class InvoiceService {
       if (existing.status !== 'draft') {
         throw new DomainError('Only draft invoices can be edited.', 'business_logic_error')
       }
+      await hooks?.afterRead?.()
 
       const [customer] = await tx
         .select({ company: customers.company })

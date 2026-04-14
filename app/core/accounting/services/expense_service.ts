@@ -17,6 +17,10 @@ export interface DateFilter {
   startDate: string
 }
 
+export interface ExpenseConcurrencyHooks {
+  afterRead?: () => Promise<void>
+}
+
 export interface ExpenseSummary {
   confirmedCount: number
   draftCount: number
@@ -47,19 +51,23 @@ interface ExpenseListResult {
 
 type ExpenseRow = typeof expenses.$inferSelect
 
+const MAX_PER_PAGE = 100
+const MIN_PER_PAGE = 1
+
 export class ExpenseService {
   constructor(private readonly db: PostgresJsDatabase<any>) {}
 
-  async confirmExpense(id: string): Promise<ExpenseDto> {
+  async confirmExpense(id: string, hooks?: ExpenseConcurrencyHooks): Promise<ExpenseDto> {
+    // Atomicity: the winning workflow updates status and writes journal entry in one transaction.
     return this.db.transaction(async (tx) => {
+      // Read is diagnostic only: we only fail fast on true not-found.
       const [existing] = await tx.select().from(expenses).where(eq(expenses.id, id))
       if (!existing) {
         throw new DomainError('Expense not found.', 'not_found')
       }
-      if (existing.status !== 'draft') {
-        throw new DomainError('Only draft expenses can be confirmed.', 'business_logic_error')
-      }
+      await hooks?.afterRead?.()
 
+      // Conditional write arbitrates concurrency and status validity.
       const [updated] = await tx
         .update(expenses)
         .set({ status: 'confirmed' })
@@ -88,6 +96,13 @@ export class ExpenseService {
   }
 
   async createExpense(input: CreateExpenseInput): Promise<ExpenseDto> {
+    if (input.amount <= 0) {
+      throw new DomainError('Amount must be greater than 0.', 'invalid_data')
+    }
+    if (input.label.trim().length === 0) {
+      throw new DomainError('Label must not be empty.', 'invalid_data')
+    }
+
     const amountCents = Math.round(input.amount * 100)
 
     const [row] = await this.db
@@ -97,7 +112,7 @@ export class ExpenseService {
         category: input.category,
         date: input.date,
         id: uuidv7(),
-        label: input.label,
+        label: input.label.trim(),
         status: 'draft',
       })
       .returning()
@@ -105,16 +120,17 @@ export class ExpenseService {
     return toExpenseDto(row)
   }
 
-  async deleteExpense(id: string): Promise<void> {
+  async deleteExpense(id: string, hooks?: ExpenseConcurrencyHooks): Promise<void> {
+    // Atomicity: the winning delete happens entirely inside one transaction.
     return this.db.transaction(async (tx) => {
+      // Read is diagnostic only: we only fail fast on true not-found.
       const [existing] = await tx.select().from(expenses).where(eq(expenses.id, id))
       if (!existing) {
         throw new DomainError('Expense not found.', 'not_found')
       }
-      if (existing.status !== 'draft') {
-        throw new DomainError('Only draft expenses can be deleted.', 'business_logic_error')
-      }
+      await hooks?.afterRead?.()
 
+      // Conditional delete arbitrates concurrency and status validity.
       const [deleted] = await tx
         .delete(expenses)
         .where(and(eq(expenses.id, id), eq(expenses.status, 'draft')))
@@ -155,6 +171,7 @@ export class ExpenseService {
   }
 
   async listExpenses(page = 1, perPage = 5, dateFilter?: DateFilter): Promise<ExpenseListResult> {
+    const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
     const where = dateCondition(dateFilter)
 
     const [{ totalCount }] = await this.db
@@ -162,28 +179,34 @@ export class ExpenseService {
       .from(expenses)
       .where(where)
 
-    const totalPages = Math.max(1, Math.ceil(totalCount / perPage))
-    const safePage = Math.min(Math.max(page, 1), totalPages)
-    const offset = (safePage - 1) * perPage
+    const totalPages = Math.max(1, Math.ceil(totalCount / safePerPage))
+    const safePage = clampInteger(page, 1, totalPages)
+    const offset = (safePage - 1) * safePerPage
 
     const rows = await this.db
       .select()
       .from(expenses)
       .where(where)
       .orderBy(desc(expenses.date), expenses.label)
-      .limit(perPage)
+      .limit(safePerPage)
       .offset(offset)
 
     return {
       items: rows.map(toExpenseDto),
       pagination: {
         page: safePage,
-        perPage,
+        perPage: safePerPage,
         totalItems: totalCount,
         totalPages,
       },
     }
   }
+}
+
+function clampInteger(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min
+  const normalized = Math.trunc(value)
+  return Math.min(Math.max(normalized, min), max)
 }
 
 function dateCondition(filter?: DateFilter) {
