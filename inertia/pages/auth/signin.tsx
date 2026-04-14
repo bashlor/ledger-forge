@@ -1,5 +1,5 @@
 import { Form, Link } from '@adonisjs/inertia/react'
-import { Head } from '@inertiajs/react'
+import { Head, router } from '@inertiajs/react'
 
 import type { FormErrors } from '~/types'
 
@@ -97,6 +97,14 @@ export default function Signin() {
                       type="submit"
                     >
                       Authorize access
+                    </button>
+
+                    <button
+                      className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-low py-3 text-xs font-bold uppercase tracking-widest text-on-surface transition-colors hover:bg-surface-container"
+                      onClick={() => router.post('/signin/anonymous')}
+                      type="button"
+                    >
+                      Continue in anonymous mode
                     </button>
 
                     <div className="flex items-center justify-center gap-2 text-sm text-on-surface-variant">

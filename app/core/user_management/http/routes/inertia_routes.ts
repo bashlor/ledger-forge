@@ -2,6 +2,7 @@ import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 
 const ForgotPasswordController = () => import('../controllers/forgot_password_controller.js')
+const AnonymousSigninController = () => import('../controllers/anonymous_signin_controller.js')
 const ResetPasswordController = () => import('../controllers/reset_password_controller.js')
 const SigninController = () => import('../controllers/signin_controller.js')
 const SignoutController = () => import('../controllers/signout_controller.js')
@@ -16,6 +17,7 @@ router
 
     router.get('signin', [SigninController, 'show']).as('signin.show')
     router.post('signin', [SigninController, 'store']).as('signin.store')
+    router.post('signin/anonymous', [AnonymousSigninController, 'store']).as('signin.anonymous')
 
     router.get('forgot-password', [ForgotPasswordController, 'show']).as('forgot_password.show')
     router.post('forgot-password', [ForgotPasswordController, 'store']).as('forgot_password.store')
