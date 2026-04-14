@@ -33,6 +33,7 @@ yarn-error.log
 
 .tmp
 private_docs
+private_scripts
 
 # Testing
 coverage
