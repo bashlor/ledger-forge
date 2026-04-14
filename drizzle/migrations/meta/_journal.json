@@ -43,6 +43,13 @@
       "when": 1776166997759,
       "tag": "0005_huge_night_nurse",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776200000000,
+      "tag": "0006_rapid_sentinel",
+      "breakpoints": true
     }
   ]
 }

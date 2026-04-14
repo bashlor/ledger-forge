@@ -160,6 +160,54 @@ export class BetterAuthAdapter extends AuthenticationPort {
     }
   }
 
+  async signInAnonymously(): Promise<AuthResult> {
+    type AnonymousApi = {
+      signInAnonymous: () => Promise<{
+        token: string
+        user: {
+          createdAt: Date
+          email: string
+          emailVerified: boolean
+          id: string
+          image?: null | string
+          name: null | string
+        }
+      }>
+    }
+
+    let response: Awaited<ReturnType<AnonymousApi['signInAnonymous']>>
+    try {
+      response = await (this.auth.api as unknown as AnonymousApi).signInAnonymous()
+    } catch (error) {
+      throw mapBetterAuthError(error)
+    }
+
+    const session = await this.drizzle.query.session.findFirst({
+      where: (s: any, { eq }: any) => eq(s.token, response.token),
+    })
+
+    if (!session) {
+      throw AuthenticationError.linkingFailed('Session not found after anonymous sign-in')
+    }
+
+    return {
+      session: {
+        expiresAt: session.expiresAt,
+        token: session.token,
+        userId: session.userId,
+      },
+      user: {
+        createdAt: new Date(response.user.createdAt),
+        email: response.user.email,
+        emailVerified: response.user.emailVerified,
+        id: response.user.id,
+        image: response.user.image ?? null,
+        isAnonymous: true,
+        name: response.user.name ?? null,
+      },
+    }
+  }
+
   async signOut(sessionToken: string): Promise<void> {
     try {
       await this.auth.api.signOut({
@@ -260,6 +308,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
     emailVerified: boolean
     id: string
     image?: null | string
+    isAnonymous?: boolean
     name: string
   }): AuthProviderUser {
     return {
@@ -268,6 +317,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
       emailVerified: user.emailVerified ?? false,
       id: String(user.id),
       image: user.image ?? null,
+      isAnonymous: user.isAnonymous ?? false,
       name: user.name ?? null,
     }
   }
