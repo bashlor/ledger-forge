@@ -61,6 +61,6 @@ docker run --rm --env-file .env accounting-app node ace migration:run --force
 Notes:
 
 - The image is built from a multi-stage `Dockerfile` and runs with `NODE_ENV=production`.
-- Runtime target is distroless (`gcr.io/distroless/nodejs24-debian12`) with no shell.
+- Runtime target is a hardened shell-less image (`cgr.dev/chainguard/node`).
 - Runtime uses the standalone AdonisJS build output (`build/`) generated during build stage.
 - Required variables must be provided at runtime (for example via `--env-file .env`).

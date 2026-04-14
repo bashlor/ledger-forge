@@ -23,7 +23,7 @@ RUN pnpm build -- --package-manager=pnpm
 # ----------------------------
 # Stage 3: Production runtime (distroless)
 # ----------------------------
-FROM gcr.io/distroless/nodejs24-debian12@sha256:61f4f4341db81820c24ce771b83d202eb6452076f58628cd536cc7d94a10978b AS production
+FROM cgr.dev/chainguard/node:latest@sha256:f05865c39e39728adbd1dd5b418e853694631e8818cf1468a5b6b73d65889b15 AS production
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -32,4 +32,4 @@ COPY --from=build --chown=nonroot:nonroot /app/build ./
 USER nonroot:nonroot
 
 EXPOSE 3333
-CMD ["bin/server.js"]
+CMD ["node", "bin/server.js"]
