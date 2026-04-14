@@ -8,19 +8,24 @@ import { clearSessionToken, readSessionToken } from '../session/session_token.js
 export default class SignoutController {
   @inject()
   async store(ctx: HttpContext, auth: AuthenticationPort) {
-    ctx.logger.info('Logout attempt')
+    const sessionToken = readSessionToken(ctx)
+    const isAnonymous = ctx.authSession?.user.isAnonymous ?? false
+
+    ctx.logger.info({ isAnonymous, userId: ctx.authSession?.user.id ?? null }, 'Signout attempt')
 
     try {
-      const sessionToken = readSessionToken(ctx)
       if (sessionToken) {
         await auth.signOut(sessionToken)
+        ctx.logger.info({ isAnonymous }, 'Better Auth signOut succeeded')
+      } else {
+        ctx.logger.warn('Signout: no session token found in cookie')
       }
     } catch (error) {
-      ctx.logger.error({ err: error }, 'Logout error')
+      ctx.logger.error({ err: error, isAnonymous }, 'Signout error from Better Auth')
     }
 
     clearSessionToken(ctx)
-    ctx.logger.info('Logout success')
+    ctx.logger.info({ isAnonymous }, 'Session cookie cleared, redirecting to /')
     return ctx.response.redirect('/')
   }
 }

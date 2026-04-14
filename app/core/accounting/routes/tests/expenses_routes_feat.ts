@@ -21,6 +21,7 @@ const fakeUser: AuthProviderUser = {
   emailVerified: true,
   id: 'user_test',
   image: null,
+  isAnonymous: false,
   name: 'Test User',
 }
 
@@ -48,6 +49,9 @@ class FakeAuth extends AuthenticationPort {
   async resetPassword(): Promise<void> {}
   async sendVerificationEmail(): Promise<void> {}
   async signIn(): Promise<AuthResult> {
+    return fakeSession
+  }
+  async signInAnonymously(): Promise<AuthResult> {
     return fakeSession
   }
   async signOut(): Promise<void> {}

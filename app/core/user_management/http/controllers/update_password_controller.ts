@@ -11,6 +11,14 @@ import { changePasswordValidator } from '../validators/user.js'
 export default class UpdatePasswordController {
   @inject()
   async store(ctx: HttpContext, auth: AuthenticationPort) {
+    if (ctx.authSession?.user.isAnonymous) {
+      ctx.logger.warn(
+        { userId: ctx.authSession.user.id },
+        'Anonymous user attempted password change — rejected'
+      )
+      return ctx.response.forbidden('Password change is not available for anonymous accounts.')
+    }
+
     const { currentPassword, newPassword } =
       await ctx.request.validateUsing(changePasswordValidator)
     const sessionToken = readSessionToken(ctx)
