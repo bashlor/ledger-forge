@@ -37,3 +37,30 @@ Or bootstrap the local setup in one shot:
 ```
 
 That script installs dependencies, creates `.env` and `.env.test` from the examples, generates fresh auth secrets, starts Docker services, runs migrations, and then stops Docker again.
+
+## Docker (production image)
+
+Build the production image:
+
+```bash
+docker build -t accounting-app .
+```
+
+Run the container:
+
+```bash
+docker run --rm -p 3333:3333 --env-file .env accounting-app
+```
+
+Run migrations before startup (one-shot command):
+
+```bash
+docker run --rm --env-file .env accounting-app node ace migration:run --force
+```
+
+Notes:
+
+- The image is built from a multi-stage `Dockerfile` and runs with `NODE_ENV=production`.
+- Runtime target is distroless (`gcr.io/distroless/nodejs24-debian12`) with no shell.
+- Runtime uses the standalone AdonisJS build output (`build/`) generated during build stage.
+- Required variables must be provided at runtime (for example via `--env-file .env`).
