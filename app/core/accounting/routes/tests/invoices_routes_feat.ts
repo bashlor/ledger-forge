@@ -152,6 +152,31 @@ test.group('Invoices routes | backend invariants', (group) => {
     assert.equal(lines[0].lineTotalInclTaxCents, 120_000)
   })
 
+  test('concurrent draft creation generates unique invoice numbers', async ({ assert, client }) => {
+    const draftPayload = {
+      customerId: TEST_CUSTOMER_ID,
+      dueDate: '2026-04-30',
+      issueDate: '2026-04-01',
+      'lines[0][description]': 'Concurrent numbering',
+      'lines[0][quantity]': 1,
+      'lines[0][unitPrice]': 100,
+      'lines[0][vatRate]': 20,
+    }
+
+    await Promise.allSettled([
+      client.post('/invoices').header('cookie', authCookie()).redirects(0).form(draftPayload),
+      client.post('/invoices').header('cookie', authCookie()).redirects(0).form(draftPayload),
+    ])
+
+    const rows = await db.select().from(invoices)
+    assert.equal(rows.length, 2)
+
+    const invoiceNumbers = rows.map((row) => row.invoiceNumber)
+    assert.equal(new Set(invoiceNumbers).size, 2)
+    assert.include(invoiceNumbers, 'INV-2026-001')
+    assert.include(invoiceNumbers, 'INV-2026-002')
+  })
+
   test('draft → issued is irreversible (re-issuing an issued invoice is rejected)', async ({
     assert,
     client,

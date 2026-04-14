@@ -2,7 +2,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
-import { and, count, desc, eq, gte, inArray, lte } from 'drizzle-orm'
+import { and, desc, eq, inArray, like, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 import { calculateLine, calculateTotals, fromDisplayUnits } from './invoice_calculations.js'
@@ -327,11 +327,21 @@ export class InvoiceService {
 
 async function nextInvoiceNumber(db: any, issueDate: string): Promise<string> {
   const year = issueDate.slice(0, 4)
-  const [{ total }] = await db
-    .select({ total: count() })
+  const lockKey = `invoice-number-${year}`
+
+  await db.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`)
+
+  const [{ lastSequence }] = await db
+    .select({
+      lastSequence:
+        sql<number>`coalesce(max(((regexp_match(${invoices.invoiceNumber}, ${`^INV-${year}-(\\d+)$`}))[1])::int), 0)`.mapWith(
+          Number
+        ),
+    })
     .from(invoices)
-    .where(and(gte(invoices.issueDate, `${year}-01-01`), lte(invoices.issueDate, `${year}-12-31`)))
-  return `INV-${year}-${String(Number(total) + 1).padStart(3, '0')}`
+    .where(like(invoices.invoiceNumber, `INV-${year}-%`))
+
+  return `INV-${year}-${String((lastSequence ?? 0) + 1).padStart(3, '0')}`
 }
 
 function toInvoiceDto(row: InvoiceRow, lines: InvoiceLineDto[]): InvoiceDto {
