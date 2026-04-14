@@ -48,7 +48,9 @@ export default function Settings({ user }: SettingsProps) {
                 Security
               </p>
               <p className="mt-1.5 text-sm font-semibold text-on-surface">Password protected</p>
-              <p className="mt-0.5 text-sm text-on-surface-variant">Rotate credentials when needed.</p>
+              <p className="mt-0.5 text-sm text-on-surface-variant">
+                Rotate credentials when needed.
+              </p>
             </div>
           </div>
         </div>
@@ -103,7 +105,9 @@ export default function Settings({ user }: SettingsProps) {
                       name="name"
                       type="text"
                     />
-                    {errors.name ? <p className="text-sm font-medium text-error">{errors.name}</p> : null}
+                    {errors.name ? (
+                      <p className="text-sm font-medium text-error">{errors.name}</p>
+                    ) : null}
                   </div>
                 </div>
 

@@ -31,9 +31,7 @@ export function ExpenseTable({ items, onConfirm, onDelete, processingId }: Expen
             <tr key={expense.id}>
               <td className="px-4 py-3 font-medium text-on-surface">{expense.label}</td>
               <td className="px-4 py-3 text-on-surface-variant">{expense.category}</td>
-              <td className="px-4 py-3 text-on-surface-variant">
-                {formatShortDate(expense.date)}
-              </td>
+              <td className="px-4 py-3 text-on-surface-variant">{formatShortDate(expense.date)}</td>
               <td className="px-4 py-3">
                 <StatusBadge status={expense.status} />
               </td>

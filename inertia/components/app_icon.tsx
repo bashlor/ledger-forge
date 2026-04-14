@@ -102,7 +102,12 @@ const iconRegistry: Record<string, { filled?: IconComponent; outline: IconCompon
   },
 }
 
-export function AppIcon({ className = '', filled = false, name, size = DEFAULT_SIZE }: AppIconProps) {
+export function AppIcon({
+  className = '',
+  filled = false,
+  name,
+  size = DEFAULT_SIZE,
+}: AppIconProps) {
   const entry = iconRegistry[name]
 
   if (!entry) {

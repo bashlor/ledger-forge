@@ -16,7 +16,9 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard: D
   const { scope } = useDateScope()
   const profitTone =
     dashboard.summary.profit > 0 ? 'success' : dashboard.summary.profit < 0 ? 'danger' : 'default'
-  const scopedInvoices = dashboard.recentInvoices.filter((invoice) => isDateWithinScope(invoice.date, scope))
+  const scopedInvoices = dashboard.recentInvoices.filter((invoice) =>
+    isDateWithinScope(invoice.date, scope)
+  )
 
   return (
     <>

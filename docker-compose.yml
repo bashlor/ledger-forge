@@ -18,8 +18,7 @@ services:
     restart: unless-stopped
     ports:
       - '${REDIS_PORT:-6379}:6379'
-    command:
-      ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:-redis}']
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:-redis}']
     volumes:
       - redis_data:/data
 

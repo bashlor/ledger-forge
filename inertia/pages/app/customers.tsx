@@ -12,9 +12,7 @@ import { CustomerDrawer } from './customers/customer_drawer'
 import { SummaryCards } from './customers/summary_cards'
 import { CustomerTable } from './customers/table'
 
-export default function CustomersPage({
-  customers,
-}: InertiaProps<{ customers: CustomerListDto }>) {
+export default function CustomersPage({ customers }: InertiaProps<{ customers: CustomerListDto }>) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerKey, setDrawerKey] = useState(0)
   const [editTarget, setEditTarget] = useState<CustomerDto | null>(null)
@@ -107,11 +105,11 @@ export default function CustomersPage({
           emptyMessage="No customers yet. Add a contact before creating invoices."
           isEmpty={items.length === 0}
           onPageChange={(nextPage) =>
-            router.get(
-              '/customers',
-              nextPage > 1 ? { page: nextPage } : {},
-              { only: ['customers'], preserveScroll: true, replace: true }
-            )
+            router.get('/customers', nextPage > 1 ? { page: nextPage } : {}, {
+              only: ['customers'],
+              preserveScroll: true,
+              replace: true,
+            })
           }
           pagination={pagination}
           title="Customer register"
