@@ -66,14 +66,6 @@ export class ExpenseService {
         .where(and(eq(expenses.id, id), eq(expenses.status, 'draft')))
         .returning()
 
-      if (!updated) {
-        const [again] = await tx.select().from(expenses).where(eq(expenses.id, id))
-        if (!again) {
-          throw new DomainError('Expense not found.', 'not_found')
-        }
-        throw new DomainError('Only draft expenses can be confirmed.', 'business_logic_error')
-      }
-
       await tx.insert(journalEntries).values({
         amountCents: updated.amountCents,
         date: updated.date,
