@@ -130,7 +130,10 @@ export class InvoiceService {
       .returning({ id: invoices.id })
 
     if (!deleted) {
-      throw await this.notDraftError(id, 'deleted')
+      if(!deleted) {
+        throw new DomainError('Invoice not found.', 'not_found')
+      }
+      throw new DomainError('Only draft invoices can be deleted.', 'business_logic_error')
     }
   }
 
@@ -143,7 +146,10 @@ export class InvoiceService {
         .returning()
 
       if (!updated) {
-        throw await this.notDraftError(id, 'issued')
+        if(!updated) {
+          throw new DomainError('Invoice not found.', 'not_found')
+        }
+        throw new DomainError('Only draft invoices can be issued.', 'business_logic_error')
       }
 
       await tx.insert(journalEntries).values({
@@ -208,7 +214,10 @@ export class InvoiceService {
         .returning()
 
       if (!updated) {
-        throw await this.notIssuedError(id)
+        if(!updated) {
+          throw new DomainError('Invoice not found.', 'not_found')
+        }
+        throw new DomainError('Only issued invoices can be marked as paid.', 'business_logic_error')
       }
 
       const lineRows = await tx
@@ -273,30 +282,6 @@ export class InvoiceService {
 
       return toInvoiceDto(updated, insertedLines.map(toLineDto))
     })
-  }
-
-  private async notDraftError(id: string, action: string): Promise<DomainError> {
-    const [existing] = await this.db
-      .select({ id: invoices.id })
-      .from(invoices)
-      .where(eq(invoices.id, id))
-
-    return new DomainError(
-      existing ? `Only draft invoices can be ${action}.` : 'Invoice not found.',
-      existing ? 'business_logic_error' : 'not_found'
-    )
-  }
-
-  private async notIssuedError(id: string): Promise<DomainError> {
-    const [existing] = await this.db
-      .select({ id: invoices.id })
-      .from(invoices)
-      .where(eq(invoices.id, id))
-
-    return new DomainError(
-      existing ? 'Only issued invoices can be marked as paid.' : 'Invoice not found.',
-      existing ? 'business_logic_error' : 'not_found'
-    )
   }
 }
 
