@@ -42,22 +42,9 @@
       "esbuild"
     ],
     "overrides": {
-      "axios": "1.15.0",
+      "@adonisjs/http-server": "^8.2.0",
       "brace-expansion@2.0.2": "2.0.3",
-      "brace-expansion@5.0.4": "5.0.5",
-      "defu": "^6.1.5",
-      "esbuild": "^0.25.12",
-      "flatted": "^3.4.2",
-      "kysely": "^0.28.14",
-      "lodash": "^4.18.0",
-      "lodash-es": "^4.18.0",
-      "micromatch>picomatch": "2.3.2",
-      "anymatch>picomatch": "2.3.2",
-      "@adonisjs/assembler>picomatch": "4.0.4",
-      "@stylistic/eslint-plugin>picomatch": "4.0.4",
-      "hot-hook>picomatch": "4.0.4",
-      "vite>picomatch": "4.0.4",
-      "yaml": "^2.8.3"
+      "brace-expansion@5.0.4": "5.0.5"
     }
   },
   "imports": {

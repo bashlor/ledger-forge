@@ -26,6 +26,6 @@ export default class ForgotPasswordController {
       'success',
       'If an account with that email exists, a password reset link has been sent.'
     )
-    response.redirect().back()
+    return response.redirect().toPath(request.url())
   }
 }
