@@ -1,3 +1,4 @@
+import type { DateFilter } from '#core/accounting/services/expense_service'
 import type { HttpContext } from '@adonisjs/core/http'
 
 import { InvoiceService } from '#core/accounting/services/invoice_service'
@@ -6,10 +7,13 @@ import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'
 import {
+  invoiceIndexValidator,
   invoiceParamsValidator,
   issueInvoiceValidator,
   saveInvoiceDraftValidator,
 } from '../validators/invoice.js'
+
+const PER_PAGE = 5
 
 export default class InvoicesController {
   @inject()
@@ -30,11 +34,41 @@ export default class InvoicesController {
   async index(ctx: HttpContext, invoiceService: InvoiceService) {
     const { inertia, request } = ctx
 
+    const {
+      customer,
+      endDate,
+      invoice: invoiceFromQuery,
+      page,
+      startDate,
+    } = await ctx.request.validateUsing(invoiceIndexValidator)
+
+    const dateFilter: DateFilter | undefined =
+      startDate && endDate ? { endDate, startDate } : undefined
+
+    let initialInvoiceId: null | string = invoiceFromQuery ?? null
+    if (!initialInvoiceId && customer) {
+      initialInvoiceId = await invoiceService.findFirstInvoiceIdForCustomer(customer, dateFilter)
+    }
+
+    const listResult = await invoiceService.listInvoices(page ?? 1, PER_PAGE, dateFilter)
+
+    let { items, pagination } = listResult
+    if (initialInvoiceId && !items.some((i) => i.id === initialInvoiceId)) {
+      const extra = await invoiceService.getInvoiceById(initialInvoiceId)
+      if (extra) {
+        items = [extra, ...items]
+      }
+    }
+
     return renderInertiaPage(inertia, 'app/invoices', {
       customers: await invoiceService.listCustomersForSelect(),
-      initialCustomerId: request.input('customer') ?? null,
-      initialInvoiceId: request.input('invoice') ?? null,
-      invoices: await invoiceService.listInvoices(),
+      initialCustomerId: customer ?? null,
+      initialInvoiceId,
+      invoices: { items, pagination },
+      invoiceSummary: inertia.defer(
+        () => invoiceService.getInvoiceSummary(dateFilter) as never,
+        'invoiceSummary'
+      ),
       mode: request.input('mode') === 'new' ? 'new' : 'view',
     })
   }
@@ -104,10 +138,32 @@ export default class InvoicesController {
     return this.redirectToInvoices(ctx, { invoice: params.id })
   }
 
-  private redirectToInvoices(ctx: HttpContext, qs: { invoice?: string; mode?: 'new' } = {}) {
-    const params = Object.fromEntries(Object.entries(qs).filter(([, v]) => v !== undefined))
+  private redirectToInvoices(
+    ctx: HttpContext,
+    extras: { customer?: string; invoice?: string; mode?: 'new' } = {}
+  ) {
+    const page = Number(ctx.request.input('page'))
+    const startDate = ctx.request.input('startDate')
+    const endDate = ctx.request.input('endDate')
+    const customer = ctx.request.input('customer')
+    const invoiceFromRequest = ctx.request.input('invoice')
+    const qs: Record<string, number | string> = {}
+
+    if (Number.isFinite(page) && page > 1) qs.page = page
+    if (startDate) qs.startDate = startDate
+    if (endDate) qs.endDate = endDate
+
+    const invoice = extras.invoice ?? invoiceFromRequest
+    if (invoice) qs.invoice = invoice
+
+    const customerId = extras.customer ?? customer
+    if (customerId) qs.customer = customerId
+
+    const mode = extras.mode ?? ctx.request.input('mode')
+    if (mode === 'new') qs.mode = 'new'
+
     return ctx.response
       .redirect()
-      .toRoute('invoices.page', [], Object.keys(params).length > 0 ? { qs: params } : undefined)
+      .toRoute('invoices.page', [], Object.keys(qs).length > 0 ? { qs } : undefined)
   }
 }

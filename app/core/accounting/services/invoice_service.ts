@@ -2,8 +2,10 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
-import { and, desc, eq, inArray, like, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, like, lte, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
+
+import type { DateFilter } from './expense_service.js'
 
 import { calculateLine, calculateTotals, fromDisplayUnits } from './invoice_calculations.js'
 
@@ -60,6 +62,22 @@ export interface InvoiceLineDto {
   vatRate: number
 }
 
+export interface InvoiceListResult {
+  items: InvoiceDto[]
+  pagination: {
+    page: number
+    perPage: number
+    totalItems: number
+    totalPages: number
+  }
+}
+
+export interface InvoiceSummaryDto {
+  draftCount: number
+  issuedCount: number
+  overdueCount: number
+}
+
 export interface IssueInvoiceInput {
   issuedCompanyAddress: string
   issuedCompanyName: string
@@ -94,9 +112,8 @@ type InvoiceCustomerSnapshot = Pick<
 type InvoiceLineRow = typeof invoiceLines.$inferSelect
 type InvoiceRow = typeof invoices.$inferSelect
 
-// ---------------------------------------------------------------------------
-// Service
-// ---------------------------------------------------------------------------
+const MAX_PER_PAGE = 100
+const MIN_PER_PAGE = 1
 
 export class InvoiceService {
   constructor(private readonly db: PostgresJsDatabase<any>) {}
@@ -184,6 +201,63 @@ export class InvoiceService {
         throw new DomainError('Only draft invoices can be deleted.', 'business_logic_error')
       }
     })
+  }
+
+  async findFirstInvoiceIdForCustomer(
+    customerId: string,
+    dateFilter?: DateFilter
+  ): Promise<null | string> {
+    const where = and(eq(invoices.customerId, customerId), invoiceDateCondition(dateFilter))
+    const [row] = await this.db
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(where)
+      .orderBy(desc(invoices.issueDate), desc(invoices.invoiceNumber))
+      .limit(1)
+
+    return row?.id ?? null
+  }
+
+  async getInvoiceById(id: string): Promise<InvoiceDto | null> {
+    const [invoice] = await this.db.select().from(invoices).where(eq(invoices.id, id))
+    if (!invoice) return null
+
+    const lineRows = await this.db
+      .select()
+      .from(invoiceLines)
+      .where(eq(invoiceLines.invoiceId, id))
+      .orderBy(invoiceLines.lineNumber)
+
+    return toInvoiceDto(invoice, lineRows.map(toLineDto))
+  }
+
+  async getInvoiceSummary(dateFilter?: DateFilter): Promise<InvoiceSummaryDto> {
+    const where = invoiceDateCondition(dateFilter)
+    const today = new Date().toISOString().slice(0, 10)
+
+    const [row] = await this.db
+      .select({
+        draftCount:
+          sql<number>`coalesce(sum(case when ${invoices.status} = 'draft' then 1 else 0 end), 0)::int`.mapWith(
+            Number
+          ),
+        issuedCount:
+          sql<number>`coalesce(sum(case when ${invoices.status} = 'issued' then 1 else 0 end), 0)::int`.mapWith(
+            Number
+          ),
+        overdueCount:
+          sql<number>`coalesce(sum(case when ${invoices.status} = 'issued' and ${invoices.dueDate} < ${today} then 1 else 0 end), 0)::int`.mapWith(
+            Number
+          ),
+      })
+      .from(invoices)
+      .where(where)
+
+    return {
+      draftCount: row?.draftCount ?? 0,
+      issuedCount: row?.issuedCount ?? 0,
+      overdueCount: row?.overdueCount ?? 0,
+    }
   }
 
   async issueInvoice(
@@ -281,14 +355,38 @@ export class InvoiceService {
       .orderBy(customers.company)
   }
 
-  async listInvoices(): Promise<InvoiceDto[]> {
+  async listInvoices(page = 1, perPage = 5, dateFilter?: DateFilter): Promise<InvoiceListResult> {
+    const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
+    const where = invoiceDateCondition(dateFilter)
+
+    const [{ totalCount }] = await this.db
+      .select({ totalCount: count() })
+      .from(invoices)
+      .where(where)
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / safePerPage))
+    const safePage = clampInteger(page, 1, totalPages)
+    const offset = (safePage - 1) * safePerPage
+
     const invoiceRows = await this.db
       .select()
       .from(invoices)
+      .where(where)
       .orderBy(desc(invoices.issueDate), desc(invoices.invoiceNumber))
-      .limit(500)
+      .limit(safePerPage)
+      .offset(offset)
 
-    if (invoiceRows.length === 0) return []
+    if (invoiceRows.length === 0) {
+      return {
+        items: [],
+        pagination: {
+          page: safePage,
+          perPage: safePerPage,
+          totalItems: totalCount,
+          totalPages,
+        },
+      }
+    }
 
     const invoiceIds = invoiceRows.map((r) => r.id)
     const lineRows = await this.db
@@ -297,10 +395,20 @@ export class InvoiceService {
       .where(inArray(invoiceLines.invoiceId, invoiceIds))
       .orderBy(invoiceLines.invoiceId, invoiceLines.lineNumber)
 
-    return invoiceRows.map((invoice) => {
+    const items = invoiceRows.map((invoice) => {
       const lines = lineRows.filter((l) => l.invoiceId === invoice.id).map(toLineDto)
       return toInvoiceDto(invoice, lines)
     })
+
+    return {
+      items,
+      pagination: {
+        page: safePage,
+        perPage: safePerPage,
+        totalItems: totalCount,
+        totalPages,
+      },
+    }
   }
 
   async markInvoicePaid(id: string, hooks?: InvoiceConcurrencyHooks): Promise<InvoiceDto> {
@@ -434,20 +542,35 @@ export class InvoiceService {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Private helpers
-// ---------------------------------------------------------------------------
-
 function assertDueDateIsNotBefore(dueDate: string, minDate: string, message: string) {
   if (!dueDate || dueDate < minDate) {
     throw new DomainError(message, 'business_logic_error')
   }
 }
 
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
 function assertInvoiceDates(issueDate: string, dueDate: string) {
   if (dueDate < issueDate) {
     throw new DomainError('Due date cannot be before the issue date.', 'business_logic_error')
   }
+}
+
+// ---------------------------------------------------------------------------
+// Private helpers
+// ---------------------------------------------------------------------------
+
+function clampInteger(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min
+  const normalized = Math.trunc(value)
+  return Math.min(Math.max(normalized, min), max)
+}
+
+function invoiceDateCondition(filter?: DateFilter) {
+  if (!filter) return undefined
+  return and(gte(invoices.issueDate, filter.startDate), lte(invoices.issueDate, filter.endDate))
 }
 
 async function nextInvoiceNumber(db: any, issueDate: string): Promise<string> {
