@@ -9,5 +9,5 @@ export function presentAuthError(ctx: HttpContext, error: Error, defaultErrorKey
   ctx.session.flashAll()
   ctx.session.flash('notification', { message: error.message, type: 'error' })
   flashInertiaInputErrors(ctx, authFailureToInputErrorsBag(error, { errorKey: defaultErrorKey }))
-  return ctx.response.redirect().back()
+  return ctx.response.redirect().toPath(ctx.request.url())
 }

@@ -29,7 +29,7 @@ export default class UpdateAccountController {
       await auth.updateUser(sessionToken, { name })
       ctx.logger.info({ name }, 'Profile updated')
       ctx.session.flash('success', 'Profile updated successfully.')
-      return ctx.response.redirect().back()
+      return ctx.response.redirect().toPath(ctx.request.url())
     } catch (error) {
       return presentAuthError(ctx, error as Error, 'E_UPDATE_PROFILE')
     }

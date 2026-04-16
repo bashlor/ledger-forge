@@ -9,7 +9,7 @@ const reactEffectErrorRules = Object.fromEntries(
 
 export default [
   {
-    ignores: ['.adonisjs/**', 'build/**', 'node_modules/**', 'public/assets/**'],
+    ignores: ['.adonisjs/**', 'build/**', 'node_modules/**', 'public/assets/**', 'pnpm-lock.yaml'],
   },
   {
     languageOptions: {

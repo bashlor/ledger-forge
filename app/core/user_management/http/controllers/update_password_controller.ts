@@ -31,7 +31,7 @@ export default class UpdatePasswordController {
       await auth.changePassword(sessionToken, currentPassword, newPassword)
       ctx.logger.info('Password changed successfully')
       ctx.session.flash('success', 'Password changed successfully.')
-      return ctx.response.redirect().back()
+      return ctx.response.redirect().toPath(ctx.request.url())
     } catch (error) {
       return presentAuthError(ctx, error as Error, 'E_CHANGE_PASSWORD')
     }
