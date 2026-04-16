@@ -1,19 +1,23 @@
 import { Head, router } from '@inertiajs/react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type {
   CreateInvoiceInput,
   CustomerSelectDto,
+  DateScope,
   InvoiceDto,
   InvoiceLineInput,
+  InvoiceSummaryDto,
+  PaginatedList,
+  PaginationMetaDto,
 } from '~/lib/types'
 
 import { AppIcon } from '~/components/app_icon'
+import { DataTable } from '~/components/data_table'
 import { useDateScope } from '~/components/date_scope_provider'
 import { DateScopeSummary } from '~/components/date_scope_summary'
 import { PageHeader } from '~/components/page_header'
 import { StatusBadge } from '~/components/status_badge'
-import { isDateWithinScope } from '~/lib/date_scope'
 import { formatCurrency, formatShortDate } from '~/lib/format'
 import {
   calculateInvoiceLine,
@@ -37,12 +41,13 @@ interface InvoicesPageProps {
   customers: CustomerSelectDto[]
   initialCustomerId: null | string
   initialInvoiceId: null | string
-  invoices: InvoiceDto[]
+  invoices: PaginatedList<InvoiceDto>
+  invoiceSummary?: InvoiceSummaryDto
   mode: 'new' | 'view'
 }
 
 export default function InvoicesPage(props: InertiaProps<InvoicesPageProps>) {
-  const resetKey = `${props.mode}|${props.initialInvoiceId}|${props.initialCustomerId}|${props.invoices.map((i) => i.id).join(':')}`
+  const resetKey = `${props.mode}|${props.initialInvoiceId}|${props.initialCustomerId}|${props.invoices.items.map((i) => i.id).join(':')}|${props.invoices.pagination.page}`
   return <InvoicesContent key={resetKey} {...props} />
 }
 
@@ -144,12 +149,34 @@ function InvoicesContent({
   initialCustomerId,
   initialInvoiceId,
   invoices,
+  invoiceSummary,
   mode,
 }: InertiaProps<InvoicesPageProps>) {
   const { scope } = useDateScope()
+  const cachedInvoiceSummary = useRef<InvoiceSummaryDto | null>(null)
+  if (invoiceSummary) {
+    cachedInvoiceSummary.current = invoiceSummary
+  }
+
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (
+      url.searchParams.get('startDate') === scope.startDate &&
+      url.searchParams.get('endDate') === scope.endDate
+    ) {
+      return
+    }
+
+    router.get(
+      '/invoices',
+      { endDate: scope.endDate, startDate: scope.startDate },
+      { preserveScroll: true, preserveState: true, replace: true }
+    )
+  }, [scope.endDate, scope.startDate])
+
   const initialState = createInitialState(
     customers,
-    invoices,
+    invoices.items,
     initialCustomerId,
     initialInvoiceId,
     mode
@@ -166,13 +193,12 @@ function InvoicesContent({
   const [issueForm, setIssueForm] = useState(createInitialIssueForm())
 
   const selectedInvoice = useMemo(
-    () => invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null,
-    [invoices, selectedInvoiceId]
+    () => invoices.items.find((invoice) => invoice.id === selectedInvoiceId) ?? null,
+    [invoices.items, selectedInvoiceId]
   )
   const editingInvoice = selectedInvoice && canEditInvoice(selectedInvoice)
 
   const effectiveCustomerId = form.customerId || customers[0]?.id || ''
-  const scopedInvoices = invoices.filter((invoice) => isDateWithinScope(invoice.issueDate, scope))
   const totals = useMemo(
     () =>
       calculateInvoiceTotals(
@@ -186,25 +212,41 @@ function InvoicesContent({
     [form.lines]
   )
 
-  const draftCount = scopedInvoices.filter((invoice) => invoice.status === 'draft').length
-  const issuedCount = scopedInvoices.filter((invoice) => invoice.status === 'issued').length
-  const overdueCount = scopedInvoices.filter(
-    (invoice) => invoice.status === 'issued' && invoice.dueDate < todayValue()
-  ).length
+  const summary = cachedInvoiceSummary.current
+  const draftCount = summary?.draftCount ?? 0
+  const issuedCount = summary?.issuedCount ?? 0
+  const overdueCount = summary?.overdueCount ?? 0
 
   function handleCreateDraft() {
     setIsCreating(true)
     setSelectedInvoiceId(null)
     setForm(createInitialForm(customers[0]?.id ?? ''))
-    router.get('/invoices', { mode: 'new' }, { preserveScroll: true })
+    router.get(
+      '/invoices',
+      { endDate: scope.endDate, mode: 'new', startDate: scope.startDate },
+      { preserveScroll: true }
+    )
   }
 
   function handleBackToInvoices() {
-    router.get('/invoices', {}, { preserveScroll: true })
+    router.get(
+      '/invoices',
+      { endDate: scope.endDate, startDate: scope.startDate },
+      { preserveScroll: true }
+    )
   }
 
   function handleSelectInvoice(invoice: InvoiceDto) {
-    router.get('/invoices', { invoice: invoice.id }, { preserveScroll: true })
+    router.get(
+      '/invoices',
+      {
+        endDate: scope.endDate,
+        invoice: invoice.id,
+        ...(invoices.pagination.page > 1 ? { page: invoices.pagination.page } : {}),
+        startDate: scope.startDate,
+      },
+      { preserveScroll: true }
+    )
   }
 
   function updateLine(key: string, field: keyof InvoiceLineInput, value: string) {
@@ -243,8 +285,9 @@ function InvoicesContent({
       ...form,
       customerId: effectiveCustomerId,
     })
-    const url =
+    const path =
       selectedInvoice && editingInvoice ? `/invoices/${selectedInvoice.id}/draft` : '/invoices'
+    const url = invoicesUrl(path, scope, invoices.pagination)
 
     if (selectedInvoice && editingInvoice) {
       router.put(url, payload as never, {
@@ -280,7 +323,7 @@ function InvoicesContent({
     if (!selectedInvoice || !canIssueInvoice(selectedInvoice)) return
 
     router.post(
-      `/invoices/${selectedInvoice.id}/issue`,
+      invoicesUrl(`/invoices/${selectedInvoice.id}/issue`, scope, invoices.pagination),
       {
         issuedCompanyAddress: issueForm.issuedCompanyAddress,
         issuedCompanyName: issueForm.issuedCompanyName,
@@ -300,7 +343,7 @@ function InvoicesContent({
     if (!selectedInvoice || !canMarkInvoicePaid(selectedInvoice)) return
 
     router.post(
-      `/invoices/${selectedInvoice.id}/mark-paid`,
+      invoicesUrl(`/invoices/${selectedInvoice.id}/mark-paid`, scope, invoices.pagination),
       {},
       {
         onFinish: () => setSaving(false),
@@ -317,7 +360,7 @@ function InvoicesContent({
       return
     }
     setDeleteConfirmId(null)
-    router.delete(`/invoices/${invoice.id}`, {
+    router.delete(invoicesUrl(`/invoices/${invoice.id}`, scope, invoices.pagination), {
       onFinish: () => setSaving(false),
       onStart: () => setSaving(true),
       preserveScroll: true,
@@ -327,7 +370,7 @@ function InvoicesContent({
   async function handleDeleteDraft() {
     if (!selectedInvoice || !canDeleteInvoice(selectedInvoice)) return
 
-    router.delete(`/invoices/${selectedInvoice.id}`, {
+    router.delete(invoicesUrl(`/invoices/${selectedInvoice.id}`, scope, invoices.pagination), {
       onFinish: () => setSaving(false),
       onStart: () => setSaving(true),
       preserveScroll: true,
@@ -406,149 +449,155 @@ function InvoicesContent({
         {!isFocusMode ? <DateScopeSummary /> : null}
 
         {!isFocusMode ? (
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg bg-surface-container-low px-3 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                Drafts
-              </p>
-              <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-on-surface">
-                {draftCount}
-              </p>
-              <p className="mt-0.5 text-xs text-on-surface-variant">Before issue</p>
+          summary ? (
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-lg bg-surface-container-low px-3 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+                  Drafts
+                </p>
+                <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-on-surface">
+                  {draftCount}
+                </p>
+                <p className="mt-0.5 text-xs text-on-surface-variant">Before issue</p>
+              </div>
+              <div className="rounded-lg bg-surface-container-low px-3 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+                  Issued
+                </p>
+                <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-on-surface">
+                  {issuedCount}
+                </p>
+                <p className="mt-0.5 text-xs text-on-surface-variant">Awaiting payment</p>
+              </div>
+              <div className="rounded-lg bg-surface-container-low px-3 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+                  Overdue
+                </p>
+                <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-error">
+                  {overdueCount}
+                </p>
+                <p className="mt-0.5 text-xs text-on-surface-variant">Past due date</p>
+              </div>
             </div>
-            <div className="rounded-lg bg-surface-container-low px-3 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                Issued
-              </p>
-              <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-on-surface">
-                {issuedCount}
-              </p>
-              <p className="mt-0.5 text-xs text-on-surface-variant">Awaiting payment</p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-3">
+              {[1, 2, 3].map((key) => (
+                <div className="h-24 animate-pulse rounded-lg bg-surface-container-low" key={key} />
+              ))}
             </div>
-            <div className="rounded-lg bg-surface-container-low px-3 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                Overdue
-              </p>
-              <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-error">
-                {overdueCount}
-              </p>
-              <p className="mt-0.5 text-xs text-on-surface-variant">Past due date</p>
-            </div>
-          </div>
+          )
         ) : null}
 
         {!isFocusMode ? (
-          <section className="overflow-hidden rounded-lg border border-outline-variant/20 bg-surface-container-lowest shadow-ambient-tight">
-            <div className="flex items-center justify-between border-b border-outline-variant/10 px-3 py-2.5">
-              <h2 className="text-sm font-semibold text-on-surface">
-                All invoices
-                <span className="ml-2 font-normal text-on-surface-variant">
-                  · {scopedInvoices.length}
-                </span>
-              </h2>
-              <span className="text-[10px] font-medium uppercase tracking-wide text-on-surface-variant">
-                Incl. VAT
-              </span>
-            </div>
-
-            {scopedInvoices.length === 0 ? (
-              <div className="px-3 py-8">
-                <div className="rounded-lg border border-dashed border-outline-variant/40 bg-surface-container-low px-4 py-4 text-sm text-on-surface-variant">
-                  No invoices fall within the selected period.
-                </div>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-outline-variant/15 bg-surface-container-low text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
-                      <th className="px-3 py-2 font-medium" scope="col">
-                        Invoice
-                      </th>
-                      <th className="px-3 py-2 font-medium" scope="col">
-                        Customer
-                      </th>
-                      <th className="px-3 py-2 font-medium" scope="col">
-                        Status
-                      </th>
-                      <th className="px-3 py-2 font-medium" scope="col">
-                        Due
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium tabular-nums" scope="col">
-                        Amount
-                      </th>
-                      <th className="w-px px-2 py-2 text-right" scope="col">
-                        <span className="sr-only">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-outline-variant/10">
-                    {scopedInvoices.map((invoice) => (
-                      <tr
-                        className="cursor-pointer transition-colors hover:bg-surface-container-low/90"
-                        key={invoice.id}
-                        onClick={() => handleSelectInvoice(invoice)}
-                      >
-                        <td className="whitespace-nowrap px-3 py-2 font-medium tabular-nums text-on-surface">
-                          {invoice.invoiceNumber}
-                        </td>
-                        <td className="max-w-[220px] truncate px-3 py-2 text-on-surface">
-                          {invoice.customerCompanyName}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-1.5">
-                          <StatusBadge status={invoice.status} />
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-on-surface-variant">
-                          {formatShortDate(invoice.dueDate)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums text-on-surface">
-                          {formatCurrency(invoice.totalInclTax)}
-                        </td>
-                        <td
-                          className="whitespace-nowrap px-2 py-2 text-right"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          {canDeleteInvoice(invoice) ? (
-                            deleteConfirmId === invoice.id ? (
-                              <span className="inline-flex items-center gap-1.5">
-                                <button
-                                  aria-label={`Confirm delete draft ${invoice.invoiceNumber}`}
-                                  className="rounded border border-error px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/40 disabled:cursor-not-allowed disabled:opacity-50"
-                                  disabled={saving}
-                                  onClick={() => handleDeleteDraftFromList(invoice)}
-                                  type="button"
-                                >
-                                  Confirm
-                                </button>
-                                <button
-                                  aria-label="Cancel delete"
-                                  className="rounded border border-outline-variant/35 px-2 py-1 text-xs font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-low"
-                                  onClick={() => setDeleteConfirmId(null)}
-                                  type="button"
-                                >
-                                  Cancel
-                                </button>
-                              </span>
-                            ) : (
-                              <button
-                                aria-label={`Delete draft ${invoice.invoiceNumber}`}
-                                className="rounded border border-error/20 px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
-                                disabled={saving}
-                                onClick={() => handleDeleteDraftFromList(invoice)}
-                                type="button"
-                              >
-                                Delete draft
-                              </button>
-                            )
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+          <DataTable
+            emptyMessage="No invoices fall within the selected period."
+            isEmpty={invoices.items.length === 0}
+            onPageChange={(page) =>
+              router.get(
+                '/invoices',
+                {
+                  endDate: scope.endDate,
+                  page,
+                  startDate: scope.startDate,
+                },
+                {
+                  only: ['invoices', 'invoiceSummary'],
+                  preserveScroll: true,
+                  preserveState: true,
+                }
+              )
+            }
+            pagination={invoices.pagination.totalItems > 0 ? invoices.pagination : undefined}
+            title="Invoice register"
+          >
+            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-outline-variant/15 bg-surface-container-low text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
+                  <th className="px-4 py-2 font-medium" scope="col">
+                    Invoice
+                  </th>
+                  <th className="px-4 py-2 font-medium" scope="col">
+                    Customer
+                  </th>
+                  <th className="px-4 py-2 font-medium" scope="col">
+                    Status
+                  </th>
+                  <th className="px-4 py-2 font-medium" scope="col">
+                    Due
+                  </th>
+                  <th className="px-4 py-2 text-right font-medium tabular-nums" scope="col">
+                    Amount <span className="font-normal text-on-surface-variant">(incl. VAT)</span>
+                  </th>
+                  <th className="w-px px-2 py-2 text-right" scope="col">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/10">
+                {invoices.items.map((invoice) => (
+                  <tr
+                    className="cursor-pointer transition-colors hover:bg-surface-container-low/90"
+                    key={invoice.id}
+                    onClick={() => handleSelectInvoice(invoice)}
+                  >
+                    <td className="whitespace-nowrap px-4 py-2 font-medium tabular-nums text-on-surface">
+                      {invoice.invoiceNumber}
+                    </td>
+                    <td className="max-w-[220px] truncate px-4 py-2 text-on-surface">
+                      {invoice.customerCompanyName}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-1.5">
+                      <StatusBadge status={invoice.status} />
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2 tabular-nums text-on-surface-variant">
+                      {formatShortDate(invoice.dueDate)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2 text-right font-semibold tabular-nums text-on-surface">
+                      {formatCurrency(invoice.totalInclTax)}
+                    </td>
+                    <td
+                      className="whitespace-nowrap px-2 py-2 text-right"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {canDeleteInvoice(invoice) ? (
+                        deleteConfirmId === invoice.id ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <button
+                              aria-label={`Confirm delete draft ${invoice.invoiceNumber}`}
+                              className="rounded border border-error px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/40 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={saving}
+                              onClick={() => handleDeleteDraftFromList(invoice)}
+                              type="button"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              aria-label="Cancel delete"
+                              className="rounded border border-outline-variant/35 px-2 py-1 text-xs font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-low"
+                              onClick={() => setDeleteConfirmId(null)}
+                              type="button"
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            aria-label={`Delete draft ${invoice.invoiceNumber}`}
+                            className="rounded border border-error/20 px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={saving}
+                            onClick={() => handleDeleteDraftFromList(invoice)}
+                            type="button"
+                          >
+                            Delete draft
+                          </button>
+                        )
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </DataTable>
         ) : (
           <section className="overflow-hidden rounded-xl bg-surface-container-lowest shadow-ambient-tight">
             {isCreating || editingInvoice ? (
@@ -1000,6 +1049,18 @@ function InvoicesContent({
       />
     </>
   )
+}
+
+function invoicesUrl(path: string, scope: DateScope, pagination: PaginationMetaDto) {
+  const params = new URLSearchParams({
+    endDate: scope.endDate,
+    startDate: scope.startDate,
+  })
+  if (pagination.page > 1) {
+    params.set('page', String(pagination.page))
+  }
+  const s = params.toString()
+  return s ? `${path}?${s}` : path
 }
 
 function invoiceToForm(invoice: InvoiceDto) {

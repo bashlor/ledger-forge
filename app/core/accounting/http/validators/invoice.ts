@@ -29,3 +29,11 @@ export const issueInvoiceValidator = vine.create({
   issuedCompanyAddress: vine.string().trim().minLength(1).maxLength(4000),
   issuedCompanyName: vine.string().trim().minLength(1).maxLength(255),
 })
+
+export const invoiceIndexValidator = vine.create({
+  customer: vine.string().trim().minLength(1).maxLength(128).optional(),
+  endDate: dateValidatorRegex.clone().optional(),
+  invoice: vine.string().trim().minLength(1).maxLength(128).optional(),
+  page: vine.number().min(1).optional(),
+  startDate: dateValidatorRegex.clone().optional(),
+})

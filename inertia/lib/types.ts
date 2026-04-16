@@ -145,6 +145,12 @@ export interface InvoiceLineInput {
 
 export type InvoiceStatus = 'draft' | 'issued' | 'paid'
 
+export interface InvoiceSummaryDto {
+  draftCount: number
+  issuedCount: number
+  overdueCount: number
+}
+
 export interface PaginatedList<T> {
   items: T[]
   pagination: PaginationMetaDto
