@@ -6,10 +6,10 @@ export const customerIndexValidator = vine.create({
 
 export const saveCustomerValidator = vine.create({
   company: vine.string().trim().minLength(1).maxLength(255),
-  email: vine.string().trim().email().maxLength(255),
+  email: vine.string().trim().email().maxLength(255).optional(),
   name: vine.string().trim().minLength(1).maxLength(255),
   note: vine.string().trim().maxLength(2000).optional(),
-  phone: vine.string().trim().minLength(1).maxLength(64),
+  phone: vine.string().trim().minLength(1).maxLength(64).optional(),
 })
 
 export const customerParamsValidator = vine.create({

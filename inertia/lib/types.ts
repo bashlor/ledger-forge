@@ -1,9 +1,9 @@
 export interface CreateCustomerInput {
   company: string
-  email: string
+  email?: string
   name: string
   note?: string
-  phone: string
+  phone?: string
 }
 
 export interface CreateExpenseInput {
@@ -33,8 +33,14 @@ export interface CustomerDto {
   totalInvoiced?: number
 }
 
-export interface CustomerListDto extends PaginatedList<CustomerDto> {
+export interface CustomerListDto extends PaginatedList<CustomerListItemDto> {
   summary: CustomerSummaryDto
+}
+
+export interface CustomerListItemDto extends CustomerDto {
+  canDelete: boolean
+  invoiceCount: number
+  totalInvoiced: number
 }
 
 export interface CustomerSummaryDto {

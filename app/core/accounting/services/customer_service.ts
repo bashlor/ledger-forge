@@ -7,10 +7,10 @@ import { v7 as uuidv7 } from 'uuid'
 
 export interface CreateCustomerInput {
   company: string
-  email: string
+  email?: string
   name: string
   note?: string
-  phone: string
+  phone?: string
 }
 
 export interface CustomerListResult {
@@ -51,11 +51,11 @@ export class CustomerService {
       .insert(customers)
       .values({
         company: input.company.trim(),
-        email: input.email.trim(),
+        email: input.email?.trim() || '',
         id: uuidv7(),
         name: input.name.trim(),
         note: input.note?.trim() || undefined,
-        phone: input.phone.trim(),
+        phone: input.phone?.trim() || '',
       })
       .returning()
 
@@ -187,10 +187,10 @@ export class CustomerService {
         .update(customers)
         .set({
           company,
-          email: input.email.trim(),
+          email: input.email?.trim() || '',
           name: input.name.trim(),
           note: input.note?.trim() || undefined,
-          phone: input.phone.trim(),
+          phone: input.phone?.trim() || '',
         })
         .where(eq(customers.id, id))
         .returning()
