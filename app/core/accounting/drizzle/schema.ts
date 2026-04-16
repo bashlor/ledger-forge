@@ -8,6 +8,7 @@ export const mainSchema = pgSchema('main')
 // ---------------------------------------------------------------------------
 
 export const customers = mainSchema.table('customers', {
+  address: text('address').notNull().default(''),
   company: text('company').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   email: text('email').notNull(),
@@ -25,10 +26,15 @@ export const invoices = mainSchema.table(
   'invoices',
   {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    customerCompanySnapshot: text('customer_company_snapshot').notNull(),
+    customerEmailSnapshot: text('customer_email_snapshot').notNull(),
     customerId: text('customer_id')
       .notNull()
       .references(() => customers.id),
     customerName: text('customer_name').notNull(),
+    customerPhoneSnapshot: text('customer_phone_snapshot').notNull(),
+    customerPrimaryContactSnapshot: text('customer_primary_contact_snapshot').notNull(),
+    customerAddressSnapshot: text('customer_address_snapshot').notNull().default(''),
     dueDate: date('due_date', { mode: 'string' }),
     id: text('id').primaryKey(),
     invoiceNumber: text('invoice_number').notNull().unique(),

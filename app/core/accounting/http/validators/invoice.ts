@@ -1,5 +1,10 @@
 import vine from '@vinejs/vine'
 
+const dateValidatorRegex = vine
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+
 const invoiceLineValidator = vine.object({
   description: vine.string().trim().minLength(1).maxLength(500),
   quantity: vine.number().positive(),
@@ -9,8 +14,8 @@ const invoiceLineValidator = vine.object({
 
 export const saveInvoiceDraftValidator = vine.create({
   customerId: vine.string().trim().minLength(1).maxLength(128),
-  dueDate: vine.string().trim().minLength(10).maxLength(10),
-  issueDate: vine.string().trim().minLength(10).maxLength(10),
+  dueDate: dateValidatorRegex.clone(),
+  issueDate: dateValidatorRegex.clone(),
   lines: vine.array(invoiceLineValidator).minLength(1),
 })
 

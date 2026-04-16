@@ -6,6 +6,7 @@ import { and, count, eq, inArray, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 export interface CreateCustomerInput {
+  address: string
   company: string
   email?: string
   name: string
@@ -29,6 +30,7 @@ export interface CustomerListResult {
 }
 
 interface CustomerDto {
+  address: string
   canDelete: boolean
   company: string
   deleteBlockReason?: string
@@ -47,9 +49,15 @@ export class CustomerService {
   constructor(private readonly db: PostgresJsDatabase<any>) {}
 
   async createCustomer(input: CreateCustomerInput): Promise<CustomerDto> {
+    const address = input.address.trim()
+    if (!address) {
+      throw new DomainError('Customer address is required.', 'business_logic_error')
+    }
+
     const [row] = await this.db
       .insert(customers)
       .values({
+        address,
         company: input.company.trim(),
         email: input.email?.trim() || '',
         id: uuidv7(),
@@ -179,18 +187,33 @@ export class CustomerService {
       throw new DomainError('Customer not found.', 'not_found')
     }
 
+    const address = input.address.trim()
+    if (!address) {
+      throw new DomainError('Customer address is required.', 'business_logic_error')
+    }
+
     const company = input.company.trim()
-    const companyChanged = existing.company !== company
+    const email = input.email?.trim() || ''
+    const name = input.name.trim()
+    const note = input.note?.trim() || undefined
+    const phone = input.phone?.trim() || ''
+    const snapshotChanged =
+      existing.address !== address ||
+      existing.company !== company ||
+      existing.email !== email ||
+      existing.name !== name ||
+      existing.phone !== phone
 
     await this.db.transaction(async (tx) => {
       const [updated] = await tx
         .update(customers)
         .set({
+          address,
           company,
-          email: input.email?.trim() || '',
-          name: input.name.trim(),
-          note: input.note?.trim() || undefined,
-          phone: input.phone?.trim() || '',
+          email,
+          name,
+          note,
+          phone,
         })
         .where(eq(customers.id, id))
         .returning()
@@ -199,10 +222,17 @@ export class CustomerService {
         throw new DomainError('Customer not found.', 'not_found')
       }
 
-      if (companyChanged) {
+      if (snapshotChanged) {
         await tx
           .update(invoices)
-          .set({ customerName: company })
+          .set({
+            customerAddressSnapshot: address,
+            customerCompanySnapshot: company,
+            customerEmailSnapshot: email,
+            customerName: company,
+            customerPhoneSnapshot: phone,
+            customerPrimaryContactSnapshot: name,
+          })
           .where(and(eq(invoices.customerId, id), eq(invoices.status, 'draft')))
       }
     })
@@ -240,6 +270,7 @@ function toCustomerDto(
 ): CustomerDto {
   const canDelete = agg.invoiceCount === 0
   return {
+    address: row.address,
     canDelete,
     company: row.company,
     deleteBlockReason: canDelete

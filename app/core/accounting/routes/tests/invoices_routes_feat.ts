@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
+import { CustomerService } from '#core/accounting/services/customer_service'
 import { InvoiceService } from '#core/accounting/services/invoice_service'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
@@ -113,6 +114,7 @@ test.group('Invoices routes | backend invariants', (group) => {
     await db.delete(customers)
 
     await db.insert(customers).values({
+      address: '10 rue de la Paix, 75002 Paris',
       company: 'Test Company SAS',
       email: 'contact@testco.fr',
       id: TEST_CUSTOMER_ID,
@@ -297,6 +299,114 @@ test.group('Invoices routes | backend invariants', (group) => {
 
     const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
     assert.equal(row.status, 'draft', 'draft invoice was not changed to paid')
+  })
+
+  test('rejects draft creation when dueDate is before issueDate', async ({ assert, client }) => {
+    const response = await client
+      .post('/invoices')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2026-04-01',
+        issueDate: '2026-04-30',
+        'lines[0][description]': 'Invalid dates',
+        'lines[0][quantity]': 1,
+        'lines[0][unitPrice]': 100,
+        'lines[0][vatRate]': 20,
+      })
+
+    response.assertStatus(302)
+
+    const rows = await db.select().from(invoices)
+    assert.equal(rows.length, 0)
+  })
+
+  test('rejects draft creation when dueDate is before today', async ({ assert, client }) => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const issueDate = yesterday.toISOString().slice(0, 10)
+
+    const response = await client
+      .post('/invoices')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: issueDate,
+        issueDate,
+        'lines[0][description]': 'Past due date',
+        'lines[0][quantity]': 1,
+        'lines[0][unitPrice]': 100,
+        'lines[0][vatRate]': 20,
+      })
+
+    response.assertStatus(302)
+    const rows = await db.select().from(invoices)
+    assert.equal(rows.length, 0)
+  })
+
+  test('issue is rejected when customer has no address', async ({ assert, client }) => {
+    const draft = await createDraftViaHttp(client)
+
+    await db.update(customers).set({ address: '' }).where(eq(customers.id, TEST_CUSTOMER_ID))
+
+    await client
+      .post(`/invoices/${draft.id}/issue`)
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(row.status, 'draft')
+  })
+
+  test('customer snapshot is immutable after issue', async ({ assert, client }) => {
+    const customerService = new CustomerService(db)
+    const draft = await createDraftViaHttp(client)
+
+    await client
+      .post(`/invoices/${draft.id}/issue`)
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    await customerService.updateCustomer(TEST_CUSTOMER_ID, {
+      address: '12 avenue de France, 75013 Paris',
+      company: 'Renamed Company SAS',
+      email: 'renamed@testco.fr',
+      name: 'Renamed Contact',
+      phone: '+33 6 98 76 54 32',
+    })
+
+    const [issued] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(issued.status, 'issued')
+    assert.equal(issued.customerCompanySnapshot, 'Test Company SAS')
+    assert.equal(issued.customerPrimaryContactSnapshot, 'Alice Martin')
+    assert.equal(issued.customerEmailSnapshot, 'contact@testco.fr')
+    assert.equal(issued.customerPhoneSnapshot, '+33 6 12 34 56 78')
+    assert.equal(issued.customerAddressSnapshot, '10 rue de la Paix, 75002 Paris')
+  })
+
+  test('customer snapshot stays synced for draft invoices', async ({ assert, client }) => {
+    const customerService = new CustomerService(db)
+    const draft = await createDraftViaHttp(client)
+
+    await customerService.updateCustomer(TEST_CUSTOMER_ID, {
+      address: '99 boulevard Voltaire, 75011 Paris',
+      company: 'Draft Sync Company',
+      email: 'draft-sync@testco.fr',
+      name: 'Draft Contact',
+      phone: '+33 6 00 11 22 33',
+    })
+
+    const [updatedDraft] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(updatedDraft.status, 'draft')
+    assert.equal(updatedDraft.customerCompanySnapshot, 'Draft Sync Company')
+    assert.equal(updatedDraft.customerPrimaryContactSnapshot, 'Draft Contact')
+    assert.equal(updatedDraft.customerEmailSnapshot, 'draft-sync@testco.fr')
+    assert.equal(updatedDraft.customerPhoneSnapshot, '+33 6 00 11 22 33')
+    assert.equal(updatedDraft.customerAddressSnapshot, '99 boulevard Voltaire, 75011 Paris')
   })
 
   test('concurrent mark-paid requests keep a single valid paid transition', async ({

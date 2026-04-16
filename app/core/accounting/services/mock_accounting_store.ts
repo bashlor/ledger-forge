@@ -1,4 +1,5 @@
 export interface CreateCustomerRequest {
+  address: string
   company: string
   email: string
   name: string
@@ -7,6 +8,7 @@ export interface CreateCustomerRequest {
 }
 
 export interface CustomerResponse {
+  address: string
   canDelete: boolean
   company: string
   deleteBlockReason?: string
@@ -66,8 +68,13 @@ export interface InvoiceLineResponse extends InvoiceLineRequest {
   lineVatAmount: number
 }
 export interface InvoiceResponse {
+  customerAddressSnapshot: string
+  customerCompanySnapshot: string
+  customerEmailSnapshot: string
   customerId: string
   customerName: string
+  customerPhoneSnapshot: string
+  customerPrimaryContactSnapshot: string
   dueDate: string
   id: string
   invoiceNumber: string
@@ -106,6 +113,7 @@ class InvoiceNotFoundError extends Error {
 class MockAccountingStore {
   private readonly customersSeed: CustomerResponse[] = [
     {
+      address: '12 rue des Cerisiers, 75011 Paris',
       canDelete: true,
       company: 'Northwind Studio',
       email: 'sarah@northwind.test',
@@ -117,6 +125,7 @@ class MockAccountingStore {
       totalInvoiced: 0,
     },
     {
+      address: '8 avenue Victor Hugo, 69002 Lyon',
       canDelete: true,
       company: 'Atelier Horizon',
       email: 'marc@horizon.test',
@@ -127,6 +136,7 @@ class MockAccountingStore {
       totalInvoiced: 0,
     },
     {
+      address: '42 quai des Arts, 33000 Bordeaux',
       canDelete: true,
       company: 'Kestrel Analytics',
       email: 'nina@kestrel.test',
@@ -186,8 +196,13 @@ class MockAccountingStore {
         ],
       },
       {
+        customerAddressSnapshot: '12 rue des Cerisiers, 75011 Paris',
+        customerCompanySnapshot: 'Northwind Studio',
+        customerEmailSnapshot: 'sarah@northwind.test',
         customerId: 'client-1',
         customerName: 'Northwind Studio',
+        customerPhoneSnapshot: '+33 6 11 22 33 44',
+        customerPrimaryContactSnapshot: 'Sarah Chen',
         dueDate: '2026-04-15',
         id: 'invoice-1',
         invoiceNumber: 'INV-2026-001',
@@ -206,8 +221,13 @@ class MockAccountingStore {
         ],
       },
       {
+        customerAddressSnapshot: '8 avenue Victor Hugo, 69002 Lyon',
+        customerCompanySnapshot: 'Atelier Horizon',
+        customerEmailSnapshot: 'marc@horizon.test',
         customerId: 'client-2',
         customerName: 'Atelier Horizon',
+        customerPhoneSnapshot: '+33 6 55 66 77 88',
+        customerPrimaryContactSnapshot: 'Marc Dubois',
         dueDate: '2026-04-10',
         id: 'invoice-2',
         invoiceNumber: 'INV-2026-002',
@@ -231,8 +251,13 @@ class MockAccountingStore {
         ],
       },
       {
+        customerAddressSnapshot: '42 quai des Arts, 33000 Bordeaux',
+        customerCompanySnapshot: 'Kestrel Analytics',
+        customerEmailSnapshot: 'nina@kestrel.test',
         customerId: 'client-3',
         customerName: 'Kestrel Analytics',
+        customerPhoneSnapshot: '+33 6 20 30 40 50',
+        customerPrimaryContactSnapshot: 'Nina Rossi',
         dueDate: '2026-04-18',
         id: 'invoice-3',
         invoiceNumber: 'INV-2026-003',
@@ -263,17 +288,19 @@ class MockAccountingStore {
   }
 
   createCustomer(payload: Partial<CreateCustomerRequest>): CustomerResponse {
+    const address = payload.address?.trim() ?? ''
     const company = payload.company?.trim() ?? ''
     const email = payload.email?.trim() ?? ''
     const name = payload.name?.trim() ?? ''
     const note = payload.note?.trim() || undefined
     const phone = payload.phone?.trim() ?? ''
 
-    if (!company || !email || !name || !phone) {
+    if (!address || !company || !email || !name || !phone) {
       throw new Error('All required customer fields must be provided.')
     }
 
     const customer = {
+      address,
       canDelete: true,
       company,
       email,
@@ -294,8 +321,13 @@ class MockAccountingStore {
     const customer = this.getCustomerOrThrow(request.customerId)
 
     const invoice = buildInvoice(request, {
+      customerAddressSnapshot: customer.address,
+      customerCompanySnapshot: customer.company,
+      customerEmailSnapshot: customer.email,
       customerId: request.customerId,
       customerName: customer.company,
+      customerPhoneSnapshot: customer.phone,
+      customerPrimaryContactSnapshot: customer.name,
       dueDate: request.dueDate,
       id: `invoice-${crypto.randomUUID()}`,
       invoiceNumber: this.nextInvoiceNumber(request.issueDate),
@@ -411,7 +443,24 @@ class MockAccountingStore {
 
   issueInvoice(id: string) {
     const current = this.getDraftInvoiceOrThrow(id)
-    const updated = { ...current, status: 'issued' } satisfies InvoiceResponse
+    const customer = this.getCustomerOrThrow(current.customerId)
+    if (!customer.address.trim()) {
+      throw new Error('Customer address is required before issuing an invoice.')
+    }
+    const today = new Date().toISOString().slice(0, 10)
+    if (current.dueDate < today) {
+      throw new Error('Due date must be today or later to save or issue an invoice.')
+    }
+    const updated = {
+      ...current,
+      customerAddressSnapshot: customer.address,
+      customerCompanySnapshot: customer.company,
+      customerEmailSnapshot: customer.email,
+      customerName: customer.company,
+      customerPhoneSnapshot: customer.phone,
+      customerPrimaryContactSnapshot: customer.name,
+      status: 'issued',
+    } satisfies InvoiceResponse
     this.replaceInvoice(updated)
     return updated
   }
@@ -527,13 +576,14 @@ class MockAccountingStore {
   }
 
   updateCustomer(id: string, payload: Partial<CreateCustomerRequest>): CustomerResponse {
+    const address = payload.address?.trim() ?? ''
     const company = payload.company?.trim() ?? ''
     const email = payload.email?.trim() ?? ''
     const name = payload.name?.trim() ?? ''
     const note = payload.note?.trim() || undefined
     const phone = payload.phone?.trim() ?? ''
 
-    if (!company || !email || !name || !phone) {
+    if (!address || !company || !email || !name || !phone) {
       throw new Error('All required customer fields must be provided.')
     }
 
@@ -543,10 +593,16 @@ class MockAccountingStore {
     }
 
     const previous = this.customers[index]
-    const companyChanged = previous.company !== company
+    const snapshotChanged =
+      previous.address !== address ||
+      previous.company !== company ||
+      previous.email !== email ||
+      previous.name !== name ||
+      previous.phone !== phone
 
     const updated = {
       ...previous,
+      address,
       company,
       email,
       name,
@@ -558,10 +614,18 @@ class MockAccountingStore {
       entryIndex === index ? updated : customer
     )
 
-    if (companyChanged) {
+    if (snapshotChanged) {
       this.invoices = this.invoices.map((invoice) =>
         invoice.customerId === id && invoice.status === 'draft'
-          ? { ...invoice, customerName: company }
+          ? {
+              ...invoice,
+              customerAddressSnapshot: address,
+              customerCompanySnapshot: company,
+              customerEmailSnapshot: email,
+              customerName: company,
+              customerPhoneSnapshot: phone,
+              customerPrimaryContactSnapshot: name,
+            }
           : invoice
       )
     }
@@ -577,8 +641,13 @@ class MockAccountingStore {
     const updated = buildInvoice(
       request,
       {
+        customerAddressSnapshot: customer.address,
+        customerCompanySnapshot: customer.company,
+        customerEmailSnapshot: customer.email,
         customerId: request.customerId,
         customerName: customer.company,
+        customerPhoneSnapshot: customer.phone,
+        customerPrimaryContactSnapshot: customer.name,
         dueDate: request.dueDate,
         id: current.id,
         invoiceNumber: current.invoiceNumber,
@@ -627,6 +696,7 @@ class MockAccountingStore {
     const dueDate = payload.dueDate?.trim() ?? ''
     const issueDate = payload.issueDate?.trim() ?? ''
     const lines = Array.isArray(payload.lines) ? payload.lines : []
+    const today = new Date().toISOString().slice(0, 10)
 
     if (!customerId) {
       throw new Error('Customer is required.')
@@ -636,6 +706,9 @@ class MockAccountingStore {
     }
     if (dueDate < issueDate) {
       throw new Error('Due date cannot be before the issue date.')
+    }
+    if (dueDate < today) {
+      throw new Error('Due date must be today or later.')
     }
     if (lines.length === 0) {
       throw new Error('The invoice must contain at least one line.')
@@ -671,7 +744,18 @@ function buildInvoice(
   request: SaveInvoiceDraftRequest,
   meta: Pick<
     InvoiceResponse,
-    'customerId' | 'customerName' | 'dueDate' | 'id' | 'invoiceNumber' | 'issueDate' | 'status'
+    | 'customerAddressSnapshot'
+    | 'customerCompanySnapshot'
+    | 'customerEmailSnapshot'
+    | 'customerId'
+    | 'customerName'
+    | 'customerPhoneSnapshot'
+    | 'customerPrimaryContactSnapshot'
+    | 'dueDate'
+    | 'id'
+    | 'invoiceNumber'
+    | 'issueDate'
+    | 'status'
   >,
   existingLineIds?: string[]
 ) {

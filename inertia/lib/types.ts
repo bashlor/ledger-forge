@@ -1,4 +1,5 @@
 export interface CreateCustomerInput {
+  address: string
   company: string
   email?: string
   name: string
@@ -21,6 +22,7 @@ export interface CreateInvoiceInput {
 }
 
 export interface CustomerDto {
+  address: string
   canDelete?: boolean
   company: string
   deleteBlockReason?: string
@@ -102,8 +104,13 @@ export interface ExpenseSummaryDto {
 }
 
 export interface InvoiceDto {
+  customerAddressSnapshot: string
+  customerCompanySnapshot: string
+  customerEmailSnapshot: string
   customerId: string
   customerName: string
+  customerPhoneSnapshot: string
+  customerPrimaryContactSnapshot: string
   dueDate: string
   id: string
   invoiceNumber: string

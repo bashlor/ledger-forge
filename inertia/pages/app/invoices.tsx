@@ -228,11 +228,19 @@ function InvoicesContent({
       ...form,
       customerId: effectiveCustomerId,
     })
-    const method = selectedInvoice && editingInvoice ? router.put : router.post
     const url =
       selectedInvoice && editingInvoice ? `/invoices/${selectedInvoice.id}/draft` : '/invoices'
 
-    method(url, payload as never, {
+    if (selectedInvoice && editingInvoice) {
+      router.put(url, payload as never, {
+        onFinish: () => setSaving(false),
+        onStart: () => setSaving(true),
+        preserveScroll: true,
+      })
+      return
+    }
+
+    router.post(url, payload as never, {
       onFinish: () => setSaving(false),
       onStart: () => setSaving(true),
       preserveScroll: true,
@@ -288,6 +296,7 @@ function InvoicesContent({
   }
 
   const formIsValid =
+    form.dueDate >= todayValue() &&
     effectiveCustomerId &&
     form.issueDate &&
     form.dueDate &&
@@ -560,12 +569,18 @@ function InvoicesContent({
                         <input
                           className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
                           id="invoice-due-date"
+                          min={todayValue()}
                           onChange={(event) =>
                             setForm((current) => ({ ...current, dueDate: event.target.value }))
                           }
                           type="date"
                           value={form.dueDate}
                         />
+                        {form.dueDate && form.dueDate < todayValue() ? (
+                          <p className="mt-2 text-xs font-medium text-error">
+                            Due date must be today or later.
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 
@@ -786,6 +801,15 @@ function InvoicesContent({
                   </div>
                 </div>
 
+                <div className="border-b border-primary/20 bg-primary/10 px-5 py-3 sm:px-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                    Read-only invoice
+                  </p>
+                  <p className="mt-1 text-sm text-on-surface-variant">
+                    This invoice is locked after issue. You can only mark it as paid when applicable.
+                  </p>
+                </div>
+
                 <div className="space-y-6 px-5 py-6 sm:px-6">
                   <div className="grid gap-4 md:grid-cols-3">
                     <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">
@@ -793,7 +817,15 @@ function InvoicesContent({
                         Customer
                       </p>
                       <p className="mt-2 text-sm font-semibold text-on-surface">
-                        {selectedInvoice.customerName}
+                        {selectedInvoice.customerCompanySnapshot}
+                      </p>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        {selectedInvoice.customerAddressSnapshot || 'No address'}
+                      </p>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        {selectedInvoice.customerPrimaryContactSnapshot || 'No contact name'} ·{' '}
+                        {selectedInvoice.customerEmailSnapshot || 'No email'} ·{' '}
+                        {selectedInvoice.customerPhoneSnapshot || 'No phone'}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">

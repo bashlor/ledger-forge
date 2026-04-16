@@ -100,6 +100,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       .header('cookie', authCookie())
       .redirects(0)
       .form({
+        address: '1 rue des Tests, Paris',
         company: 'Feat Test Co',
         email: 'feat-test@example.com',
         name: 'Test User',
@@ -111,6 +112,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
 
     const rows = await db.select().from(customers)
     assert.equal(rows.length, 1)
+    assert.equal(rows[0].address, '1 rue des Tests, Paris')
     assert.equal(rows[0].company, 'Feat Test Co')
     assert.equal(rows[0].email, 'feat-test@example.com')
   })
@@ -121,6 +123,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     getResponse.assertHeader('location', '/signin')
 
     const postResponse = await client.post('/customers').redirects(0).form({
+      address: 'No Session Street',
       company: 'No Session Co',
       email: 'nosession@example.com',
       name: 'No Session',
@@ -145,6 +148,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       .header('cookie', authCookie())
       .redirects(0)
       .form({
+        address: '7 impasse du Port, Nantes',
         company: 'Kestrel Analytics Updated',
         email: 'nina@kestrel.test',
         name: 'Nina Rossi',
@@ -156,6 +160,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     response.assertHeader('location', '/customers')
 
     const [updated] = await db.select().from(customers).where(eq(customers.id, id))
+    assert.equal(updated.address, '7 impasse du Port, Nantes')
     assert.equal(updated.company, 'Kestrel Analytics Updated')
   })
 
@@ -165,6 +170,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       .header('cookie', authCookie())
       .header('accept', 'application/json')
       .json({
+        address: 'Nowhere',
         company: 'Ghost Co',
         email: 'ghost@example.com',
         name: 'Ghost',
@@ -183,6 +189,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       .header('cookie', authCookie())
       .redirects(0)
       .form({
+        address: 'Short Street',
         company: 'X',
         email: 'not-an-email',
         name: 'Y',
@@ -201,6 +208,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       .header('cookie', authCookie())
       .redirects(0)
       .form({
+        address: '22 boulevard Email, Lille',
         company: 'Email Only Co',
         email: 'email-only@example.com',
         name: 'Email Contact',
@@ -210,6 +218,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     response.assertHeader('location', '/customers')
 
     const [row] = await db.select().from(customers)
+    assert.equal(row.address, '22 boulevard Email, Lille')
     assert.equal(row.company, 'Email Only Co')
     assert.equal(row.email, 'email-only@example.com')
     assert.equal(row.phone, '')
@@ -221,6 +230,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       .header('cookie', authCookie())
       .redirects(0)
       .form({
+        address: '44 avenue Phone, Rennes',
         company: 'Phone Only Co',
         name: 'Phone Contact',
         phone: '+1 555 0000',
@@ -230,6 +240,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     response.assertHeader('location', '/customers')
 
     const [row] = await db.select().from(customers)
+    assert.equal(row.address, '44 avenue Phone, Rennes')
     assert.equal(row.company, 'Phone Only Co')
     assert.equal(row.email, '')
     assert.equal(row.phone, '+1 555 0000')
@@ -244,6 +255,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       .header('cookie', authCookie())
       .redirects(0)
       .form({
+        address: 'Missing Contact Street',
         company: 'Missing Contact Co',
         name: 'Missing Contact',
       })
@@ -258,6 +270,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
   test('does not delete a customer referenced by invoices', async ({ assert, client }) => {
     const customerId = uuidv7()
     await db.insert(customers).values({
+      address: 'Linked Address',
       company: 'Linked Co',
       email: 'linked@example.com',
       id: customerId,
@@ -266,8 +279,13 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     })
 
     await db.insert(invoices).values({
+      customerAddressSnapshot: 'Linked Address',
+      customerCompanySnapshot: 'Linked Co',
+      customerEmailSnapshot: 'linked@example.com',
       customerId,
       customerName: 'Linked Co',
+      customerPhoneSnapshot: '+1 555 0200',
+      customerPrimaryContactSnapshot: 'Linked User',
       dueDate: '2026-04-30',
       id: uuidv7(),
       invoiceNumber: 'INV-2026-FEAT-001',
@@ -292,6 +310,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
 
     await db.insert(customers).values([
       {
+        address: 'Linked Address 2',
         company: 'Linked Company',
         email: 'linked-company@example.com',
         id: linkedCustomerId,
@@ -299,6 +318,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
         phone: '+1 555 0300',
       },
       {
+        address: 'Free Address',
         company: 'Free Company',
         email: 'free-company@example.com',
         id: freeCustomerId,
@@ -308,8 +328,13 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     ])
 
     await db.insert(invoices).values({
+      customerAddressSnapshot: 'Linked Address 2',
+      customerCompanySnapshot: 'Linked Company',
+      customerEmailSnapshot: 'linked-company@example.com',
       customerId: linkedCustomerId,
       customerName: 'Linked Company',
+      customerPhoneSnapshot: '+1 555 0300',
+      customerPrimaryContactSnapshot: 'Linked Person',
       dueDate: '2026-05-15',
       id: uuidv7(),
       invoiceNumber: 'INV-2026-FEAT-002',

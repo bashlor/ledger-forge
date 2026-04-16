@@ -16,6 +16,7 @@ export function CustomerTable({ items, onDelete, onEdit, processing }: CustomerT
         <tr className="border-b border-outline-variant/15 bg-surface-container-low text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
           <th className="px-4 py-3 font-medium">Company</th>
           <th className="px-4 py-3 font-medium">Contact</th>
+          <th className="px-4 py-3 font-medium">Address</th>
           <th className="px-4 py-3 font-medium">Email</th>
           <th className="px-4 py-3 font-medium">Phone</th>
           <th className="px-4 py-3 text-right font-medium">Invoices</th>
@@ -33,6 +34,7 @@ export function CustomerTable({ items, onDelete, onEdit, processing }: CustomerT
               ) : null}
             </td>
             <td className="px-4 py-3 text-on-surface">{customer.name}</td>
+            <td className="px-4 py-3 text-on-surface-variant">{customer.address}</td>
             <td className="px-4 py-3 text-on-surface-variant">{customer.email}</td>
             <td className="px-4 py-3 text-on-surface-variant">{customer.phone}</td>
             <td className="px-4 py-3 text-right font-semibold tabular-nums text-on-surface">
