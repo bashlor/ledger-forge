@@ -95,7 +95,9 @@ export function CustomerDrawer({
             type="text"
             value={form.company}
           />
-          {errors.company ? <p className="mt-2 text-sm font-medium text-error">{errors.company}</p> : null}
+          {errors.company ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.company}</p>
+          ) : null}
         </div>
 
         <div>
@@ -113,7 +115,9 @@ export function CustomerDrawer({
             type="text"
             value={form.name}
           />
-          {errors.name ? <p className="mt-2 text-sm font-medium text-error">{errors.name}</p> : null}
+          {errors.name ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.name}</p>
+          ) : null}
         </div>
 
         <div>
@@ -130,7 +134,9 @@ export function CustomerDrawer({
             type="tel"
             value={form.phone ?? ''}
           />
-          {errors.phone ? <p className="mt-2 text-sm font-medium text-error">{errors.phone}</p> : null}
+          {errors.phone ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.phone}</p>
+          ) : null}
         </div>
 
         <div className="sm:col-span-2">
@@ -147,7 +153,9 @@ export function CustomerDrawer({
             type="email"
             value={form.email ?? ''}
           />
-          {errors.email ? <p className="mt-2 text-sm font-medium text-error">{errors.email}</p> : null}
+          {errors.email ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.email}</p>
+          ) : null}
         </div>
 
         <div className="sm:col-span-2">
@@ -164,7 +172,9 @@ export function CustomerDrawer({
             rows={3}
             value={form.note ?? ''}
           />
-          {errors.note ? <p className="mt-2 text-sm font-medium text-error">{errors.note}</p> : null}
+          {errors.note ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.note}</p>
+          ) : null}
         </div>
 
         {contactError ? (

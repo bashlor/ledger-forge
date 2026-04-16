@@ -82,6 +82,10 @@ export default class CustomersController {
     return this.redirectToCustomers(ctx)
   }
 
+  private hasContactMethod(email?: string, phone?: string) {
+    return Boolean(email?.trim() || phone?.trim())
+  }
+
   private redirectToCustomers(ctx: HttpContext) {
     const page = Number(ctx.request.input('page'))
     const qs: Record<string, number> = {}
@@ -91,10 +95,6 @@ export default class CustomersController {
     return ctx.response
       .redirect()
       .toRoute('customers.page', [], Object.keys(qs).length > 0 ? { qs } : undefined)
-  }
-
-  private hasContactMethod(email?: string, phone?: string) {
-    return Boolean(email?.trim() || phone?.trim())
   }
 
   private respondMissingContact(ctx: HttpContext) {

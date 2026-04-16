@@ -235,7 +235,10 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(row.phone, '+1 555 0000')
   })
 
-  test('rejects POST /customers when both email and phone are missing', async ({ assert, client }) => {
+  test('rejects POST /customers when both email and phone are missing', async ({
+    assert,
+    client,
+  }) => {
     const response = await client
       .post('/customers')
       .header('cookie', authCookie())

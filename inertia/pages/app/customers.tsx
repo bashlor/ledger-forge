@@ -19,7 +19,8 @@ import { SummaryCards } from './customers/summary_cards'
 import { CustomerTable } from './customers/table'
 
 export default function CustomersPage({ customers }: InertiaProps<{ customers: CustomerListDto }>) {
-  const { errors } = usePage<InertiaProps<{ customers: CustomerListDto; errors?: FormErrors }>>().props
+  const { errors } =
+    usePage<InertiaProps<{ customers: CustomerListDto; errors?: FormErrors }>>().props
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerKey, setDrawerKey] = useState(0)
   const [editTarget, setEditTarget] = useState<CustomerDto | null>(null)
