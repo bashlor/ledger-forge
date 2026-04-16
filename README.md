@@ -7,21 +7,26 @@ Current state:
 - root app only, no monorepo
 - `better-auth` wired with Drizzle/PostgreSQL
 - auth routes, middleware, session cookie handling, and auth schema in place
-- accounting UI and HTTP routes restored from the simple demo baseline
-- accounting data still served by `app/core/accounting/services/mock_accounting_store.ts`
+- accounting routes and pages are protected by auth middleware
+- customers, invoices, expenses, and journal entries use Drizzle-backed persistence
+- customer module includes create/edit/delete/list with delete conflict protection when invoices exist
+- customers page shows per-customer invoice counters and billed totals from server-side aggregates
+- dashboard remains a read-only screen powered by mock/demo data
 
-What is intentionally not implemented yet:
+Intentional demo constraints:
 
-- no real accounting queries
-- no Drizzle persistence for customers, invoices, expenses, dashboard, or journal entries
-- no migration beyond the current auth + schema bootstrap
+- no partial payments workflow
+- no multi-currency support
+- no statutory VAT regime handling
+- no production-grade analytics pipeline for dashboard metrics yet
 
 Useful entry points:
 
 - auth schema: `app/core/user_management/drizzle/schema.ts`
 - auth provider: `app/core/user_management/providers/auth_provider.ts`
 - combined Drizzle schema barrel: `app/core/common/drizzle/index.ts`
-- mock accounting entrypoint: `app/core/accounting/services/mock_accounting_store.ts`
+- dashboard mock entrypoint: `app/core/accounting/services/mock_accounting_store.ts`
+- customer service (Drizzle + aggregates): `app/core/accounting/services/customer_service.ts`
 
 Run once dependencies are installed:
 

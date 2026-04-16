@@ -1,11 +1,11 @@
-import type { CustomerDto } from '~/lib/types'
+import type { CustomerListItemDto } from '~/lib/types'
 
 import { formatCurrency } from '~/lib/format'
 
 interface CustomerTableProps {
-  items: CustomerDto[]
-  onDelete: (customer: CustomerDto) => void
-  onEdit: (customer: CustomerDto) => void
+  items: CustomerListItemDto[]
+  onDelete: (customer: CustomerListItemDto) => void
+  onEdit: (customer: CustomerListItemDto) => void
   processing: boolean
 }
 
@@ -36,10 +36,10 @@ export function CustomerTable({ items, onDelete, onEdit, processing }: CustomerT
             <td className="px-4 py-3 text-on-surface-variant">{customer.email}</td>
             <td className="px-4 py-3 text-on-surface-variant">{customer.phone}</td>
             <td className="px-4 py-3 text-right font-semibold tabular-nums text-on-surface">
-              {customer.invoiceCount ?? 0}
+              {customer.invoiceCount}
             </td>
             <td className="px-4 py-3 text-right font-semibold tabular-nums text-on-surface">
-              {formatCurrency(customer.totalInvoiced ?? 0)}
+              {formatCurrency(customer.totalInvoiced)}
             </td>
             <td className="px-4 py-3 text-right">
               <div className="flex flex-wrap items-center justify-end gap-2">

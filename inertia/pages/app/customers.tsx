@@ -1,7 +1,13 @@
-import { Head, router } from '@inertiajs/react'
-import { useMemo, useState } from 'react'
+import { Head, router, usePage } from '@inertiajs/react'
+import { useEffect, useMemo, useState } from 'react'
 
-import type { CreateCustomerInput, CustomerDto, CustomerListDto } from '~/lib/types'
+import type {
+  CreateCustomerInput,
+  CustomerDto,
+  CustomerListDto,
+  CustomerListItemDto,
+} from '~/lib/types'
+import type { FormErrors } from '~/types'
 
 import { DataTable } from '~/components/data_table'
 import { PageHeader } from '~/components/page_header'
@@ -13,6 +19,8 @@ import { SummaryCards } from './customers/summary_cards'
 import { CustomerTable } from './customers/table'
 
 export default function CustomersPage({ customers }: InertiaProps<{ customers: CustomerListDto }>) {
+  const { errors } =
+    usePage<InertiaProps<{ customers: CustomerListDto; errors?: FormErrors }>>().props
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerKey, setDrawerKey] = useState(0)
   const [editTarget, setEditTarget] = useState<CustomerDto | null>(null)
@@ -23,6 +31,23 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
   const pageQs = useMemo(() => {
     return pagination.page > 1 ? { page: pagination.page } : {}
   }, [pagination.page])
+  const customerErrors = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(errors ?? {}).filter(([key]) =>
+          ['company', 'email', 'name', 'note', 'phone'].includes(key)
+        )
+      ) as FormErrors,
+    [errors]
+  )
+  const hasCustomerErrors = Object.keys(customerErrors).length > 0
+
+  useEffect(() => {
+    if (hasCustomerErrors) {
+      setDrawerOpen(true)
+      setEditTarget(null)
+    }
+  }, [hasCustomerErrors])
 
   function openCreate() {
     setEditTarget(null)
@@ -30,7 +55,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
     setDrawerOpen(true)
   }
 
-  function openEdit(customer: CustomerDto) {
+  function openEdit(customer: CustomerListItemDto) {
     setEditTarget(customer)
     setDrawerKey((k) => k + 1)
     setDrawerOpen(true)
@@ -42,6 +67,11 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
   }
 
   function handleSubmit(form: CreateCustomerInput, editingId: null | string) {
+    const normalized = {
+      ...form,
+      email: form.email?.trim() || undefined,
+      phone: form.phone?.trim() || undefined,
+    }
     const options = {
       onFinish: () => setProcessing(false),
       onStart: () => setProcessing(true),
@@ -49,7 +79,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
       preserveScroll: true,
     }
 
-    const payload = { ...form, ...pageQs } as never
+    const payload = { ...normalized, ...pageQs } as never
 
     if (editingId) {
       router.put(`/customers/${editingId}`, payload, options)
@@ -58,7 +88,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
     }
   }
 
-  function handleDelete(customer: CustomerDto) {
+  function handleDelete(customer: CustomerListItemDto) {
     if (customer.canDelete === false) return
     if (!window.confirm(`Delete customer "${customer.company}"?`)) return
 
@@ -93,6 +123,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
         <SummaryCards summary={summary} />
 
         <CustomerDrawer
+          errors={customerErrors}
           key={drawerKey}
           onClose={closeDrawer}
           onSubmit={handleSubmit}

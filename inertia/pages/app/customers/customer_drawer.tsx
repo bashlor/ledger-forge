@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import type { CreateCustomerInput, CustomerDto } from '~/lib/types'
+import type { FormErrors } from '~/types'
 
 import { DrawerPanel } from '~/components/drawer_panel'
 
@@ -13,6 +14,7 @@ const EMPTY_FORM: CreateCustomerInput = {
 }
 
 interface CustomerDrawerProps {
+  errors: FormErrors
   onClose: () => void
   onSubmit: (form: CreateCustomerInput, editingId: null | string) => void
   open: boolean
@@ -21,6 +23,7 @@ interface CustomerDrawerProps {
 }
 
 export function CustomerDrawer({
+  errors,
   onClose,
   onSubmit,
   open,
@@ -29,6 +32,7 @@ export function CustomerDrawer({
 }: CustomerDrawerProps) {
   const isEdit = target !== null
   const [form, setForm] = useState<CreateCustomerInput>(formFromTarget(target))
+  const [contactError, setContactError] = useState('')
 
   function handleClose() {
     onClose()
@@ -36,6 +40,11 @@ export function CustomerDrawer({
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!form.email?.trim() && !form.phone?.trim()) {
+      setContactError('Provide at least an email or a phone number.')
+      return
+    }
+    setContactError('')
     onSubmit(form, target?.id ?? null)
   }
 
@@ -86,6 +95,9 @@ export function CustomerDrawer({
             type="text"
             value={form.company}
           />
+          {errors.company ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.company}</p>
+          ) : null}
         </div>
 
         <div>
@@ -103,6 +115,9 @@ export function CustomerDrawer({
             type="text"
             value={form.name}
           />
+          {errors.name ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.name}</p>
+          ) : null}
         </div>
 
         <div>
@@ -116,10 +131,12 @@ export function CustomerDrawer({
             className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
             id="customer-phone"
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            required
             type="tel"
-            value={form.phone}
+            value={form.phone ?? ''}
           />
+          {errors.phone ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.phone}</p>
+          ) : null}
         </div>
 
         <div className="sm:col-span-2">
@@ -133,10 +150,12 @@ export function CustomerDrawer({
             className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
             id="customer-email"
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            required
             type="email"
-            value={form.email}
+            value={form.email ?? ''}
           />
+          {errors.email ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.email}</p>
+          ) : null}
         </div>
 
         <div className="sm:col-span-2">
@@ -153,7 +172,14 @@ export function CustomerDrawer({
             rows={3}
             value={form.note ?? ''}
           />
+          {errors.note ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.note}</p>
+          ) : null}
         </div>
+
+        {contactError ? (
+          <p className="sm:col-span-2 text-sm font-medium text-error">{contactError}</p>
+        ) : null}
       </form>
     </DrawerPanel>
   )
