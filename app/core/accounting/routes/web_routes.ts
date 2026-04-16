@@ -1,16 +1,16 @@
 import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 
-const AccountingPagesController = () => import('../http/controllers/accounting_pages_controller.js')
+const DashboardController = () => import('../http/controllers/dashboard_controller.ts')
 const CustomersController = () => import('../http/controllers/customers_controller.js')
 const ExpensesController = () => import('../http/controllers/expenses_controller.js')
 const InvoicesController = () => import('../http/controllers/invoices_controller.js')
 
 router
   .group(() => {
-    router.get('/', [AccountingPagesController, 'home']).as('home')
+    router.get('/', [DashboardController, 'home']).as('home')
 
-    router.get('/dashboard', [AccountingPagesController, 'dashboard']).as('dashboard')
+    router.get('/dashboard', [DashboardController, 'dashboard']).as('dashboard')
 
     router.get('/customers', [CustomersController, 'index']).as('customers.page')
     router.post('/customers', [CustomersController, 'store']).as('customers.store')

@@ -8,6 +8,7 @@ export const mainSchema = pgSchema('main')
 // ---------------------------------------------------------------------------
 
 export const customers = mainSchema.table('customers', {
+  address: text('address').notNull().default(''),
   company: text('company').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   email: text('email').notNull(),
@@ -25,14 +26,25 @@ export const invoices = mainSchema.table(
   'invoices',
   {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // Canonical invoice snapshot model:
+    // - customerCompanyName: current company display name while invoice is draft/listed
+    // - customerCompanySnapshot/customerCompanyAddressSnapshot: frozen customer snapshot fields
+    // - issuedCompanyName/issuedCompanyAddress: explicit company identity entered at issue time
+    customerCompanyAddressSnapshot: text('customer_company_address_snapshot').notNull().default(''),
+    customerCompanyName: text('customer_company_name').notNull(),
+    customerCompanySnapshot: text('customer_company_snapshot').notNull(),
+    customerEmailSnapshot: text('customer_email_snapshot').notNull(),
     customerId: text('customer_id')
       .notNull()
       .references(() => customers.id),
-    customerName: text('customer_name').notNull(),
-    dueDate: date('due_date', { mode: 'string' }),
+    customerPhoneSnapshot: text('customer_phone_snapshot').notNull(),
+    customerPrimaryContactSnapshot: text('customer_primary_contact_snapshot').notNull(),
+    dueDate: date('due_date', { mode: 'string' }).notNull(),
     id: text('id').primaryKey(),
     invoiceNumber: text('invoice_number').notNull().unique(),
-    issueDate: date('issue_date', { mode: 'string' }),
+    issueDate: date('issue_date', { mode: 'string' }).notNull(),
+    issuedCompanyAddress: text('issued_company_address').notNull().default(''),
+    issuedCompanyName: text('issued_company_name').notNull().default(''),
     status: text('status', { enum: ['draft', 'issued', 'paid'] })
       .notNull()
       .default('draft'),
@@ -113,6 +125,7 @@ export const journalEntries = mainSchema.table(
     check('journal_entries_amount_positive', sql`${table.amountCents} > 0`),
     check('journal_entries_type_check', sql`${table.type} IN ('expense', 'invoice')`),
     unique('journal_entries_expense_unique').on(table.expenseId),
+    unique('journal_entries_invoice_unique').on(table.invoiceId),
     check(
       'journal_entries_source_xor',
       sql`(${table.expenseId} IS NOT NULL)::int + (${table.invoiceId} IS NOT NULL)::int = 1`

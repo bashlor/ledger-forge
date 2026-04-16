@@ -35,7 +35,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
     () =>
       Object.fromEntries(
         Object.entries(errors ?? {}).filter(([key]) =>
-          ['company', 'email', 'name', 'note', 'phone'].includes(key)
+          ['address', 'company', 'email', 'name', 'note', 'phone'].includes(key)
         )
       ) as FormErrors,
     [errors]

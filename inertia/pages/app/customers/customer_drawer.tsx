@@ -6,6 +6,7 @@ import type { FormErrors } from '~/types'
 import { DrawerPanel } from '~/components/drawer_panel'
 
 const EMPTY_FORM: CreateCustomerInput = {
+  address: '',
   company: '',
   email: '',
   name: '',
@@ -100,6 +101,26 @@ export function CustomerDrawer({
           ) : null}
         </div>
 
+        <div className="sm:col-span-2">
+          <label
+            className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
+            htmlFor="customer-address"
+          >
+            Address
+          </label>
+          <textarea
+            className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+            id="customer-address"
+            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            required
+            rows={2}
+            value={form.address}
+          />
+          {errors.address ? (
+            <p className="mt-2 text-sm font-medium text-error">{errors.address}</p>
+          ) : null}
+        </div>
+
         <div>
           <label
             className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
@@ -188,6 +209,7 @@ export function CustomerDrawer({
 function formFromTarget(target: CustomerDto | null): CreateCustomerInput {
   if (!target) return EMPTY_FORM
   return {
+    address: target.address,
     company: target.company,
     email: target.email,
     name: target.name,

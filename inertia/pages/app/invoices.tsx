@@ -1,7 +1,12 @@
 import { Head, router } from '@inertiajs/react'
 import { useMemo, useState } from 'react'
 
-import type { CreateInvoiceInput, CustomerDto, InvoiceDto, InvoiceLineInput } from '~/lib/types'
+import type {
+  CreateInvoiceInput,
+  CustomerSelectDto,
+  InvoiceDto,
+  InvoiceLineInput,
+} from '~/lib/types'
 
 import { AppIcon } from '~/components/app_icon'
 import { useDateScope } from '~/components/date_scope_provider'
@@ -29,7 +34,7 @@ interface EditableInvoiceLine extends InvoiceLineInput {
 const VAT_OPTIONS = [0, 5.5, 10, 20]
 
 interface InvoicesPageProps {
-  customers: CustomerDto[]
+  customers: CustomerSelectDto[]
   initialCustomerId: null | string
   initialInvoiceId: null | string
   invoices: InvoiceDto[]
@@ -72,8 +77,15 @@ function createInitialForm(customerId = '') {
   }
 }
 
+function createInitialIssueForm(invoice?: InvoiceDto) {
+  return {
+    issuedCompanyAddress: invoice?.customerCompanyAddressSnapshot ?? '',
+    issuedCompanyName: invoice?.customerCompanyName ?? '',
+  }
+}
+
 function createInitialState(
-  customers: CustomerDto[],
+  customers: CustomerSelectDto[],
   invoices: InvoiceDto[],
   initialCustomerId: null | string,
   initialInvoiceId: null | string,
@@ -149,6 +161,9 @@ function InvoicesContent({
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<null | string>(
     initialState.selectedInvoiceId
   )
+  const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<null | string>(null)
+  const [issueForm, setIssueForm] = useState(createInitialIssueForm())
 
   const selectedInvoice = useMemo(
     () => invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null,
@@ -174,7 +189,7 @@ function InvoicesContent({
   const draftCount = scopedInvoices.filter((invoice) => invoice.status === 'draft').length
   const issuedCount = scopedInvoices.filter((invoice) => invoice.status === 'issued').length
   const overdueCount = scopedInvoices.filter(
-    (invoice) => invoice.status === 'issued' && new Date(invoice.dueDate) < new Date(todayValue())
+    (invoice) => invoice.status === 'issued' && invoice.dueDate < todayValue()
   ).length
 
   function handleCreateDraft() {
@@ -228,11 +243,19 @@ function InvoicesContent({
       ...form,
       customerId: effectiveCustomerId,
     })
-    const method = selectedInvoice && editingInvoice ? router.put : router.post
     const url =
       selectedInvoice && editingInvoice ? `/invoices/${selectedInvoice.id}/draft` : '/invoices'
 
-    method(url, payload as never, {
+    if (selectedInvoice && editingInvoice) {
+      router.put(url, payload as never, {
+        onFinish: () => setSaving(false),
+        onStart: () => setSaving(true),
+        preserveScroll: true,
+      })
+      return
+    }
+
+    router.post(url, payload as never, {
       onFinish: () => setSaving(false),
       onStart: () => setSaving(true),
       preserveScroll: true,
@@ -242,11 +265,31 @@ function InvoicesContent({
   async function handleIssueInvoice() {
     if (!selectedInvoice || !canIssueInvoice(selectedInvoice)) return
 
+    setIssueForm(createInitialIssueForm(selectedInvoice))
+    setIsIssueDialogOpen(true)
+  }
+
+  function handleIssueFormFieldChange(
+    field: 'issuedCompanyAddress' | 'issuedCompanyName',
+    value: string
+  ) {
+    setIssueForm((current) => ({ ...current, [field]: value }))
+  }
+
+  async function handleConfirmIssueInvoice() {
+    if (!selectedInvoice || !canIssueInvoice(selectedInvoice)) return
+
     router.post(
       `/invoices/${selectedInvoice.id}/issue`,
-      {},
       {
-        onFinish: () => setSaving(false),
+        issuedCompanyAddress: issueForm.issuedCompanyAddress,
+        issuedCompanyName: issueForm.issuedCompanyName,
+      },
+      {
+        onFinish: () => {
+          setSaving(false)
+          setIsIssueDialogOpen(false)
+        },
         onStart: () => setSaving(true),
         preserveScroll: true,
       }
@@ -267,9 +310,13 @@ function InvoicesContent({
     )
   }
 
-  async function handleDeleteDraftFromList(invoice: InvoiceDto) {
+  function handleDeleteDraftFromList(invoice: InvoiceDto) {
     if (!canDeleteInvoice(invoice)) return
-
+    if (deleteConfirmId !== invoice.id) {
+      setDeleteConfirmId(invoice.id)
+      return
+    }
+    setDeleteConfirmId(null)
     router.delete(`/invoices/${invoice.id}`, {
       onFinish: () => setSaving(false),
       onStart: () => setSaving(true),
@@ -287,7 +334,12 @@ function InvoicesContent({
     })
   }
 
+  // When editing an existing draft, the server accepts dueDate >= draft createdAt.
+  // When creating, use today as the minimum (same as server).
+  const minDueDate = editingInvoice ? selectedInvoice.createdAt : todayValue()
+
   const formIsValid =
+    form.dueDate >= minDueDate &&
     effectiveCustomerId &&
     form.issueDate &&
     form.dueDate &&
@@ -302,7 +354,7 @@ function InvoicesContent({
     isCreating || (selectedInvoice && editingInvoice)
       ? 'Draft → issue when totals are final, then mark paid when payment is received.'
       : selectedInvoice
-        ? `${selectedInvoice.customerName} · ${formatCurrency(selectedInvoice.totalInclTax)}`
+        ? `${selectedInvoice.customerCompanyName} · ${formatCurrency(selectedInvoice.totalInclTax)}`
         : ''
 
   return (
@@ -441,7 +493,7 @@ function InvoicesContent({
                           {invoice.invoiceNumber}
                         </td>
                         <td className="max-w-[220px] truncate px-3 py-2 text-on-surface">
-                          {invoice.customerName}
+                          {invoice.customerCompanyName}
                         </td>
                         <td className="whitespace-nowrap px-3 py-1.5">
                           <StatusBadge status={invoice.status} />
@@ -457,15 +509,37 @@ function InvoicesContent({
                           onClick={(event) => event.stopPropagation()}
                         >
                           {canDeleteInvoice(invoice) ? (
-                            <button
-                              aria-label={`Delete draft ${invoice.invoiceNumber}`}
-                              className="rounded border border-error/20 px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={saving}
-                              onClick={() => void handleDeleteDraftFromList(invoice)}
-                              type="button"
-                            >
-                              Delete draft
-                            </button>
+                            deleteConfirmId === invoice.id ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                <button
+                                  aria-label={`Confirm delete draft ${invoice.invoiceNumber}`}
+                                  className="rounded border border-error px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/40 disabled:cursor-not-allowed disabled:opacity-50"
+                                  disabled={saving}
+                                  onClick={() => handleDeleteDraftFromList(invoice)}
+                                  type="button"
+                                >
+                                  Confirm
+                                </button>
+                                <button
+                                  aria-label="Cancel delete"
+                                  className="rounded border border-outline-variant/35 px-2 py-1 text-xs font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-low"
+                                  onClick={() => setDeleteConfirmId(null)}
+                                  type="button"
+                                >
+                                  Cancel
+                                </button>
+                              </span>
+                            ) : (
+                              <button
+                                aria-label={`Delete draft ${invoice.invoiceNumber}`}
+                                className="rounded border border-error/20 px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={saving}
+                                onClick={() => handleDeleteDraftFromList(invoice)}
+                                type="button"
+                              >
+                                Delete draft
+                              </button>
+                            )
                           ) : null}
                         </td>
                       </tr>
@@ -560,12 +634,18 @@ function InvoicesContent({
                         <input
                           className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
                           id="invoice-due-date"
+                          min={minDueDate}
                           onChange={(event) =>
                             setForm((current) => ({ ...current, dueDate: event.target.value }))
                           }
                           type="date"
                           value={form.dueDate}
                         />
+                        {form.dueDate && form.dueDate < minDueDate ? (
+                          <p className="mt-2 text-xs font-medium text-error">
+                            Due date must be on or after {minDueDate}.
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 
@@ -762,7 +842,7 @@ function InvoicesContent({
                     <div className="flex flex-wrap items-center gap-3">
                       <StatusBadge status={selectedInvoice.status} />
                       <p className="text-sm leading-6 text-on-surface-variant">
-                        {selectedInvoice.customerName} · Issued{' '}
+                        {selectedInvoice.customerCompanyName} · Issued{' '}
                         {formatShortDate(selectedInvoice.issueDate)} · Due{' '}
                         {formatShortDate(selectedInvoice.dueDate)}
                       </p>
@@ -786,6 +866,16 @@ function InvoicesContent({
                   </div>
                 </div>
 
+                <div className="border-b border-primary/20 bg-primary/10 px-5 py-3 sm:px-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                    Read-only invoice
+                  </p>
+                  <p className="mt-1 text-sm text-on-surface-variant">
+                    This invoice is locked after issue. You can only mark it as paid when
+                    applicable.
+                  </p>
+                </div>
+
                 <div className="space-y-6 px-5 py-6 sm:px-6">
                   <div className="grid gap-4 md:grid-cols-3">
                     <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">
@@ -793,7 +883,17 @@ function InvoicesContent({
                         Customer
                       </p>
                       <p className="mt-2 text-sm font-semibold text-on-surface">
-                        {selectedInvoice.customerName}
+                        {selectedInvoice.customerCompanySnapshot}
+                      </p>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        Company address:{' '}
+                        {selectedInvoice.customerCompanyAddressSnapshot || 'No address'}
+                      </p>
+                      <IssuedCompanySnapshotDetails invoice={selectedInvoice} />
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        {selectedInvoice.customerPrimaryContactSnapshot || 'No contact name'} ·
+                        Customer email: {selectedInvoice.customerEmailSnapshot || 'No email'} ·{' '}
+                        {selectedInvoice.customerPhoneSnapshot || 'No phone'}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">
@@ -890,6 +990,14 @@ function InvoicesContent({
           </section>
         )}
       </div>
+      <IssueInvoiceDialog
+        isOpen={Boolean(isIssueDialogOpen && selectedInvoice && canIssueInvoice(selectedInvoice))}
+        issueForm={issueForm}
+        onCancel={() => setIsIssueDialogOpen(false)}
+        onConfirm={() => void handleConfirmIssueInvoice()}
+        onFieldChange={handleIssueFormFieldChange}
+        saving={saving}
+      />
     </>
   )
 }
@@ -901,6 +1009,84 @@ function invoiceToForm(invoice: InvoiceDto) {
     issueDate: invoice.issueDate,
     lines: invoice.lines.map((line) => createEditableLine(line)),
   }
+}
+
+function IssuedCompanySnapshotDetails({ invoice }: { invoice: InvoiceDto }) {
+  return (
+    <p className="mt-1 text-xs text-on-surface-variant whitespace-pre-line">
+      Issued company: {invoice.issuedCompanyName || 'No issued company name'}
+      {'\n'}
+      Issued address: {invoice.issuedCompanyAddress || 'No issued company address'}
+    </p>
+  )
+}
+
+function IssueInvoiceDialog({
+  isOpen,
+  issueForm,
+  onCancel,
+  onConfirm,
+  onFieldChange,
+  saving,
+}: {
+  isOpen: boolean
+  issueForm: { issuedCompanyAddress: string; issuedCompanyName: string }
+  onCancel: () => void
+  onConfirm: () => void
+  onFieldChange: (field: 'issuedCompanyAddress' | 'issuedCompanyName', value: string) => void
+  saving: boolean
+}) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-xl rounded-2xl border border-outline-variant/20 bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-on-surface">Issue invoice</h3>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          Provide company identity to snapshot this issued invoice.
+        </p>
+        <div className="mt-4 space-y-4">
+          <label className="block">
+            <span className="text-sm font-medium text-on-surface">Company name</span>
+            <input
+              className="mt-1 w-full rounded-lg border border-outline-variant/35 px-3 py-2 text-sm"
+              onChange={(event) => onFieldChange('issuedCompanyName', event.target.value)}
+              value={issueForm.issuedCompanyName}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-on-surface">Company address</span>
+            <textarea
+              className="mt-1 min-h-28 w-full rounded-lg border border-outline-variant/35 px-3 py-2 text-sm"
+              onChange={(event) => onFieldChange('issuedCompanyAddress', event.target.value)}
+              value={issueForm.issuedCompanyAddress}
+            />
+          </label>
+        </div>
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button
+            className="rounded-lg border border-outline-variant/35 px-4 py-2 text-sm"
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="rounded-lg px-4 py-2 text-sm font-medium text-on-primary milled-steel-gradient disabled:opacity-60"
+            disabled={
+              saving ||
+              !issueForm.issuedCompanyName.trim() ||
+              !issueForm.issuedCompanyAddress.trim()
+            }
+            onClick={onConfirm}
+            type="button"
+          >
+            Confirm issue
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function plusDays(value: string, days: number) {

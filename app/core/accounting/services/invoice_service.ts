@@ -28,12 +28,20 @@ export interface InvoiceConcurrencyHooks {
 // ---------------------------------------------------------------------------
 
 export interface InvoiceDto {
+  createdAt: string
+  customerCompanyAddressSnapshot: string
+  customerCompanyName: string
+  customerCompanySnapshot: string
+  customerEmailSnapshot: string
   customerId: string
-  customerName: string
+  customerPhoneSnapshot: string
+  customerPrimaryContactSnapshot: string
   dueDate: string
   id: string
   invoiceNumber: string
   issueDate: string
+  issuedCompanyAddress: string
+  issuedCompanyName: string
   lines: InvoiceLineDto[]
   status: 'draft' | 'issued' | 'paid'
   subtotalExclTax: number
@@ -50,6 +58,11 @@ export interface InvoiceLineDto {
   quantity: number
   unitPrice: number
   vatRate: number
+}
+
+export interface IssueInvoiceInput {
+  issuedCompanyAddress: string
+  issuedCompanyName: string
 }
 
 export interface SaveInvoiceDraftInput {
@@ -69,8 +82,16 @@ export interface SaveInvoiceLineInput {
   unitPrice: number
   vatRate: number
 }
-type InvoiceLineRow = typeof invoiceLines.$inferSelect
+type InvoiceCustomerSnapshot = Pick<
+  InvoiceRow,
+  | 'customerCompanyAddressSnapshot'
+  | 'customerCompanySnapshot'
+  | 'customerEmailSnapshot'
+  | 'customerPhoneSnapshot'
+  | 'customerPrimaryContactSnapshot'
+>
 
+type InvoiceLineRow = typeof invoiceLines.$inferSelect
 type InvoiceRow = typeof invoices.$inferSelect
 
 // ---------------------------------------------------------------------------
@@ -82,8 +103,23 @@ export class InvoiceService {
 
   async createDraft(input: SaveInvoiceDraftInput): Promise<InvoiceDto> {
     return this.db.transaction(async (tx) => {
+      assertInvoiceDates(input.issueDate, input.dueDate)
+      const draftCreationDate = new Date().toISOString().slice(0, 10)
+      assertDueDateIsNotBefore(
+        input.dueDate,
+        draftCreationDate,
+        'Due date must be on or after the draft creation date.'
+      )
+
       const [customer] = await tx
-        .select({ company: customers.company, id: customers.id })
+        .select({
+          address: customers.address,
+          company: customers.company,
+          email: customers.email,
+          id: customers.id,
+          name: customers.name,
+          phone: customers.phone,
+        })
         .from(customers)
         .where(eq(customers.id, input.customerId))
 
@@ -99,8 +135,11 @@ export class InvoiceService {
       const [invoice] = await tx
         .insert(invoices)
         .values({
+          customerCompanyName: customer.company,
           customerId: input.customerId,
-          customerName: customer.company,
+          issuedCompanyAddress: '',
+          issuedCompanyName: '',
+          ...toCustomerSnapshot(customer),
           dueDate: input.dueDate,
           id: invoiceId,
           invoiceNumber,
@@ -115,7 +154,7 @@ export class InvoiceService {
         id: uuidv7(),
         invoiceId,
         lineNumber: i + 1,
-        quantityCents: line.quantityCents,
+        quantityCents: line.quantityHundredths,
         unitPriceCents: line.unitPriceCents,
         vatRateCents: line.vatRateCents,
         ...lineCalcs[i],
@@ -147,7 +186,11 @@ export class InvoiceService {
     })
   }
 
-  async issueInvoice(id: string, hooks?: InvoiceConcurrencyHooks): Promise<InvoiceDto> {
+  async issueInvoice(
+    id: string,
+    input: IssueInvoiceInput,
+    hooks?: InvoiceConcurrencyHooks
+  ): Promise<InvoiceDto> {
     return this.db.transaction(async (tx) => {
       const [existing] = await tx.select().from(invoices).where(eq(invoices.id, id))
       if (!existing) {
@@ -159,9 +202,42 @@ export class InvoiceService {
       }
       await hooks?.afterRead?.()
 
+      const [customer] = await tx
+        .select({
+          address: customers.address,
+          company: customers.company,
+          email: customers.email,
+          name: customers.name,
+          phone: customers.phone,
+        })
+        .from(customers)
+        .where(eq(customers.id, existing.customerId))
+
+      if (!customer) throw new DomainError('Customer not found.', 'not_found')
+      const issuedCompanyName = input.issuedCompanyName.trim()
+      const issuedCompanyAddress = input.issuedCompanyAddress.trim()
+      if (!issuedCompanyName || !issuedCompanyAddress) {
+        throw new DomainError(
+          'Company name and company address are required to issue.',
+          'business_logic_error'
+        )
+      }
+      const today = new Date().toISOString().slice(0, 10)
+      assertDueDateIsNotBefore(
+        existing.dueDate,
+        today,
+        'Due date must be today or later to issue an invoice.'
+      )
+
       const [updated] = await tx
         .update(invoices)
-        .set({ status: 'issued' })
+        .set({
+          customerCompanyName: customer.company,
+          issuedCompanyAddress,
+          issuedCompanyName,
+          status: 'issued',
+          ...toCustomerSnapshot(customer),
+        })
         .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
         .returning()
 
@@ -175,7 +251,7 @@ export class InvoiceService {
 
       await tx.insert(journalEntries).values({
         amountCents: updated.totalInclTaxCents,
-        date: updated.issueDate ?? updated.createdAt.toISOString().slice(0, 10),
+        date: updated.issueDate,
         id: uuidv7(),
         invoiceId: id,
         label: `Invoice ${updated.invoiceNumber}`,
@@ -210,6 +286,7 @@ export class InvoiceService {
       .select()
       .from(invoices)
       .orderBy(desc(invoices.issueDate), desc(invoices.invoiceNumber))
+      .limit(500)
 
     if (invoiceRows.length === 0) return []
 
@@ -267,8 +344,15 @@ export class InvoiceService {
     hooks?: InvoiceConcurrencyHooks
   ): Promise<InvoiceDto> {
     return this.db.transaction(async (tx) => {
+      assertInvoiceDates(input.issueDate, input.dueDate)
+
       const [existing] = await tx
-        .select({ status: invoices.status })
+        .select({
+          createdAt: invoices.createdAt,
+          issuedCompanyAddress: invoices.issuedCompanyAddress,
+          issuedCompanyName: invoices.issuedCompanyName,
+          status: invoices.status,
+        })
         .from(invoices)
         .where(eq(invoices.id, id))
 
@@ -276,10 +360,25 @@ export class InvoiceService {
       if (existing.status !== 'draft') {
         throw new DomainError('Only draft invoices can be edited.', 'business_logic_error')
       }
+      // Note: we only enforce dueDate >= createdAt here (not >= today) so that users can
+      // still save edits to an existing draft whose due date has since passed. The stricter
+      // "dueDate >= today" check is enforced at issue time via assertDueDateIsNotBefore.
+      const draftCreationDate = existing.createdAt.toISOString().slice(0, 10)
+      assertDueDateIsNotBefore(
+        input.dueDate,
+        draftCreationDate,
+        'Due date must be on or after the draft creation date.'
+      )
       await hooks?.afterRead?.()
 
       const [customer] = await tx
-        .select({ company: customers.company })
+        .select({
+          address: customers.address,
+          company: customers.company,
+          email: customers.email,
+          name: customers.name,
+          phone: customers.phone,
+        })
         .from(customers)
         .where(eq(customers.id, input.customerId))
 
@@ -292,8 +391,11 @@ export class InvoiceService {
       const [updated] = await tx
         .update(invoices)
         .set({
+          customerCompanyName: customer.company,
           customerId: input.customerId,
-          customerName: customer.company,
+          issuedCompanyAddress: existing.issuedCompanyAddress,
+          issuedCompanyName: existing.issuedCompanyName,
+          ...toCustomerSnapshot(customer),
           dueDate: input.dueDate,
           issueDate: input.issueDate,
           ...totals,
@@ -319,7 +421,7 @@ export class InvoiceService {
         id: uuidv7(),
         invoiceId: id,
         lineNumber: i + 1,
-        quantityCents: line.quantityCents,
+        quantityCents: line.quantityHundredths,
         unitPriceCents: line.unitPriceCents,
         vatRateCents: line.vatRateCents,
         ...lineCalcs[i],
@@ -335,6 +437,18 @@ export class InvoiceService {
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------
+
+function assertDueDateIsNotBefore(dueDate: string, minDate: string, message: string) {
+  if (!dueDate || dueDate < minDate) {
+    throw new DomainError(message, 'business_logic_error')
+  }
+}
+
+function assertInvoiceDates(issueDate: string, dueDate: string) {
+  if (dueDate < issueDate) {
+    throw new DomainError('Due date cannot be before the issue date.', 'business_logic_error')
+  }
+}
 
 async function nextInvoiceNumber(db: any, issueDate: string): Promise<string> {
   const year = issueDate.slice(0, 4)
@@ -355,14 +469,38 @@ async function nextInvoiceNumber(db: any, issueDate: string): Promise<string> {
   return `INV-${year}-${String((lastSequence ?? 0) + 1).padStart(3, '0')}`
 }
 
+function toCustomerSnapshot(customer: {
+  address: string
+  company: string
+  email: string
+  name: string
+  phone: string
+}): InvoiceCustomerSnapshot {
+  return {
+    customerCompanyAddressSnapshot: customer.address,
+    customerCompanySnapshot: customer.company,
+    customerEmailSnapshot: customer.email,
+    customerPhoneSnapshot: customer.phone,
+    customerPrimaryContactSnapshot: customer.name,
+  }
+}
+
 function toInvoiceDto(row: InvoiceRow, lines: InvoiceLineDto[]): InvoiceDto {
   return {
+    createdAt: row.createdAt.toISOString().slice(0, 10),
+    customerCompanyAddressSnapshot: row.customerCompanyAddressSnapshot,
+    customerCompanyName: row.customerCompanyName,
+    customerCompanySnapshot: row.customerCompanySnapshot,
+    customerEmailSnapshot: row.customerEmailSnapshot,
     customerId: row.customerId,
-    customerName: row.customerName,
-    dueDate: row.dueDate ?? '',
+    customerPhoneSnapshot: row.customerPhoneSnapshot,
+    customerPrimaryContactSnapshot: row.customerPrimaryContactSnapshot,
+    dueDate: row.dueDate,
     id: row.id,
     invoiceNumber: row.invoiceNumber,
-    issueDate: row.issueDate ?? '',
+    issueDate: row.issueDate,
+    issuedCompanyAddress: row.issuedCompanyAddress,
+    issuedCompanyName: row.issuedCompanyName,
     lines,
     status: row.status as 'draft' | 'issued' | 'paid',
     subtotalExclTax: row.subtotalExclTaxCents / 100,

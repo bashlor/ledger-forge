@@ -1,6 +1,7 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 
 import { CustomerService } from '#core/accounting/services/customer_service'
+import { DashboardService } from '#core/accounting/services/dashboard_service'
 import { ExpenseService } from '#core/accounting/services/expense_service'
 import { InvoiceService } from '#core/accounting/services/invoice_service'
 
@@ -21,6 +22,11 @@ export default class AccountingProvider {
     this.app.container.singleton(InvoiceService, async (resolver) => {
       const db = await resolver.make('drizzle')
       return new InvoiceService(db)
+    })
+
+    this.app.container.bind(DashboardService, async (resolver) => {
+      const db = await resolver.make('drizzle')
+      return new DashboardService(db)
     })
   }
 }

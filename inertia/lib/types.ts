@@ -1,4 +1,5 @@
 export interface CreateCustomerInput {
+  address: string
   company: string
   email?: string
   name: string
@@ -21,26 +22,31 @@ export interface CreateInvoiceInput {
 }
 
 export interface CustomerDto {
-  canDelete?: boolean
+  address: string
+  canDelete: boolean
   company: string
   deleteBlockReason?: string
   email: string
   id: string
-  invoiceCount?: number
+  invoiceCount: number
   name: string
   note?: string
   phone: string
-  totalInvoiced?: number
+  totalInvoiced: number
 }
 
-export interface CustomerListDto extends PaginatedList<CustomerListItemDto> {
+export interface CustomerListDto extends PaginatedList<CustomerDto> {
   summary: CustomerSummaryDto
 }
 
-export interface CustomerListItemDto extends CustomerDto {
-  canDelete: boolean
-  invoiceCount: number
-  totalInvoiced: number
+export type CustomerListItemDto = CustomerDto
+
+export interface CustomerSelectDto {
+  company: string
+  email: string
+  id: string
+  name: string
+  phone: string
 }
 
 export interface CustomerSummaryDto {
@@ -60,7 +66,7 @@ export interface DashboardDto {
 }
 
 export interface DashboardRecentInvoiceDto {
-  customerName: string
+  customerCompanyName: string
   date: string
   dueDate: string
   id: string
@@ -102,12 +108,20 @@ export interface ExpenseSummaryDto {
 }
 
 export interface InvoiceDto {
+  createdAt: string
+  customerCompanyAddressSnapshot: string
+  customerCompanyName: string
+  customerCompanySnapshot: string
+  customerEmailSnapshot: string
   customerId: string
-  customerName: string
+  customerPhoneSnapshot: string
+  customerPrimaryContactSnapshot: string
   dueDate: string
   id: string
   invoiceNumber: string
   issueDate: string
+  issuedCompanyAddress: string
+  issuedCompanyName: string
   lines: InvoiceLineDto[]
   status: InvoiceStatus
   subtotalExclTax: number

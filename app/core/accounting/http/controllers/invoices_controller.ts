@@ -5,7 +5,11 @@ import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'
-import { invoiceParamsValidator, saveInvoiceDraftValidator } from '../validators/invoice.js'
+import {
+  invoiceParamsValidator,
+  issueInvoiceValidator,
+  saveInvoiceDraftValidator,
+} from '../validators/invoice.js'
 
 export default class InvoicesController {
   @inject()
@@ -19,7 +23,7 @@ export default class InvoicesController {
       'Could not delete the draft.'
     )
 
-    return ctx.response.redirect(this.invoicesUrl({}))
+    return this.redirectToInvoices(ctx)
   }
 
   @inject()
@@ -38,15 +42,16 @@ export default class InvoicesController {
   @inject()
   async issue(ctx: HttpContext, invoiceService: InvoiceService) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
+    const payload = await ctx.request.validateUsing(issueInvoiceValidator)
 
     await flashAction(
       ctx,
-      () => invoiceService.issueInvoice(params.id),
+      () => invoiceService.issueInvoice(params.id, payload),
       'Invoice issued.',
       'Could not issue the invoice.'
     )
 
-    return ctx.response.redirect(this.invoicesUrl({ invoice: params.id }))
+    return this.redirectToInvoices(ctx, { invoice: params.id })
   }
 
   @inject()
@@ -60,7 +65,7 @@ export default class InvoicesController {
       'Could not mark the invoice as paid.'
     )
 
-    return ctx.response.redirect(this.invoicesUrl({ invoice: params.id }))
+    return this.redirectToInvoices(ctx, { invoice: params.id })
   }
 
   @inject()
@@ -79,9 +84,9 @@ export default class InvoicesController {
       'Could not save the draft.'
     )
 
-    return ctx.response.redirect(
-      createdId ? this.invoicesUrl({ invoice: createdId }) : this.invoicesUrl({ mode: 'new' })
-    )
+    return createdId
+      ? this.redirectToInvoices(ctx, { invoice: createdId })
+      : this.redirectToInvoices(ctx, { mode: 'new' })
   }
 
   @inject()
@@ -96,14 +101,13 @@ export default class InvoicesController {
       'Could not save the draft.'
     )
 
-    return ctx.response.redirect(this.invoicesUrl({ invoice: params.id }))
+    return this.redirectToInvoices(ctx, { invoice: params.id })
   }
 
-  private invoicesUrl(params: { invoice?: string; mode?: 'new' }) {
-    const searchParams = new URLSearchParams()
-    if (params.invoice) searchParams.set('invoice', params.invoice)
-    if (params.mode) searchParams.set('mode', params.mode)
-    const suffix = searchParams.toString()
-    return suffix ? `/invoices?${suffix}` : '/invoices'
+  private redirectToInvoices(ctx: HttpContext, qs: { invoice?: string; mode?: 'new' } = {}) {
+    const params = Object.fromEntries(Object.entries(qs).filter(([, v]) => v !== undefined))
+    return ctx.response
+      .redirect()
+      .toRoute('invoices.page', [], Object.keys(params).length > 0 ? { qs: params } : undefined)
   }
 }

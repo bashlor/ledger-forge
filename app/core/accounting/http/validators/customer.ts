@@ -5,6 +5,7 @@ export const customerIndexValidator = vine.create({
 })
 
 export const saveCustomerValidator = vine.create({
+  address: vine.string().trim().minLength(1).maxLength(500),
   company: vine.string().trim().minLength(1).maxLength(255),
   email: vine.string().trim().email().maxLength(255).optional(),
   name: vine.string().trim().minLength(1).maxLength(255),
