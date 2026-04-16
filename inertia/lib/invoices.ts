@@ -4,17 +4,19 @@ export function buildInvoiceFromInput(
   input: CreateInvoiceInput,
   meta: Pick<
     InvoiceDto,
-    | 'customerAddressSnapshot'
+    | 'customerCompanyAddressSnapshot'
+    | 'customerCompanyName'
     | 'customerCompanySnapshot'
     | 'customerEmailSnapshot'
     | 'customerId'
-    | 'customerName'
     | 'customerPhoneSnapshot'
     | 'customerPrimaryContactSnapshot'
     | 'dueDate'
     | 'id'
     | 'invoiceNumber'
     | 'issueDate'
+    | 'issuedCompanyAddress'
+    | 'issuedCompanyName'
     | 'status'
   >,
   existingLineIds?: string[]

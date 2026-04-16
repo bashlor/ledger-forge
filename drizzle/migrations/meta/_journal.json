@@ -64,6 +64,27 @@
       "when": 1776360000000,
       "tag": "0008_address_and_due_date",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776400000000,
+      "tag": "0009_customer_company_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1776460000000,
+      "tag": "0010_issue_company_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1776520000000,
+      "tag": "0011_invoice_constraints",
+      "breakpoints": true
     }
   ]
 }

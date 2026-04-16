@@ -71,25 +71,27 @@ export class CustomerService {
   }
 
   async deleteCustomer(id: string): Promise<void> {
-    const [{ invCount }] = await this.db
-      .select({ invCount: count() })
-      .from(invoices)
-      .where(eq(invoices.customerId, id))
+    return this.db.transaction(async (tx) => {
+      const [{ invCount }] = await tx
+        .select({ invCount: count() })
+        .from(invoices)
+        .where(eq(invoices.customerId, id))
 
-    if (invCount > 0) {
-      throw new DomainError(
-        'This customer is referenced by one or more invoices.',
-        'business_logic_error'
-      )
-    }
+      if (invCount > 0) {
+        throw new DomainError(
+          'This customer is referenced by one or more invoices.',
+          'business_logic_error'
+        )
+      }
 
-    const [deleted] = await this.db.delete(customers).where(eq(customers.id, id)).returning({
-      id: customers.id,
+      const [deleted] = await tx.delete(customers).where(eq(customers.id, id)).returning({
+        id: customers.id,
+      })
+
+      if (!deleted) {
+        throw new DomainError('Customer not found.', 'not_found')
+      }
     })
-
-    if (!deleted) {
-      throw new DomainError('Customer not found.', 'not_found')
-    }
   }
 
   async listCustomersPage(page = 1, perPage = 5): Promise<CustomerListResult> {
@@ -204,7 +206,7 @@ export class CustomerService {
       existing.name !== name ||
       existing.phone !== phone
 
-    await this.db.transaction(async (tx) => {
+    const updatedRow = await this.db.transaction(async (tx) => {
       const [updated] = await tx
         .update(customers)
         .set({
@@ -226,7 +228,8 @@ export class CustomerService {
         await tx
           .update(invoices)
           .set({
-            customerAddressSnapshot: address,
+            customerCompanyAddressSnapshot: address,
+            customerCompanyName: company,
             customerCompanySnapshot: company,
             customerEmailSnapshot: email,
             customerName: company,
@@ -235,11 +238,12 @@ export class CustomerService {
           })
           .where(and(eq(invoices.customerId, id), eq(invoices.status, 'draft')))
       }
+
+      return updated
     })
 
-    const [row] = await this.db.select().from(customers).where(eq(customers.id, id))
     const agg = await this.invoiceAggregateForCustomer(id)
-    return toCustomerDto(row!, agg)
+    return toCustomerDto(updatedRow, agg)
   }
 
   private async invoiceAggregateForCustomer(customerId: string): Promise<{

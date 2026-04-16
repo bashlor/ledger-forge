@@ -34,17 +34,7 @@ export default class CustomersController {
     const { page } = await ctx.request.validateUsing(customerIndexValidator)
     const customers = await customerService.listCustomersPage(page ?? 1, PER_PAGE)
 
-    return renderInertiaPage(ctx.inertia, 'app/customers', {
-      customers: {
-        ...customers,
-        items: customers.items.map((item) => ({
-          ...item,
-          canDelete: item.canDelete ?? item.invoiceCount === 0,
-          invoiceCount: item.invoiceCount ?? 0,
-          totalInvoiced: item.totalInvoiced ?? 0,
-        })),
-      },
-    })
+    return renderInertiaPage(ctx.inertia, 'app/customers', { customers })
   }
 
   @inject()

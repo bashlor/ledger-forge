@@ -5,7 +5,11 @@ import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'
-import { invoiceParamsValidator, saveInvoiceDraftValidator } from '../validators/invoice.js'
+import {
+  invoiceParamsValidator,
+  issueInvoiceValidator,
+  saveInvoiceDraftValidator,
+} from '../validators/invoice.js'
 
 export default class InvoicesController {
   @inject()
@@ -38,10 +42,11 @@ export default class InvoicesController {
   @inject()
   async issue(ctx: HttpContext, invoiceService: InvoiceService) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
+    const payload = await ctx.request.validateUsing(issueInvoiceValidator)
 
     await flashAction(
       ctx,
-      () => invoiceService.issueInvoice(params.id),
+      () => invoiceService.issueInvoice(params.id, payload),
       'Invoice issued.',
       'Could not issue the invoice.'
     )

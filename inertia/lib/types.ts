@@ -62,7 +62,7 @@ export interface DashboardDto {
 }
 
 export interface DashboardRecentInvoiceDto {
-  customerName: string
+  customerCompanyName: string
   date: string
   dueDate: string
   id: string
@@ -104,17 +104,20 @@ export interface ExpenseSummaryDto {
 }
 
 export interface InvoiceDto {
-  customerAddressSnapshot: string
+  createdAt: string
+  customerCompanyAddressSnapshot: string
+  customerCompanyName: string
   customerCompanySnapshot: string
   customerEmailSnapshot: string
   customerId: string
-  customerName: string
   customerPhoneSnapshot: string
   customerPrimaryContactSnapshot: string
   dueDate: string
   id: string
   invoiceNumber: string
   issueDate: string
+  issuedCompanyAddress: string
+  issuedCompanyName: string
   lines: InvoiceLineDto[]
   status: InvoiceStatus
   subtotalExclTax: number

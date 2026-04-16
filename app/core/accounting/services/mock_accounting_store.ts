@@ -22,7 +22,7 @@ export interface CustomerResponse {
 }
 
 export interface DashboardRecentInvoiceResponse {
-  customerName: string
+  customerCompanyName: string
   date: string
   dueDate: string
   id: string
@@ -68,17 +68,19 @@ export interface InvoiceLineResponse extends InvoiceLineRequest {
   lineVatAmount: number
 }
 export interface InvoiceResponse {
-  customerAddressSnapshot: string
+  customerCompanyAddressSnapshot: string
+  customerCompanyName: string
   customerCompanySnapshot: string
   customerEmailSnapshot: string
   customerId: string
-  customerName: string
   customerPhoneSnapshot: string
   customerPrimaryContactSnapshot: string
   dueDate: string
   id: string
   invoiceNumber: string
   issueDate: string
+  issuedCompanyAddress: string
+  issuedCompanyName: string
   lines: InvoiceLineResponse[]
   status: InvoiceStatus
   subtotalExclTax: number
@@ -196,17 +198,19 @@ class MockAccountingStore {
         ],
       },
       {
-        customerAddressSnapshot: '12 rue des Cerisiers, 75011 Paris',
+        customerCompanyAddressSnapshot: '12 rue des Cerisiers, 75011 Paris',
+        customerCompanyName: 'Northwind Studio',
         customerCompanySnapshot: 'Northwind Studio',
         customerEmailSnapshot: 'sarah@northwind.test',
         customerId: 'client-1',
-        customerName: 'Northwind Studio',
         customerPhoneSnapshot: '+33 6 11 22 33 44',
         customerPrimaryContactSnapshot: 'Sarah Chen',
         dueDate: '2026-04-15',
         id: 'invoice-1',
         invoiceNumber: 'INV-2026-001',
         issueDate: '2026-04-01',
+        issuedCompanyAddress: '12 rue des Cerisiers, 75011 Paris',
+        issuedCompanyName: 'Northwind Studio',
         status: 'issued',
       }
     ),
@@ -221,17 +225,19 @@ class MockAccountingStore {
         ],
       },
       {
-        customerAddressSnapshot: '8 avenue Victor Hugo, 69002 Lyon',
+        customerCompanyAddressSnapshot: '8 avenue Victor Hugo, 69002 Lyon',
+        customerCompanyName: 'Atelier Horizon',
         customerCompanySnapshot: 'Atelier Horizon',
         customerEmailSnapshot: 'marc@horizon.test',
         customerId: 'client-2',
-        customerName: 'Atelier Horizon',
         customerPhoneSnapshot: '+33 6 55 66 77 88',
         customerPrimaryContactSnapshot: 'Marc Dubois',
         dueDate: '2026-04-10',
         id: 'invoice-2',
         invoiceNumber: 'INV-2026-002',
         issueDate: '2026-03-20',
+        issuedCompanyAddress: '8 avenue Victor Hugo, 69002 Lyon',
+        issuedCompanyName: 'Atelier Horizon',
         status: 'paid',
       }
     ),
@@ -251,17 +257,19 @@ class MockAccountingStore {
         ],
       },
       {
-        customerAddressSnapshot: '42 quai des Arts, 33000 Bordeaux',
+        customerCompanyAddressSnapshot: '42 quai des Arts, 33000 Bordeaux',
+        customerCompanyName: 'Kestrel Analytics',
         customerCompanySnapshot: 'Kestrel Analytics',
         customerEmailSnapshot: 'nina@kestrel.test',
         customerId: 'client-3',
-        customerName: 'Kestrel Analytics',
         customerPhoneSnapshot: '+33 6 20 30 40 50',
         customerPrimaryContactSnapshot: 'Nina Rossi',
         dueDate: '2026-04-18',
         id: 'invoice-3',
         invoiceNumber: 'INV-2026-003',
         issueDate: '2026-04-03',
+        issuedCompanyAddress: '',
+        issuedCompanyName: '',
         status: 'draft',
       }
     ),
@@ -321,17 +329,19 @@ class MockAccountingStore {
     const customer = this.getCustomerOrThrow(request.customerId)
 
     const invoice = buildInvoice(request, {
-      customerAddressSnapshot: customer.address,
+      customerCompanyAddressSnapshot: customer.address,
+      customerCompanyName: customer.company,
       customerCompanySnapshot: customer.company,
       customerEmailSnapshot: customer.email,
       customerId: request.customerId,
-      customerName: customer.company,
       customerPhoneSnapshot: customer.phone,
       customerPrimaryContactSnapshot: customer.name,
       dueDate: request.dueDate,
       id: `invoice-${crypto.randomUUID()}`,
       invoiceNumber: this.nextInvoiceNumber(request.issueDate),
       issueDate: request.issueDate,
+      issuedCompanyAddress: '',
+      issuedCompanyName: '',
       status: 'draft',
     })
 
@@ -424,7 +434,7 @@ class MockAccountingStore {
         })
         .slice(0, 6)
         .map((invoice) => ({
-          customerName: invoice.customerName,
+          customerCompanyName: invoice.customerCompanyName,
           date: invoice.issueDate,
           dueDate: invoice.dueDate,
           id: invoice.id,
@@ -441,7 +451,7 @@ class MockAccountingStore {
     }
   }
 
-  issueInvoice(id: string) {
+  issueInvoice(id: string, payload: { issuedCompanyAddress: string; issuedCompanyName: string }) {
     const current = this.getDraftInvoiceOrThrow(id)
     const customer = this.getCustomerOrThrow(current.customerId)
     if (!customer.address.trim()) {
@@ -453,12 +463,14 @@ class MockAccountingStore {
     }
     const updated = {
       ...current,
-      customerAddressSnapshot: customer.address,
+      customerCompanyAddressSnapshot: customer.address,
+      customerCompanyName: customer.company,
       customerCompanySnapshot: customer.company,
       customerEmailSnapshot: customer.email,
-      customerName: customer.company,
       customerPhoneSnapshot: customer.phone,
       customerPrimaryContactSnapshot: customer.name,
+      issuedCompanyAddress: payload.issuedCompanyAddress.trim(),
+      issuedCompanyName: payload.issuedCompanyName.trim(),
       status: 'issued',
     } satisfies InvoiceResponse
     this.replaceInvoice(updated)
@@ -619,10 +631,10 @@ class MockAccountingStore {
         invoice.customerId === id && invoice.status === 'draft'
           ? {
               ...invoice,
-              customerAddressSnapshot: address,
+              customerCompanyAddressSnapshot: address,
+              customerCompanyName: company,
               customerCompanySnapshot: company,
               customerEmailSnapshot: email,
-              customerName: company,
               customerPhoneSnapshot: phone,
               customerPrimaryContactSnapshot: name,
             }
@@ -641,17 +653,19 @@ class MockAccountingStore {
     const updated = buildInvoice(
       request,
       {
-        customerAddressSnapshot: customer.address,
+        customerCompanyAddressSnapshot: customer.address,
+        customerCompanyName: customer.company,
         customerCompanySnapshot: customer.company,
         customerEmailSnapshot: customer.email,
         customerId: request.customerId,
-        customerName: customer.company,
         customerPhoneSnapshot: customer.phone,
         customerPrimaryContactSnapshot: customer.name,
         dueDate: request.dueDate,
         id: current.id,
         invoiceNumber: current.invoiceNumber,
         issueDate: request.issueDate,
+        issuedCompanyAddress: current.issuedCompanyAddress,
+        issuedCompanyName: current.issuedCompanyName,
         status: 'draft',
       },
       current.lines.map((line) => line.id)
@@ -744,17 +758,19 @@ function buildInvoice(
   request: SaveInvoiceDraftRequest,
   meta: Pick<
     InvoiceResponse,
-    | 'customerAddressSnapshot'
+    | 'customerCompanyAddressSnapshot'
+    | 'customerCompanyName'
     | 'customerCompanySnapshot'
     | 'customerEmailSnapshot'
     | 'customerId'
-    | 'customerName'
     | 'customerPhoneSnapshot'
     | 'customerPrimaryContactSnapshot'
     | 'dueDate'
     | 'id'
     | 'invoiceNumber'
     | 'issueDate'
+    | 'issuedCompanyAddress'
+    | 'issuedCompanyName'
     | 'status'
   >,
   existingLineIds?: string[]

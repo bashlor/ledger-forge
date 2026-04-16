@@ -24,3 +24,8 @@ export const invoiceParamsValidator = vine.create({
     id: vine.string().trim().minLength(1).maxLength(128),
   }),
 })
+
+export const issueInvoiceValidator = vine.create({
+  issuedCompanyAddress: vine.string().trim().minLength(1).maxLength(4000),
+  issuedCompanyName: vine.string().trim().minLength(1).maxLength(255),
+})

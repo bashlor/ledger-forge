@@ -105,7 +105,7 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard: D
                       <td className="whitespace-nowrap px-4 py-3 font-medium tabular-nums text-on-surface">
                         {invoice.invoiceNumber}
                       </td>
-                      <td className="px-4 py-3 text-on-surface">{invoice.customerName}</td>
+                      <td className="px-4 py-3 text-on-surface">{invoice.customerCompanyName}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-on-surface-variant">
                         {formatShortDate(invoice.date)}
                       </td>

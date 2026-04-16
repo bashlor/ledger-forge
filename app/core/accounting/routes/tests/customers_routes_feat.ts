@@ -279,7 +279,8 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     })
 
     await db.insert(invoices).values({
-      customerAddressSnapshot: 'Linked Address',
+      customerCompanyAddressSnapshot: 'Linked Address',
+      customerCompanyName: 'Linked Co',
       customerCompanySnapshot: 'Linked Co',
       customerEmailSnapshot: 'linked@example.com',
       customerId,
@@ -290,6 +291,8 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       id: uuidv7(),
       invoiceNumber: 'INV-2026-FEAT-001',
       issueDate: '2026-04-01',
+      issuedCompanyAddress: '',
+      issuedCompanyName: '',
       status: 'draft',
     })
 
@@ -328,7 +331,8 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     ])
 
     await db.insert(invoices).values({
-      customerAddressSnapshot: 'Linked Address 2',
+      customerCompanyAddressSnapshot: 'Linked Address 2',
+      customerCompanyName: 'Linked Company',
       customerCompanySnapshot: 'Linked Company',
       customerEmailSnapshot: 'linked-company@example.com',
       customerId: linkedCustomerId,
@@ -339,6 +343,8 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       id: uuidv7(),
       invoiceNumber: 'INV-2026-FEAT-002',
       issueDate: '2026-05-01',
+      issuedCompanyAddress: '',
+      issuedCompanyName: '',
       status: 'draft',
     })
 
@@ -351,5 +357,38 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(linked?.canDelete, false)
     assert.equal(free?.invoiceCount, 0)
     assert.equal(free?.canDelete, true)
+  })
+
+  test('deleting a non-existent customer returns 404', async ({ assert, client }) => {
+    const response = await client
+      .delete('/customers/non-existent-id')
+      .header('cookie', authCookie())
+      .header('accept', 'application/json')
+      .redirects(0)
+
+    response.assertStatus(404)
+
+    const rows = await db.select().from(customers)
+    assert.equal(rows.length, 0)
+  })
+
+  test('concurrent delete of same customer completes without error', async ({ assert, client }) => {
+    const id = uuidv7()
+    await db.insert(customers).values({
+      address: 'Concurrent Delete Street',
+      company: 'Concurrent Delete Co',
+      email: 'concurrent-delete@example.com',
+      id,
+      name: 'Concurrent Delete User',
+      phone: '+1 555 0500',
+    })
+
+    await Promise.allSettled([
+      client.delete(`/customers/${id}`).header('cookie', authCookie()).redirects(0),
+      client.delete(`/customers/${id}`).header('cookie', authCookie()).redirects(0),
+    ])
+
+    const rows = await db.select().from(customers).where(eq(customers.id, id))
+    assert.equal(rows.length, 0, 'customer must be deleted exactly once')
   })
 })
