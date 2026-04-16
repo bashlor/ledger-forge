@@ -394,12 +394,6 @@ export class InvoiceService {
 // Private helpers
 // ---------------------------------------------------------------------------
 
-function assertInvoiceDates(issueDate: string, dueDate: string) {
-  if (dueDate < issueDate) {
-    throw new DomainError('Due date cannot be before the issue date.', 'business_logic_error')
-  }
-}
-
 function assertDueDateIsNotInPast(dueDate: string) {
   const today = new Date().toISOString().slice(0, 10)
   if (!dueDate || dueDate < today) {
@@ -407,6 +401,12 @@ function assertDueDateIsNotInPast(dueDate: string) {
       'Due date must be today or later to save or issue an invoice.',
       'business_logic_error'
     )
+  }
+}
+
+function assertInvoiceDates(issueDate: string, dueDate: string) {
+  if (dueDate < issueDate) {
+    throw new DomainError('Due date cannot be before the issue date.', 'business_logic_error')
   }
 }
 

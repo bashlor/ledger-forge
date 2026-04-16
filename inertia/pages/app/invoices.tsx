@@ -806,7 +806,8 @@ function InvoicesContent({
                     Read-only invoice
                   </p>
                   <p className="mt-1 text-sm text-on-surface-variant">
-                    This invoice is locked after issue. You can only mark it as paid when applicable.
+                    This invoice is locked after issue. You can only mark it as paid when
+                    applicable.
                   </p>
                 </div>
 
