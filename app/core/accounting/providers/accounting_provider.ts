@@ -24,7 +24,7 @@ export default class AccountingProvider {
       return new InvoiceService(db)
     })
 
-    this.app.container.singleton(DashboardService, async (resolver) => {
+    this.app.container.bind(DashboardService, async (resolver) => {
       const db = await resolver.make('drizzle')
       return new DashboardService(db)
     })
