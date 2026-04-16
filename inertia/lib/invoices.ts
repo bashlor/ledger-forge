@@ -4,6 +4,7 @@ export function buildInvoiceFromInput(
   input: CreateInvoiceInput,
   meta: Pick<
     InvoiceDto,
+    | 'createdAt'
     | 'customerCompanyAddressSnapshot'
     | 'customerCompanyName'
     | 'customerCompanySnapshot'
