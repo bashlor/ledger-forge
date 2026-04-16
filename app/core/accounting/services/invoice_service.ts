@@ -137,7 +137,6 @@ export class InvoiceService {
         .values({
           customerCompanyName: customer.company,
           customerId: input.customerId,
-          customerName: customer.company,
           issuedCompanyAddress: '',
           issuedCompanyName: '',
           ...toCustomerSnapshot(customer),
@@ -155,7 +154,7 @@ export class InvoiceService {
         id: uuidv7(),
         invoiceId,
         lineNumber: i + 1,
-        quantityCents: line.quantityCents,
+        quantityCents: line.quantityHundredths,
         unitPriceCents: line.unitPriceCents,
         vatRateCents: line.vatRateCents,
         ...lineCalcs[i],
@@ -234,7 +233,6 @@ export class InvoiceService {
         .update(invoices)
         .set({
           customerCompanyName: customer.company,
-          customerName: customer.company,
           issuedCompanyAddress,
           issuedCompanyName,
           status: 'issued',
@@ -288,6 +286,7 @@ export class InvoiceService {
       .select()
       .from(invoices)
       .orderBy(desc(invoices.issueDate), desc(invoices.invoiceNumber))
+      .limit(500)
 
     if (invoiceRows.length === 0) return []
 
@@ -394,7 +393,6 @@ export class InvoiceService {
         .set({
           customerCompanyName: customer.company,
           customerId: input.customerId,
-          customerName: customer.company,
           issuedCompanyAddress: existing.issuedCompanyAddress,
           issuedCompanyName: existing.issuedCompanyName,
           ...toCustomerSnapshot(customer),
@@ -423,7 +421,7 @@ export class InvoiceService {
         id: uuidv7(),
         invoiceId: id,
         lineNumber: i + 1,
-        quantityCents: line.quantityCents,
+        quantityCents: line.quantityHundredths,
         unitPriceCents: line.unitPriceCents,
         vatRateCents: line.vatRateCents,
         ...lineCalcs[i],

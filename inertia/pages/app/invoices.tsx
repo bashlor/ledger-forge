@@ -1,7 +1,12 @@
 import { Head, router } from '@inertiajs/react'
 import { useMemo, useState } from 'react'
 
-import type { CreateInvoiceInput, CustomerDto, InvoiceDto, InvoiceLineInput } from '~/lib/types'
+import type {
+  CreateInvoiceInput,
+  CustomerSelectDto,
+  InvoiceDto,
+  InvoiceLineInput,
+} from '~/lib/types'
 
 import { AppIcon } from '~/components/app_icon'
 import { useDateScope } from '~/components/date_scope_provider'
@@ -29,7 +34,7 @@ interface EditableInvoiceLine extends InvoiceLineInput {
 const VAT_OPTIONS = [0, 5.5, 10, 20]
 
 interface InvoicesPageProps {
-  customers: CustomerDto[]
+  customers: CustomerSelectDto[]
   initialCustomerId: null | string
   initialInvoiceId: null | string
   invoices: InvoiceDto[]
@@ -80,7 +85,7 @@ function createInitialIssueForm(invoice?: InvoiceDto) {
 }
 
 function createInitialState(
-  customers: CustomerDto[],
+  customers: CustomerSelectDto[],
   invoices: InvoiceDto[],
   initialCustomerId: null | string,
   initialInvoiceId: null | string,
@@ -184,7 +189,7 @@ function InvoicesContent({
   const draftCount = scopedInvoices.filter((invoice) => invoice.status === 'draft').length
   const issuedCount = scopedInvoices.filter((invoice) => invoice.status === 'issued').length
   const overdueCount = scopedInvoices.filter(
-    (invoice) => invoice.status === 'issued' && new Date(invoice.dueDate) < new Date(todayValue())
+    (invoice) => invoice.status === 'issued' && invoice.dueDate < todayValue()
   ).length
 
   function handleCreateDraft() {

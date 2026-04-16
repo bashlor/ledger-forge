@@ -3,7 +3,7 @@
  * All values are stored as integers in cents or cent-equivalents.
  *
  * Stored representation in DB:
- *   quantityCents  = quantity × 100       (e.g. quantity 2 → 200)
+ *   quantityHundredths = quantity × 100       (e.g. quantity 2 → 200)
  *   unitPriceCents = unit price in cents   (e.g. €100.50 → 10050)
  *   vatRateCents   = vat rate × 100        (e.g. 20% → 2000)
  */
@@ -22,7 +22,7 @@ export interface LineCalc {
 
 export interface LineInput {
   description: string
-  quantityCents: number
+  quantityHundredths: number
   unitPriceCents: number
   vatRateCents: number
 }
@@ -32,9 +32,9 @@ export interface LineInput {
  * Never trust values from the request body -- always call this server-side.
  */
 export function calculateLine(
-  line: Pick<LineInput, 'quantityCents' | 'unitPriceCents' | 'vatRateCents'>
+  line: Pick<LineInput, 'quantityHundredths' | 'unitPriceCents' | 'vatRateCents'>
 ): LineCalc {
-  const lineTotalExclTaxCents = Math.round((line.quantityCents * line.unitPriceCents) / 100)
+  const lineTotalExclTaxCents = Math.round((line.quantityHundredths * line.unitPriceCents) / 100)
   const lineTotalVatCents = Math.round((lineTotalExclTaxCents * line.vatRateCents) / 10000)
   return {
     lineTotalExclTaxCents,
@@ -69,7 +69,7 @@ export function fromDisplayUnits(input: {
 }): LineInput {
   return {
     description: input.description,
-    quantityCents: Math.round(input.quantity * 100),
+    quantityHundredths: Math.round(input.quantity * 100),
     unitPriceCents: Math.round(input.unitPrice * 100),
     vatRateCents: Math.round(input.vatRate * 100),
   }

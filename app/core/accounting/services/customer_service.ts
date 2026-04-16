@@ -232,7 +232,6 @@ export class CustomerService {
             customerCompanyName: company,
             customerCompanySnapshot: company,
             customerEmailSnapshot: email,
-            customerName: company,
             customerPhoneSnapshot: phone,
             customerPrimaryContactSnapshot: name,
           })

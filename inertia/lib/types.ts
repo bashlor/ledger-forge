@@ -23,26 +23,30 @@ export interface CreateInvoiceInput {
 
 export interface CustomerDto {
   address: string
-  canDelete?: boolean
+  canDelete: boolean
   company: string
   deleteBlockReason?: string
   email: string
   id: string
-  invoiceCount?: number
+  invoiceCount: number
   name: string
   note?: string
   phone: string
-  totalInvoiced?: number
+  totalInvoiced: number
 }
 
-export interface CustomerListDto extends PaginatedList<CustomerListItemDto> {
+export interface CustomerListDto extends PaginatedList<CustomerDto> {
   summary: CustomerSummaryDto
 }
 
-export interface CustomerListItemDto extends CustomerDto {
-  canDelete: boolean
-  invoiceCount: number
-  totalInvoiced: number
+export type CustomerListItemDto = CustomerDto
+
+export interface CustomerSelectDto {
+  company: string
+  email: string
+  id: string
+  name: string
+  phone: string
 }
 
 export interface CustomerSummaryDto {

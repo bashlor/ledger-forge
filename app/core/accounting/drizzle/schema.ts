@@ -37,9 +37,6 @@ export const invoices = mainSchema.table(
     customerId: text('customer_id')
       .notNull()
       .references(() => customers.id),
-    // Legacy column kept for historical rows; mirrors `customerCompanyName`.
-    // TODO: remove after a migration backfills all rows and drops the column.
-    customerName: text('customer_name').notNull(),
     customerPhoneSnapshot: text('customer_phone_snapshot').notNull(),
     customerPrimaryContactSnapshot: text('customer_primary_contact_snapshot').notNull(),
     dueDate: date('due_date', { mode: 'string' }).notNull(),
