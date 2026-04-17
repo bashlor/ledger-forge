@@ -17,11 +17,12 @@ import { ExpenseTable } from './expenses/table'
 type PendingAction = { id: string; kind: 'confirm' | 'delete'; label: string }
 
 type Props = InertiaProps<{
+  categories: string[]
   expenses: PaginatedList<ExpenseDto>
   summary?: ExpenseSummaryDto
 }>
 
-export default function ExpensesPage({ expenses, summary }: Props) {
+export default function ExpensesPage({ categories, expenses, summary }: Props) {
   const { scope } = useDateScope()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -122,6 +123,7 @@ export default function ExpensesPage({ expenses, summary }: Props) {
         )}
 
         <CreateDrawer
+          categories={categories}
           onClose={() => setDrawerOpen(false)}
           onSubmit={handleCreate}
           open={drawerOpen}

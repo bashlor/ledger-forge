@@ -173,13 +173,18 @@ export class ExpenseService {
 
   async listExpenses(page = 1, perPage = 5, dateFilter?: DateFilter): Promise<ExpenseListResult> {
     const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
-    // Clamp page to ≥ 1 only; upper bound is applied after the query once totalPages is known.
     const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
-    const offset = (requestedPage - 1) * safePerPage
     const where = dateCondition(dateFilter)
 
-    // Single query: window function provides the total count alongside each row,
-    // eliminating the separate COUNT round-trip and the race window it opened.
+    // Count first so the page can be clamped before fetching rows.
+    // This avoids the window-function edge case where a large offset returns
+    // zero rows and totalCount cannot be derived.
+    const [countRow] = await this.db.select({ total: count() }).from(expenses).where(where)
+    const totalCount = countRow?.total ?? 0
+    const totalPages = Math.max(1, Math.ceil(totalCount / safePerPage))
+    const safePage = Math.min(requestedPage, totalPages)
+    const offset = (safePage - 1) * safePerPage
+
     const rows = await this.db
       .select({
         amountCents: expenses.amountCents,
@@ -189,7 +194,6 @@ export class ExpenseService {
         id: expenses.id,
         label: expenses.label,
         status: expenses.status,
-        totalCount: sql<number>`count(*) over()`.mapWith(Number),
       })
       .from(expenses)
       .where(where)
@@ -197,12 +201,8 @@ export class ExpenseService {
       .limit(safePerPage)
       .offset(offset)
 
-    const totalCount = rows[0]?.totalCount ?? 0
-    const totalPages = Math.max(1, Math.ceil(totalCount / safePerPage))
-    const safePage = Math.min(requestedPage, totalPages)
-
     return {
-      items: rows.map(({ totalCount: _, ...row }) => toExpenseDto(row as ExpenseRow)),
+      items: rows.map((row) => toExpenseDto(row as ExpenseRow)),
       pagination: {
         page: safePage,
         perPage: safePerPage,

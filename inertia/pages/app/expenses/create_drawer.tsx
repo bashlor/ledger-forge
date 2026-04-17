@@ -4,21 +4,26 @@ import type { CreateExpenseInput } from '~/lib/types'
 
 import { DrawerPanel } from '~/components/drawer_panel'
 
-const CATEGORIES = ['Software', 'Infrastructure', 'Office', 'Travel', 'Services', 'Other']
-
 interface CreateDrawerProps {
+  categories: string[]
   onClose: () => void
   onSubmit: (input: CreateExpenseInput) => void
   open: boolean
   processing: boolean
 }
 
-export function CreateDrawer({ onClose, onSubmit, open, processing }: CreateDrawerProps) {
-  const [form, setForm] = useState<CreateExpenseInput>(freshForm)
+export function CreateDrawer({
+  categories,
+  onClose,
+  onSubmit,
+  open,
+  processing,
+}: CreateDrawerProps) {
+  const [form, setForm] = useState<CreateExpenseInput>(() => freshForm(categories))
 
   function handleClose() {
     onClose()
-    setForm(freshForm())
+    setForm(freshForm(categories))
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -40,7 +45,7 @@ export function CreateDrawer({ onClose, onSubmit, open, processing }: CreateDraw
           </button>
           <button
             className="rounded-lg px-4 py-3 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
-            disabled={processing}
+            disabled={processing || form.amount <= 0 || form.label.trim().length === 0}
             form="expense-form"
             type="submit"
           >
@@ -85,7 +90,7 @@ export function CreateDrawer({ onClose, onSubmit, open, processing }: CreateDraw
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
               value={form.category}
             >
-              {CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -134,10 +139,10 @@ export function CreateDrawer({ onClose, onSubmit, open, processing }: CreateDraw
   )
 }
 
-function freshForm(): CreateExpenseInput {
+function freshForm(categories: string[]): CreateExpenseInput {
   return {
     amount: 0,
-    category: CATEGORIES[0],
+    category: categories[0] ?? '',
     date: localISODate(),
     label: '',
   }

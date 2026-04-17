@@ -2,7 +2,7 @@ import vine from '@vinejs/vine'
 
 import { vineDateString } from './shared.js'
 
-const EXPENSE_CATEGORIES = [
+export const EXPENSE_CATEGORIES = [
   'Software',
   'Infrastructure',
   'Office',
@@ -10,6 +10,8 @@ const EXPENSE_CATEGORIES = [
   'Services',
   'Other',
 ] as const
+
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
 
 export const createExpenseValidator = vine.create({
   amount: vine.number().positive().max(999_999_999_999.99),
