@@ -1,17 +1,9 @@
+import { EXPENSE_CATEGORIES, type ExpenseCategory } from '#core/accounting/services/expense_service'
 import vine from '@vinejs/vine'
 
 import { vineDateString } from './shared.js'
 
-export const EXPENSE_CATEGORIES = [
-  'Software',
-  'Infrastructure',
-  'Office',
-  'Travel',
-  'Services',
-  'Other',
-] as const
-
-export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
+export { EXPENSE_CATEGORIES, type ExpenseCategory }
 
 export const createExpenseValidator = vine.create({
   amount: vine.number().positive().max(999_999_999_999.99),
@@ -21,9 +13,15 @@ export const createExpenseValidator = vine.create({
 })
 
 export const expenseIndexValidator = vine.create({
-  endDate: vineDateString.clone().optional(),
+  endDate: vineDateString
+    .clone()
+    .optional()
+    .requiredWhen((field) => !!field.data.startDate),
   page: vine.number().min(1).optional(),
-  startDate: vineDateString.clone().optional(),
+  startDate: vineDateString
+    .clone()
+    .optional()
+    .requiredWhen((field) => !!field.data.endDate),
 })
 
 export const expenseParamsValidator = vine.create({

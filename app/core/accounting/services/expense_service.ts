@@ -22,6 +22,17 @@ export interface ExpenseConcurrencyHooks {
   afterRead?: () => Promise<void>
 }
 
+export const EXPENSE_CATEGORIES = [
+  'Software',
+  'Infrastructure',
+  'Office',
+  'Travel',
+  'Services',
+  'Other',
+] as const
+
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
+
 export interface ExpenseSummary {
   confirmedCount: number
   draftCount: number
@@ -102,6 +113,9 @@ export class ExpenseService {
     }
     if (input.label.trim().length === 0) {
       throw new DomainError('Label must not be empty.', 'invalid_data')
+    }
+    if (!EXPENSE_CATEGORIES.includes(input.category as ExpenseCategory)) {
+      throw new DomainError('Invalid expense category.', 'invalid_data')
     }
 
     const amountCents = toCents(input.amount)
