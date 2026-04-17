@@ -1,7 +1,6 @@
+import { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
 import { sql } from 'drizzle-orm'
 import { check, date, integer, pgSchema, text, timestamp, unique } from 'drizzle-orm/pg-core'
-
-import { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
 
 export const mainSchema = pgSchema('main')
 
