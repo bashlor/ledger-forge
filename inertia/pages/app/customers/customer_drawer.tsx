@@ -78,7 +78,7 @@ export function CustomerDrawer({
       icon={isEdit ? 'edit' : 'person_add'}
       onClose={handleClose}
       open={open}
-      title={isEdit ? 'Edit customer' : 'Create customer'}
+      title={isEdit ? `Edit ${target.company}` : 'Create customer'}
     >
       <form className="grid gap-4 sm:grid-cols-2" id="customer-form" onSubmit={handleSubmit}>
         <div className="sm:col-span-2">

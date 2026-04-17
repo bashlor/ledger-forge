@@ -25,8 +25,29 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
   const [drawerKey, setDrawerKey] = useState(0)
   const [editTarget, setEditTarget] = useState<CustomerDto | null>(null)
   const [processing, setProcessing] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filter, setFilter] = useState<'all' | 'with_invoices' | 'no_invoices'>('all')
 
   const { items, pagination, summary } = customers
+  const filteredItems = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase()
+
+    return items.filter((customer) => {
+      const matchesFilter =
+        filter === 'all'
+          ? true
+          : filter === 'with_invoices'
+            ? customer.invoiceCount > 0
+            : customer.invoiceCount === 0
+      if (!matchesFilter) return false
+      if (!normalizedQuery) return true
+
+      return [customer.company, customer.name, customer.email, customer.phone]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedQuery)
+    })
+  }, [filter, items, searchQuery])
 
   const pageQs = useMemo(() => {
     return pagination.page > 1 ? { page: pagination.page } : {}
@@ -104,8 +125,9 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
     <>
       <Head title="Customers" />
 
-      <div className="space-y-8">
+      <div className="space-y-4 lg:space-y-5">
         <PageHeader
+          className="gap-3"
           actions={
             <button
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95"
@@ -133,8 +155,31 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
         />
 
         <DataTable
-          emptyMessage="No customers yet. Add a contact before creating invoices."
-          isEmpty={items.length === 0}
+          emptyMessage="No customers match the current filters."
+          headerContent={
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <input
+                className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search company, contact, email, phone"
+                type="search"
+                value={searchQuery}
+              />
+              <select
+                aria-label="Filter customers"
+                className="h-9 rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                onChange={(event) =>
+                  setFilter(event.target.value as 'all' | 'with_invoices' | 'no_invoices')
+                }
+                value={filter}
+              >
+                <option value="all">All customers</option>
+                <option value="with_invoices">With invoices</option>
+                <option value="no_invoices">No invoices</option>
+              </select>
+            </div>
+          }
+          isEmpty={filteredItems.length === 0}
           onPageChange={(nextPage) =>
             router.get('/customers', nextPage > 1 ? { page: nextPage } : {}, {
               only: ['customers'],
@@ -146,7 +191,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
           title="Customer register"
         >
           <CustomerTable
-            items={items}
+            items={filteredItems}
             onDelete={handleDelete}
             onEdit={openEdit}
             processing={processing}
