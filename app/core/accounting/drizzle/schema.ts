@@ -102,6 +102,10 @@ export const expenses = mainSchema.table(
   (table) => [
     check('expenses_status_check', sql`${table.status} IN ('draft', 'confirmed')`),
     check('expenses_amount_positive', sql`${table.amountCents} > 0`),
+    check(
+      'expenses_category_check',
+      sql`${table.category} IN ('Software', 'Infrastructure', 'Office', 'Travel', 'Services', 'Other')`
+    ),
   ]
 )
 
