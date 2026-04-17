@@ -22,7 +22,8 @@ test.group('Signup E2E', (group) => {
     await context.cleanup()
   })
 
-  test('displays the signup form', async ({ route, visit }) => {
+  test('displays the signup form', async ({ browserContext, route, visit }) => {
+    await browserContext.clearCookies()
     const page = await visit(route('signup.show'))
 
     await page.locator('#fullName').waitFor()
@@ -33,7 +34,8 @@ test.group('Signup E2E', (group) => {
     await page.assertTextContains('h2', 'Create account')
   })
 
-  test('creates an account with valid data', async ({ route, visit }) => {
+  test('creates an account with valid data', async ({ browserContext, route, visit }) => {
+    await browserContext.clearCookies()
     const page = await visit(route('signup.show'))
 
     await page.locator('#fullName').fill('Jane Doe')
@@ -46,7 +48,12 @@ test.group('Signup E2E', (group) => {
     await page.assertPath('/dashboard')
   })
 
-  test('stays on signup when the email is already taken', async ({ route, visit }) => {
+  test('stays on signup when the email is already taken', async ({
+    browserContext,
+    route,
+    visit,
+  }) => {
+    await browserContext.clearCookies()
     const page = await visit(route('signup.show'))
 
     await page.locator('#fullName').fill('Another User')
