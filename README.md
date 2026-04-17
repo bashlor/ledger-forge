@@ -1,96 +1,245 @@
 # Accounting Demo
 
-Single-app AdonisJS setup for the backend interview demo.
+Backend-oriented accounting demo built to showcase engineering decisions, business rules handling, and production-minded delivery practices.
 
-Current state:
+The goal of this project is not to be feature-complete accounting software.
+It is a technical discussion support designed to demonstrate how I structure a business application and make pragmatic trade-offs.
 
-- root app only, no monorepo
-- `better-auth` wired with Drizzle/PostgreSQL
-- auth routes, middleware, session cookie handling, and auth schema in place
-- accounting routes and pages are protected by auth middleware
-- customers, invoices, expenses, and journal entries use Drizzle-backed persistence
-- customer module includes create/edit/delete/list with delete conflict protection when invoices exist
-- customers page shows per-customer invoice counters and billed totals from server-side aggregates
-- dashboard remains a read-only screen powered by mock/demo data
+## Product Walkthrough
 
-Intentional demo constraints:
+![Accounting demo slideshow](assets/images/demo-slideshow.gif)
 
-- no partial payments workflow
-- no multi-currency support
-- no statutory VAT regime handling
-- no production-grade analytics pipeline for dashboard metrics yet
+---
 
-Useful entry points:
+# Objectives
 
-- auth schema: `app/core/user_management/drizzle/schema.ts`
-- auth provider: `app/core/user_management/providers/auth_provider.ts`
-- combined Drizzle schema barrel: `app/core/common/drizzle/index.ts`
-- dashboard mock entrypoint: `app/core/accounting/services/mock_accounting_store.ts`
-- customer service (Drizzle + aggregates): `app/core/accounting/services/customer_service.ts`
+This demo focuses on:
 
-Run once dependencies are installed:
+- clear backend architecture
+- business invariants enforcement
+- authentication and protected routes
+- SQL-oriented persistence with strong typing
+- maintainable code organization
+- production-oriented containerization
+- explicit trade-off decisions
+
+---
+
+# Tech Stack
+
+## Backend
+
+- AdonisJS
+- TypeScript
+- Drizzle ORM
+- PostgreSQL
+- Better Auth
+
+## Frontend
+
+- React
+- Basic HTTP client strategy (intentionally no React Query for current scope)
+
+## Tooling / Delivery
+
+- Docker
+- Multi-stage builds
+- Docker secrets
+- Hardened runtime image
+- Migration commands
+
+---
+
+# Why These Choices
+
+## Drizzle ORM
+
+Chosen to keep queries explicit and close to SQL while preserving TypeScript type safety.
+
+This allows:
+
+- fine-grained query control
+- readable aggregates and joins
+- predictable SQL behavior
+- transferable SQL knowledge across stacks
+
+## Better Auth
+
+Chosen to decouple authentication concerns from the framework and keep identity logic reusable and portable.
+
+## Simple Frontend Data Fetching
+
+React Query was intentionally not introduced for this demo.
+
+The current scope does not require advanced client caching, optimistic updates, or complex synchronization between multiple screens.
+
+A simpler request/response model keeps the code easier to review and discuss.
+
+---
+
+# Project Structure
+
+```text
+app/
+  core/
+    accounting/
+      http/
+      services/
+      dto/
+    user_management/
+    common/
+```
+
+## Layering
+
+```text
+Routes
+-> Controllers
+-> Validators
+-> Services
+-> Database
+```
+
+- Controllers handle HTTP concerns
+- Validators sanitize inputs
+- Services enforce business rules
+- Database guarantees persistence
+
+---
+
+# Functional Scope
+
+Implemented modules:
+
+- Customers
+- Invoices
+- Expenses
+- Journal entries (foundation)
+- Authentication
+- Protected dashboard
+
+Examples:
+
+- create / edit / delete customers
+- prevent customer deletion when invoices exist
+- expense confirmation workflow
+- server-side aggregates
+- authenticated accounting routes
+
+---
+
+# Business Rules Examples
+
+## Customer deletion protection
+
+A customer cannot be deleted when linked invoices exist.
+
+## Expense confirmation
+
+A draft expense can only be confirmed once.
+
+## Money handling
+
+Amounts are stored in cents to avoid floating-point precision issues.
+
+---
+
+# Intentional Constraints
+
+Out of scope for this demo:
+
+- partial payments workflow
+- multi-currency support
+- VAT regime engine
+- advanced dashboard analytics
+- real-time updates
+- advanced client-side caching
+
+These omissions are deliberate prioritization choices.
+
+---
+
+# Run Locally
+
+## Standard
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Or bootstrap the local setup in one shot:
+## Bootstrap
 
 ```bash
 ./first-easy-start.sh
 ```
 
-That script installs dependencies, creates `.env` and `.env.test` from the examples, generates fresh auth secrets, starts Docker services, runs migrations, and then stops Docker again.
+This script:
 
-## Docker (production image)
+- installs dependencies
+- creates environment files
+- generates secrets
+- starts Docker services
+- runs migrations
 
-Write Docker secrets from `.env` into local secret files:
+---
 
-```bash
-bash ./docker/write-docker-secrets.sh ./.env ./tmp/docker-secrets/dev
-```
+# Docker
 
-Build the production image with BuildKit secrets:
+## Build image
 
 ```bash
 docker build \
-	--secret id=app_key,src=./tmp/docker-secrets/dev/app_key \
-	--secret id=better_auth_secret,src=./tmp/docker-secrets/dev/better_auth_secret \
-	--secret id=db_password,src=./tmp/docker-secrets/dev/db_password \
-	-t accounting-app .
+  --secret id=app_key,src=./tmp/docker-secrets/dev/app_key \
+  --secret id=better_auth_secret,src=./tmp/docker-secrets/dev/better_auth_secret \
+  --secret id=db_password,src=./tmp/docker-secrets/dev/db_password \
+  -t accounting-app .
 ```
 
-Start local PostgreSQL and Redis with Docker secrets:
+## Run migrations
 
 ```bash
-bash ./docker/write-docker-secrets.sh ./.env ./tmp/docker-secrets/dev DB_PASSWORD=db_password REDIS_PASSWORD=redis_password
-DOCKER_SECRETS_DIR=./tmp/docker-secrets/dev docker compose up -d
+docker run --rm accounting-app ace migration:run --force
 ```
 
-Run the application container with the generated secret files mounted under `/run/secrets`:
+## Run app
 
 ```bash
-docker run --rm -p 3333:3333 \
-	--env-file .env \
-	--mount type=bind,src="$(pwd)/tmp/docker-secrets/dev",target=/run/secrets,readonly \
-	accounting-app
+docker run --rm -p 3333:3333 accounting-app
 ```
 
-Run migrations before startup (one-shot command):
+---
 
-```bash
-docker run --rm \
-	--env-file .env \
-	--mount type=bind,src="$(pwd)/tmp/docker-secrets/dev",target=/run/secrets,readonly \
-	accounting-app ace migration:run --force
-```
+# Documentation
 
-Notes:
+See `/docs` for:
 
-- The image is built from a multi-stage `Dockerfile` and runs with `NODE_ENV=production`.
-- Runtime target is a hardened shell-less image (`cgr.dev/chainguard/node`).
-- Runtime uses the standalone AdonisJS build output (`build/`) generated during build stage.
-- `docker compose` uses Docker secrets for PostgreSQL and Redis; plain `docker run` does not expose runtime secrets directly here, so the examples above mount the generated secret files at `/run/secrets`.
-- The container entrypoint reads `APP_KEY`, `BETTER_AUTH_SECRET`, `DB_PASSWORD`, and `REDIS_PASSWORD` from `/run/secrets` when they are mounted.
-- For `docker compose`, `DOCKER_SECRETS_DIR` defaults to `./tmp/docker-secrets/dev`.
+- Architecture Decision Records
+- Technical notes
+- Future improvements
+
+---
+
+# What I Would Improve Next
+
+- accounting journal postings on confirm flows
+- pagination strategy refinement
+- automated integration test suite expansion
+- observability (logs / metrics / tracing)
+- richer dashboard analytics
+- background jobs
+
+---
+
+# Discussion Topics For Interview
+
+This project can be used to discuss:
+
+- backend architecture choices
+- trade-offs vs overengineering
+- SQL vs heavy ORM approaches
+- coupling vs modularity
+- auth design
+- Docker delivery practices
+- business invariants
+- maintainability strategies
