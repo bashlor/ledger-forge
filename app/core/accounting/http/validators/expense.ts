@@ -1,4 +1,4 @@
-import { EXPENSE_CATEGORIES, type ExpenseCategory } from '#core/accounting/services/expense_service'
+import { EXPENSE_CATEGORIES, type ExpenseCategory } from '#core/accounting/expense_categories'
 import vine from '@vinejs/vine'
 
 import { vineDateString } from './shared.js'

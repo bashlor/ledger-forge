@@ -1,10 +1,14 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
+import { EXPENSE_CATEGORIES, type ExpenseCategory } from '#core/accounting/expense_categories'
 import { DomainError } from '#core/shared/domain_error'
 import { toCents } from '#core/shared/money'
 import { and, count, desc, eq, gte, lte, sql, sum } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
+
+export { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
+export type { ExpenseCategory } from '#core/accounting/expense_categories'
 
 export interface CreateExpenseInput {
   amount: number
@@ -21,17 +25,6 @@ export interface DateFilter {
 export interface ExpenseConcurrencyHooks {
   afterRead?: () => Promise<void>
 }
-
-export const EXPENSE_CATEGORIES = [
-  'Software',
-  'Infrastructure',
-  'Office',
-  'Travel',
-  'Services',
-  'Other',
-] as const
-
-export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
 
 export interface ExpenseSummary {
   confirmedCount: number
