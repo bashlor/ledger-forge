@@ -12,30 +12,24 @@ import type {
   PaginationMetaDto,
 } from '~/lib/types'
 
-import { AppIcon } from '~/components/app_icon'
-import { DataTable } from '~/components/data_table'
 import { useDateScope } from '~/components/date_scope_provider'
 import { DateScopeSummary } from '~/components/date_scope_summary'
 import { PageHeader } from '~/components/page_header'
-import { StatusBadge } from '~/components/status_badge'
-import { formatCurrency, formatShortDate } from '~/lib/format'
+import { formatCurrency } from '~/lib/format'
 import {
-  calculateInvoiceLine,
   calculateInvoiceTotals,
-  canDeleteInvoice,
   canEditInvoice,
   canIssueInvoice,
-  canMarkInvoicePaid,
   createEmptyInvoiceLine,
 } from '~/lib/invoices'
 
 import type { InertiaProps } from '../../types'
+import type { EditableInvoiceLine } from './invoices/invoice_draft_editor'
 
-interface EditableInvoiceLine extends InvoiceLineInput {
-  key: string
-}
-
-const VAT_OPTIONS = [0, 5.5, 10, 20]
+import { InvoiceDraftEditor } from './invoices/invoice_draft_editor'
+import { InvoiceList } from './invoices/invoice_list'
+import { InvoiceView } from './invoices/invoice_view'
+import { IssueInvoiceDialog } from './invoices/issue_invoice_dialog'
 
 interface InvoicesPageProps {
   customers: CustomerSelectDto[]
@@ -50,6 +44,8 @@ export default function InvoicesPage(props: InertiaProps<InvoicesPageProps>) {
   const resetKey = `${props.mode}|${props.initialInvoiceId}|${props.initialCustomerId}|${props.invoices.items.map((i) => i.id).join(':')}|${props.invoices.pagination.page}`
   return <InvoicesContent key={resetKey} {...props} />
 }
+
+// --- Helpers ---
 
 function buildPayload(form: ReturnType<typeof createInitialForm>): CreateInvoiceInput {
   return {
@@ -166,7 +162,6 @@ function InvoicesContent({
     ) {
       return
     }
-
     router.get(
       '/invoices',
       { endDate: scope.endDate, startDate: scope.startDate },
@@ -197,7 +192,6 @@ function InvoicesContent({
     [invoices.items, selectedInvoiceId]
   )
   const editingInvoice = selectedInvoice && canEditInvoice(selectedInvoice)
-
   const effectiveCustomerId = form.customerId || customers[0]?.id || ''
   const totals = useMemo(
     () =>
@@ -211,11 +205,9 @@ function InvoicesContent({
       ),
     [form.lines]
   )
-
   const summary = cachedInvoiceSummary.current
-  const draftCount = summary?.draftCount ?? 0
-  const issuedCount = summary?.issuedCount ?? 0
-  const overdueCount = summary?.overdueCount ?? 0
+
+  // --- Navigation ---
 
   function handleCreateDraft() {
     setIsCreating(true)
@@ -249,7 +241,21 @@ function InvoicesContent({
     )
   }
 
-  function updateLine(key: string, field: keyof InvoiceLineInput, value: string) {
+  function handlePageChange(page: number) {
+    router.get(
+      '/invoices',
+      { endDate: scope.endDate, page, startDate: scope.startDate },
+      { only: ['invoices', 'invoiceSummary'], preserveScroll: true, preserveState: true }
+    )
+  }
+
+  // --- Form ---
+
+  function handleFormChange(field: 'customerId' | 'dueDate' | 'issueDate', value: string) {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function handleLineUpdate(key: string, field: keyof InvoiceLineInput, value: string) {
     setForm((current) => ({
       ...current,
       lines: current.lines.map((line) =>
@@ -263,14 +269,14 @@ function InvoicesContent({
     }))
   }
 
-  function addLine() {
+  function handleLineAdd() {
     setForm((current) => ({
       ...current,
       lines: [...current.lines, createEditableLine()],
     }))
   }
 
-  function removeLine(key: string) {
+  function handleLineRemove(key: string) {
     setForm((current) => ({
       ...current,
       lines:
@@ -280,11 +286,10 @@ function InvoicesContent({
     }))
   }
 
-  async function handleSaveDraft() {
-    const payload = buildPayload({
-      ...form,
-      customerId: effectiveCustomerId,
-    })
+  // --- Mutations ---
+
+  function handleSaveDraft() {
+    const payload = buildPayload({ ...form, customerId: effectiveCustomerId })
     const path =
       selectedInvoice && editingInvoice ? `/invoices/${selectedInvoice.id}/draft` : '/invoices'
     const url = invoicesUrl(path, scope, invoices.pagination)
@@ -305,9 +310,8 @@ function InvoicesContent({
     })
   }
 
-  async function handleIssueInvoice() {
-    if (!selectedInvoice || !canIssueInvoice(selectedInvoice)) return
-
+  function handleIssueInvoice() {
+    if (!selectedInvoice) return
     setIssueForm(createInitialIssueForm(selectedInvoice))
     setIsIssueDialogOpen(true)
   }
@@ -319,9 +323,8 @@ function InvoicesContent({
     setIssueForm((current) => ({ ...current, [field]: value }))
   }
 
-  async function handleConfirmIssueInvoice() {
-    if (!selectedInvoice || !canIssueInvoice(selectedInvoice)) return
-
+  function handleConfirmIssueInvoice() {
+    if (!selectedInvoice) return
     router.post(
       invoicesUrl(`/invoices/${selectedInvoice.id}/issue`, scope, invoices.pagination),
       {
@@ -339,9 +342,8 @@ function InvoicesContent({
     )
   }
 
-  async function handleMarkAsPaid() {
-    if (!selectedInvoice || !canMarkInvoicePaid(selectedInvoice)) return
-
+  function handleMarkAsPaid() {
+    if (!selectedInvoice) return
     router.post(
       invoicesUrl(`/invoices/${selectedInvoice.id}/mark-paid`, scope, invoices.pagination),
       {},
@@ -354,7 +356,6 @@ function InvoicesContent({
   }
 
   function handleDeleteDraftFromList(invoice: InvoiceDto) {
-    if (!canDeleteInvoice(invoice)) return
     if (deleteConfirmId !== invoice.id) {
       setDeleteConfirmId(invoice.id)
       return
@@ -367,9 +368,8 @@ function InvoicesContent({
     })
   }
 
-  async function handleDeleteDraft() {
-    if (!selectedInvoice || !canDeleteInvoice(selectedInvoice)) return
-
+  function handleDeleteDraft() {
+    if (!selectedInvoice) return
     router.delete(invoicesUrl(`/invoices/${selectedInvoice.id}`, scope, invoices.pagination), {
       onFinish: () => setSaving(false),
       onStart: () => setSaving(true),
@@ -377,10 +377,9 @@ function InvoicesContent({
     })
   }
 
-  // When editing an existing draft, the server accepts dueDate >= draft createdAt.
-  // When creating, use today as the minimum (same as server).
-  const minDueDate = editingInvoice ? selectedInvoice.createdAt : todayValue()
+  // --- Derived ---
 
+  const minDueDate = editingInvoice ? selectedInvoice.createdAt : todayValue()
   const formIsValid =
     form.dueDate >= minDueDate &&
     effectiveCustomerId &&
@@ -399,6 +398,8 @@ function InvoicesContent({
       : selectedInvoice
         ? `${selectedInvoice.customerCompanyName} · ${formatCurrency(selectedInvoice.totalInclTax)}`
         : ''
+
+  // --- Render ---
 
   return (
     <>
@@ -449,601 +450,53 @@ function InvoicesContent({
         {!isFocusMode ? <DateScopeSummary /> : null}
 
         {!isFocusMode ? (
-          summary ? (
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-lg bg-surface-container-low px-3 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                  Drafts
-                </p>
-                <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-on-surface">
-                  {draftCount}
-                </p>
-                <p className="mt-0.5 text-xs text-on-surface-variant">Before issue</p>
-              </div>
-              <div className="rounded-lg bg-surface-container-low px-3 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                  Issued
-                </p>
-                <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-on-surface">
-                  {issuedCount}
-                </p>
-                <p className="mt-0.5 text-xs text-on-surface-variant">Awaiting payment</p>
-              </div>
-              <div className="rounded-lg bg-surface-container-low px-3 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                  Overdue
-                </p>
-                <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-error">
-                  {overdueCount}
-                </p>
-                <p className="mt-0.5 text-xs text-on-surface-variant">Past due date</p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-3">
-              {[1, 2, 3].map((key) => (
-                <div className="h-24 animate-pulse rounded-lg bg-surface-container-low" key={key} />
-              ))}
-            </div>
-          )
-        ) : null}
-
-        {!isFocusMode ? (
-          <DataTable
-            emptyMessage="No invoices fall within the selected period."
-            isEmpty={invoices.items.length === 0}
-            onPageChange={(page) =>
-              router.get(
-                '/invoices',
-                {
-                  endDate: scope.endDate,
-                  page,
-                  startDate: scope.startDate,
-                },
-                {
-                  only: ['invoices', 'invoiceSummary'],
-                  preserveScroll: true,
-                  preserveState: true,
-                }
-              )
-            }
-            pagination={invoices.pagination.totalItems > 0 ? invoices.pagination : undefined}
-            title="Invoice register"
-          >
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-outline-variant/15 bg-surface-container-low text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
-                  <th className="px-4 py-2 font-medium" scope="col">
-                    Invoice
-                  </th>
-                  <th className="px-4 py-2 font-medium" scope="col">
-                    Customer
-                  </th>
-                  <th className="px-4 py-2 font-medium" scope="col">
-                    Status
-                  </th>
-                  <th className="px-4 py-2 font-medium" scope="col">
-                    Due
-                  </th>
-                  <th className="px-4 py-2 text-right font-medium tabular-nums" scope="col">
-                    Amount <span className="font-normal text-on-surface-variant">(incl. VAT)</span>
-                  </th>
-                  <th className="w-px px-2 py-2 text-right" scope="col">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant/10">
-                {invoices.items.map((invoice) => (
-                  <tr
-                    className="cursor-pointer transition-colors hover:bg-surface-container-low/90"
-                    key={invoice.id}
-                    onClick={() => handleSelectInvoice(invoice)}
-                  >
-                    <td className="whitespace-nowrap px-4 py-2 font-medium tabular-nums text-on-surface">
-                      {invoice.invoiceNumber}
-                    </td>
-                    <td className="max-w-[220px] truncate px-4 py-2 text-on-surface">
-                      {invoice.customerCompanyName}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-1.5">
-                      <StatusBadge status={invoice.status} />
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2 tabular-nums text-on-surface-variant">
-                      {formatShortDate(invoice.dueDate)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2 text-right font-semibold tabular-nums text-on-surface">
-                      {formatCurrency(invoice.totalInclTax)}
-                    </td>
-                    <td
-                      className="whitespace-nowrap px-2 py-2 text-right"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {canDeleteInvoice(invoice) ? (
-                        deleteConfirmId === invoice.id ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <button
-                              aria-label={`Confirm delete draft ${invoice.invoiceNumber}`}
-                              className="rounded border border-error px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/40 disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={saving}
-                              onClick={() => handleDeleteDraftFromList(invoice)}
-                              type="button"
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              aria-label="Cancel delete"
-                              className="rounded border border-outline-variant/35 px-2 py-1 text-xs font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-low"
-                              onClick={() => setDeleteConfirmId(null)}
-                              type="button"
-                            >
-                              Cancel
-                            </button>
-                          </span>
-                        ) : (
-                          <button
-                            aria-label={`Delete draft ${invoice.invoiceNumber}`}
-                            className="rounded border border-error/20 px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
-                            disabled={saving}
-                            onClick={() => handleDeleteDraftFromList(invoice)}
-                            type="button"
-                          >
-                            Delete draft
-                          </button>
-                        )
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </DataTable>
+          <InvoiceList
+            deleteConfirmId={deleteConfirmId}
+            invoices={invoices}
+            onCancelDelete={() => setDeleteConfirmId(null)}
+            onDeleteDraft={handleDeleteDraftFromList}
+            onPageChange={handlePageChange}
+            onSelectInvoice={handleSelectInvoice}
+            saving={saving}
+            summary={summary}
+          />
         ) : (
           <section className="overflow-hidden rounded-xl bg-surface-container-lowest shadow-ambient-tight">
             {isCreating || editingInvoice ? (
-              <div>
-                <div className="border-b border-outline-variant/10 px-5 py-4 sm:px-6">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">
-                      {isCreating ? 'Draft' : 'Editing draft'}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {!isCreating && selectedInvoice ? (
-                        <StatusBadge status={selectedInvoice.status} />
-                      ) : (
-                        <span className="rounded-full bg-surface-container-low px-3 py-1 text-xs font-semibold text-on-surface-variant">
-                          Draft
-                        </span>
-                      )}
-                      <span className="rounded-full bg-surface-container-low px-3 py-1 text-xs font-semibold text-on-surface-variant">
-                        Editable
-                      </span>
-                    </div>
-                  </div>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-on-surface-variant">
-                    Add or remove lines, check VAT, then save the draft before issuing.
-                  </p>
-                </div>
-
-                {customers.length === 0 ? (
-                  <div className="px-5 py-6 sm:px-6">
-                    <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-5 text-sm text-on-surface-variant">
-                      Create a customer first before you can save an invoice.
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6 px-5 py-6 sm:px-6">
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="md:col-span-1">
-                        <label
-                          className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
-                          htmlFor="invoice-client"
-                        >
-                          Customer
-                        </label>
-                        <select
-                          className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-                          id="invoice-client"
-                          onChange={(event) =>
-                            setForm((current) => ({ ...current, customerId: event.target.value }))
-                          }
-                          value={effectiveCustomerId}
-                        >
-                          {customers.map((customer) => (
-                            <option key={customer.id} value={customer.id}>
-                              {customer.company}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label
-                          className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
-                          htmlFor="invoice-issue-date"
-                        >
-                          Issue date
-                        </label>
-                        <input
-                          className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-                          id="invoice-issue-date"
-                          onChange={(event) =>
-                            setForm((current) => ({ ...current, issueDate: event.target.value }))
-                          }
-                          type="date"
-                          value={form.issueDate}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
-                          htmlFor="invoice-due-date"
-                        >
-                          Due date
-                        </label>
-                        <input
-                          className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-                          id="invoice-due-date"
-                          min={minDueDate}
-                          onChange={(event) =>
-                            setForm((current) => ({ ...current, dueDate: event.target.value }))
-                          }
-                          type="date"
-                          value={form.dueDate}
-                        />
-                        {form.dueDate && form.dueDate < minDueDate ? (
-                          <p className="mt-2 text-xs font-medium text-error">
-                            Due date must be on or after {minDueDate}.
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <div className="overflow-hidden rounded-2xl border border-outline-variant/35">
-                      <div className="flex items-center justify-between border-b border-outline-variant/10 bg-surface-container-low px-4 py-3">
-                        <div>
-                          <h3 className="text-sm font-semibold text-on-surface">Invoice lines</h3>
-                          <p className="text-xs text-on-surface-variant">
-                            Description, quantity, unit price, and VAT.
-                          </p>
-                        </div>
-                        <button
-                          className="inline-flex items-center gap-2 rounded-xl border border-outline-variant/35 bg-white px-3 py-2 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-lowest"
-                          onClick={addLine}
-                          type="button"
-                        >
-                          <AppIcon name="add" size={16} />
-                          Add line
-                        </button>
-                      </div>
-
-                      <div className="overflow-x-auto">
-                        <table className="min-w-[740px]">
-                          <thead>
-                            <tr className="bg-surface-container-low text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                              <th className="px-4 py-3">Description</th>
-                              <th className="px-4 py-3">Qty</th>
-                              <th className="px-4 py-3">Unit price</th>
-                              <th className="px-4 py-3">VAT</th>
-                              <th className="px-4 py-3 text-right">Line total</th>
-                              <th className="px-4 py-3 text-right">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-outline-variant/15 bg-white">
-                            {form.lines.map((line) => {
-                              const calculated = calculateInvoiceLine(line, line.key)
-                              return (
-                                <tr key={line.key}>
-                                  <td className="px-4 py-3">
-                                    <input
-                                      aria-label="Line description"
-                                      className="w-full rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-                                      onChange={(event) =>
-                                        updateLine(line.key, 'description', event.target.value)
-                                      }
-                                      placeholder="Monthly bookkeeping"
-                                      type="text"
-                                      value={line.description}
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <input
-                                      aria-label="Quantity"
-                                      className="w-24 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-                                      min="0"
-                                      onChange={(event) =>
-                                        updateLine(line.key, 'quantity', event.target.value)
-                                      }
-                                      step="1"
-                                      type="number"
-                                      value={line.quantity}
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <input
-                                      aria-label="Unit price"
-                                      className="w-32 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-                                      min="0"
-                                      onChange={(event) =>
-                                        updateLine(line.key, 'unitPrice', event.target.value)
-                                      }
-                                      step="0.01"
-                                      type="number"
-                                      value={line.unitPrice}
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <select
-                                      aria-label="VAT rate"
-                                      className="w-28 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-                                      onChange={(event) =>
-                                        updateLine(line.key, 'vatRate', event.target.value)
-                                      }
-                                      value={line.vatRate}
-                                    >
-                                      {VAT_OPTIONS.map((rate) => (
-                                        <option key={rate} value={rate}>
-                                          {rate}%
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </td>
-                                  <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums text-on-surface">
-                                    {formatCurrency(calculated.lineTotalInclTax)}
-                                  </td>
-                                  <td className="px-4 py-3 text-right">
-                                    <button
-                                      className="rounded-xl px-3 py-2 text-sm font-semibold text-error transition-colors hover:bg-error-container/40 disabled:cursor-not-allowed disabled:text-on-surface-variant"
-                                      disabled={form.lines.length === 1}
-                                      onClick={() => removeLine(line.key)}
-                                      type="button"
-                                    >
-                                      Remove
-                                    </button>
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-                      <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-5">
-                        <h3 className="text-sm font-semibold text-on-surface">Business rules</h3>
-                        <ul className="mt-3 space-y-2 text-sm leading-6 text-on-surface-variant">
-                          <li>Every invoice starts as a draft.</li>
-                          <li>Once issued, an invoice cannot be edited.</li>
-                          <li>Only drafts can be deleted.</li>
-                        </ul>
-                      </div>
-
-                      <div className="rounded-2xl border border-primary/12 bg-primary/5 p-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">
-                          Totals
-                        </p>
-                        <dl className="mt-4 space-y-3">
-                          <div className="flex items-center justify-between text-sm text-on-surface">
-                            <dt>Subtotal (ex. VAT)</dt>
-                            <dd className="font-semibold tabular-nums">
-                              {formatCurrency(totals.subtotalExclTax)}
-                            </dd>
-                          </div>
-                          <div className="flex items-center justify-between text-sm text-on-surface">
-                            <dt>VAT total</dt>
-                            <dd className="font-semibold tabular-nums">
-                              {formatCurrency(totals.totalVat)}
-                            </dd>
-                          </div>
-                          <div className="flex items-center justify-between border-t border-primary/10 pt-3 text-base font-semibold text-primary">
-                            <dt>Total (incl. VAT)</dt>
-                            <dd className="tabular-nums">{formatCurrency(totals.totalInclTax)}</dd>
-                          </div>
-                        </dl>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3 border-t border-outline-variant/20 pt-5 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="text-sm text-on-surface-variant">
-                        {isCreating
-                          ? 'Save the draft first, then issue the invoice.'
-                          : 'The invoice stays editable while it remains a draft.'}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        {!isCreating && selectedInvoice && canDeleteInvoice(selectedInvoice) ? (
-                          <button
-                            className="rounded-xl border border-error/18 px-4 py-2.5 text-sm font-semibold text-error transition-colors hover:bg-error-container/35 disabled:opacity-60"
-                            disabled={saving}
-                            onClick={() => void handleDeleteDraft()}
-                            type="button"
-                          >
-                            Delete draft
-                          </button>
-                        ) : null}
-                        <button
-                          className="rounded-xl border border-outline-variant/35 bg-white px-4 py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-lowest disabled:opacity-60"
-                          disabled={saving || customers.length === 0 || !formIsValid}
-                          onClick={() => void handleSaveDraft()}
-                          type="button"
-                        >
-                          {saving ? 'Saving…' : 'Save draft'}
-                        </button>
-                        {!isCreating && selectedInvoice && canIssueInvoice(selectedInvoice) ? (
-                          <button
-                            className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
-                            disabled={saving}
-                            onClick={() => void handleIssueInvoice()}
-                            type="button"
-                          >
-                            <AppIcon name="send" size={16} />
-                            Issue invoice
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <InvoiceDraftEditor
+                customers={customers}
+                effectiveCustomerId={effectiveCustomerId}
+                form={form}
+                formIsValid={Boolean(formIsValid)}
+                isCreating={isCreating}
+                minDueDate={minDueDate}
+                onDeleteDraft={handleDeleteDraft}
+                onFormChange={handleFormChange}
+                onIssueInvoice={handleIssueInvoice}
+                onLineAdd={handleLineAdd}
+                onLineRemove={handleLineRemove}
+                onLineUpdate={handleLineUpdate}
+                onSaveDraft={handleSaveDraft}
+                saving={saving}
+                selectedInvoice={selectedInvoice}
+                totals={totals}
+              />
             ) : selectedInvoice ? (
-              <div>
-                <div className="border-b border-outline-variant/10 px-5 py-4 sm:px-6">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <StatusBadge status={selectedInvoice.status} />
-                      <p className="text-sm leading-6 text-on-surface-variant">
-                        {selectedInvoice.customerCompanyName} · Issued{' '}
-                        {formatShortDate(selectedInvoice.issueDate)} · Due{' '}
-                        {formatShortDate(selectedInvoice.dueDate)}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {canMarkInvoicePaid(selectedInvoice) ? (
-                        <button
-                          className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
-                          disabled={saving}
-                          onClick={() => void handleMarkAsPaid()}
-                          type="button"
-                        >
-                          <AppIcon name="task_alt" size={16} />
-                          Mark as paid
-                        </button>
-                      ) : null}
-                      <span className="rounded-full bg-surface-container-low px-3 py-1 text-xs font-semibold text-on-surface-variant">
-                        Read-only
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-b border-primary/20 bg-primary/10 px-5 py-3 sm:px-6">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-                    Read-only invoice
-                  </p>
-                  <p className="mt-1 text-sm text-on-surface-variant">
-                    This invoice is locked after issue. You can only mark it as paid when
-                    applicable.
-                  </p>
-                </div>
-
-                <div className="space-y-6 px-5 py-6 sm:px-6">
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-on-surface-variant">
-                        Customer
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-on-surface">
-                        {selectedInvoice.customerCompanySnapshot}
-                      </p>
-                      <p className="mt-1 text-xs text-on-surface-variant">
-                        Company address:{' '}
-                        {selectedInvoice.customerCompanyAddressSnapshot || 'No address'}
-                      </p>
-                      <IssuedCompanySnapshotDetails invoice={selectedInvoice} />
-                      <p className="mt-1 text-xs text-on-surface-variant">
-                        {selectedInvoice.customerPrimaryContactSnapshot || 'No contact name'} ·
-                        Customer email: {selectedInvoice.customerEmailSnapshot || 'No email'} ·{' '}
-                        {selectedInvoice.customerPhoneSnapshot || 'No phone'}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-on-surface-variant">
-                        Issue date
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-on-surface">
-                        {formatShortDate(selectedInvoice.issueDate)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-on-surface-variant">
-                        Due date
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-on-surface">
-                        {formatShortDate(selectedInvoice.dueDate)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="overflow-hidden rounded-2xl border border-outline-variant/35">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="bg-surface-container-low text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                          <th className="px-4 py-3">Description</th>
-                          <th className="px-4 py-3">Qty</th>
-                          <th className="px-4 py-3">Unit price</th>
-                          <th className="px-4 py-3">VAT</th>
-                          <th className="px-4 py-3 text-right">Line total (incl. VAT)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-outline-variant/15 bg-white">
-                        {selectedInvoice.lines.map((line) => (
-                          <tr key={line.id}>
-                            <td className="px-4 py-3 text-sm text-on-surface">
-                              {line.description}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-on-surface-variant tabular-nums">
-                              {line.quantity}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-on-surface-variant tabular-nums">
-                              {formatCurrency(line.unitPrice)}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-on-surface-variant">
-                              {line.vatRate}%
-                            </td>
-                            <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums text-on-surface">
-                              {formatCurrency(line.lineTotalInclTax)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-                    <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-5">
-                      <h3 className="text-sm font-semibold text-on-surface">Lifecycle</h3>
-                      <p className="mt-3 text-sm leading-6 text-on-surface-variant">
-                        {selectedInvoice.status === 'issued'
-                          ? 'Issued: the invoice is locked. When payment is received, mark it as paid.'
-                          : 'Paid: the invoice is settled and remains visible in the register.'}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-primary/12 bg-primary/5 p-5">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">
-                        Totals
-                      </p>
-                      <dl className="mt-4 space-y-3">
-                        <div className="flex items-center justify-between text-sm text-on-surface">
-                          <dt>Subtotal (ex. VAT)</dt>
-                          <dd className="font-semibold tabular-nums">
-                            {formatCurrency(selectedInvoice.subtotalExclTax)}
-                          </dd>
-                        </div>
-                        <div className="flex items-center justify-between text-sm text-on-surface">
-                          <dt>VAT total</dt>
-                          <dd className="font-semibold tabular-nums">
-                            {formatCurrency(selectedInvoice.totalVat)}
-                          </dd>
-                        </div>
-                        <div className="flex items-center justify-between border-t border-primary/10 pt-3 text-base font-semibold text-primary">
-                          <dt>Total (incl. VAT)</dt>
-                          <dd className="tabular-nums">
-                            {formatCurrency(selectedInvoice.totalInclTax)}
-                          </dd>
-                        </div>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <InvoiceView
+                invoice={selectedInvoice}
+                onMarkAsPaid={handleMarkAsPaid}
+                saving={saving}
+              />
             ) : null}
           </section>
         )}
       </div>
+
       <IssueInvoiceDialog
         isOpen={Boolean(isIssueDialogOpen && selectedInvoice && canIssueInvoice(selectedInvoice))}
         issueForm={issueForm}
         onCancel={() => setIsIssueDialogOpen(false)}
-        onConfirm={() => void handleConfirmIssueInvoice()}
+        onConfirm={handleConfirmIssueInvoice}
         onFieldChange={handleIssueFormFieldChange}
         saving={saving}
       />
@@ -1072,89 +525,13 @@ function invoiceToForm(invoice: InvoiceDto) {
   }
 }
 
-function IssuedCompanySnapshotDetails({ invoice }: { invoice: InvoiceDto }) {
-  return (
-    <p className="mt-1 text-xs text-on-surface-variant whitespace-pre-line">
-      Issued company: {invoice.issuedCompanyName || 'No issued company name'}
-      {'\n'}
-      Issued address: {invoice.issuedCompanyAddress || 'No issued company address'}
-    </p>
-  )
-}
-
-function IssueInvoiceDialog({
-  isOpen,
-  issueForm,
-  onCancel,
-  onConfirm,
-  onFieldChange,
-  saving,
-}: {
-  isOpen: boolean
-  issueForm: { issuedCompanyAddress: string; issuedCompanyName: string }
-  onCancel: () => void
-  onConfirm: () => void
-  onFieldChange: (field: 'issuedCompanyAddress' | 'issuedCompanyName', value: string) => void
-  saving: boolean
-}) {
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-xl rounded-2xl border border-outline-variant/20 bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-on-surface">Issue invoice</h3>
-        <p className="mt-1 text-sm text-on-surface-variant">
-          Provide company identity to snapshot this issued invoice.
-        </p>
-        <div className="mt-4 space-y-4">
-          <label className="block">
-            <span className="text-sm font-medium text-on-surface">Company name</span>
-            <input
-              className="mt-1 w-full rounded-lg border border-outline-variant/35 px-3 py-2 text-sm"
-              onChange={(event) => onFieldChange('issuedCompanyName', event.target.value)}
-              value={issueForm.issuedCompanyName}
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-on-surface">Company address</span>
-            <textarea
-              className="mt-1 min-h-28 w-full rounded-lg border border-outline-variant/35 px-3 py-2 text-sm"
-              onChange={(event) => onFieldChange('issuedCompanyAddress', event.target.value)}
-              value={issueForm.issuedCompanyAddress}
-            />
-          </label>
-        </div>
-        <div className="mt-6 flex items-center justify-end gap-3">
-          <button
-            className="rounded-lg border border-outline-variant/35 px-4 py-2 text-sm"
-            onClick={onCancel}
-            type="button"
-          >
-            Cancel
-          </button>
-          <button
-            className="rounded-lg px-4 py-2 text-sm font-medium text-on-primary milled-steel-gradient disabled:opacity-60"
-            disabled={
-              saving ||
-              !issueForm.issuedCompanyName.trim() ||
-              !issueForm.issuedCompanyAddress.trim()
-            }
-            onClick={onConfirm}
-            type="button"
-          >
-            Confirm issue
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function plusDays(value: string, days: number) {
   const date = new Date(`${value}T12:00:00`)
   date.setDate(date.getDate() + days)
   return date.toISOString().slice(0, 10)
 }
+
+// --- Main component ---
 
 function todayValue() {
   return new Date().toISOString().slice(0, 10)
