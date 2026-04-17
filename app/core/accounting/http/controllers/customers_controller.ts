@@ -12,7 +12,6 @@ import {
 } from '../validators/customer.js'
 
 const PER_PAGE = 5
-const CONTACT_REQUIRED_MESSAGE = 'Provide at least an email or a phone number.'
 
 export default class CustomersController {
   @inject()
@@ -40,9 +39,6 @@ export default class CustomersController {
   @inject()
   async store(ctx: HttpContext, customerService: CustomerService) {
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
-    if (!this.hasContactMethod(payload.email, payload.phone)) {
-      return this.respondMissingContact(ctx)
-    }
 
     await flashAction(
       ctx,
@@ -58,9 +54,6 @@ export default class CustomersController {
   async update(ctx: HttpContext, customerService: CustomerService) {
     const { params } = await ctx.request.validateUsing(customerParamsValidator)
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
-    if (!this.hasContactMethod(payload.email, payload.phone)) {
-      return this.respondMissingContact(ctx)
-    }
 
     await flashAction(
       ctx,
@@ -72,10 +65,6 @@ export default class CustomersController {
     return this.redirectToCustomers(ctx)
   }
 
-  private hasContactMethod(email?: string, phone?: string) {
-    return Boolean(email?.trim() || phone?.trim())
-  }
-
   private redirectToCustomers(ctx: HttpContext) {
     const page = Number(ctx.request.input('page'))
     const qs: Record<string, number> = {}
@@ -85,13 +74,5 @@ export default class CustomersController {
     return ctx.response
       .redirect()
       .toRoute('customers.page', [], Object.keys(qs).length > 0 ? { qs } : undefined)
-  }
-
-  private respondMissingContact(ctx: HttpContext) {
-    ctx.session.flash('errors', {
-      email: CONTACT_REQUIRED_MESSAGE,
-      phone: CONTACT_REQUIRED_MESSAGE,
-    })
-    return this.redirectToCustomers(ctx)
   }
 }

@@ -73,6 +73,18 @@ function authCookie() {
   return `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}`
 }
 
+async function expectRejects(assert: any, callback: () => Promise<unknown>) {
+  let didThrow = false
+
+  try {
+    await callback()
+  } catch {
+    didThrow = true
+  }
+
+  assert.isTrue(didThrow)
+}
+
 test.group('Expenses routes | create → confirm → journal', (group) => {
   let cleanup: () => Promise<void>
 
@@ -238,6 +250,40 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     const rows = await db.select().from(expenses)
     deleteResponse.assert?.equal(rows.length, 1, 'confirmed expense was not deleted')
     deleteResponse.assert?.equal(rows[0].status, 'confirmed')
+  })
+
+  test('expense service rejects invalid inputs outside HTTP', async ({ assert }) => {
+    const service = new ExpenseService(db)
+
+    await expectRejects(assert, () =>
+      service.createExpense({
+        amount: -1,
+        category: 'Software',
+        date: '2026-04-20',
+        label: 'Negative amount',
+      })
+    )
+
+    await expectRejects(assert, () =>
+      service.createExpense({
+        amount: 10,
+        category: 'Invalid category',
+        date: '2026-04-20',
+        label: 'Category mismatch',
+      })
+    )
+
+    await expectRejects(assert, () =>
+      service.createExpense({
+        amount: 10,
+        category: 'Software',
+        date: '2026-04-20',
+        label: '   ',
+      })
+    )
+
+    const rows = await db.select().from(expenses)
+    assert.equal(rows.length, 0)
   })
 })
 

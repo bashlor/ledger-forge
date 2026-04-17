@@ -332,11 +332,9 @@ function InvoicesContent({
         issuedCompanyName: issueForm.issuedCompanyName,
       },
       {
-        onFinish: () => {
-          setSaving(false)
-          setIsIssueDialogOpen(false)
-        },
+        onFinish: () => setSaving(false),
         onStart: () => setSaving(true),
+        onSuccess: () => setIsIssueDialogOpen(false),
         preserveScroll: true,
       }
     )
@@ -380,15 +378,9 @@ function InvoicesContent({
   // --- Derived ---
 
   const minDueDate = editingInvoice ? selectedInvoice.createdAt : todayValue()
-  const formIsValid =
-    form.dueDate >= minDueDate &&
-    effectiveCustomerId &&
-    form.issueDate &&
-    form.dueDate &&
-    form.lines.length > 0 &&
-    form.lines.every(
-      (line) => line.description.trim() && Number(line.quantity) > 0 && Number(line.unitPrice) >= 0
-    )
+  const formIsValid = Boolean(
+    effectiveCustomerId && form.issueDate && form.dueDate && form.lines.length > 0
+  )
 
   const isFocusMode = isCreating || selectedInvoiceId !== null
   const focusPageTitle = isCreating ? 'New invoice' : (selectedInvoice?.invoiceNumber ?? 'Invoice')

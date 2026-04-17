@@ -64,7 +64,7 @@ export function CreateDrawer({
           {detailsMode ? null : (
             <button
               className="rounded-lg px-4 py-3 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
-              disabled={processing || form.amount <= 0 || form.label.trim().length === 0}
+              disabled={processing}
               form="expense-form"
               type="submit"
             >

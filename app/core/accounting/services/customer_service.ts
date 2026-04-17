@@ -45,25 +45,31 @@ interface CustomerDto {
 
 type CustomerRow = typeof customers.$inferSelect
 
+interface NormalizedCustomerInput {
+  address: string
+  company: string
+  email: string
+  name: string
+  note: string | undefined
+  phone: string
+}
+
 export class CustomerService {
   constructor(private readonly db: PostgresJsDatabase<any>) {}
 
   async createCustomer(input: CreateCustomerInput): Promise<CustomerDto> {
-    const address = input.address.trim()
-    if (!address) {
-      throw new DomainError('Customer address is required.', 'business_logic_error')
-    }
+    const normalized = normalizeCustomerInput(input)
 
     const [row] = await this.db
       .insert(customers)
       .values({
-        address,
-        company: input.company.trim(),
-        email: input.email?.trim() || '',
+        address: normalized.address,
+        company: normalized.company,
+        email: normalized.email,
         id: uuidv7(),
-        name: input.name.trim(),
-        note: input.note?.trim() || undefined,
-        phone: input.phone?.trim() || '',
+        name: normalized.name,
+        note: normalized.note,
+        phone: normalized.phone,
       })
       .returning()
 
@@ -189,33 +195,24 @@ export class CustomerService {
       throw new DomainError('Customer not found.', 'not_found')
     }
 
-    const address = input.address.trim()
-    if (!address) {
-      throw new DomainError('Customer address is required.', 'business_logic_error')
-    }
-
-    const company = input.company.trim()
-    const email = input.email?.trim() || ''
-    const name = input.name.trim()
-    const note = input.note?.trim() || undefined
-    const phone = input.phone?.trim() || ''
+    const normalized = normalizeCustomerInput(input)
     const snapshotChanged =
-      existing.address !== address ||
-      existing.company !== company ||
-      existing.email !== email ||
-      existing.name !== name ||
-      existing.phone !== phone
+      existing.address !== normalized.address ||
+      existing.company !== normalized.company ||
+      existing.email !== normalized.email ||
+      existing.name !== normalized.name ||
+      existing.phone !== normalized.phone
 
     const updatedRow = await this.db.transaction(async (tx) => {
       const [updated] = await tx
         .update(customers)
         .set({
-          address,
-          company,
-          email,
-          name,
-          note,
-          phone,
+          address: normalized.address,
+          company: normalized.company,
+          email: normalized.email,
+          name: normalized.name,
+          note: normalized.note,
+          phone: normalized.phone,
         })
         .where(eq(customers.id, id))
         .returning()
@@ -228,12 +225,12 @@ export class CustomerService {
         await tx
           .update(invoices)
           .set({
-            customerCompanyAddressSnapshot: address,
-            customerCompanyName: company,
-            customerCompanySnapshot: company,
-            customerEmailSnapshot: email,
-            customerPhoneSnapshot: phone,
-            customerPrimaryContactSnapshot: name,
+            customerCompanyAddressSnapshot: normalized.address,
+            customerCompanyName: normalized.company,
+            customerCompanySnapshot: normalized.company,
+            customerEmailSnapshot: normalized.email,
+            customerPhoneSnapshot: normalized.phone,
+            customerPrimaryContactSnapshot: normalized.name,
           })
           .where(and(eq(invoices.customerId, id), eq(invoices.status, 'draft')))
       }
@@ -264,6 +261,40 @@ export class CustomerService {
       invoiceCount: row?.invoiceCount ?? 0,
       totalInvoicedCents: row?.totalInvoicedCents ?? 0,
     }
+  }
+}
+
+function normalizeCustomerInput(input: CreateCustomerInput): NormalizedCustomerInput {
+  const address = input.address.trim()
+  const company = input.company.trim()
+  const email = input.email?.trim() || ''
+  const name = input.name.trim()
+  const note = input.note?.trim() || undefined
+  const phone = input.phone?.trim() || ''
+
+  if (!address) {
+    throw new DomainError('Customer address is required.', 'invalid_data')
+  }
+
+  if (!company) {
+    throw new DomainError('Customer company is required.', 'invalid_data')
+  }
+
+  if (!name) {
+    throw new DomainError('Customer contact name is required.', 'invalid_data')
+  }
+
+  if (!email && !phone) {
+    throw new DomainError('Provide at least an email or a phone number.', 'invalid_data')
+  }
+
+  return {
+    address,
+    company,
+    email,
+    name,
+    note,
+    phone,
   }
 }
 

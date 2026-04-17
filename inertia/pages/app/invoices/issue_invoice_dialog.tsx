@@ -28,6 +28,7 @@ export function IssueInvoiceDialog({
             <input
               className="mt-1 w-full rounded-lg border border-outline-variant/35 px-3 py-2 text-sm"
               onChange={(event) => onFieldChange('issuedCompanyName', event.target.value)}
+              required
               value={issueForm.issuedCompanyName}
             />
           </label>
@@ -36,6 +37,7 @@ export function IssueInvoiceDialog({
             <textarea
               className="mt-1 min-h-28 w-full rounded-lg border border-outline-variant/35 px-3 py-2 text-sm"
               onChange={(event) => onFieldChange('issuedCompanyAddress', event.target.value)}
+              required
               value={issueForm.issuedCompanyAddress}
             />
           </label>
@@ -50,11 +52,7 @@ export function IssueInvoiceDialog({
           </button>
           <button
             className="rounded-lg px-4 py-2 text-sm font-medium text-on-primary milled-steel-gradient disabled:opacity-60"
-            disabled={
-              saving ||
-              !issueForm.issuedCompanyName.trim() ||
-              !issueForm.issuedCompanyAddress.trim()
-            }
+            disabled={saving}
             onClick={onConfirm}
             type="button"
           >

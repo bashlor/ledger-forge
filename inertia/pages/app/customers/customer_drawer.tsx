@@ -33,7 +33,6 @@ export function CustomerDrawer({
 }: CustomerDrawerProps) {
   const isEdit = target !== null
   const [form, setForm] = useState<CreateCustomerInput>(formFromTarget(target))
-  const [contactError, setContactError] = useState('')
 
   function handleClose() {
     onClose()
@@ -41,11 +40,6 @@ export function CustomerDrawer({
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!form.email?.trim() && !form.phone?.trim()) {
-      setContactError('Provide at least an email or a phone number.')
-      return
-    }
-    setContactError('')
     onSubmit(form, target?.id ?? null)
   }
 
@@ -197,10 +191,6 @@ export function CustomerDrawer({
             <p className="mt-2 text-sm font-medium text-error">{errors.note}</p>
           ) : null}
         </div>
-
-        {contactError ? (
-          <p className="sm:col-span-2 text-sm font-medium text-error">{contactError}</p>
-        ) : null}
       </form>
     </DrawerPanel>
   )

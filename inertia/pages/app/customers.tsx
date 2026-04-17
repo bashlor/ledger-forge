@@ -26,7 +26,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
   const [editTarget, setEditTarget] = useState<CustomerDto | null>(null)
   const [processing, setProcessing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filter, setFilter] = useState<'all' | 'with_invoices' | 'no_invoices'>('all')
+  const [filter, setFilter] = useState<'all' | 'no_invoices' | 'with_invoices'>('all')
 
   const { items, pagination, summary } = customers
   const filteredItems = useMemo(() => {
@@ -66,7 +66,6 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
   useEffect(() => {
     if (hasCustomerErrors) {
       setDrawerOpen(true)
-      setEditTarget(null)
     }
   }, [hasCustomerErrors])
 
@@ -127,7 +126,6 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
 
       <div className="space-y-4 lg:space-y-5">
         <PageHeader
-          className="gap-3"
           actions={
             <button
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95"
@@ -137,6 +135,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
               New customer
             </button>
           }
+          className="gap-3"
           description="Customers are your billable contacts. Deletion is blocked once an invoice references a customer."
           eyebrow="Directory"
           title="Customers"
@@ -169,7 +168,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
                 aria-label="Filter customers"
                 className="h-9 rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
                 onChange={(event) =>
-                  setFilter(event.target.value as 'all' | 'with_invoices' | 'no_invoices')
+                  setFilter(event.target.value as 'all' | 'no_invoices' | 'with_invoices')
                 }
                 value={filter}
               >
