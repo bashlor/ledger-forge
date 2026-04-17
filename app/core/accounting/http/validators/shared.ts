@@ -12,9 +12,11 @@ export const vineDateString = vine
   .string()
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .transform((value) => {
-    if (Number.isNaN(Date.parse(value))) {
-      throw new Error(`Invalid calendar date: "${value}"`)
+  .transform((value, field) => {
+    const [year, month, day] = value.split('-').map(Number)
+    const d = new Date(year, month - 1, day)
+    if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) {
+      field.report('Invalid calendar date.', 'invalid_date', field)
     }
     return value
   })

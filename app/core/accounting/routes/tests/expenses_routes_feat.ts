@@ -500,3 +500,54 @@ test.group('Expenses service | getSummary and listExpenses', (group) => {
     assert.equal(entries.length, 1, 'a second confirm must not create a second journal entry')
   })
 })
+
+// =============================================================================
+// Validation: date range coupling
+// =============================================================================
+
+test.group('Expenses routes | date range validation', (group) => {
+  let cleanup: () => Promise<void>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+
+    const auth = new FakeAuth()
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+  })
+
+  group.teardown(async () => cleanup())
+
+  test('GET /expenses with both dates succeeds', async ({ client }) => {
+    const response = await client
+      .get('/expenses')
+      .header('cookie', authCookie())
+      .qs({ endDate: '2026-04-30', startDate: '2026-04-01' })
+      .redirects(0)
+    response.assertStatus(200)
+  })
+
+  test('GET /expenses with no dates succeeds', async ({ client }) => {
+    const response = await client.get('/expenses').header('cookie', authCookie()).redirects(0)
+    response.assertStatus(200)
+  })
+
+  test('GET /expenses with only startDate redirects back with error', async ({ client }) => {
+    const response = await client
+      .get('/expenses')
+      .header('cookie', authCookie())
+      .qs({ startDate: '2026-04-01' })
+      .redirects(0)
+    response.assertStatus(302)
+  })
+
+  test('GET /expenses with only endDate redirects back with error', async ({ client }) => {
+    const response = await client
+      .get('/expenses')
+      .header('cookie', authCookie())
+      .qs({ endDate: '2026-04-30' })
+      .redirects(0)
+    response.assertStatus(302)
+  })
+})
