@@ -25,6 +25,7 @@ type Props = InertiaProps<{
 export default function ExpensesPage({ categories, expenses, summary }: Props) {
   const { scope } = useDateScope()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseDto | null>(null)
   const [processing, setProcessing] = useState(false)
   const [processingId, setProcessingId] = useState<null | string>(null)
   const [pendingAction, setPendingAction] = useState<null | PendingAction>(null)
@@ -59,6 +60,21 @@ export default function ExpensesPage({ categories, expenses, summary }: Props) {
       onSuccess: () => setDrawerOpen(false),
       preserveScroll: true,
     })
+  }
+
+  function openCreateDrawer() {
+    setSelectedExpense(null)
+    setDrawerOpen(true)
+  }
+
+  function openExpenseDrawer(expense: ExpenseDto) {
+    setSelectedExpense(expense)
+    setDrawerOpen(true)
+  }
+
+  function closeDrawer() {
+    setDrawerOpen(false)
+    setSelectedExpense(null)
   }
 
   function requestConfirm(id: string) {
@@ -104,8 +120,8 @@ export default function ExpensesPage({ categories, expenses, summary }: Props) {
         <PageHeader
           actions={
             <button
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95"
-              onClick={() => setDrawerOpen(true)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.99] sm:w-auto sm:justify-start"
+              onClick={openCreateDrawer}
               type="button"
             >
               New expense
@@ -124,7 +140,8 @@ export default function ExpensesPage({ categories, expenses, summary }: Props) {
 
         <CreateDrawer
           categories={categories}
-          onClose={() => setDrawerOpen(false)}
+          expense={selectedExpense}
+          onClose={closeDrawer}
           onSubmit={handleCreate}
           open={drawerOpen}
           processing={processing}
@@ -147,6 +164,7 @@ export default function ExpensesPage({ categories, expenses, summary }: Props) {
             items={expenses.items}
             onConfirm={requestConfirm}
             onDelete={requestDelete}
+            onOpen={openExpenseDrawer}
             processingId={processingId}
           />
         </DataTable>
