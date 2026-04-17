@@ -2,6 +2,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
+import { toCents } from '#core/shared/money'
 import { and, count, desc, eq, gte, lte, sql, sum } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
@@ -103,7 +104,7 @@ export class ExpenseService {
       throw new DomainError('Label must not be empty.', 'invalid_data')
     }
 
-    const amountCents = Math.round(input.amount * 100)
+    const amountCents = toCents(input.amount)
 
     const [row] = await this.db
       .insert(expenses)
@@ -172,27 +173,36 @@ export class ExpenseService {
 
   async listExpenses(page = 1, perPage = 5, dateFilter?: DateFilter): Promise<ExpenseListResult> {
     const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
+    // Clamp page to ≥ 1 only; upper bound is applied after the query once totalPages is known.
+    const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
+    const offset = (requestedPage - 1) * safePerPage
     const where = dateCondition(dateFilter)
 
-    const [{ totalCount }] = await this.db
-      .select({ totalCount: count() })
-      .from(expenses)
-      .where(where)
-
-    const totalPages = Math.max(1, Math.ceil(totalCount / safePerPage))
-    const safePage = clampInteger(page, 1, totalPages)
-    const offset = (safePage - 1) * safePerPage
-
+    // Single query: window function provides the total count alongside each row,
+    // eliminating the separate COUNT round-trip and the race window it opened.
     const rows = await this.db
-      .select()
+      .select({
+        amountCents: expenses.amountCents,
+        category: expenses.category,
+        createdAt: expenses.createdAt,
+        date: expenses.date,
+        id: expenses.id,
+        label: expenses.label,
+        status: expenses.status,
+        totalCount: sql<number>`count(*) over()`.mapWith(Number),
+      })
       .from(expenses)
       .where(where)
       .orderBy(desc(expenses.date), expenses.label)
       .limit(safePerPage)
       .offset(offset)
 
+    const totalCount = rows[0]?.totalCount ?? 0
+    const totalPages = Math.max(1, Math.ceil(totalCount / safePerPage))
+    const safePage = Math.min(requestedPage, totalPages)
+
     return {
-      items: rows.map(toExpenseDto),
+      items: rows.map(({ totalCount: _, ...row }) => toExpenseDto(row as ExpenseRow)),
       pagination: {
         page: safePage,
         perPage: safePerPage,

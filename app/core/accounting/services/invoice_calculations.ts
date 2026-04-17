@@ -1,3 +1,5 @@
+import { toCents } from '#core/shared/money'
+
 /**
  * Pure arithmetic for invoice lines and totals.
  * All values are stored as integers in cents or cent-equivalents.
@@ -69,8 +71,8 @@ export function fromDisplayUnits(input: {
 }): LineInput {
   return {
     description: input.description,
-    quantityHundredths: Math.round(input.quantity * 100),
-    unitPriceCents: Math.round(input.unitPrice * 100),
-    vatRateCents: Math.round(input.vatRate * 100),
+    quantityHundredths: toCents(input.quantity),
+    unitPriceCents: toCents(input.unitPrice),
+    vatRateCents: toCents(input.vatRate),
   }
 }
