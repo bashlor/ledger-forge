@@ -1,3 +1,4 @@
+import { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
 import { sql } from 'drizzle-orm'
 import { check, date, integer, pgSchema, text, timestamp, unique } from 'drizzle-orm/pg-core'
 
@@ -102,6 +103,10 @@ export const expenses = mainSchema.table(
   (table) => [
     check('expenses_status_check', sql`${table.status} IN ('draft', 'confirmed')`),
     check('expenses_amount_positive', sql`${table.amountCents} > 0`),
+    check(
+      'expenses_category_check',
+      sql.raw(`category IN (${EXPENSE_CATEGORIES.map((c) => `'${c}'`).join(', ')})`)
+    ),
   ]
 )
 
@@ -115,9 +120,9 @@ export const journalEntries = mainSchema.table(
     amountCents: integer('amount_cents').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     date: date('date', { mode: 'string' }).notNull(),
-    expenseId: text('expense_id').references(() => expenses.id),
+    expenseId: text('expense_id').references(() => expenses.id, { onDelete: 'restrict' }),
     id: text('id').primaryKey(),
-    invoiceId: text('invoice_id').references(() => invoices.id),
+    invoiceId: text('invoice_id').references(() => invoices.id, { onDelete: 'restrict' }),
     label: text('label').notNull(),
     type: text('type', { enum: ['expense', 'invoice'] }).notNull(),
   },

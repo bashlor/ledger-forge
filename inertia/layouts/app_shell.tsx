@@ -90,13 +90,18 @@ function AppShellFrame({ children }: { children: ReactNode }) {
               <Link
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-300 ${
                   active
-                    ? 'bg-surface-container-lowest/50 font-bold text-on-surface'
-                    : 'text-on-surface-variant hover:bg-surface-container-lowest/30 hover:text-on-surface'
+                    ? 'border-l-2 border-primary bg-surface-container-lowest font-bold text-on-surface shadow-ambient-tight'
+                    : 'border-l-2 border-transparent text-on-surface-variant hover:bg-surface-container-lowest/35 hover:text-on-surface'
                 }`}
                 href={link.href}
                 key={link.href}
               >
-                <AppIcon filled={active} name={link.icon} size={22} />
+                <AppIcon
+                  className={active ? 'text-primary' : 'text-on-surface-variant'}
+                  filled={active}
+                  name={link.icon}
+                  size={22}
+                />
                 <span>{link.label}</span>
               </Link>
             )
@@ -127,7 +132,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-h-screen w-full min-w-0 flex-col lg:pl-64">
-        <header className="sticky top-0 z-40 w-full border-b border-outline-variant/20 bg-white/85 shadow-sm backdrop-blur-md">
+        <header className="sticky top-0 z-40 w-full border-b border-outline-variant/20 bg-surface-container-lowest/90 shadow-sm backdrop-blur-md">
           <div className="flex h-16 w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <Link
@@ -168,7 +173,11 @@ function AppShellFrame({ children }: { children: ReactNode }) {
                   aria-controls={accountMenuOpen ? `${accountMenuId}-menu` : undefined}
                   aria-expanded={accountMenuOpen}
                   aria-haspopup="menu"
-                  className="flex items-center gap-2 rounded-xl border border-transparent py-1 pl-1 pr-2 outline-hidden transition-colors hover:border-outline-variant/20 hover:bg-surface-container-high/80 focus-visible:ring-2 focus-visible:ring-primary/30 sm:gap-3 sm:pr-3"
+                  className={`flex items-center gap-2 rounded-xl border py-1 pl-1 pr-2 outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 sm:gap-3 sm:pr-3 ${
+                    accountMenuOpen
+                      ? 'border-outline-variant/30 bg-surface-container-high'
+                      : 'border-transparent hover:border-outline-variant/20 hover:bg-surface-container-high/80'
+                  }`}
                   id={`${accountMenuId}-trigger`}
                   onClick={() => setAccountMenuOpen((openState) => !openState)}
                   type="button"
@@ -190,12 +199,12 @@ function AppShellFrame({ children }: { children: ReactNode }) {
                 {accountMenuOpen ? (
                   <div
                     aria-labelledby={`${accountMenuId}-trigger`}
-                    className="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-outline-variant/15 bg-white py-1 shadow-lg ring-1 ring-black/[0.04]"
+                    className="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest py-1 shadow-lg ring-1 ring-outline-variant/20"
                     id={`${accountMenuId}-menu`}
                     role="menu"
                   >
                     <Link
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high/80"
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high/80 focus-visible:bg-surface-container-high"
                       href="/account"
                       onClick={() => setAccountMenuOpen(false)}
                       role="menuitem"
@@ -205,7 +214,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
                     </Link>
                     <Form className="contents" route="signout.store">
                       <button
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high/80 hover:text-error"
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high/80 hover:text-error focus-visible:bg-surface-container-high"
                         onClick={() => setAccountMenuOpen(false)}
                         role="menuitem"
                         type="submit"

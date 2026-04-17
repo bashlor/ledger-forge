@@ -1,9 +1,14 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
+import { EXPENSE_CATEGORIES, type ExpenseCategory } from '#core/accounting/expense_categories'
 import { DomainError } from '#core/shared/domain_error'
+import { toCents } from '#core/shared/money'
 import { and, count, desc, eq, gte, lte, sql, sum } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
+
+export { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
+export type { ExpenseCategory } from '#core/accounting/expense_categories'
 
 export interface CreateExpenseInput {
   amount: number
@@ -102,8 +107,11 @@ export class ExpenseService {
     if (input.label.trim().length === 0) {
       throw new DomainError('Label must not be empty.', 'invalid_data')
     }
+    if (!EXPENSE_CATEGORIES.includes(input.category as ExpenseCategory)) {
+      throw new DomainError('Invalid expense category.', 'invalid_data')
+    }
 
-    const amountCents = Math.round(input.amount * 100)
+    const amountCents = toCents(input.amount)
 
     const [row] = await this.db
       .insert(expenses)
@@ -172,19 +180,28 @@ export class ExpenseService {
 
   async listExpenses(page = 1, perPage = 5, dateFilter?: DateFilter): Promise<ExpenseListResult> {
     const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
+    const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
     const where = dateCondition(dateFilter)
 
-    const [{ totalCount }] = await this.db
-      .select({ totalCount: count() })
-      .from(expenses)
-      .where(where)
-
+    // Count first so the page can be clamped before fetching rows.
+    // This avoids the window-function edge case where a large offset returns
+    // zero rows and totalCount cannot be derived.
+    const [countRow] = await this.db.select({ total: count() }).from(expenses).where(where)
+    const totalCount = countRow?.total ?? 0
     const totalPages = Math.max(1, Math.ceil(totalCount / safePerPage))
-    const safePage = clampInteger(page, 1, totalPages)
+    const safePage = Math.min(requestedPage, totalPages)
     const offset = (safePage - 1) * safePerPage
 
     const rows = await this.db
-      .select()
+      .select({
+        amountCents: expenses.amountCents,
+        category: expenses.category,
+        createdAt: expenses.createdAt,
+        date: expenses.date,
+        id: expenses.id,
+        label: expenses.label,
+        status: expenses.status,
+      })
       .from(expenses)
       .where(where)
       .orderBy(desc(expenses.date), expenses.label)
@@ -192,7 +209,7 @@ export class ExpenseService {
       .offset(offset)
 
     return {
-      items: rows.map(toExpenseDto),
+      items: rows.map((row) => toExpenseDto(row as ExpenseRow)),
       pagination: {
         page: safePage,
         perPage: safePerPage,

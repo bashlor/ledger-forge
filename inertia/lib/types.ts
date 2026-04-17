@@ -89,8 +89,8 @@ export type DateScopeMode = 'custom' | 'month'
 
 export interface ExpenseDto {
   amount: number
-  canConfirm?: boolean
-  canDelete?: boolean
+  canConfirm: boolean
+  canDelete: boolean
   category: string
   date: string
   id: string

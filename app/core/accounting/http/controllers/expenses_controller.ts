@@ -7,6 +7,7 @@ import { inject } from '@adonisjs/core'
 import { flashAction } from '../helpers/flash_action.js'
 import {
   createExpenseValidator,
+  EXPENSE_CATEGORIES,
   expenseIndexValidator,
   expenseParamsValidator,
 } from '../validators/expense.js'
@@ -51,6 +52,7 @@ export default class ExpensesController {
     return ctx.inertia.render(
       'app/expenses' as never,
       {
+        categories: EXPENSE_CATEGORIES,
         expenses: await expenseService.listExpenses(page ?? 1, PER_PAGE, dateFilter),
         summary: ctx.inertia.defer(() => expenseService.getSummary(dateFilter) as never, 'summary'),
       } as never

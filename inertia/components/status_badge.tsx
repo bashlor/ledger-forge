@@ -5,7 +5,7 @@ interface StatusBadgeProps {
 const BADGE_STYLES: Record<string, string> = {
   booked: 'bg-surface-container-high text-on-surface-variant',
   confirmed: 'bg-tertiary-container text-on-tertiary-container',
-  draft: 'bg-surface-container-high text-on-surface-variant',
+  draft: 'bg-secondary-container text-on-secondary-container',
   good_payer: 'bg-tertiary-container text-on-tertiary-container',
   issued: 'bg-primary-container text-on-primary-container',
   no_activity: 'bg-surface-container-high text-on-surface-variant',
@@ -35,7 +35,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${styles}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${styles}`}
     >
       {label}
     </span>

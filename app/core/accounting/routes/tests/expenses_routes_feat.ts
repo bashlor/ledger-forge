@@ -10,7 +10,7 @@ import {
 } from '#core/user_management/domain/authentication'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 
 import { runSimultaneously } from '../../../../../tests/helpers/concurrency_barrier.js'
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
@@ -238,5 +238,316 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     const rows = await db.select().from(expenses)
     deleteResponse.assert?.equal(rows.length, 1, 'confirmed expense was not deleted')
     deleteResponse.assert?.equal(rows[0].status, 'confirmed')
+  })
+})
+
+// =============================================================================
+// Authorization
+// =============================================================================
+
+test.group('Expenses routes | authorization', (group) => {
+  let cleanup: () => Promise<void>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+
+    const auth = new FakeAuth()
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+  })
+
+  group.teardown(async () => cleanup())
+
+  test('redirects unauthenticated requests for expense routes to /signin', async ({ client }) => {
+    const fakeId = '019d9aaf-0000-7000-0000-000000000001'
+
+    const getResponse = await client.get('/expenses').redirects(0)
+    getResponse.assertStatus(302)
+    getResponse.assertHeader('location', '/signin')
+
+    const postResponse = await client
+      .post('/expenses')
+      .redirects(0)
+      .form({ amount: 10, category: 'Software', date: '2026-04-01', label: 'Test' })
+    postResponse.assertStatus(302)
+    postResponse.assertHeader('location', '/signin')
+
+    const confirmResponse = await client
+      .post(`/expenses/${fakeId}/confirm-draft`)
+      .redirects(0)
+      .form({})
+    confirmResponse.assertStatus(302)
+    confirmResponse.assertHeader('location', '/signin')
+
+    const deleteResponse = await client.delete(`/expenses/${fakeId}`).redirects(0)
+    deleteResponse.assertStatus(302)
+    deleteResponse.assertHeader('location', '/signin')
+  })
+})
+
+// =============================================================================
+// Validation
+// =============================================================================
+
+test.group('Expenses routes | validation', (group) => {
+  let cleanup: () => Promise<void>
+  let validationDb: PostgresJsDatabase<any>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+    validationDb = await app.container.make('drizzle')
+
+    const auth = new FakeAuth()
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+  })
+
+  group.each.setup(async () => {
+    await validationDb.delete(journalEntries)
+    await validationDb.delete(expenses)
+  })
+
+  group.teardown(async () => cleanup())
+
+  const validBase = {
+    amount: 10,
+    category: 'Software',
+    date: '2026-04-01',
+    label: 'Valid expense',
+  }
+
+  test('rejects amount of zero', async ({ assert, client }) => {
+    await client
+      .post('/expenses')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({ ...validBase, amount: 0 })
+    const rows = await validationDb.select().from(expenses)
+    assert.equal(rows.length, 0, 'no row should be inserted for amount=0')
+  })
+
+  test('rejects negative amount', async ({ assert, client }) => {
+    await client
+      .post('/expenses')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({ ...validBase, amount: -5 })
+    const rows = await validationDb.select().from(expenses)
+    assert.equal(rows.length, 0, 'no row should be inserted for negative amount')
+  })
+
+  test('rejects unknown category', async ({ assert, client }) => {
+    await client
+      .post('/expenses')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({ ...validBase, category: 'NotACategory' })
+    const rows = await validationDb.select().from(expenses)
+    assert.equal(rows.length, 0, 'no row should be inserted for invalid category')
+  })
+
+  test('rejects empty label', async ({ assert, client }) => {
+    await client
+      .post('/expenses')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({ ...validBase, label: '' })
+    const rows = await validationDb.select().from(expenses)
+    assert.equal(rows.length, 0, 'no row should be inserted for empty label')
+  })
+
+  test('rejects a badly formatted date', async ({ assert, client }) => {
+    await client
+      .post('/expenses')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({ ...validBase, date: 'not-a-date' })
+    const rows = await validationDb.select().from(expenses)
+    assert.equal(rows.length, 0, 'no row should be inserted for malformed date')
+  })
+
+  test('rejects an invalid calendar date (2026-02-30)', async ({ assert, client }) => {
+    await client
+      .post('/expenses')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({ ...validBase, date: '2026-02-30' })
+    const rows = await validationDb.select().from(expenses)
+    assert.equal(rows.length, 0, 'no row should be inserted for non-existent calendar date')
+  })
+})
+
+// =============================================================================
+// Service: getSummary and listExpenses
+// =============================================================================
+
+test.group('Expenses service | getSummary and listExpenses', (group) => {
+  let cleanup: () => Promise<void>
+  let serviceDb: PostgresJsDatabase<any>
+  let service: ExpenseService
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+    serviceDb = await app.container.make('drizzle')
+    service = new ExpenseService(serviceDb)
+  })
+
+  group.each.setup(async () => {
+    await serviceDb.delete(journalEntries)
+    await serviceDb.delete(expenses)
+  })
+
+  group.teardown(async () => cleanup())
+
+  test('getSummary counts drafts and confirmed separately', async ({ assert }) => {
+    await service.createExpense({
+      amount: 100,
+      category: 'Software',
+      date: '2026-04-01',
+      label: 'A',
+    })
+    await service.createExpense({ amount: 200, category: 'Office', date: '2026-04-02', label: 'B' })
+    const [draft] = await serviceDb.select().from(expenses).orderBy(desc(expenses.createdAt))
+    await service.confirmExpense(draft.id)
+
+    const summary = await service.getSummary()
+    assert.equal(summary.totalCount, 2)
+    assert.equal(summary.confirmedCount, 1)
+    assert.equal(summary.draftCount, 1)
+    assert.equal(summary.totalAmount, 200, 'totalAmount should include only confirmed expenses')
+  })
+
+  test('getSummary respects dateFilter', async ({ assert }) => {
+    await service.createExpense({
+      amount: 50,
+      category: 'Travel',
+      date: '2026-03-01',
+      label: 'Outside range',
+    })
+    await service.createExpense({
+      amount: 75,
+      category: 'Travel',
+      date: '2026-04-10',
+      label: 'Inside range',
+    })
+    const [inside] = await serviceDb
+      .select()
+      .from(expenses)
+      .where(eq(expenses.label, 'Inside range'))
+    await service.confirmExpense(inside.id)
+
+    const summary = await service.getSummary({ endDate: '2026-04-30', startDate: '2026-04-01' })
+    assert.equal(summary.totalCount, 1)
+    assert.equal(summary.confirmedCount, 1)
+    assert.equal(summary.totalAmount, 75)
+  })
+
+  test('listExpenses returns empty state with valid pagination', async ({ assert }) => {
+    const result = await service.listExpenses(1, 5)
+    assert.equal(result.items.length, 0)
+    assert.equal(result.pagination.totalItems, 0)
+    assert.equal(result.pagination.totalPages, 1, 'totalPages must be at least 1')
+    assert.equal(result.pagination.page, 1)
+  })
+
+  test('listExpenses clamps out-of-bound page to last valid page', async ({ assert }) => {
+    for (let i = 1; i <= 3; i++) {
+      await service.createExpense({
+        amount: i * 10,
+        category: 'Software',
+        date: '2026-04-01',
+        label: `Expense ${i}`,
+      })
+    }
+
+    // 3 items, perPage=2 → totalPages=2. Requesting page=99 should clamp to 2.
+    const result = await service.listExpenses(99, 2)
+    assert.equal(result.pagination.totalPages, 2)
+    assert.equal(result.pagination.page, 2)
+    assert.equal(result.items.length, 1, 'page 2 of 3 items with perPage=2 has 1 item')
+  })
+
+  test('cannot confirm an already-confirmed expense', async ({ assert, client }) => {
+    const auth = new FakeAuth()
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+
+    await service.createExpense({
+      amount: 40,
+      category: 'Office',
+      date: '2026-04-01',
+      label: 'Re-confirm test',
+    })
+    const [draft] = await serviceDb.select().from(expenses)
+    await service.confirmExpense(draft.id)
+
+    // Second confirm: should raise a domain error, not throw a 500
+    const response = await client
+      .post(`/expenses/${draft.id}/confirm-draft`)
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+    response.assertStatus(302)
+
+    // Only one journal entry must exist
+    const entries = await serviceDb
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.expenseId, draft.id))
+    assert.equal(entries.length, 1, 'a second confirm must not create a second journal entry')
+  })
+})
+
+// =============================================================================
+// Validation: date range coupling
+// =============================================================================
+
+test.group('Expenses routes | date range validation', (group) => {
+  let cleanup: () => Promise<void>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+
+    const auth = new FakeAuth()
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+  })
+
+  group.teardown(async () => cleanup())
+
+  test('GET /expenses with both dates succeeds', async ({ client }) => {
+    const response = await client
+      .get('/expenses')
+      .header('cookie', authCookie())
+      .qs({ endDate: '2026-04-30', startDate: '2026-04-01' })
+      .redirects(0)
+    response.assertStatus(200)
+  })
+
+  test('GET /expenses with no dates succeeds', async ({ client }) => {
+    const response = await client.get('/expenses').header('cookie', authCookie()).redirects(0)
+    response.assertStatus(200)
+  })
+
+  test('GET /expenses with only startDate redirects back with error', async ({ client }) => {
+    const response = await client
+      .get('/expenses')
+      .header('cookie', authCookie())
+      .qs({ startDate: '2026-04-01' })
+      .redirects(0)
+    response.assertStatus(302)
+  })
+
+  test('GET /expenses with only endDate redirects back with error', async ({ client }) => {
+    const response = await client
+      .get('/expenses')
+      .header('cookie', authCookie())
+      .qs({ endDate: '2026-04-30' })
+      .redirects(0)
+    response.assertStatus(302)
   })
 })

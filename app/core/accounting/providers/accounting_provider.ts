@@ -9,17 +9,17 @@ export default class AccountingProvider {
   constructor(protected app: ApplicationService) {}
 
   register() {
-    this.app.container.singleton(CustomerService, async (resolver) => {
+    this.app.container.bind(CustomerService, async (resolver) => {
       const db = await resolver.make('drizzle')
       return new CustomerService(db)
     })
 
-    this.app.container.singleton(ExpenseService, async (resolver) => {
+    this.app.container.bind(ExpenseService, async (resolver) => {
       const db = await resolver.make('drizzle')
       return new ExpenseService(db)
     })
 
-    this.app.container.singleton(InvoiceService, async (resolver) => {
+    this.app.container.bind(InvoiceService, async (resolver) => {
       const db = await resolver.make('drizzle')
       return new InvoiceService(db)
     })
