@@ -1,5 +1,13 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import {
+  type AccountingAccessContext,
+  type AccountingActivitySink,
+  type AccountingBusinessCalendar,
+  type AccountingServiceDependencies,
+  SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
+  SystemAccountingBusinessCalendar,
+} from '#core/accounting/accounting_context'
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
 import { and, count, desc, eq, gte, inArray, like, lte, sql } from 'drizzle-orm'
@@ -110,12 +118,17 @@ type InvoiceCustomerSnapshot = Pick<
 >
 
 type InvoiceLineRow = typeof invoiceLines.$inferSelect
-type InvoiceRow = typeof invoices.$inferSelect
+interface InvoiceListScopeInput {
+  customerId?: null | string
+  dateFilter?: DateFilter
+}
 
+type InvoiceRow = typeof invoices.$inferSelect
 interface NormalizedIssueInvoiceInput {
   issuedCompanyAddress: string
   issuedCompanyName: string
 }
+
 interface NormalizedSaveInvoiceDraftInput {
   customerId: string
   dueDate: string
@@ -127,13 +140,25 @@ const MAX_PER_PAGE = 100
 const MIN_PER_PAGE = 1
 
 export class InvoiceService {
-  constructor(private readonly db: PostgresJsDatabase<any>) {}
+  private readonly activitySink?: AccountingActivitySink
+  private readonly businessCalendar: AccountingBusinessCalendar
 
-  async createDraft(input: SaveInvoiceDraftInput): Promise<InvoiceDto> {
-    return this.db.transaction(async (tx) => {
+  constructor(
+    private readonly db: PostgresJsDatabase<any>,
+    dependencies: AccountingServiceDependencies = {}
+  ) {
+    this.activitySink = dependencies.activitySink
+    this.businessCalendar = dependencies.businessCalendar ?? new SystemAccountingBusinessCalendar()
+  }
+
+  async createDraft(
+    input: SaveInvoiceDraftInput,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<InvoiceDto> {
+    const result = await this.db.transaction(async (tx) => {
       const normalized = normalizeSaveInvoiceDraftInput(input)
       assertInvoiceDates(normalized.issueDate, normalized.dueDate)
-      const draftCreationDate = new Date().toISOString().slice(0, 10)
+      const draftCreationDate = this.businessCalendar.today()
       assertDueDateIsNotBefore(
         normalized.dueDate,
         draftCreationDate,
@@ -191,12 +216,27 @@ export class InvoiceService {
 
       const insertedLines = await tx.insert(invoiceLines).values(lineValues).returning()
 
-      return toInvoiceDto(invoice, insertedLines.map(toLineDto))
+      return this.toInvoiceDto(invoice, insertedLines.map(toLineDto))
     })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'create_invoice_draft',
+      outcome: 'success',
+      resourceId: result.id,
+      resourceType: 'invoice',
+    })
+
+    return result
   }
 
-  async deleteDraft(id: string): Promise<void> {
-    return this.db.transaction(async (tx) => {
+  async deleteDraft(
+    id: string,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
       const [deleted] = await tx
         .delete(invoices)
         .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
@@ -213,11 +253,22 @@ export class InvoiceService {
         throw new DomainError('Only draft invoices can be deleted.', 'business_logic_error')
       }
     })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'delete_invoice_draft',
+      outcome: 'success',
+      resourceId: id,
+      resourceType: 'invoice',
+    })
   }
 
   async findFirstInvoiceIdForCustomer(
     customerId: string,
-    dateFilter?: DateFilter
+    dateFilter?: DateFilter,
+    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<null | string> {
     const where = and(eq(invoices.customerId, customerId), invoiceDateCondition(dateFilter))
     const [row] = await this.db
@@ -230,7 +281,10 @@ export class InvoiceService {
     return row?.id ?? null
   }
 
-  async getInvoiceById(id: string): Promise<InvoiceDto | null> {
+  async getInvoiceById(
+    id: string,
+    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<InvoiceDto | null> {
     const [invoice] = await this.db.select().from(invoices).where(eq(invoices.id, id))
     if (!invoice) return null
 
@@ -240,12 +294,42 @@ export class InvoiceService {
       .where(eq(invoiceLines.invoiceId, id))
       .orderBy(invoiceLines.lineNumber)
 
-    return toInvoiceDto(invoice, lineRows.map(toLineDto))
+    return this.toInvoiceDto(invoice, lineRows.map(toLineDto))
   }
 
-  async getInvoiceSummary(dateFilter?: DateFilter): Promise<InvoiceSummaryDto> {
+  async getInvoiceForListScope(
+    id: string,
+    scope: InvoiceListScopeInput,
+    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<InvoiceDto | null> {
+    let where = eq(invoices.id, id)
+
+    if (scope.customerId) {
+      where = and(where, eq(invoices.customerId, scope.customerId))!
+    }
+
+    if (scope.dateFilter) {
+      where = and(where, invoiceDateCondition(scope.dateFilter))!
+    }
+
+    const [invoice] = await this.db.select().from(invoices).where(where)
+    if (!invoice) return null
+
+    const lineRows = await this.db
+      .select()
+      .from(invoiceLines)
+      .where(eq(invoiceLines.invoiceId, id))
+      .orderBy(invoiceLines.lineNumber)
+
+    return this.toInvoiceDto(invoice, lineRows.map(toLineDto))
+  }
+
+  async getInvoiceSummary(
+    dateFilter?: DateFilter,
+    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<InvoiceSummaryDto> {
     const where = invoiceDateCondition(dateFilter)
-    const today = new Date().toISOString().slice(0, 10)
+    const today = this.businessCalendar.today()
 
     const [row] = await this.db
       .select({
@@ -275,9 +359,10 @@ export class InvoiceService {
   async issueInvoice(
     id: string,
     input: IssueInvoiceInput,
-    hooks?: InvoiceConcurrencyHooks
+    hooks?: InvoiceConcurrencyHooks,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<InvoiceDto> {
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       const [existing] = await tx.select().from(invoices).where(eq(invoices.id, id))
       if (!existing) {
         throw new DomainError('Invoice not found.', 'not_found')
@@ -301,7 +386,7 @@ export class InvoiceService {
 
       if (!customer) throw new DomainError('Customer not found.', 'not_found')
       const normalized = normalizeIssueInvoiceInput(input)
-      const today = new Date().toISOString().slice(0, 10)
+      const today = this.businessCalendar.today()
       assertDueDateIsNotBefore(
         existing.dueDate,
         today,
@@ -343,11 +428,25 @@ export class InvoiceService {
         .where(eq(invoiceLines.invoiceId, id))
         .orderBy(invoiceLines.lineNumber)
 
-      return toInvoiceDto(updated, lineRows.map(toLineDto))
+      return this.toInvoiceDto(updated, lineRows.map(toLineDto))
     })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'issue_invoice',
+      outcome: 'success',
+      resourceId: id,
+      resourceType: 'invoice',
+    })
+
+    return result
   }
 
-  async listCustomersForSelect(): Promise<CustomerForSelectDto[]> {
+  async listCustomersForSelect(
+    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<CustomerForSelectDto[]> {
     return this.db
       .select({
         company: customers.company,
@@ -360,7 +459,12 @@ export class InvoiceService {
       .orderBy(customers.company)
   }
 
-  async listInvoices(page = 1, perPage = 5, dateFilter?: DateFilter): Promise<InvoiceListResult> {
+  async listInvoices(
+    page = 1,
+    perPage = 5,
+    dateFilter?: DateFilter,
+    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<InvoiceListResult> {
     const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
     const where = invoiceDateCondition(dateFilter)
 
@@ -402,7 +506,7 @@ export class InvoiceService {
 
     const items = invoiceRows.map((invoice) => {
       const lines = lineRows.filter((l) => l.invoiceId === invoice.id).map(toLineDto)
-      return toInvoiceDto(invoice, lines)
+      return this.toInvoiceDto(invoice, lines)
     })
 
     return {
@@ -416,8 +520,12 @@ export class InvoiceService {
     }
   }
 
-  async markInvoicePaid(id: string, hooks?: InvoiceConcurrencyHooks): Promise<InvoiceDto> {
-    return this.db.transaction(async (tx) => {
+  async markInvoicePaid(
+    id: string,
+    hooks?: InvoiceConcurrencyHooks,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<InvoiceDto> {
+    const result = await this.db.transaction(async (tx) => {
       const [existing] = await tx.select().from(invoices).where(eq(invoices.id, id))
       if (!existing) {
         throw new DomainError('Invoice not found.', 'not_found')
@@ -447,16 +555,29 @@ export class InvoiceService {
         .where(eq(invoiceLines.invoiceId, id))
         .orderBy(invoiceLines.lineNumber)
 
-      return toInvoiceDto(updated, lineRows.map(toLineDto))
+      return this.toInvoiceDto(updated, lineRows.map(toLineDto))
     })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'mark_invoice_paid',
+      outcome: 'success',
+      resourceId: id,
+      resourceType: 'invoice',
+    })
+
+    return result
   }
 
   async updateDraft(
     id: string,
     input: SaveInvoiceDraftInput,
-    hooks?: InvoiceConcurrencyHooks
+    hooks?: InvoiceConcurrencyHooks,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<InvoiceDto> {
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       const normalized = normalizeSaveInvoiceDraftInput(input)
       assertInvoiceDates(normalized.issueDate, normalized.dueDate)
 
@@ -477,7 +598,7 @@ export class InvoiceService {
       // Note: we only enforce dueDate >= createdAt here (not >= today) so that users can
       // still save edits to an existing draft whose due date has since passed. The stricter
       // "dueDate >= today" check is enforced at issue time via assertDueDateIsNotBefore.
-      const draftCreationDate = existing.createdAt.toISOString().slice(0, 10)
+      const draftCreationDate = this.businessCalendar.dateFromTimestamp(existing.createdAt)
       assertDueDateIsNotBefore(
         normalized.dueDate,
         draftCreationDate,
@@ -543,8 +664,24 @@ export class InvoiceService {
 
       const insertedLines = await tx.insert(invoiceLines).values(lineValues).returning()
 
-      return toInvoiceDto(updated, insertedLines.map(toLineDto))
+      return this.toInvoiceDto(updated, insertedLines.map(toLineDto))
     })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'update_invoice_draft',
+      outcome: 'success',
+      resourceId: id,
+      resourceType: 'invoice',
+    })
+
+    return result
+  }
+
+  private toInvoiceDto(row: InvoiceRow, lines: InvoiceLineDto[]): InvoiceDto {
+    return toInvoiceDto(row, lines, this.businessCalendar.dateFromTimestamp(row.createdAt))
   }
 }
 
@@ -691,9 +828,9 @@ function toCustomerSnapshot(customer: {
   }
 }
 
-function toInvoiceDto(row: InvoiceRow, lines: InvoiceLineDto[]): InvoiceDto {
+function toInvoiceDto(row: InvoiceRow, lines: InvoiceLineDto[], createdAt: string): InvoiceDto {
   return {
-    createdAt: row.createdAt.toISOString().slice(0, 10),
+    createdAt,
     customerCompanyAddressSnapshot: row.customerCompanyAddressSnapshot,
     customerCompanyName: row.customerCompanyName,
     customerCompanySnapshot: row.customerCompanySnapshot,

@@ -9,15 +9,13 @@ import postgres from 'postgres'
 import * as schema from '../../app/core/common/drizzle/index.js'
 
 const migrationsFolder = fileURLToPath(new URL('../../drizzle/migrations', import.meta.url))
+const TEST_CONTAINER_DATABASE = 'accounting_routes_test'
+const TEST_CONTAINER_PASSWORD = 'accounting_test_password'
+const TEST_CONTAINER_USERNAME = 'accounting_test_user'
 
 /**
  * Start a PostgreSQL testcontainer, run all Drizzle migrations, and bind
  * the resulting `drizzle` instance into the AdonisJS IoC container.
- *
- * Requires Docker to be running. Configure the image with POSTGRES_TEST_IMAGE.
- *
- * Returns a cleanup function that stops the container and closes the
- * connection. Call it in `group.teardown()`.
  */
 export async function setupTestDatabaseForGroup(): Promise<{
   cleanup: () => Promise<void>
@@ -32,15 +30,16 @@ export async function setupTestDatabaseForGroup(): Promise<{
   let container: StartedPostgreSqlContainer
   try {
     container = await new PostgreSqlContainer(postgresImage)
-      .withDatabase('testdb')
-      .withUsername('testuser')
-      .withPassword('testpassword')
+      .withDatabase(TEST_CONTAINER_DATABASE)
+      .withUsername(TEST_CONTAINER_USERNAME)
+      .withPassword(TEST_CONTAINER_PASSWORD)
       .start()
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(
       `Could not start PostgreSQL testcontainer (image: ${postgresImage}).\n` +
-        `Make sure Docker is running and POSTGRES_TEST_IMAGE is configured in your test env.\n` +
+        `Make sure a supported container runtime (Docker/Podman) is reachable and POSTGRES_TEST_IMAGE is configured in your test env.\n` +
+        `For Podman rootless, expose the Podman socket and set DOCKER_HOST / TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE when needed.\n` +
         `Original error: ${message}`
     )
   }

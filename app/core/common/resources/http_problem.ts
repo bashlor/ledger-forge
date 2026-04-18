@@ -8,6 +8,8 @@ type DomainErrorTag =
   | 'unknown'
   | 'unspecified_internal_error'
 
+const PROBLEM_TYPE_NAMESPACE = 'urn:accounting-app'
+
 // =============================================================================
 // Domain error tag → HTTP status mapping
 // =============================================================================
@@ -42,7 +44,7 @@ export class HttpProblem {
       entry.status,
       HTTP_STATUS_TITLES[entry.status] ?? 'Error',
       detail ?? entry.userMessage,
-      `urn:neurotech:better-auth:${code ?? 'unknown'}`
+      `${PROBLEM_TYPE_NAMESPACE}:better-auth:${code ?? 'unknown'}`
     )
   }
 
@@ -56,7 +58,7 @@ export class HttpProblem {
       status,
       HTTP_STATUS_TITLES[status] ?? 'Error',
       error.message,
-      `urn:neurotech:error:${error.type}`
+      `${PROBLEM_TYPE_NAMESPACE}:error:${error.type}`
     )
   }
 

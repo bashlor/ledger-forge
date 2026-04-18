@@ -1,3 +1,4 @@
+import type { AccountingBusinessCalendar } from '#core/accounting/accounting_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
@@ -21,7 +22,7 @@ const fakeUser: AuthProviderUser = {
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   email: 'test@example.com',
   emailVerified: true,
-  id: 'user_test_invoices',
+  id: 'accounting_test_invoices_user',
   image: null,
   isAnonymous: false,
   name: 'Test User',
@@ -72,6 +73,18 @@ class FakeAuth extends AuthenticationPort {
 let db: PostgresJsDatabase<any>
 
 const TEST_CUSTOMER_ID = 'test-customer-for-invoices'
+
+class FixedBusinessCalendar implements AccountingBusinessCalendar {
+  constructor(private readonly businessDate: string) {}
+
+  dateFromTimestamp(_value: Date): string {
+    return this.businessDate
+  }
+
+  today(): string {
+    return this.businessDate
+  }
+}
 
 function authCookie() {
   return `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}`
@@ -344,6 +357,22 @@ test.group('Invoices routes | backend invariants', (group) => {
     assert.equal(rows.length, 0)
   })
 
+  test('rejects invoice list queries with only one date bound', async ({ client }) => {
+    const onlyStart = await client
+      .get('/invoices?startDate=2026-04-01')
+      .header('cookie', authCookie())
+      .header('accept', 'application/json')
+
+    onlyStart.assertStatus(422)
+
+    const onlyEnd = await client
+      .get('/invoices?endDate=2026-04-30')
+      .header('cookie', authCookie())
+      .header('accept', 'application/json')
+
+    onlyEnd.assertStatus(422)
+  })
+
   test('rejects draft creation when dueDate is before today', async ({ assert, client }) => {
     const today = new Date().toISOString().slice(0, 10)
     const issueDate = '2020-01-01'
@@ -504,6 +533,82 @@ test.group('Invoices routes | backend invariants', (group) => {
     assert.equal(row.status, 'draft')
     assert.equal(row.issuedCompanyName, '')
     assert.equal(row.issuedCompanyAddress, '')
+  })
+
+  test('getInvoiceForListScope does not bypass active customer or date filters', async ({
+    assert,
+  }) => {
+    const service = new InvoiceService(db, {
+      businessCalendar: new FixedBusinessCalendar('2026-04-01'),
+    })
+
+    const otherCustomerId = 'test-customer-outside-scope'
+    await db.insert(customers).values({
+      address: '44 rue Hors Scope, Paris',
+      company: 'Other Scope SAS',
+      email: 'other@testco.fr',
+      id: otherCustomerId,
+      name: 'Other Customer',
+      phone: '+33 6 00 00 00 00',
+    })
+
+    const scopedInvoice = await service.createDraft({
+      customerId: TEST_CUSTOMER_ID,
+      dueDate: '2026-04-30',
+      issueDate: '2026-04-01',
+      lines: [{ description: 'Scoped line', quantity: 1, unitPrice: 100, vatRate: 20 }],
+    })
+
+    const outsideInvoice = await service.createDraft({
+      customerId: otherCustomerId,
+      dueDate: '2026-05-30',
+      issueDate: '2026-05-01',
+      lines: [{ description: 'Outside line', quantity: 1, unitPrice: 100, vatRate: 20 }],
+    })
+
+    const visible = await service.getInvoiceForListScope(scopedInvoice.id, {
+      customerId: TEST_CUSTOMER_ID,
+      dateFilter: { endDate: '2026-04-30', startDate: '2026-04-01' },
+    })
+    const wrongCustomer = await service.getInvoiceForListScope(outsideInvoice.id, {
+      customerId: TEST_CUSTOMER_ID,
+      dateFilter: { endDate: '2026-05-31', startDate: '2026-05-01' },
+    })
+    const wrongDate = await service.getInvoiceForListScope(outsideInvoice.id, {
+      customerId: otherCustomerId,
+      dateFilter: { endDate: '2026-04-30', startDate: '2026-04-01' },
+    })
+
+    assert.isNotNull(visible)
+    assert.isNull(wrongCustomer)
+    assert.isNull(wrongDate)
+  })
+
+  test('invoice summary uses the injected business date for overdue computation', async ({
+    assert,
+  }) => {
+    const creationService = new InvoiceService(db, {
+      businessCalendar: new FixedBusinessCalendar('2026-04-01'),
+    })
+
+    const draft = await creationService.createDraft({
+      customerId: TEST_CUSTOMER_ID,
+      dueDate: '2026-04-01',
+      issueDate: '2026-03-15',
+      lines: [{ description: 'Overdue boundary', quantity: 1, unitPrice: 100, vatRate: 20 }],
+    })
+
+    await creationService.issueInvoice(draft.id, issuePayload())
+
+    const sameDaySummary = await new InvoiceService(db, {
+      businessCalendar: new FixedBusinessCalendar('2026-04-01'),
+    }).getInvoiceSummary()
+    const nextDaySummary = await new InvoiceService(db, {
+      businessCalendar: new FixedBusinessCalendar('2026-04-02'),
+    }).getInvoiceSummary()
+
+    assert.equal(sameDaySummary.overdueCount, 0)
+    assert.equal(nextDaySummary.overdueCount, 1)
   })
 
   test('issue succeeds even when customer has no address', async ({ assert, client }) => {

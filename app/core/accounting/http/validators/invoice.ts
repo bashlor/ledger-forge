@@ -29,8 +29,14 @@ export const issueInvoiceValidator = vine.create({
 
 export const invoiceIndexValidator = vine.create({
   customer: vine.string().trim().minLength(1).maxLength(128).optional(),
-  endDate: vineDateString.clone().optional(),
+  endDate: vineDateString
+    .clone()
+    .optional()
+    .requiredWhen((field) => !!field.data.startDate),
   invoice: vine.string().trim().minLength(1).maxLength(128).optional(),
   page: vine.number().min(1).optional(),
-  startDate: vineDateString.clone().optional(),
+  startDate: vineDateString
+    .clone()
+    .optional()
+    .requiredWhen((field) => !!field.data.endDate),
 })

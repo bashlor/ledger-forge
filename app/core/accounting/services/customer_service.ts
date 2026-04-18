@@ -1,5 +1,11 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import {
+  type AccountingAccessContext,
+  type AccountingActivitySink,
+  type AccountingServiceDependencies,
+  SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
+} from '#core/accounting/accounting_context'
 import { customers, invoices } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
 import { and, count, eq, inArray, sql } from 'drizzle-orm'
@@ -55,9 +61,19 @@ interface NormalizedCustomerInput {
 }
 
 export class CustomerService {
-  constructor(private readonly db: PostgresJsDatabase<any>) {}
+  private readonly activitySink?: AccountingActivitySink
 
-  async createCustomer(input: CreateCustomerInput): Promise<CustomerDto> {
+  constructor(
+    private readonly db: PostgresJsDatabase<any>,
+    dependencies: AccountingServiceDependencies = {}
+  ) {
+    this.activitySink = dependencies.activitySink
+  }
+
+  async createCustomer(
+    input: CreateCustomerInput,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<CustomerDto> {
     const normalized = normalizeCustomerInput(input)
 
     const [row] = await this.db
@@ -73,10 +89,23 @@ export class CustomerService {
       })
       .returning()
 
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'create_customer',
+      outcome: 'success',
+      resourceId: row.id,
+      resourceType: 'customer',
+    })
+
     return toCustomerDto(row, { invoiceCount: 0, totalInvoicedCents: 0 })
   }
 
-  async deleteCustomer(id: string): Promise<void> {
+  async deleteCustomer(
+    id: string,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<void> {
     return this.db.transaction(async (tx) => {
       const [{ invCount }] = await tx
         .select({ invCount: count() })
@@ -97,10 +126,24 @@ export class CustomerService {
       if (!deleted) {
         throw new DomainError('Customer not found.', 'not_found')
       }
+
+      await this.activitySink?.record({
+        actorId: access.actorId,
+        boundedContext: 'accounting',
+        isAnonymous: access.isAnonymous,
+        operation: 'delete_customer',
+        outcome: 'success',
+        resourceId: id,
+        resourceType: 'customer',
+      })
     })
   }
 
-  async listCustomersPage(page = 1, perPage = 5): Promise<CustomerListResult> {
+  async listCustomersPage(
+    page = 1,
+    perPage = 5,
+    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<CustomerListResult> {
     const [{ totalCount }] = await this.db.select({ totalCount: count() }).from(customers)
 
     const totalPages = Math.max(1, Math.ceil(totalCount / perPage))
@@ -188,7 +231,11 @@ export class CustomerService {
     }
   }
 
-  async updateCustomer(id: string, input: CreateCustomerInput): Promise<CustomerDto> {
+  async updateCustomer(
+    id: string,
+    input: CreateCustomerInput,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<CustomerDto> {
     const [existing] = await this.db.select().from(customers).where(eq(customers.id, id))
 
     if (!existing) {
@@ -236,6 +283,16 @@ export class CustomerService {
       }
 
       return updated
+    })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'update_customer',
+      outcome: 'success',
+      resourceId: id,
+      resourceType: 'customer',
     })
 
     const agg = await this.invoiceAggregateForCustomer(id)

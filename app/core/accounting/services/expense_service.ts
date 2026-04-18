@@ -1,5 +1,11 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import {
+  type AccountingAccessContext,
+  type AccountingActivitySink,
+  type AccountingServiceDependencies,
+  SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
+} from '#core/accounting/accounting_context'
 import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from '#core/accounting/expense_categories'
 import { DomainError } from '#core/shared/domain_error'
@@ -67,11 +73,22 @@ const MAX_PER_PAGE = 100
 const MIN_PER_PAGE = 1
 
 export class ExpenseService {
-  constructor(private readonly db: PostgresJsDatabase<any>) {}
+  private readonly activitySink?: AccountingActivitySink
 
-  async confirmExpense(id: string, hooks?: ExpenseConcurrencyHooks): Promise<ExpenseDto> {
+  constructor(
+    private readonly db: PostgresJsDatabase<any>,
+    dependencies: AccountingServiceDependencies = {}
+  ) {
+    this.activitySink = dependencies.activitySink
+  }
+
+  async confirmExpense(
+    id: string,
+    hooks?: ExpenseConcurrencyHooks,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<ExpenseDto> {
     // Atomicity: the winning workflow updates status and writes journal entry in one transaction.
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       // Read is diagnostic only: we only fail fast on true not-found.
       const [existing] = await tx.select().from(expenses).where(eq(expenses.id, id))
       if (!existing) {
@@ -105,9 +122,24 @@ export class ExpenseService {
 
       return toExpenseDto(updated)
     })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'confirm_expense',
+      outcome: 'success',
+      resourceId: id,
+      resourceType: 'expense',
+    })
+
+    return result
   }
 
-  async createExpense(input: CreateExpenseInput): Promise<ExpenseDto> {
+  async createExpense(
+    input: CreateExpenseInput,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<ExpenseDto> {
     const normalized = normalizeExpenseInput(input)
 
     const [row] = await this.db
@@ -122,12 +154,26 @@ export class ExpenseService {
       })
       .returning()
 
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'create_expense',
+      outcome: 'success',
+      resourceId: row.id,
+      resourceType: 'expense',
+    })
+
     return toExpenseDto(row)
   }
 
-  async deleteExpense(id: string, hooks?: ExpenseConcurrencyHooks): Promise<void> {
+  async deleteExpense(
+    id: string,
+    hooks?: ExpenseConcurrencyHooks,
+    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<void> {
     // Atomicity: the winning delete happens entirely inside one transaction.
-    return this.db.transaction(async (tx) => {
+    await this.db.transaction(async (tx) => {
       // Read is diagnostic only: we only fail fast on true not-found.
       const [existing] = await tx.select().from(expenses).where(eq(expenses.id, id))
       if (!existing) {
@@ -149,9 +195,22 @@ export class ExpenseService {
         throw new DomainError('Only draft expenses can be deleted.', 'business_logic_error')
       }
     })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'delete_expense',
+      outcome: 'success',
+      resourceId: id,
+      resourceType: 'expense',
+    })
   }
 
-  async getSummary(dateFilter?: DateFilter): Promise<ExpenseSummary> {
+  async getSummary(
+    dateFilter?: DateFilter,
+    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<ExpenseSummary> {
     const [row] = await this.db
       .select({
         confirmedCount:
@@ -175,7 +234,12 @@ export class ExpenseService {
     }
   }
 
-  async listExpenses(page = 1, perPage = 5, dateFilter?: DateFilter): Promise<ExpenseListResult> {
+  async listExpenses(
+    page = 1,
+    perPage = 5,
+    dateFilter?: DateFilter,
+    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<ExpenseListResult> {
     const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
     const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
     const where = dateCondition(dateFilter)

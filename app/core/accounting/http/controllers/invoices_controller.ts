@@ -1,6 +1,7 @@
 import type { DateFilter } from '#core/accounting/services/expense_service'
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { accountingAccessFromSession } from '#core/accounting/accounting_context'
 import { InvoiceService } from '#core/accounting/services/invoice_service'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { inject } from '@adonisjs/core'
@@ -19,10 +20,11 @@ export default class InvoicesController {
   @inject()
   async destroy(ctx: HttpContext, invoiceService: InvoiceService) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => invoiceService.deleteDraft(params.id),
+      () => invoiceService.deleteDraft(params.id, access),
       'Draft invoice deleted.',
       'Could not delete the draft.'
     )
@@ -33,6 +35,7 @@ export default class InvoicesController {
   @inject()
   async index(ctx: HttpContext, invoiceService: InvoiceService) {
     const { inertia, request } = ctx
+    const access = accountingAccessFromSession(ctx.authSession)
 
     const {
       customer,
@@ -47,26 +50,34 @@ export default class InvoicesController {
 
     let initialInvoiceId: null | string = invoiceFromQuery ?? null
     if (!initialInvoiceId && customer) {
-      initialInvoiceId = await invoiceService.findFirstInvoiceIdForCustomer(customer, dateFilter)
+      initialInvoiceId = await invoiceService.findFirstInvoiceIdForCustomer(
+        customer,
+        dateFilter,
+        access
+      )
     }
 
-    const listResult = await invoiceService.listInvoices(page ?? 1, PER_PAGE, dateFilter)
+    const listResult = await invoiceService.listInvoices(page ?? 1, PER_PAGE, dateFilter, access)
 
     let { items, pagination } = listResult
     if (initialInvoiceId && !items.some((i) => i.id === initialInvoiceId)) {
-      const extra = await invoiceService.getInvoiceById(initialInvoiceId)
+      const extra = await invoiceService.getInvoiceForListScope(
+        initialInvoiceId,
+        { customerId: customer ?? null, dateFilter },
+        access
+      )
       if (extra) {
         items = [extra, ...items]
       }
     }
 
     return renderInertiaPage(inertia, 'app/invoices', {
-      customers: await invoiceService.listCustomersForSelect(),
+      customers: await invoiceService.listCustomersForSelect(access),
       initialCustomerId: customer ?? null,
       initialInvoiceId,
       invoices: { items, pagination },
       invoiceSummary: inertia.defer(
-        () => invoiceService.getInvoiceSummary(dateFilter) as never,
+        () => invoiceService.getInvoiceSummary(dateFilter, access) as never,
         'invoiceSummary'
       ),
       mode: request.input('mode') === 'new' ? 'new' : 'view',
@@ -77,10 +88,11 @@ export default class InvoicesController {
   async issue(ctx: HttpContext, invoiceService: InvoiceService) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const payload = await ctx.request.validateUsing(issueInvoiceValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => invoiceService.issueInvoice(params.id, payload),
+      () => invoiceService.issueInvoice(params.id, payload, undefined, access),
       'Invoice issued.',
       'Could not issue the invoice.'
     )
@@ -91,10 +103,11 @@ export default class InvoicesController {
   @inject()
   async markPaid(ctx: HttpContext, invoiceService: InvoiceService) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => invoiceService.markInvoicePaid(params.id),
+      () => invoiceService.markInvoicePaid(params.id, undefined, access),
       'Invoice marked as paid.',
       'Could not mark the invoice as paid.'
     )
@@ -105,13 +118,14 @@ export default class InvoicesController {
   @inject()
   async store(ctx: HttpContext, invoiceService: InvoiceService) {
     const payload = await ctx.request.validateUsing(saveInvoiceDraftValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     let createdId: string | undefined
 
     await flashAction(
       ctx,
       async () => {
-        const created = await invoiceService.createDraft(payload)
+        const created = await invoiceService.createDraft(payload, access)
         createdId = created.id
       },
       'Draft invoice created.',
@@ -127,10 +141,11 @@ export default class InvoicesController {
   async updateDraft(ctx: HttpContext, invoiceService: InvoiceService) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const payload = await ctx.request.validateUsing(saveInvoiceDraftValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => invoiceService.updateDraft(params.id, payload),
+      () => invoiceService.updateDraft(params.id, payload, undefined, access),
       'Draft invoice updated.',
       'Could not save the draft.'
     )

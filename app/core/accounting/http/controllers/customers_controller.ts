@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { accountingAccessFromSession } from '#core/accounting/accounting_context'
 import { CustomerService } from '#core/accounting/services/customer_service'
 import { flashInertiaInputErrors } from '#core/common/http/presenters/inertia_input_errors'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
@@ -19,10 +20,11 @@ export default class CustomersController {
   @inject()
   async destroy(ctx: HttpContext, customerService: CustomerService) {
     const { params } = await ctx.request.validateUsing(customerParamsValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => customerService.deleteCustomer(params.id),
+      () => customerService.deleteCustomer(params.id, access),
       'Customer deleted.',
       'Could not delete the customer.'
     )
@@ -33,7 +35,8 @@ export default class CustomersController {
   @inject()
   async index(ctx: HttpContext, customerService: CustomerService) {
     const { page } = await ctx.request.validateUsing(customerIndexValidator)
-    const customers = await customerService.listCustomersPage(page ?? 1, PER_PAGE)
+    const access = accountingAccessFromSession(ctx.authSession)
+    const customers = await customerService.listCustomersPage(page ?? 1, PER_PAGE, access)
 
     return renderInertiaPage(ctx.inertia, 'app/customers', { customers })
   }
@@ -41,10 +44,11 @@ export default class CustomersController {
   @inject()
   async store(ctx: HttpContext, customerService: CustomerService) {
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     await this.runCustomerMutation(
       ctx,
-      () => customerService.createCustomer(payload),
+      () => customerService.createCustomer(payload, access),
       'Customer created.',
       'Could not save the customer.'
     )
@@ -56,10 +60,11 @@ export default class CustomersController {
   async update(ctx: HttpContext, customerService: CustomerService) {
     const { params } = await ctx.request.validateUsing(customerParamsValidator)
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     await this.runCustomerMutation(
       ctx,
-      () => customerService.updateCustomer(params.id, payload),
+      () => customerService.updateCustomer(params.id, payload, access),
       'Customer updated.',
       'Could not update the customer.'
     )

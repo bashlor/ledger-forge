@@ -20,7 +20,7 @@ const fakeUser: AuthProviderUser = {
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   email: 'test@example.com',
   emailVerified: true,
-  id: 'user_test_customers',
+  id: 'accounting_test_customers_user',
   image: null,
   isAnonymous: false,
   name: 'Test User',
