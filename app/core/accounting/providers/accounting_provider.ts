@@ -4,10 +4,10 @@ import {
   StructuredAccountingActivitySink,
   SystemAccountingBusinessCalendar,
 } from '#core/accounting/accounting_context'
-import { CustomerService } from '#core/accounting/services/customer_service'
-import { DashboardService } from '#core/accounting/services/dashboard_service'
-import { ExpenseService } from '#core/accounting/services/expense_service'
-import { InvoiceService } from '#core/accounting/services/invoice_service'
+import { CustomerService } from '#core/accounting/services/customers/index'
+import { DashboardService } from '#core/accounting/services/dashboard/index'
+import { ExpenseService } from '#core/accounting/services/expenses/index'
+import { InvoiceService } from '#core/accounting/services/invoices/index'
 import logger from '@adonisjs/core/services/logger'
 
 export default class AccountingProvider {

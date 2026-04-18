@@ -1,7 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
 import { accountingAccessFromSession } from '#core/accounting/accounting_context'
-import { DashboardService } from '#core/accounting/services/dashboard_service'
+import { DashboardService } from '#core/accounting/services/dashboard/index'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { inject } from '@adonisjs/core'
 

@@ -7,8 +7,8 @@ import {
   invoices,
   journalEntries,
 } from '#core/accounting/drizzle/schema'
-import { CustomerService } from '#core/accounting/services/customer_service'
-import { ExpenseService } from '#core/accounting/services/expense_service'
+import { CustomerService } from '#core/accounting/services/customers/index'
+import { ExpenseService } from '#core/accounting/services/expenses/index'
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import { count } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'

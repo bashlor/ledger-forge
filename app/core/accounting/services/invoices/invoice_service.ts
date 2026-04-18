@@ -1,3 +1,4 @@
+import type { DateFilter } from '#core/accounting/services/expenses/index'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import {
@@ -13,128 +14,31 @@ import { DomainError } from '#core/shared/domain_error'
 import { and, count, desc, eq, gte, inArray, like, lte, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
-import type { DateFilter } from './expense_service.js'
-
-import { calculateLine, calculateTotals, fromDisplayUnits } from './invoice_calculations.js'
-
-// ---------------------------------------------------------------------------
-// Input types
-// ---------------------------------------------------------------------------
-
-export interface CustomerForSelectDto {
-  company: string
-  email: string
-  id: string
-  name: string
-  phone: string
-}
-
-export interface InvoiceConcurrencyHooks {
-  afterRead?: () => Promise<void>
-}
-
-// ---------------------------------------------------------------------------
-// DTO types (match inertia/lib/types.ts shapes for Inertia props)
-// ---------------------------------------------------------------------------
-
-export interface InvoiceDto {
-  createdAt: string
-  customerCompanyAddressSnapshot: string
-  customerCompanyName: string
-  customerCompanySnapshot: string
-  customerEmailSnapshot: string
-  customerId: string
-  customerPhoneSnapshot: string
-  customerPrimaryContactSnapshot: string
-  dueDate: string
-  id: string
-  invoiceNumber: string
-  issueDate: string
-  issuedCompanyAddress: string
-  issuedCompanyName: string
-  lines: InvoiceLineDto[]
-  status: 'draft' | 'issued' | 'paid'
-  subtotalExclTax: number
-  totalInclTax: number
-  totalVat: number
-}
-
-export interface InvoiceLineDto {
-  description: string
-  id: string
-  lineTotalExclTax: number
-  lineTotalInclTax: number
-  lineVatAmount: number
-  quantity: number
-  unitPrice: number
-  vatRate: number
-}
-
-export interface InvoiceListResult {
-  items: InvoiceDto[]
-  pagination: {
-    page: number
-    perPage: number
-    totalItems: number
-    totalPages: number
-  }
-}
-
-export interface InvoiceSummaryDto {
-  draftCount: number
-  issuedCount: number
-  overdueCount: number
-}
-
-export interface IssueInvoiceInput {
-  issuedCompanyAddress: string
-  issuedCompanyName: string
-}
-
-export interface SaveInvoiceDraftInput {
-  customerId: string
-  dueDate: string
-  issueDate: string
-  lines: SaveInvoiceLineInput[]
-}
-
-// ---------------------------------------------------------------------------
-// Row types inferred from schema
-// ---------------------------------------------------------------------------
-
-export interface SaveInvoiceLineInput {
-  description: string
-  quantity: number
-  unitPrice: number
-  vatRate: number
-}
-type InvoiceCustomerSnapshot = Pick<
+import type {
+  CustomerForSelectDto,
+  InvoiceConcurrencyHooks,
+  InvoiceDto,
+  InvoiceLineDto,
+  InvoiceListResult,
+  InvoiceListScopeInput,
   InvoiceRow,
-  | 'customerCompanyAddressSnapshot'
-  | 'customerCompanySnapshot'
-  | 'customerEmailSnapshot'
-  | 'customerPhoneSnapshot'
-  | 'customerPrimaryContactSnapshot'
->
+  InvoiceSummaryDto,
+  IssueInvoiceInput,
+  SaveInvoiceDraftInput,
+} from './types.js'
 
-type InvoiceLineRow = typeof invoiceLines.$inferSelect
-interface InvoiceListScopeInput {
-  customerId?: null | string
-  dateFilter?: DateFilter
-}
-
-type InvoiceRow = typeof invoices.$inferSelect
-interface NormalizedIssueInvoiceInput {
-  issuedCompanyAddress: string
-  issuedCompanyName: string
-}
-
-interface NormalizedSaveInvoiceDraftInput {
-  customerId: string
-  dueDate: string
-  issueDate: string
-  lines: SaveInvoiceLineInput[]
-}
+import { calculateLine, calculateTotals, fromDisplayUnits } from './calculations.js'
+import { toCustomerSnapshot, toInvoiceDto, toLineDto } from './mappers.js'
+import {
+  assertDueDateIsNotBefore,
+  assertInvoiceCanBeDeleted,
+  assertInvoiceCanBeIssued,
+  assertInvoiceCanBeMarkedPaid,
+  assertInvoiceCanBeUpdated,
+  assertInvoiceDates,
+  normalizeIssueInvoiceInput,
+  normalizeSaveInvoiceDraftInput,
+} from './validation.js'
 
 const MAX_PER_PAGE = 100
 const MIN_PER_PAGE = 1
@@ -191,14 +95,14 @@ export class InvoiceService {
         .values({
           customerCompanyName: customer.company,
           customerId: normalized.customerId,
-          issuedCompanyAddress: '',
-          issuedCompanyName: '',
-          ...toCustomerSnapshot(customer),
           dueDate: normalized.dueDate,
           id: invoiceId,
           invoiceNumber,
           issueDate: normalized.issueDate,
+          issuedCompanyAddress: '',
+          issuedCompanyName: '',
           status: 'draft',
+          ...toCustomerSnapshot(customer),
           ...totals,
         })
         .returning()
@@ -244,13 +148,13 @@ export class InvoiceService {
 
       if (!deleted) {
         const [again] = await tx
-          .select({ id: invoices.id })
+          .select({ id: invoices.id, status: invoices.status })
           .from(invoices)
           .where(eq(invoices.id, id))
         if (!again) {
           throw new DomainError('Invoice not found.', 'not_found')
         }
-        throw new DomainError('Only draft invoices can be deleted.', 'business_logic_error')
+        assertInvoiceCanBeDeleted(again.status)
       }
     })
 
@@ -367,10 +271,7 @@ export class InvoiceService {
       if (!existing) {
         throw new DomainError('Invoice not found.', 'not_found')
       }
-
-      if (existing.status !== 'draft') {
-        throw new DomainError('Only draft invoices can be issued.', 'business_logic_error')
-      }
+      assertInvoiceCanBeIssued(existing.status)
       await hooks?.afterRead?.()
 
       const [customer] = await tx
@@ -410,7 +311,7 @@ export class InvoiceService {
         if (!again) {
           throw new DomainError('Invoice not found.', 'not_found')
         }
-        throw new DomainError('Only draft invoices can be issued.', 'business_logic_error')
+        assertInvoiceCanBeIssued(again.status)
       }
 
       await tx.insert(journalEntries).values({
@@ -505,7 +406,7 @@ export class InvoiceService {
       .orderBy(invoiceLines.invoiceId, invoiceLines.lineNumber)
 
     const items = invoiceRows.map((invoice) => {
-      const lines = lineRows.filter((l) => l.invoiceId === invoice.id).map(toLineDto)
+      const lines = lineRows.filter((line) => line.invoiceId === invoice.id).map(toLineDto)
       return this.toInvoiceDto(invoice, lines)
     })
 
@@ -530,9 +431,7 @@ export class InvoiceService {
       if (!existing) {
         throw new DomainError('Invoice not found.', 'not_found')
       }
-      if (existing.status !== 'issued') {
-        throw new DomainError('Only issued invoices can be marked as paid.', 'business_logic_error')
-      }
+      assertInvoiceCanBeMarkedPaid(existing.status)
       await hooks?.afterRead?.()
 
       const [updated] = await tx
@@ -546,7 +445,7 @@ export class InvoiceService {
         if (!again) {
           throw new DomainError('Invoice not found.', 'not_found')
         }
-        throw new DomainError('Only issued invoices can be marked as paid.', 'business_logic_error')
+        assertInvoiceCanBeMarkedPaid(again.status)
       }
 
       const lineRows = await tx
@@ -592,12 +491,7 @@ export class InvoiceService {
         .where(eq(invoices.id, id))
 
       if (!existing) throw new DomainError('Invoice not found.', 'not_found')
-      if (existing.status !== 'draft') {
-        throw new DomainError('Only draft invoices can be edited.', 'business_logic_error')
-      }
-      // Note: we only enforce dueDate >= createdAt here (not >= today) so that users can
-      // still save edits to an existing draft whose due date has since passed. The stricter
-      // "dueDate >= today" check is enforced at issue time via assertDueDateIsNotBefore.
+      assertInvoiceCanBeUpdated(existing.status)
       const draftCreationDate = this.businessCalendar.dateFromTimestamp(existing.createdAt)
       assertDueDateIsNotBefore(
         normalized.dueDate,
@@ -628,11 +522,11 @@ export class InvoiceService {
         .set({
           customerCompanyName: customer.company,
           customerId: normalized.customerId,
+          dueDate: normalized.dueDate,
+          issueDate: normalized.issueDate,
           issuedCompanyAddress: existing.issuedCompanyAddress,
           issuedCompanyName: existing.issuedCompanyName,
           ...toCustomerSnapshot(customer),
-          dueDate: normalized.dueDate,
-          issueDate: normalized.issueDate,
           ...totals,
         })
         .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
@@ -646,7 +540,7 @@ export class InvoiceService {
         if (!again) {
           throw new DomainError('Invoice not found.', 'not_found')
         }
-        throw new DomainError('Only draft invoices can be edited.', 'business_logic_error')
+        assertInvoiceCanBeUpdated(again.status)
       }
 
       await tx.delete(invoiceLines).where(eq(invoiceLines.invoiceId, id))
@@ -685,26 +579,6 @@ export class InvoiceService {
   }
 }
 
-function assertDueDateIsNotBefore(dueDate: string, minDate: string, message: string) {
-  if (!dueDate || dueDate < minDate) {
-    throw new DomainError(message, 'business_logic_error')
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Service
-// ---------------------------------------------------------------------------
-
-function assertInvoiceDates(issueDate: string, dueDate: string) {
-  if (dueDate < issueDate) {
-    throw new DomainError('Due date cannot be before the issue date.', 'business_logic_error')
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Private helpers
-// ---------------------------------------------------------------------------
-
 function clampInteger(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min
   const normalized = Math.trunc(value)
@@ -714,10 +588,6 @@ function clampInteger(value: number, min: number, max: number): number {
 function invoiceDateCondition(filter?: DateFilter) {
   if (!filter) return undefined
   return and(gte(invoices.issueDate, filter.startDate), lte(invoices.issueDate, filter.endDate))
-}
-
-function isISODate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value)
 }
 
 async function nextInvoiceNumber(db: any, issueDate: string): Promise<string> {
@@ -737,130 +607,4 @@ async function nextInvoiceNumber(db: any, issueDate: string): Promise<string> {
     .where(like(invoices.invoiceNumber, `INV-${year}-%`))
 
   return `INV-${year}-${String((lastSequence ?? 0) + 1).padStart(3, '0')}`
-}
-
-function normalizeInvoiceLine(input: SaveInvoiceLineInput): SaveInvoiceLineInput {
-  const description = input.description.trim()
-  if (!description) {
-    throw new DomainError('Invoice line description is required.', 'invalid_data')
-  }
-
-  if (!(input.quantity > 0)) {
-    throw new DomainError('Invoice line quantity must be greater than 0.', 'invalid_data')
-  }
-
-  if (input.unitPrice < 0) {
-    throw new DomainError('Invoice line unit price cannot be negative.', 'invalid_data')
-  }
-
-  if (input.vatRate < 0 || input.vatRate > 100) {
-    throw new DomainError('Invoice line VAT rate must be between 0 and 100.', 'invalid_data')
-  }
-
-  return {
-    description,
-    quantity: input.quantity,
-    unitPrice: input.unitPrice,
-    vatRate: input.vatRate,
-  }
-}
-
-function normalizeIssueInvoiceInput(input: IssueInvoiceInput): NormalizedIssueInvoiceInput {
-  const issuedCompanyAddress = input.issuedCompanyAddress.trim()
-  const issuedCompanyName = input.issuedCompanyName.trim()
-
-  if (!issuedCompanyName || !issuedCompanyAddress) {
-    throw new DomainError('Company name and company address are required to issue.', 'invalid_data')
-  }
-
-  return {
-    issuedCompanyAddress,
-    issuedCompanyName,
-  }
-}
-
-function normalizeSaveInvoiceDraftInput(
-  input: SaveInvoiceDraftInput
-): NormalizedSaveInvoiceDraftInput {
-  const customerId = input.customerId.trim()
-  const dueDate = input.dueDate.trim()
-  const issueDate = input.issueDate.trim()
-
-  if (!customerId) {
-    throw new DomainError('Customer is required.', 'invalid_data')
-  }
-
-  if (!issueDate || !isISODate(issueDate)) {
-    throw new DomainError('Issue date is required.', 'invalid_data')
-  }
-
-  if (!dueDate || !isISODate(dueDate)) {
-    throw new DomainError('Due date is required.', 'invalid_data')
-  }
-
-  if (input.lines.length === 0) {
-    throw new DomainError('Provide at least one invoice line.', 'invalid_data')
-  }
-
-  const lines = input.lines.map((line) => normalizeInvoiceLine(line))
-
-  return {
-    customerId,
-    dueDate,
-    issueDate,
-    lines,
-  }
-}
-
-function toCustomerSnapshot(customer: {
-  address: string
-  company: string
-  email: string
-  name: string
-  phone: string
-}): InvoiceCustomerSnapshot {
-  return {
-    customerCompanyAddressSnapshot: customer.address,
-    customerCompanySnapshot: customer.company,
-    customerEmailSnapshot: customer.email,
-    customerPhoneSnapshot: customer.phone,
-    customerPrimaryContactSnapshot: customer.name,
-  }
-}
-
-function toInvoiceDto(row: InvoiceRow, lines: InvoiceLineDto[], createdAt: string): InvoiceDto {
-  return {
-    createdAt,
-    customerCompanyAddressSnapshot: row.customerCompanyAddressSnapshot,
-    customerCompanyName: row.customerCompanyName,
-    customerCompanySnapshot: row.customerCompanySnapshot,
-    customerEmailSnapshot: row.customerEmailSnapshot,
-    customerId: row.customerId,
-    customerPhoneSnapshot: row.customerPhoneSnapshot,
-    customerPrimaryContactSnapshot: row.customerPrimaryContactSnapshot,
-    dueDate: row.dueDate,
-    id: row.id,
-    invoiceNumber: row.invoiceNumber,
-    issueDate: row.issueDate,
-    issuedCompanyAddress: row.issuedCompanyAddress,
-    issuedCompanyName: row.issuedCompanyName,
-    lines,
-    status: row.status as 'draft' | 'issued' | 'paid',
-    subtotalExclTax: row.subtotalExclTaxCents / 100,
-    totalInclTax: row.totalInclTaxCents / 100,
-    totalVat: row.totalVatCents / 100,
-  }
-}
-
-function toLineDto(row: InvoiceLineRow): InvoiceLineDto {
-  return {
-    description: row.description,
-    id: row.id,
-    lineTotalExclTax: row.lineTotalExclTaxCents / 100,
-    lineTotalInclTax: row.lineTotalInclTaxCents / 100,
-    lineVatAmount: row.lineTotalVatCents / 100,
-    quantity: row.quantityCents / 100,
-    unitPrice: row.unitPriceCents / 100,
-    vatRate: row.vatRateCents / 100,
-  }
 }

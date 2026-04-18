@@ -1,7 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { invoiceLines, invoices } from '#core/accounting/drizzle/schema'
-import { InvoiceService } from '#core/accounting/services/invoice_service'
+import { InvoiceService } from '#core/accounting/services/invoices/index'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'

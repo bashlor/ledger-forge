@@ -1,8 +1,8 @@
-import type { DateFilter } from '#core/accounting/services/expense_service'
+import type { DateFilter } from '#core/accounting/services/expenses/index'
 import type { HttpContext } from '@adonisjs/core/http'
 
 import { accountingAccessFromSession } from '#core/accounting/accounting_context'
-import { InvoiceService } from '#core/accounting/services/invoice_service'
+import { InvoiceService } from '#core/accounting/services/invoices/index'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { inject } from '@adonisjs/core'
 

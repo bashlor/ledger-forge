@@ -1,7 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
-import { ExpenseService } from '#core/accounting/services/expense_service'
+import { ExpenseService } from '#core/accounting/services/expenses/index'
 import { DomainError } from '#core/shared/domain_error'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
