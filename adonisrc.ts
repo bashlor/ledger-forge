@@ -131,8 +131,8 @@ export default defineConfig({
         files: [
           'app/**/*_spec.{ts,js}',
           'app/**/*.spec.{ts,js}',
-          'tests/**/*_spec.{ts,js}',
-          'tests/**/*.spec.{ts,js}',
+          'tests/helpers/**/*_spec.{ts,js}',
+          'tests/helpers/**/*.spec.{ts,js}',
         ],
         name: 'unit',
         timeout: 2000,
