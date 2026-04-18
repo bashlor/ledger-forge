@@ -56,6 +56,13 @@ interface ExpenseListResult {
 
 type ExpenseRow = typeof expenses.$inferSelect
 
+interface NormalizedExpenseInput {
+  amountCents: number
+  category: ExpenseCategory
+  date: string
+  label: string
+}
+
 const MAX_PER_PAGE = 100
 const MIN_PER_PAGE = 1
 
@@ -101,26 +108,16 @@ export class ExpenseService {
   }
 
   async createExpense(input: CreateExpenseInput): Promise<ExpenseDto> {
-    if (input.amount <= 0) {
-      throw new DomainError('Amount must be greater than 0.', 'invalid_data')
-    }
-    if (input.label.trim().length === 0) {
-      throw new DomainError('Label must not be empty.', 'invalid_data')
-    }
-    if (!EXPENSE_CATEGORIES.includes(input.category as ExpenseCategory)) {
-      throw new DomainError('Invalid expense category.', 'invalid_data')
-    }
-
-    const amountCents = toCents(input.amount)
+    const normalized = normalizeExpenseInput(input)
 
     const [row] = await this.db
       .insert(expenses)
       .values({
-        amountCents,
-        category: input.category,
-        date: input.date,
+        amountCents: normalized.amountCents,
+        category: normalized.category,
+        date: normalized.date,
         id: uuidv7(),
-        label: input.label.trim(),
+        label: normalized.label,
         status: 'draft',
       })
       .returning()
@@ -229,6 +226,28 @@ function clampInteger(value: number, min: number, max: number): number {
 function dateCondition(filter?: DateFilter) {
   if (!filter) return undefined
   return and(gte(expenses.date, filter.startDate), lte(expenses.date, filter.endDate))
+}
+
+function normalizeExpenseInput(input: CreateExpenseInput): NormalizedExpenseInput {
+  if (input.amount <= 0) {
+    throw new DomainError('Amount must be greater than 0.', 'invalid_data')
+  }
+
+  const label = input.label.trim()
+  if (!label) {
+    throw new DomainError('Label must not be empty.', 'invalid_data')
+  }
+
+  if (!EXPENSE_CATEGORIES.includes(input.category as ExpenseCategory)) {
+    throw new DomainError('Invalid expense category.', 'invalid_data')
+  }
+
+  return {
+    amountCents: toCents(input.amount),
+    category: input.category as ExpenseCategory,
+    date: input.date,
+    label,
+  }
 }
 
 function toExpenseDto(row: ExpenseRow): ExpenseDto {

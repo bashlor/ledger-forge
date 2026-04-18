@@ -13,6 +13,7 @@ import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
+import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 
 const fakeUser: AuthProviderUser = {
@@ -265,6 +266,55 @@ test.group('Customers routes | create, update, delete rules', (group) => {
 
     const rows = await db.select().from(customers)
     assert.equal(rows.length, 0)
+  })
+
+  test('customer service rejects blank company and contact details after trim', async ({
+    assert,
+  }) => {
+    const customerService = new CustomerService(db)
+
+    await expectRejects(assert, () =>
+      customerService.createCustomer({
+        address: '5 rue des Tests, Paris',
+        company: '   ',
+        email: '   ',
+        name: '   ',
+        phone: '   ',
+      })
+    )
+
+    const rows = await db.select().from(customers)
+    assert.equal(rows.length, 0)
+  })
+
+  test('customer service rejects update when both email and phone are blank after trim', async ({
+    assert,
+  }) => {
+    const id = uuidv7()
+    await db.insert(customers).values({
+      address: '7 impasse du Port, Nantes',
+      company: 'Kestrel Analytics',
+      email: 'nina@kestrel.test',
+      id,
+      name: 'Nina Rossi',
+      phone: '+33 6 20 30 40 50',
+    })
+
+    const customerService = new CustomerService(db)
+
+    await expectRejects(assert, () =>
+      customerService.updateCustomer(id, {
+        address: '8 impasse du Port, Nantes',
+        company: 'Kestrel Analytics',
+        email: '   ',
+        name: 'Nina Rossi',
+        phone: '   ',
+      })
+    )
+
+    const [unchanged] = await db.select().from(customers).where(eq(customers.id, id))
+    assert.equal(unchanged.email, 'nina@kestrel.test')
+    assert.equal(unchanged.phone, '+33 6 20 30 40 50')
   })
 
   test('does not delete a customer referenced by invoices', async ({ assert, client }) => {

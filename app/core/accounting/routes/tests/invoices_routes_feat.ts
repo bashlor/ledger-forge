@@ -14,6 +14,7 @@ import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
 
 import { runSimultaneously } from '../../../../../tests/helpers/concurrency_barrier.js'
+import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 
 const fakeUser: AuthProviderUser = {
@@ -407,6 +408,102 @@ test.group('Invoices routes | backend invariants', (group) => {
     const [unchanged] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
     assert.equal(unchanged.dueDate, draft.dueDate)
     assert.equal(createdAtDate <= (unchanged.dueDate ?? ''), true)
+  })
+
+  test('invoice service rejects invalid draft lines outside HTTP', async ({ assert }) => {
+    const service = new InvoiceService(db)
+
+    await expectRejects(assert, () =>
+      service.createDraft({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2026-04-30',
+        issueDate: '2026-04-01',
+        lines: [],
+      })
+    )
+
+    await expectRejects(assert, () =>
+      service.createDraft({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2026-04-30',
+        issueDate: '2026-04-01',
+        lines: [{ description: '   ', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      })
+    )
+
+    await expectRejects(assert, () =>
+      service.createDraft({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2026-04-30',
+        issueDate: '2026-04-01',
+        lines: [{ description: 'Consulting', quantity: 0, unitPrice: 100, vatRate: 20 }],
+      })
+    )
+
+    await expectRejects(assert, () =>
+      service.createDraft({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2026-04-30',
+        issueDate: '2026-04-01',
+        lines: [{ description: 'Consulting', quantity: 1, unitPrice: -1, vatRate: 20 }],
+      })
+    )
+
+    await expectRejects(assert, () =>
+      service.createDraft({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2026-04-30',
+        issueDate: '2026-04-01',
+        lines: [{ description: 'Consulting', quantity: 1, unitPrice: 100, vatRate: 120 }],
+      })
+    )
+
+    const rows = await db.select().from(invoices)
+    assert.equal(rows.length, 0)
+  })
+
+  test('invoice service rejects missing or malformed draft dates outside HTTP', async ({
+    assert,
+  }) => {
+    const service = new InvoiceService(db)
+
+    await expectRejects(assert, () =>
+      service.createDraft({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2026-04-30',
+        issueDate: '',
+        lines: [{ description: 'Consulting', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      })
+    )
+
+    await expectRejects(assert, () =>
+      service.createDraft({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '30-04-2026',
+        issueDate: '2026-04-01',
+        lines: [{ description: 'Consulting', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      })
+    )
+  })
+
+  test('invoice service rejects blank issued company fields outside HTTP', async ({
+    assert,
+    client,
+  }) => {
+    const draft = await createDraftViaHttp(client)
+    const service = new InvoiceService(db)
+
+    await expectRejects(assert, () =>
+      service.issueInvoice(draft.id, {
+        issuedCompanyAddress: '   ',
+        issuedCompanyName: '   ',
+      })
+    )
+
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(row.status, 'draft')
+    assert.equal(row.issuedCompanyName, '')
+    assert.equal(row.issuedCompanyAddress, '')
   })
 
   test('issue succeeds even when customer has no address', async ({ assert, client }) => {

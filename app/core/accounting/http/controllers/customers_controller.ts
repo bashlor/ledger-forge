@@ -1,7 +1,9 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
 import { CustomerService } from '#core/accounting/services/customer_service'
+import { flashInertiaInputErrors } from '#core/common/http/presenters/inertia_input_errors'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
+import { DomainError } from '#core/shared/domain_error'
 import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'
@@ -12,7 +14,6 @@ import {
 } from '../validators/customer.js'
 
 const PER_PAGE = 5
-const CONTACT_REQUIRED_MESSAGE = 'Provide at least an email or a phone number.'
 
 export default class CustomersController {
   @inject()
@@ -40,11 +41,8 @@ export default class CustomersController {
   @inject()
   async store(ctx: HttpContext, customerService: CustomerService) {
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
-    if (!this.hasContactMethod(payload.email, payload.phone)) {
-      return this.respondMissingContact(ctx)
-    }
 
-    await flashAction(
+    await this.runCustomerMutation(
       ctx,
       () => customerService.createCustomer(payload),
       'Customer created.',
@@ -58,11 +56,8 @@ export default class CustomersController {
   async update(ctx: HttpContext, customerService: CustomerService) {
     const { params } = await ctx.request.validateUsing(customerParamsValidator)
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
-    if (!this.hasContactMethod(payload.email, payload.phone)) {
-      return this.respondMissingContact(ctx)
-    }
 
-    await flashAction(
+    await this.runCustomerMutation(
       ctx,
       () => customerService.updateCustomer(params.id, payload),
       'Customer updated.',
@@ -72,8 +67,19 @@ export default class CustomersController {
     return this.redirectToCustomers(ctx)
   }
 
-  private hasContactMethod(email?: string, phone?: string) {
-    return Boolean(email?.trim() || phone?.trim())
+  private customerInputErrors(error: DomainError): Record<string, string> {
+    switch (error.message) {
+      case 'Customer address is required.':
+        return { address: error.message }
+      case 'Customer company is required.':
+        return { company: error.message }
+      case 'Customer contact name is required.':
+        return { name: error.message }
+      case 'Provide at least an email or a phone number.':
+        return { email: error.message, phone: error.message }
+      default:
+        return {}
+    }
   }
 
   private redirectToCustomers(ctx: HttpContext) {
@@ -87,11 +93,27 @@ export default class CustomersController {
       .toRoute('customers.page', [], Object.keys(qs).length > 0 ? { qs } : undefined)
   }
 
-  private respondMissingContact(ctx: HttpContext) {
-    ctx.session.flash('errors', {
-      email: CONTACT_REQUIRED_MESSAGE,
-      phone: CONTACT_REQUIRED_MESSAGE,
-    })
-    return this.redirectToCustomers(ctx)
+  private async runCustomerMutation(
+    ctx: HttpContext,
+    action: () => Promise<unknown>,
+    successMessage: string,
+    fallbackMessage: string
+  ) {
+    try {
+      await action()
+      ctx.session.flash('notification', { message: successMessage, type: 'success' })
+    } catch (error) {
+      if (!(error instanceof DomainError) || error.type === 'not_found') throw error
+
+      const inputErrors = this.customerInputErrors(error)
+      if (Object.keys(inputErrors).length > 0) {
+        flashInertiaInputErrors(ctx, inputErrors)
+      }
+
+      ctx.session.flash('notification', {
+        message: error.message || fallbackMessage,
+        type: 'error',
+      })
+    }
   }
 }

@@ -13,7 +13,7 @@ import { formatTopbarDate, getInitials } from '~/lib/format'
 
 const mainNavLinks = [
   { href: '/dashboard', icon: 'dashboard', label: 'Overview' },
-  { href: '/customers', icon: 'group', label: 'Customers' },
+  { href: '/customers', icon: 'business', label: 'Customers' },
   { href: '/invoices', icon: 'receipt_long', label: 'Invoices' },
   { href: '/expenses', icon: 'payments', label: 'Expenses' },
 ] as const

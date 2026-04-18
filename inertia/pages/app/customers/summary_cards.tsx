@@ -8,30 +8,21 @@ interface SummaryCardsProps {
 
 export function SummaryCards({ summary }: SummaryCardsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <Card caption="Contacts in the system" label="Customers" value={String(summary.totalCount)} />
-      <Card
-        caption="Customers with at least one invoice"
-        label="With invoices"
-        value={String(summary.linkedCustomers)}
-      />
-      <Card
-        caption="Excluding drafts"
-        label="Total invoiced"
-        value={formatCurrency(summary.totalInvoiced)}
-      />
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-outline-variant/20 bg-surface-container-lowest px-4 py-2.5">
+      <Metric label="Customers" value={String(summary.totalCount)} />
+      <Metric label="With invoices" value={String(summary.linkedCustomers)} />
+      <Metric label="Total invoiced" value={formatCurrency(summary.totalInvoiced)} />
     </div>
   )
 }
 
-function Card({ caption, label, value }: { caption: string; label: string; value: string }) {
+function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-surface-container-low p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-on-surface-variant">
+    <div className="flex items-center gap-2.5">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
         {label}
       </p>
-      <p className="mt-3 text-3xl font-headline font-extrabold text-on-surface">{value}</p>
-      <p className="mt-1 text-sm text-on-surface-variant">{caption}</p>
+      <p className="text-sm font-bold tabular-nums text-on-surface">{value}</p>
     </div>
   )
 }

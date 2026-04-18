@@ -112,6 +112,17 @@ type InvoiceCustomerSnapshot = Pick<
 type InvoiceLineRow = typeof invoiceLines.$inferSelect
 type InvoiceRow = typeof invoices.$inferSelect
 
+interface NormalizedIssueInvoiceInput {
+  issuedCompanyAddress: string
+  issuedCompanyName: string
+}
+interface NormalizedSaveInvoiceDraftInput {
+  customerId: string
+  dueDate: string
+  issueDate: string
+  lines: SaveInvoiceLineInput[]
+}
+
 const MAX_PER_PAGE = 100
 const MIN_PER_PAGE = 1
 
@@ -120,10 +131,11 @@ export class InvoiceService {
 
   async createDraft(input: SaveInvoiceDraftInput): Promise<InvoiceDto> {
     return this.db.transaction(async (tx) => {
-      assertInvoiceDates(input.issueDate, input.dueDate)
+      const normalized = normalizeSaveInvoiceDraftInput(input)
+      assertInvoiceDates(normalized.issueDate, normalized.dueDate)
       const draftCreationDate = new Date().toISOString().slice(0, 10)
       assertDueDateIsNotBefore(
-        input.dueDate,
+        normalized.dueDate,
         draftCreationDate,
         'Due date must be on or after the draft creation date.'
       )
@@ -138,14 +150,14 @@ export class InvoiceService {
           phone: customers.phone,
         })
         .from(customers)
-        .where(eq(customers.id, input.customerId))
+        .where(eq(customers.id, normalized.customerId))
 
       if (!customer) throw new DomainError('Customer not found.', 'not_found')
 
-      const invoiceNumber = await nextInvoiceNumber(tx, input.issueDate)
+      const invoiceNumber = await nextInvoiceNumber(tx, normalized.issueDate)
       const invoiceId = uuidv7()
 
-      const lineInputs = input.lines.map(fromDisplayUnits)
+      const lineInputs = normalized.lines.map(fromDisplayUnits)
       const lineCalcs = lineInputs.map(calculateLine)
       const totals = calculateTotals(lineCalcs)
 
@@ -153,14 +165,14 @@ export class InvoiceService {
         .insert(invoices)
         .values({
           customerCompanyName: customer.company,
-          customerId: input.customerId,
+          customerId: normalized.customerId,
           issuedCompanyAddress: '',
           issuedCompanyName: '',
           ...toCustomerSnapshot(customer),
-          dueDate: input.dueDate,
+          dueDate: normalized.dueDate,
           id: invoiceId,
           invoiceNumber,
-          issueDate: input.issueDate,
+          issueDate: normalized.issueDate,
           status: 'draft',
           ...totals,
         })
@@ -288,14 +300,7 @@ export class InvoiceService {
         .where(eq(customers.id, existing.customerId))
 
       if (!customer) throw new DomainError('Customer not found.', 'not_found')
-      const issuedCompanyName = input.issuedCompanyName.trim()
-      const issuedCompanyAddress = input.issuedCompanyAddress.trim()
-      if (!issuedCompanyName || !issuedCompanyAddress) {
-        throw new DomainError(
-          'Company name and company address are required to issue.',
-          'business_logic_error'
-        )
-      }
+      const normalized = normalizeIssueInvoiceInput(input)
       const today = new Date().toISOString().slice(0, 10)
       assertDueDateIsNotBefore(
         existing.dueDate,
@@ -307,8 +312,8 @@ export class InvoiceService {
         .update(invoices)
         .set({
           customerCompanyName: customer.company,
-          issuedCompanyAddress,
-          issuedCompanyName,
+          issuedCompanyAddress: normalized.issuedCompanyAddress,
+          issuedCompanyName: normalized.issuedCompanyName,
           status: 'issued',
           ...toCustomerSnapshot(customer),
         })
@@ -452,7 +457,8 @@ export class InvoiceService {
     hooks?: InvoiceConcurrencyHooks
   ): Promise<InvoiceDto> {
     return this.db.transaction(async (tx) => {
-      assertInvoiceDates(input.issueDate, input.dueDate)
+      const normalized = normalizeSaveInvoiceDraftInput(input)
+      assertInvoiceDates(normalized.issueDate, normalized.dueDate)
 
       const [existing] = await tx
         .select({
@@ -473,7 +479,7 @@ export class InvoiceService {
       // "dueDate >= today" check is enforced at issue time via assertDueDateIsNotBefore.
       const draftCreationDate = existing.createdAt.toISOString().slice(0, 10)
       assertDueDateIsNotBefore(
-        input.dueDate,
+        normalized.dueDate,
         draftCreationDate,
         'Due date must be on or after the draft creation date.'
       )
@@ -488,11 +494,11 @@ export class InvoiceService {
           phone: customers.phone,
         })
         .from(customers)
-        .where(eq(customers.id, input.customerId))
+        .where(eq(customers.id, normalized.customerId))
 
       if (!customer) throw new DomainError('Customer not found.', 'not_found')
 
-      const lineInputs = input.lines.map(fromDisplayUnits)
+      const lineInputs = normalized.lines.map(fromDisplayUnits)
       const lineCalcs = lineInputs.map(calculateLine)
       const totals = calculateTotals(lineCalcs)
 
@@ -500,12 +506,12 @@ export class InvoiceService {
         .update(invoices)
         .set({
           customerCompanyName: customer.company,
-          customerId: input.customerId,
+          customerId: normalized.customerId,
           issuedCompanyAddress: existing.issuedCompanyAddress,
           issuedCompanyName: existing.issuedCompanyName,
           ...toCustomerSnapshot(customer),
-          dueDate: input.dueDate,
-          issueDate: input.issueDate,
+          dueDate: normalized.dueDate,
+          issueDate: normalized.issueDate,
           ...totals,
         })
         .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
@@ -573,6 +579,10 @@ function invoiceDateCondition(filter?: DateFilter) {
   return and(gte(invoices.issueDate, filter.startDate), lte(invoices.issueDate, filter.endDate))
 }
 
+function isISODate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
 async function nextInvoiceNumber(db: any, issueDate: string): Promise<string> {
   const year = issueDate.slice(0, 4)
   const lockKey = `invoice-number-${year}`
@@ -590,6 +600,79 @@ async function nextInvoiceNumber(db: any, issueDate: string): Promise<string> {
     .where(like(invoices.invoiceNumber, `INV-${year}-%`))
 
   return `INV-${year}-${String((lastSequence ?? 0) + 1).padStart(3, '0')}`
+}
+
+function normalizeInvoiceLine(input: SaveInvoiceLineInput): SaveInvoiceLineInput {
+  const description = input.description.trim()
+  if (!description) {
+    throw new DomainError('Invoice line description is required.', 'invalid_data')
+  }
+
+  if (!(input.quantity > 0)) {
+    throw new DomainError('Invoice line quantity must be greater than 0.', 'invalid_data')
+  }
+
+  if (input.unitPrice < 0) {
+    throw new DomainError('Invoice line unit price cannot be negative.', 'invalid_data')
+  }
+
+  if (input.vatRate < 0 || input.vatRate > 100) {
+    throw new DomainError('Invoice line VAT rate must be between 0 and 100.', 'invalid_data')
+  }
+
+  return {
+    description,
+    quantity: input.quantity,
+    unitPrice: input.unitPrice,
+    vatRate: input.vatRate,
+  }
+}
+
+function normalizeIssueInvoiceInput(input: IssueInvoiceInput): NormalizedIssueInvoiceInput {
+  const issuedCompanyAddress = input.issuedCompanyAddress.trim()
+  const issuedCompanyName = input.issuedCompanyName.trim()
+
+  if (!issuedCompanyName || !issuedCompanyAddress) {
+    throw new DomainError('Company name and company address are required to issue.', 'invalid_data')
+  }
+
+  return {
+    issuedCompanyAddress,
+    issuedCompanyName,
+  }
+}
+
+function normalizeSaveInvoiceDraftInput(
+  input: SaveInvoiceDraftInput
+): NormalizedSaveInvoiceDraftInput {
+  const customerId = input.customerId.trim()
+  const dueDate = input.dueDate.trim()
+  const issueDate = input.issueDate.trim()
+
+  if (!customerId) {
+    throw new DomainError('Customer is required.', 'invalid_data')
+  }
+
+  if (!issueDate || !isISODate(issueDate)) {
+    throw new DomainError('Issue date is required.', 'invalid_data')
+  }
+
+  if (!dueDate || !isISODate(dueDate)) {
+    throw new DomainError('Due date is required.', 'invalid_data')
+  }
+
+  if (input.lines.length === 0) {
+    throw new DomainError('Provide at least one invoice line.', 'invalid_data')
+  }
+
+  const lines = input.lines.map((line) => normalizeInvoiceLine(line))
+
+  return {
+    customerId,
+    dueDate,
+    issueDate,
+    lines,
+  }
 }
 
 function toCustomerSnapshot(customer: {

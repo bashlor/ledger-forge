@@ -64,7 +64,7 @@ export function CreateDrawer({
           {detailsMode ? null : (
             <button
               className="rounded-lg px-4 py-3 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
-              disabled={processing || form.amount <= 0 || form.label.trim().length === 0}
+              disabled={processing}
               form="expense-form"
               type="submit"
             >
@@ -131,7 +131,7 @@ export function CreateDrawer({
               className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
               disabled={fieldDisabled}
               id="expense-amount"
-              min="0"
+              min="0.01"
               onChange={(e) => setCreateForm((f) => ({ ...f, amount: Number(e.target.value) }))}
               required
               step="0.01"
