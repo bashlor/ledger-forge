@@ -1,0 +1,217 @@
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+
+import { InvoiceService } from '#core/accounting/services/invoice_service'
+import app from '@adonisjs/core/services/app'
+import { test } from '@japa/runner'
+
+import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
+import {
+  bindInvoiceAuth,
+  createDraftViaService,
+  inertiaGet,
+  inertiaProps,
+  resetInvoiceFixtures,
+  SECOND_CUSTOMER_ID,
+  TEST_CUSTOMER_ID,
+} from './invoices_test_support.js'
+
+let db: PostgresJsDatabase<any>
+
+test.group('Invoices routes | GET /invoices', (group) => {
+  let cleanup: () => Promise<void>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+    db = await app.container.make('drizzle')
+    bindInvoiceAuth()
+  })
+
+  group.each.setup(async () => {
+    await resetInvoiceFixtures(db)
+  })
+
+  group.teardown(async () => cleanup())
+
+  test('GET /invoices returns the first page ordered by issueDate desc then invoiceNumber desc', async ({
+    assert,
+    client,
+  }) => {
+    const service = new InvoiceService(db)
+    const draftA = await createDraftViaService(service, { issueDate: '2026-04-01' })
+    const draftB = await createDraftViaService(service, { issueDate: '2026-04-02' })
+    const draftC = await createDraftViaService(service, { issueDate: '2026-04-03' })
+    const draftD = await createDraftViaService(service, { issueDate: '2026-04-04' })
+    const draftE = await createDraftViaService(service, { issueDate: '2026-04-05' })
+    const draftF = await createDraftViaService(service, { issueDate: '2026-04-06' })
+
+    const response = await inertiaGet(client, '/invoices')
+
+    response.assertStatus(200)
+    assert.equal(response.body().component, 'app/invoices')
+
+    const props = inertiaProps(response)
+    assert.equal(props.invoices.pagination.page, 1)
+    assert.equal(props.invoices.pagination.perPage, 5)
+    assert.equal(props.invoices.pagination.totalItems, 6)
+    assert.equal(props.invoices.pagination.totalPages, 2)
+    assert.deepEqual(
+      props.invoices.items.map((item: any) => item.id),
+      [draftF.id, draftE.id, draftD.id, draftC.id, draftB.id]
+    )
+    assert.notInclude(
+      props.invoices.items.map((item: any) => item.id),
+      draftA.id
+    )
+  })
+
+  test('GET /invoices clamps page when requested page exceeds total pages', async ({
+    assert,
+    client,
+  }) => {
+    const service = new InvoiceService(db)
+    const draftA = await createDraftViaService(service, { issueDate: '2026-05-01' })
+    await createDraftViaService(service, { issueDate: '2026-05-02' })
+    await createDraftViaService(service, { issueDate: '2026-05-03' })
+    await createDraftViaService(service, { issueDate: '2026-05-04' })
+    await createDraftViaService(service, { issueDate: '2026-05-05' })
+    await createDraftViaService(service, { issueDate: '2026-05-06' })
+
+    const response = await inertiaGet(client, '/invoices?page=99')
+
+    response.assertStatus(200)
+
+    const props = inertiaProps(response)
+    assert.equal(props.invoices.pagination.page, 2)
+    assert.equal(props.invoices.pagination.totalPages, 2)
+    assert.deepEqual(
+      props.invoices.items.map((item: any) => item.id),
+      [draftA.id]
+    )
+  })
+
+  test('GET /invoices filters items by issueDate range', async ({ assert, client }) => {
+    const service = new InvoiceService(db)
+    const outsideBefore = await createDraftViaService(service, { issueDate: '2026-03-31' })
+    const insideA = await createDraftViaService(service, { issueDate: '2026-04-01' })
+    const insideB = await createDraftViaService(service, { issueDate: '2026-04-15' })
+    const outsideAfter = await createDraftViaService(service, { issueDate: '2026-05-01' })
+
+    const response = await inertiaGet(client, '/invoices?startDate=2026-04-01&endDate=2026-04-30')
+
+    response.assertStatus(200)
+
+    const props = inertiaProps(response)
+    assert.equal(props.invoices.pagination.totalItems, 2)
+    assert.deepEqual(
+      props.invoices.items.map((item: any) => item.id),
+      [insideB.id, insideA.id]
+    )
+    assert.notInclude(
+      props.invoices.items.map((item: any) => item.id),
+      outsideBefore.id
+    )
+    assert.notInclude(
+      props.invoices.items.map((item: any) => item.id),
+      outsideAfter.id
+    )
+  })
+
+  test('GET /invoices with customer sets initial customer and picks the latest invoice for that customer', async ({
+    assert,
+    client,
+  }) => {
+    const service = new InvoiceService(db)
+    await createDraftViaService(service, {
+      customerId: TEST_CUSTOMER_ID,
+      issueDate: '2026-04-01',
+    })
+    const latestForFirstCustomer = await createDraftViaService(service, {
+      customerId: TEST_CUSTOMER_ID,
+      issueDate: '2026-04-20',
+    })
+    await createDraftViaService(service, {
+      customerId: SECOND_CUSTOMER_ID,
+      issueDate: '2026-04-25',
+    })
+
+    const response = await inertiaGet(client, `/invoices?customer=${TEST_CUSTOMER_ID}`)
+
+    response.assertStatus(200)
+
+    const props = inertiaProps(response)
+    assert.equal(props.initialCustomerId, TEST_CUSTOMER_ID)
+    assert.equal(props.initialInvoiceId, latestForFirstCustomer.id)
+  })
+
+  test('GET /invoices with explicit invoice injects the targeted invoice when it is outside the current page', async ({
+    assert,
+    client,
+  }) => {
+    const service = new InvoiceService(db)
+    const target = await createDraftViaService(service, { issueDate: '2026-04-01' })
+    await createDraftViaService(service, { issueDate: '2026-04-02' })
+    await createDraftViaService(service, { issueDate: '2026-04-03' })
+    await createDraftViaService(service, { issueDate: '2026-04-04' })
+    await createDraftViaService(service, { issueDate: '2026-04-05' })
+    await createDraftViaService(service, { issueDate: '2026-04-06' })
+
+    const response = await inertiaGet(client, `/invoices?invoice=${target.id}`)
+
+    response.assertStatus(200)
+
+    const props = inertiaProps(response)
+    assert.equal(props.initialInvoiceId, target.id)
+    assert.equal(props.invoices.pagination.page, 1)
+    assert.equal(props.invoices.items[0].id, target.id)
+    assert.include(
+      props.invoices.items.map((item: any) => item.id),
+      target.id
+    )
+    assert.equal(props.invoices.items.length, 6)
+  })
+
+  test('GET /invoices with customer and date filter returns null initialInvoiceId when no invoice matches the scope', async ({
+    assert,
+    client,
+  }) => {
+    const service = new InvoiceService(db)
+    await createDraftViaService(service, {
+      customerId: TEST_CUSTOMER_ID,
+      issueDate: '2026-03-15',
+    })
+    await createDraftViaService(service, {
+      customerId: SECOND_CUSTOMER_ID,
+      issueDate: '2026-04-10',
+    })
+
+    const response = await inertiaGet(
+      client,
+      `/invoices?customer=${TEST_CUSTOMER_ID}&startDate=2026-04-01&endDate=2026-04-30`
+    )
+
+    response.assertStatus(200)
+
+    const props = inertiaProps(response)
+    assert.equal(props.initialCustomerId, TEST_CUSTOMER_ID)
+    assert.isNull(props.initialInvoiceId)
+    assert.deepEqual(
+      props.invoices.items.map((item: any) => item.customerId),
+      [SECOND_CUSTOMER_ID]
+    )
+  })
+
+  test('GET /invoices with mode=new exposes create mode in inertia props', async ({
+    assert,
+    client,
+  }) => {
+    const response = await inertiaGet(client, '/invoices?mode=new')
+
+    response.assertStatus(200)
+
+    const props = inertiaProps(response)
+    assert.equal(props.mode, 'new')
+    assert.isNull(props.initialInvoiceId)
+    assert.isNull(props.initialCustomerId)
+  })
+})
