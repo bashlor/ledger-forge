@@ -32,9 +32,17 @@ yarn-error.log
 .automaker
 .worktrees
 
+# Personal / Internal Tools
 .tmp
 private_docs
 private_scripts
+app_scripts
+dev.sh
+install.sh
+test.sh
+.first-easy-start-podman.sh
+.sandbox
+
 
 # Testing
 coverage
