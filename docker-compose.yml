@@ -19,10 +19,15 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       POSTGRES_DB: ${DB_DATABASE}
-    secrets:
-      - db_password
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/dev}/db_password
+        target: /run/secrets/db_password
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
     networks:
       - accounting_internal
 
@@ -52,22 +57,21 @@ services:
         '-ec',
         'exec redis-server --appendonly yes --requirepass "$$(cat /run/secrets/redis_password)"',
       ]
-    secrets:
-      - redis_password
     volumes:
       - redis_data:/data
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/dev}/redis_password
+        target: /run/secrets/redis_password
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
     networks:
       - accounting_internal
 
 volumes:
   pg_data:
   redis_data:
-
-secrets:
-  db_password:
-    file: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/dev}/db_password
-  redis_password:
-    file: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/dev}/redis_password
 
 networks:
   accounting_internal:

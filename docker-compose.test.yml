@@ -16,15 +16,20 @@ services:
       retries: 5
       start_period: 10s
     ports:
-      - '127.0.0.1:${DB_PORT:-5432}:5432'
+      - '127.0.0.1:${TEST_PROD_DB_PORT:-55432}:5432'
     environment:
       POSTGRES_USER: accounting
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       POSTGRES_DB: accounting-test
-    secrets:
-      - db_password
     volumes:
       - pg_test_data:/var/lib/postgresql/data
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/db_password
+        target: /run/secrets/db_password
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
     networks:
       - accounting_test_internal
 
@@ -47,17 +52,22 @@ services:
       retries: 5
       start_period: 10s
     ports:
-      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+      - '127.0.0.1:${TEST_PROD_REDIS_PORT:-56379}:6379'
     command:
       [
         '/bin/sh',
         '-ec',
         'exec redis-server --appendonly yes --requirepass "$$(cat /run/secrets/redis_password)"',
       ]
-    secrets:
-      - redis_password
     volumes:
       - redis_test_data:/data
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/redis_password
+        target: /run/secrets/redis_password
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
     networks:
       - accounting_test_internal
 
@@ -67,7 +77,7 @@ services:
       dockerfile: Dockerfile
       target: build
       args:
-        BUILD_APP_URL: ${APP_URL}
+        BUILD_APP_URL: ${TEST_PROD_APP_URL}
         BUILD_DB_DATABASE: ${DB_DATABASE}
         BUILD_DB_HOST: ${DB_HOST}
         BUILD_DB_PORT: ${DB_PORT}
@@ -98,10 +108,10 @@ services:
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
       SESSION_DRIVER: memory
       TZ: UTC
-      APP_URL: http://localhost:${PORT:-3333}
+      APP_URL: ${TEST_PROD_APP_URL}
       DB_HOST: postgres
       HOST: 0.0.0.0
-      PORT: ${PORT:-3333}
+      PORT: 3333
     entrypoint: ['/bin/sh', '/app/docker/with-docker-secrets.sh']
     depends_on:
       postgres:
@@ -109,11 +119,35 @@ services:
       redis:
         condition: service_healthy
     command: ['ace', 'migration:run']
-    secrets:
-      - app_key
-      - better_auth_secret
-      - db_password
-      - redis_password
+    volumes:
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/app_key
+        target: /run/secrets/app_key
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/better_auth_secret
+        target: /run/secrets/better_auth_secret
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/db_password
+        target: /run/secrets/db_password
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/redis_password
+        target: /run/secrets/redis_password
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
     networks:
       - accounting_test_internal
 
@@ -123,7 +157,7 @@ services:
       dockerfile: Dockerfile
       target: production
       args:
-        BUILD_APP_URL: ${APP_URL}
+        BUILD_APP_URL: ${TEST_PROD_APP_URL}
         BUILD_DB_DATABASE: ${DB_DATABASE}
         BUILD_DB_HOST: ${DB_HOST}
         BUILD_DB_PORT: ${DB_PORT}
@@ -154,22 +188,46 @@ services:
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
       SESSION_DRIVER: memory
       TZ: UTC
-      APP_URL: http://localhost:${PORT:-3333}
+      APP_URL: ${TEST_PROD_APP_URL}
       DB_HOST: postgres
       HOST: 0.0.0.0
-      PORT: ${PORT:-3333}
+      PORT: 3333
     depends_on:
       migrate:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
     ports:
-      - '127.0.0.1:${PORT:-3333}:3333'
-    secrets:
-      - app_key
-      - better_auth_secret
-      - db_password
-      - redis_password
+      - '127.0.0.1:${TEST_PROD_APP_PORT:-3334}:3333'
+    volumes:
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/app_key
+        target: /run/secrets/app_key
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/better_auth_secret
+        target: /run/secrets/better_auth_secret
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/db_password
+        target: /run/secrets/db_password
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
+      - type: bind
+        source: ${DOCKER_SECRETS_DIR:-./tmp/docker-secrets/test-prod}/redis_password
+        target: /run/secrets/redis_password
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
     networks:
       - accounting_test_internal
 
