@@ -13,6 +13,7 @@ import { test } from '@japa/runner'
 import { desc, eq } from 'drizzle-orm'
 
 import { runSimultaneously } from '../../../../../tests/helpers/concurrency_barrier.js'
+import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 
 const fakeUser: AuthProviderUser = {
@@ -71,18 +72,6 @@ let db: PostgresJsDatabase<any>
 
 function authCookie() {
   return `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}`
-}
-
-async function expectRejects(assert: any, callback: () => Promise<unknown>) {
-  let didThrow = false
-
-  try {
-    await callback()
-  } catch {
-    didThrow = true
-  }
-
-  assert.isTrue(didThrow)
 }
 
 test.group('Expenses routes | create → confirm → journal', (group) => {

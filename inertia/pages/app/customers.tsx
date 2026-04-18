@@ -29,6 +29,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
   const [filter, setFilter] = useState<'all' | 'no_invoices' | 'with_invoices'>('all')
 
   const { items, pagination, summary } = customers
+  const hasPageItems = items.length > 0
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
 
@@ -154,7 +155,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
         />
 
         <DataTable
-          emptyMessage="No customers match the current filters."
+          emptyMessage="No customers yet."
           headerContent={
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <input
@@ -178,7 +179,7 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
               </select>
             </div>
           }
-          isEmpty={filteredItems.length === 0}
+          isEmpty={!hasPageItems}
           onPageChange={(nextPage) =>
             router.get('/customers', nextPage > 1 ? { page: nextPage } : {}, {
               only: ['customers'],
@@ -189,12 +190,20 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
           pagination={pagination}
           title="Customer register"
         >
-          <CustomerTable
-            items={filteredItems}
-            onDelete={handleDelete}
-            onEdit={openEdit}
-            processing={processing}
-          />
+          {filteredItems.length === 0 ? (
+            <div className="px-4 py-8">
+              <div className="rounded-lg border border-dashed border-outline-variant/35 bg-surface-container-low px-4 py-5 text-sm text-on-surface-variant">
+                No customers match the current filters on this page.
+              </div>
+            </div>
+          ) : (
+            <CustomerTable
+              items={filteredItems}
+              onDelete={handleDelete}
+              onEdit={openEdit}
+              processing={processing}
+            />
+          )}
         </DataTable>
       </div>
     </>

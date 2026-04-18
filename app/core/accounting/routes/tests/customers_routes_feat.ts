@@ -13,6 +13,7 @@ import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
+import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 
 const fakeUser: AuthProviderUser = {
@@ -71,18 +72,6 @@ let db: PostgresJsDatabase<any>
 
 function authCookie() {
   return `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}`
-}
-
-async function expectRejects(assert: any, callback: () => Promise<unknown>) {
-  let didThrow = false
-
-  try {
-    await callback()
-  } catch {
-    didThrow = true
-  }
-
-  assert.isTrue(didThrow)
 }
 
 test.group('Customers routes | create, update, delete rules', (group) => {

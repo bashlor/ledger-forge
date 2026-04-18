@@ -378,8 +378,16 @@ function InvoicesContent({
   // --- Derived ---
 
   const minDueDate = editingInvoice ? selectedInvoice.createdAt : todayValue()
+  const hasStructurallyValidLines = form.lines.every(
+    (line) => line.description.trim() && Number(line.quantity) > 0 && Number(line.unitPrice) >= 0
+  )
   const formIsValid = Boolean(
-    effectiveCustomerId && form.issueDate && form.dueDate && form.lines.length > 0
+    effectiveCustomerId &&
+    form.issueDate &&
+    form.dueDate &&
+    form.dueDate >= minDueDate &&
+    form.lines.length > 0 &&
+    hasStructurallyValidLines
   )
 
   const isFocusMode = isCreating || selectedInvoiceId !== null

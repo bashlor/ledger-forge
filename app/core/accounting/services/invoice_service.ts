@@ -579,6 +579,10 @@ function invoiceDateCondition(filter?: DateFilter) {
   return and(gte(invoices.issueDate, filter.startDate), lte(invoices.issueDate, filter.endDate))
 }
 
+function isISODate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
 async function nextInvoiceNumber(db: any, issueDate: string): Promise<string> {
   const year = issueDate.slice(0, 4)
   const lockKey = `invoice-number-${year}`
@@ -642,8 +646,19 @@ function normalizeSaveInvoiceDraftInput(
   input: SaveInvoiceDraftInput
 ): NormalizedSaveInvoiceDraftInput {
   const customerId = input.customerId.trim()
+  const dueDate = input.dueDate.trim()
+  const issueDate = input.issueDate.trim()
+
   if (!customerId) {
     throw new DomainError('Customer is required.', 'invalid_data')
+  }
+
+  if (!issueDate || !isISODate(issueDate)) {
+    throw new DomainError('Issue date is required.', 'invalid_data')
+  }
+
+  if (!dueDate || !isISODate(dueDate)) {
+    throw new DomainError('Due date is required.', 'invalid_data')
   }
 
   if (input.lines.length === 0) {
@@ -654,8 +669,8 @@ function normalizeSaveInvoiceDraftInput(
 
   return {
     customerId,
-    dueDate: input.dueDate,
-    issueDate: input.issueDate,
+    dueDate,
+    issueDate,
     lines,
   }
 }

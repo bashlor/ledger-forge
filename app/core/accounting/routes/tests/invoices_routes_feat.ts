@@ -14,6 +14,7 @@ import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
 
 import { runSimultaneously } from '../../../../../tests/helpers/concurrency_barrier.js'
+import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 
 const fakeUser: AuthProviderUser = {
@@ -98,18 +99,6 @@ async function createDraftViaHttp(client: any) {
 
   const [draft] = await db.select().from(invoices)
   return draft
-}
-
-async function expectRejects(assert: any, callback: () => Promise<unknown>) {
-  let didThrow = false
-
-  try {
-    await callback()
-  } catch {
-    didThrow = true
-  }
-
-  assert.isTrue(didThrow)
 }
 
 function issuePayload() {
@@ -471,6 +460,30 @@ test.group('Invoices routes | backend invariants', (group) => {
 
     const rows = await db.select().from(invoices)
     assert.equal(rows.length, 0)
+  })
+
+  test('invoice service rejects missing or malformed draft dates outside HTTP', async ({
+    assert,
+  }) => {
+    const service = new InvoiceService(db)
+
+    await expectRejects(assert, () =>
+      service.createDraft({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2026-04-30',
+        issueDate: '',
+        lines: [{ description: 'Consulting', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      })
+    )
+
+    await expectRejects(assert, () =>
+      service.createDraft({
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '30-04-2026',
+        issueDate: '2026-04-01',
+        lines: [{ description: 'Consulting', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      })
+    )
   })
 
   test('invoice service rejects blank issued company fields outside HTTP', async ({

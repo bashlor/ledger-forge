@@ -52,7 +52,11 @@ export function IssueInvoiceDialog({
           </button>
           <button
             className="rounded-lg px-4 py-2 text-sm font-medium text-on-primary milled-steel-gradient disabled:opacity-60"
-            disabled={saving}
+            disabled={
+              saving ||
+              !issueForm.issuedCompanyName.trim() ||
+              !issueForm.issuedCompanyAddress.trim()
+            }
             onClick={onConfirm}
             type="button"
           >
