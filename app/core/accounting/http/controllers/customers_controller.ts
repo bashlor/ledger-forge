@@ -1,7 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
-import { accountingAccessFromSession } from '#core/accounting/accounting_context'
-import { CustomerService } from '#core/accounting/services/customers/index'
+import { CustomerService } from '#core/accounting/application/customers/index'
+import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
 import { flashInertiaInputErrors } from '#core/common/http/presenters/inertia_input_errors'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { DomainError } from '#core/shared/domain_error'

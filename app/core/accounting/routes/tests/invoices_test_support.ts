@@ -1,7 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { type InvoiceService } from '#core/accounting/application/invoices/index'
 import { customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
-import { type InvoiceService } from '#core/accounting/services/invoices/index'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
   AuthenticationPort,

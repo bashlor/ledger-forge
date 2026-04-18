@@ -3,7 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import {
   type AccountingAccessContext,
   SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
-} from '#core/accounting/accounting_context'
+} from '#core/accounting/application/support/access_context'
 import { expenses, invoices } from '#core/accounting/drizzle/schema'
 import { desc, eq, inArray, sum } from 'drizzle-orm'
 

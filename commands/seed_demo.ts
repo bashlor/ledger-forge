@@ -1,5 +1,7 @@
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 
+import { CustomerService } from '#core/accounting/application/customers/index'
+import { ExpenseService } from '#core/accounting/application/expenses/index'
 import {
   customers,
   expenses,
@@ -7,8 +9,6 @@ import {
   invoices,
   journalEntries,
 } from '#core/accounting/drizzle/schema'
-import { CustomerService } from '#core/accounting/services/customers/index'
-import { ExpenseService } from '#core/accounting/services/expenses/index'
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import { count } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'

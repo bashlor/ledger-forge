@@ -1,11 +1,11 @@
+import type { AccountingActivitySink } from '#core/accounting/application/support/activity_log'
+import type { AccountingServiceDependencies } from '#core/accounting/application/support/service_dependencies'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import {
   type AccountingAccessContext,
-  type AccountingActivitySink,
-  type AccountingServiceDependencies,
   SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
-} from '#core/accounting/accounting_context'
+} from '#core/accounting/application/support/access_context'
 import { customers, invoices } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
 import { and, count, eq, inArray, sql } from 'drizzle-orm'
