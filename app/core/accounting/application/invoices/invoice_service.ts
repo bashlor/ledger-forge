@@ -1,14 +1,16 @@
-import type { DateFilter } from '#core/accounting/services/expenses/index'
+import type { DateFilter } from '#core/accounting/application/expenses/index'
+import type { AccountingActivitySink } from '#core/accounting/application/support/activity_log'
+import type { AccountingServiceDependencies } from '#core/accounting/application/support/service_dependencies'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import {
   type AccountingAccessContext,
-  type AccountingActivitySink,
-  type AccountingBusinessCalendar,
-  type AccountingServiceDependencies,
   SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
+} from '#core/accounting/application/support/access_context'
+import {
+  type AccountingBusinessCalendar,
   SystemAccountingBusinessCalendar,
-} from '#core/accounting/accounting_context'
+} from '#core/accounting/application/support/business_calendar'
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/shared/domain_error'
 import { and, count, desc, eq, gte, inArray, like, lte, sql } from 'drizzle-orm'

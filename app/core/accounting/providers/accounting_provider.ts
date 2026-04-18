@@ -1,13 +1,11 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 
-import {
-  StructuredAccountingActivitySink,
-  SystemAccountingBusinessCalendar,
-} from '#core/accounting/accounting_context'
-import { CustomerService } from '#core/accounting/services/customers/index'
-import { DashboardService } from '#core/accounting/services/dashboard/index'
-import { ExpenseService } from '#core/accounting/services/expenses/index'
-import { InvoiceService } from '#core/accounting/services/invoices/index'
+import { CustomerService } from '#core/accounting/application/customers/index'
+import { DashboardService } from '#core/accounting/application/dashboard/index'
+import { ExpenseService } from '#core/accounting/application/expenses/index'
+import { InvoiceService } from '#core/accounting/application/invoices/index'
+import { StructuredAccountingActivitySink } from '#core/accounting/application/support/activity_log'
+import { SystemAccountingBusinessCalendar } from '#core/accounting/application/support/business_calendar'
 import logger from '@adonisjs/core/services/logger'
 
 export default class AccountingProvider {

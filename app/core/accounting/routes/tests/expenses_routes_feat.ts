@@ -1,7 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
-import { ExpenseService } from '#core/accounting/services/expenses/index'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
   AuthenticationPort,

@@ -1,8 +1,8 @@
-import type { DateFilter } from '#core/accounting/services/expenses/index'
+import type { DateFilter } from '#core/accounting/application/expenses/index'
 import type { HttpContext } from '@adonisjs/core/http'
 
-import { accountingAccessFromSession } from '#core/accounting/accounting_context'
-import { ExpenseService } from '#core/accounting/services/expenses/index'
+import { ExpenseService } from '#core/accounting/application/expenses/index'
+import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
 import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'

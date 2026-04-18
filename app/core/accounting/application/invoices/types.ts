@@ -1,5 +1,4 @@
-import type { invoiceLines, invoices } from '#core/accounting/drizzle/schema'
-import type { DateFilter } from '#core/accounting/services/expenses/index'
+import type { DateFilter } from '#core/accounting/application/expenses/index'
 
 export interface CustomerForSelectDto {
   company: string
@@ -63,7 +62,8 @@ export interface InvoiceLineDto {
   vatRate: number
 }
 
-export type InvoiceLineRow = typeof invoiceLines.$inferSelect
+export type InvoiceLineRow =
+  (typeof import('#core/accounting/drizzle/schema'))['invoiceLines']['$inferSelect']
 
 export interface InvoiceListResult {
   items: InvoiceDto[]
@@ -80,7 +80,8 @@ export interface InvoiceListScopeInput {
   dateFilter?: DateFilter
 }
 
-export type InvoiceRow = typeof invoices.$inferSelect
+export type InvoiceRow =
+  (typeof import('#core/accounting/drizzle/schema'))['invoices']['$inferSelect']
 
 export type InvoiceStatus = 'draft' | 'issued' | 'paid'
 export interface InvoiceSummaryDto {
