@@ -1,15 +1,5 @@
 import { toCents } from '#core/shared/money'
 
-/**
- * Pure arithmetic for invoice lines and totals.
- * All values are stored as integers in cents or cent-equivalents.
- *
- * Stored representation in DB:
- *   quantityHundredths = quantity × 100       (e.g. quantity 2 → 200)
- *   unitPriceCents = unit price in cents   (e.g. €100.50 → 10050)
- *   vatRateCents   = vat rate × 100        (e.g. 20% → 2000)
- */
-
 export interface InvoiceTotals {
   subtotalExclTaxCents: number
   totalInclTaxCents: number
@@ -29,10 +19,6 @@ export interface LineInput {
   vatRateCents: number
 }
 
-/**
- * Recalculate derived totals for a single line.
- * Never trust values from the request body -- always call this server-side.
- */
 export function calculateLine(
   line: Pick<LineInput, 'quantityHundredths' | 'unitPriceCents' | 'vatRateCents'>
 ): LineCalc {
@@ -45,9 +31,6 @@ export function calculateLine(
   }
 }
 
-/**
- * Aggregate per-line results into invoice-level totals.
- */
 export function calculateTotals(lines: LineCalc[]): InvoiceTotals {
   return lines.reduce(
     (acc, line) => ({
@@ -59,10 +42,6 @@ export function calculateTotals(lines: LineCalc[]): InvoiceTotals {
   )
 }
 
-/**
- * Convert display-unit inputs (euros / percentage) to stored cents.
- * Called once per line when creating or updating a draft.
- */
 export function fromDisplayUnits(input: {
   description: string
   quantity: number

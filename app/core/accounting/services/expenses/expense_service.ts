@@ -87,16 +87,13 @@ export class ExpenseService {
     hooks?: ExpenseConcurrencyHooks,
     access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<ExpenseDto> {
-    // Atomicity: the winning workflow updates status and writes journal entry in one transaction.
     const result = await this.db.transaction(async (tx) => {
-      // Read is diagnostic only: we only fail fast on true not-found.
       const [existing] = await tx.select().from(expenses).where(eq(expenses.id, id))
       if (!existing) {
         throw new DomainError('Expense not found.', 'not_found')
       }
       await hooks?.afterRead?.()
 
-      // Conditional write arbitrates concurrency and status validity.
       const [updated] = await tx
         .update(expenses)
         .set({ status: 'confirmed' })
@@ -172,16 +169,13 @@ export class ExpenseService {
     hooks?: ExpenseConcurrencyHooks,
     access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<void> {
-    // Atomicity: the winning delete happens entirely inside one transaction.
     await this.db.transaction(async (tx) => {
-      // Read is diagnostic only: we only fail fast on true not-found.
       const [existing] = await tx.select().from(expenses).where(eq(expenses.id, id))
       if (!existing) {
         throw new DomainError('Expense not found.', 'not_found')
       }
       await hooks?.afterRead?.()
 
-      // Conditional delete arbitrates concurrency and status validity.
       const [deleted] = await tx
         .delete(expenses)
         .where(and(eq(expenses.id, id), eq(expenses.status, 'draft')))
@@ -244,9 +238,6 @@ export class ExpenseService {
     const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
     const where = dateCondition(dateFilter)
 
-    // Count first so the page can be clamped before fetching rows.
-    // This avoids the window-function edge case where a large offset returns
-    // zero rows and totalCount cannot be derived.
     const [countRow] = await this.db.select({ total: count() }).from(expenses).where(where)
     const totalCount = countRow?.total ?? 0
     const totalPages = Math.max(1, Math.ceil(totalCount / safePerPage))

@@ -32,7 +32,6 @@ export class DashboardService {
     _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<DashboardDto> {
     const [recentInvoicesRows, revenueSumRow, collectedSumRow, expenseSumRow] = await Promise.all([
-      // Last 6 invoices ordered by issue date
       this.db
         .select({
           customerCompanyName: invoices.customerCompanyName,
@@ -46,20 +45,14 @@ export class DashboardService {
         .from(invoices)
         .orderBy(desc(invoices.issueDate))
         .limit(6),
-
-      // Total revenue: all non-draft invoices
       this.db
         .select({ total: sum(invoices.totalInclTaxCents) })
         .from(invoices)
         .where(inArray(invoices.status, ['issued', 'paid'])),
-
-      // Total collected: paid invoices only
       this.db
         .select({ total: sum(invoices.totalInclTaxCents) })
         .from(invoices)
         .where(eq(invoices.status, 'paid')),
-
-      // Total expenses: confirmed expenses only
       this.db
         .select({ total: sum(expenses.amountCents) })
         .from(expenses)
