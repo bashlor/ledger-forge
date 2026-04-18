@@ -128,27 +128,47 @@ export default defineConfig({
     forceExit: false,
     suites: [
       {
-        files: ['app/**/*_spec.{ts,js}', 'tests/**/*_spec.{ts,js}'],
+        files: [
+          'app/**/*_spec.{ts,js}',
+          'app/**/*.spec.{ts,js}',
+          'tests/helpers/**/*_spec.{ts,js}',
+          'tests/helpers/**/*.spec.{ts,js}',
+        ],
         name: 'unit',
         timeout: 2000,
       },
       {
-        files: ['app/**/*_int.{ts,js}', 'tests/**/*_int.{ts,js}'],
+        files: [
+          'app/**/*_int.{ts,js}',
+          'app/**/*.int.{ts,js}',
+          'tests/**/*_int.{ts,js}',
+          'tests/**/*.int.{ts,js}',
+        ],
         name: 'integration',
         timeout: 10000,
       },
       {
-        files: ['app/**/*_feat.{ts,js}', 'tests/**/*_feat.{ts,js}'],
+        files: [
+          'app/**/*_feat.{ts,js}',
+          'app/**/*.feat.{ts,js}',
+          'tests/**/*_feat.{ts,js}',
+          'tests/**/*.feat.{ts,js}',
+        ],
         name: 'routes',
         timeout: 30000,
       },
       {
-        files: ['app/**/*_e2e.{ts,js}', 'tests/**/*_e2e.{ts,js}'],
+        files: [
+          'app/**/*_e2e.{ts,js}',
+          'app/**/*.e2e.{ts,js}',
+          'tests/**/*_e2e.{ts,js}',
+          'tests/**/*.e2e.{ts,js}',
+        ],
         name: 'browser',
         timeout: 300000,
       },
       {
-        files: ['tests/**/*_console.spec.ts'],
+        files: ['tests/**/*_console.spec.{ts,js}', 'tests/**/*.console.spec.{ts,js}'],
         name: 'console',
         timeout: 60000,
       },

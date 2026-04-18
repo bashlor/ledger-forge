@@ -1,5 +1,9 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import {
+  type AccountingAccessContext,
+  SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
+} from '#core/accounting/accounting_context'
 import { expenses, invoices } from '#core/accounting/drizzle/schema'
 import { desc, eq, inArray, sum } from 'drizzle-orm'
 
@@ -24,7 +28,9 @@ export interface DashboardDto {
 export class DashboardService {
   constructor(private readonly db: PostgresJsDatabase<any>) {}
 
-  async getDashboard(): Promise<DashboardDto> {
+  async getDashboard(
+    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  ): Promise<DashboardDto> {
     const [recentInvoicesRows, revenueSumRow, collectedSumRow, expenseSumRow] = await Promise.all([
       // Last 6 invoices ordered by issue date
       this.db

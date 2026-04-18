@@ -42,9 +42,9 @@ This demo focuses on:
 
 ## Tooling / Delivery
 
-- Docker
+- Podman
 - Multi-stage builds
-- Docker secrets
+- Secret files mounted into containers
 - Hardened runtime image
 - Migration commands
 
@@ -161,17 +161,32 @@ These omissions are deliberate prioritization choices.
 
 # Run Locally
 
-## Standard
+## Fedora Atomic + Toolbox
 
 ```bash
-pnpm install
+pnpm setup
+pnpm services:up
 pnpm dev
 ```
+
+## Linux Mint / Fedora Atomic + Toolbox
+
+The local workflow is intentionally the same on both setups:
+
+- `pnpm setup` prepares `.env`, `.env.test`, local secret files, and runs the first migration pass
+- `pnpm services:up` starts PostgreSQL + Redis through `podman compose` or `docker compose`
+- `pnpm db:up` starts only PostgreSQL for integration tests
+
+Expected setup:
+
+- `node` 24.x and `pnpm`
+- either `podman compose` or `docker compose`
+- for Fedora Atomic: `podman` accessible from the Toolbox container
 
 ## Bootstrap
 
 ```bash
-./first-easy-start.sh
+pnpm setup
 ```
 
 This script:
@@ -179,17 +194,35 @@ This script:
 - installs dependencies
 - creates environment files
 - generates secrets
-- starts Docker services
+- starts the local compose services
 - runs migrations
 
 ---
 
-# Docker
+# Tests
+
+## Integration tests
+
+Integration, routes, browser, and console suites rely on `testcontainers`.
+On Podman rootless, the test wrapper exports the Podman socket for `testcontainers` automatically when `podman.socket` is available.
+
+```bash
+pnpm test:integration
+```
+
+If you use Podman outside Toolbox and the runtime is not detected:
+
+```bash
+systemctl --user enable --now podman.socket
+pnpm test:integration
+```
+
+# Podman
 
 ## Build image
 
 ```bash
-docker build \
+podman build \
   --secret id=app_key,src=./tmp/docker-secrets/dev/app_key \
   --secret id=better_auth_secret,src=./tmp/docker-secrets/dev/better_auth_secret \
   --secret id=db_password,src=./tmp/docker-secrets/dev/db_password \
@@ -199,13 +232,13 @@ docker build \
 ## Run migrations
 
 ```bash
-docker run --rm accounting-app ace migration:run --force
+podman run --rm accounting-app ace migration:run --force
 ```
 
 ## Run app
 
 ```bash
-docker run --rm -p 3333:3333 accounting-app
+podman run --rm -p 3333:3333 accounting-app
 ```
 
 ---
@@ -240,6 +273,6 @@ This project can be used to discuss:
 - SQL vs heavy ORM approaches
 - coupling vs modularity
 - auth design
-- Docker delivery practices
+- container delivery practices
 - business invariants
 - maintainability strategies

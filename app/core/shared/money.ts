@@ -11,5 +11,5 @@
  * toCents(99.99)  // → 9999
  */
 export function toCents(amount: number): number {
-  return Math.round(amount * 100 + Number.EPSILON)
+  return Math.round((amount + Number.EPSILON) * 100)
 }

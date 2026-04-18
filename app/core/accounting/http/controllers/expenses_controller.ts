@@ -1,6 +1,7 @@
 import type { DateFilter } from '#core/accounting/services/expense_service'
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { accountingAccessFromSession } from '#core/accounting/accounting_context'
 import { ExpenseService } from '#core/accounting/services/expense_service'
 import { inject } from '@adonisjs/core'
 
@@ -18,10 +19,11 @@ export default class ExpensesController {
   @inject()
   async confirmDraftExpense(ctx: HttpContext, expenseService: ExpenseService) {
     const { params } = await ctx.request.validateUsing(expenseParamsValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => expenseService.confirmExpense(params.id),
+      () => expenseService.confirmExpense(params.id, undefined, access),
       'Expense confirmed.',
       'Could not confirm the expense.'
     )
@@ -32,10 +34,11 @@ export default class ExpensesController {
   @inject()
   async deleteDraftExpense(ctx: HttpContext, expenseService: ExpenseService) {
     const { params } = await ctx.request.validateUsing(expenseParamsValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => expenseService.deleteExpense(params.id),
+      () => expenseService.deleteExpense(params.id, undefined, access),
       'Draft expense deleted.',
       'Could not delete the expense.'
     )
@@ -48,13 +51,17 @@ export default class ExpensesController {
     const { endDate, page, startDate } = await ctx.request.validateUsing(expenseIndexValidator)
     const dateFilter: DateFilter | undefined =
       startDate && endDate ? { endDate, startDate } : undefined
+    const access = accountingAccessFromSession(ctx.authSession)
 
     return ctx.inertia.render(
       'app/expenses' as never,
       {
         categories: EXPENSE_CATEGORIES,
-        expenses: await expenseService.listExpenses(page ?? 1, PER_PAGE, dateFilter),
-        summary: ctx.inertia.defer(() => expenseService.getSummary(dateFilter) as never, 'summary'),
+        expenses: await expenseService.listExpenses(page ?? 1, PER_PAGE, dateFilter, access),
+        summary: ctx.inertia.defer(
+          () => expenseService.getSummary(dateFilter, access) as never,
+          'summary'
+        ),
       } as never
     )
   }
@@ -62,10 +69,11 @@ export default class ExpensesController {
   @inject()
   async store(ctx: HttpContext, expenseService: ExpenseService) {
     const payload = await ctx.request.validateUsing(createExpenseValidator)
+    const access = accountingAccessFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => expenseService.createExpense(payload),
+      () => expenseService.createExpense(payload, access),
       'Expense saved as draft.',
       'Could not save the expense.'
     )

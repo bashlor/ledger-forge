@@ -11,6 +11,10 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 
+const TEST_CONTAINER_DATABASE = 'accounting_integration_test'
+const TEST_CONTAINER_PASSWORD = 'accounting_test_password'
+const TEST_CONTAINER_USERNAME = 'accounting_test_user'
+
 export interface TestPostgresContext {
   authAdapter: BetterAuthAdapter
   betterAuth: Awaited<ReturnType<typeof createBetterAuth>>
@@ -38,15 +42,16 @@ export async function createTestPostgresContext(): Promise<TestPostgresContext> 
   let container: StartedPostgreSqlContainer
   try {
     container = await new PostgreSqlContainer(postgresImage)
-      .withDatabase('neurotech_jobs_test')
-      .withUsername('neurotech')
-      .withPassword('neurotech')
+      .withDatabase(TEST_CONTAINER_DATABASE)
+      .withUsername(TEST_CONTAINER_USERNAME)
+      .withPassword(TEST_CONTAINER_PASSWORD)
       .start()
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(
       `Could not start PostgreSQL testcontainer (image: ${postgresImage}).\n` +
-        `Make sure Docker is running and POSTGRES_TEST_IMAGE is configured in your test environment.\n` +
+        `Make sure a supported container runtime (Docker/Podman) is reachable and POSTGRES_TEST_IMAGE is configured in your test environment.\n` +
+        `For Podman rootless, expose the Podman socket and set DOCKER_HOST / TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE when needed.\n` +
         `Original error: ${message}`
     )
   }

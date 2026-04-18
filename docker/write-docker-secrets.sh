@@ -62,4 +62,4 @@ for mapping in "$@"; do
   write_secret "$OUTPUT_DIR/$secret_name" "$secret_value"
 done
 
-echo "Docker secrets written to $OUTPUT_DIR"
+echo "Secret files written to $OUTPUT_DIR"
