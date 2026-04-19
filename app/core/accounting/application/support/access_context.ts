@@ -4,12 +4,15 @@ export interface AccountingAccessContext {
   actorId: null | string
   isAnonymous: boolean
   requestId: string
+  /** Active organization id — same as Better Auth `activeOrganizationId` (tenant). */
+  tenantId?: null | string
 }
 
 export const SYSTEM_ACCOUNTING_ACCESS_CONTEXT: AccountingAccessContext = {
   actorId: null,
   isAnonymous: false,
   requestId: 'system',
+  tenantId: null,
 }
 
 export function accountingAccessFromSession(
@@ -24,5 +27,6 @@ export function accountingAccessFromSession(
     actorId: session.user.id,
     isAnonymous: session.user.isAnonymous,
     requestId,
+    tenantId: session.session.activeOrganizationId ?? null,
   }
 }

@@ -239,5 +239,5 @@ export class InvoiceService {
 }
 
 function toInvoiceRequestContext(access: AccountingAccessContext): InvoiceRequestContext {
-  return { ...access, tenantId: null }
+  return { ...access, tenantId: access.tenantId ?? null }
 }
