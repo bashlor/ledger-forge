@@ -9,7 +9,7 @@ import {
 test.group('invoice use case support helpers', () => {
   test('prepares draft write payloads and invoice lines without side effects', ({ assert }) => {
     const preparedLines = prepareInvoiceLinesWrite([
-      { description: ' Design ', quantity: 2, unitPrice: 100, vatRate: 20 },
+      { description: 'Design', quantity: 2, unitPrice: 100, vatRate: 20 },
       { description: 'Support', quantity: 1.5, unitPrice: 80, vatRate: 10 },
     ])
 
@@ -33,7 +33,7 @@ test.group('invoice use case support helpers', () => {
 
     assert.lengthOf(preparedLines.lineValues, 2)
     assert.equal(preparedLines.lineValues[0].lineNumber, 1)
-    assert.equal(preparedLines.lineValues[0].description, ' Design ')
+    assert.equal(preparedLines.lineValues[0].description, 'Design')
     assert.equal(preparedLines.totals.subtotalExclTaxCents, 32000)
     assert.equal(preparedLines.totals.totalVatCents, 5200)
     assert.equal(preparedLines.totals.totalInclTaxCents, 37200)

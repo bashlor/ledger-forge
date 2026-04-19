@@ -15,10 +15,10 @@ import {
 } from '../domain/invoice_rules.js'
 import { normalizeSaveInvoiceDraftInput } from '../validation.js'
 import {
-  getInvoiceForUpdateOrThrow,
   type InvoiceUseCaseDeps,
   loadCustomerSnapshotOrThrow,
   loadInvoiceDto,
+  loadInvoiceForMutationOrThrow,
   prepareDraftInvoiceWrite,
   prepareInvoiceLinesWrite,
   recordInvoiceActivity,
@@ -57,7 +57,7 @@ export async function updateInvoiceDraftUseCase(
     })
 
     if (!updated || updated.status !== 'draft') {
-      const again = await getInvoiceForUpdateOrThrow(tx, id, requestContext)
+      const again = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
       assertInvoiceIsDraft(again.status)
     }
 
@@ -83,7 +83,7 @@ async function getDraftInvoiceForMutation(
   normalized: ReturnType<typeof validateDraftUpdateInput>,
   requestContext: InvoiceRequestContext
 ) {
-  const existing = await getInvoiceForUpdateOrThrow(tx, id, requestContext)
+  const existing = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
   assertInvoiceIsDraft(existing.status)
   assertInvoiceDueDateIsNotBefore(
     normalized.dueDate,

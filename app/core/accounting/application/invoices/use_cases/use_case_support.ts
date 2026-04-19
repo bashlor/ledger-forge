@@ -15,8 +15,8 @@ import type {
 import { calculateLine, calculateTotals, fromDisplayUnits } from '../calculations.js'
 import {
   getInvoiceById,
-  getInvoiceForUpdate,
   listInvoiceLinesForInvoice,
+  loadInvoiceForMutation,
   readCustomerSnapshot,
 } from '../db/invoice_queries.js'
 import { assertInvoiceBelongsToTenant } from '../domain/invoice_rules.js'
@@ -53,18 +53,6 @@ type InvoiceMutableDraftWrite = Pick<
   | 'totalVatCents'
 >
 
-export async function getInvoiceForUpdateOrThrow(
-  tx: DrizzleTx,
-  id: string,
-  requestContext: InvoiceRequestContext
-): Promise<InvoiceRow> {
-  const invoice = await getInvoiceForUpdate(tx, { id, tenantId: requestContext.tenantId })
-  if (!invoice) throw new DomainError('Invoice not found.', 'not_found')
-
-  assertInvoiceBelongsToTenant(getInvoiceTenantId(invoice), requestContext.tenantId)
-  return invoice
-}
-
 export async function loadCustomerSnapshotOrThrow(db: DrizzleDb | DrizzleTx, customerId: string) {
   const customer = await readCustomerSnapshot(db, customerId)
   if (!customer) throw new DomainError('Customer not found.', 'not_found')
@@ -95,6 +83,18 @@ export async function loadInvoiceDto(
     lines.map(toLineDto),
     businessCalendar.dateFromTimestamp(invoice.createdAt)
   )
+}
+
+export async function loadInvoiceForMutationOrThrow(
+  tx: DrizzleTx,
+  id: string,
+  requestContext: InvoiceRequestContext
+): Promise<InvoiceRow> {
+  const invoice = await loadInvoiceForMutation(tx, { id, tenantId: requestContext.tenantId })
+  if (!invoice) throw new DomainError('Invoice not found.', 'not_found')
+
+  assertInvoiceBelongsToTenant(getInvoiceTenantId(invoice), requestContext.tenantId)
+  return invoice
 }
 
 export function prepareDraftInvoiceWrite(input: {

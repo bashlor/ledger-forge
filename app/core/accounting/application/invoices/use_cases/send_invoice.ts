@@ -20,10 +20,10 @@ import {
 } from '../domain/invoice_rules.js'
 import { normalizeIssueInvoiceInput } from '../validation.js'
 import {
-  getInvoiceForUpdateOrThrow,
   type InvoiceUseCaseDeps,
   loadCustomerSnapshotOrThrow,
   loadInvoiceDto,
+  loadInvoiceForMutationOrThrow,
   prepareSendInvoiceWrite,
   recordInvoiceActivity,
 } from './use_case_support.js'
@@ -36,7 +36,7 @@ export async function sendInvoiceUseCase(
   requestContext: InvoiceRequestContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
 ): Promise<InvoiceDto> {
   const result = await deps.db.transaction(async (tx) => {
-    const existing = await getInvoiceForUpdateOrThrow(tx, id, requestContext)
+    const existing = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
     assertInvoiceCanBeSent(existing.status)
     await hooks?.afterRead?.()
 
@@ -50,7 +50,7 @@ export async function sendInvoiceUseCase(
     const customer = await loadCustomerSnapshotOrThrow(tx, existing.customerId)
     const lockedStatusUpdate = await updateInvoiceStatus(tx, id, 'draft', 'issued')
     if (!lockedStatusUpdate) {
-      const again = await getInvoiceForUpdateOrThrow(tx, id, requestContext)
+      const again = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
       assertInvoiceIsDraft(again.status, 'Only draft invoices can be issued.')
     }
 

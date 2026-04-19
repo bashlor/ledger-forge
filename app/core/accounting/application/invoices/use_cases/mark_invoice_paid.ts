@@ -5,9 +5,9 @@ import type { InvoiceConcurrencyHooks, InvoiceDto, InvoiceRequestContext } from 
 import { updateInvoiceStatus } from '../db/invoice_commands.js'
 import { assertInvoiceCanBeMarkedPaid } from '../domain/invoice_rules.js'
 import {
-  getInvoiceForUpdateOrThrow,
   type InvoiceUseCaseDeps,
   loadInvoiceDto,
+  loadInvoiceForMutationOrThrow,
   recordInvoiceActivity,
 } from './use_case_support.js'
 
@@ -18,13 +18,13 @@ export async function markInvoicePaidUseCase(
   requestContext: InvoiceRequestContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
 ): Promise<InvoiceDto> {
   const result = await deps.db.transaction(async (tx) => {
-    const existing = await getInvoiceForUpdateOrThrow(tx, id, requestContext)
+    const existing = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
     assertInvoiceCanBeMarkedPaid(existing.status)
     await hooks?.afterRead?.()
 
     const updated = await updateInvoiceStatus(tx, id, 'issued', 'paid')
     if (!updated) {
-      const again = await getInvoiceForUpdateOrThrow(tx, id, requestContext)
+      const again = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
       assertInvoiceCanBeMarkedPaid(again.status)
     }
 
