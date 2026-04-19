@@ -4,7 +4,16 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
+const isTest = process.env.NODE_ENV === 'test'
+
 export default defineConfig({
+  optimizeDeps: isTest
+    ? {
+        // Test runs don't need dev-time dependency discovery/pre-bundling.
+        noDiscovery: true,
+      }
+    : undefined,
+
   plugins: [
     tailwindcss(),
     react({
@@ -32,6 +41,7 @@ export default defineConfig({
   },
 
   server: {
+    hmr: isTest ? false : undefined,
     watch: {
       ignored: ['**/storage/**', '**/tmp/**'],
     },
