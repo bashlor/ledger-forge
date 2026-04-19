@@ -4,7 +4,7 @@ import { invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle
 import { and, eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
-import type { InvoiceStatus } from '../domain/invoice_status.js'
+import type { InvoiceStatus } from '../types.js'
 
 type DrizzleDb = PostgresJsDatabase<any>
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
@@ -71,6 +71,15 @@ export async function replaceInvoiceLines(
 
 export async function updateInvoice(tx: DrizzleTx, id: string, values: InvoiceUpdate) {
   const [row] = await tx.update(invoices).set(values).where(eq(invoices.id, id)).returning()
+  return row
+}
+
+export async function updateInvoiceDraft(tx: DrizzleTx, id: string, values: InvoiceUpdate) {
+  const [row] = await tx
+    .update(invoices)
+    .set(values)
+    .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
+    .returning()
   return row
 }
 

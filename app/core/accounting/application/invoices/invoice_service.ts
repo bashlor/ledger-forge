@@ -25,6 +25,12 @@ import type {
   SaveInvoiceDraftInput,
 } from './types.js'
 
+import { cancelInvoiceUseCase } from './application/cancel_invoice.js'
+import { createInvoiceUseCase } from './application/create_invoice.js'
+import { markInvoicePaidUseCase } from './application/mark_invoice_paid.js'
+import { sendInvoiceUseCase } from './application/send_invoice.js'
+import { updateInvoiceDraftUseCase } from './application/update_invoice_draft.js'
+import { toInvoiceDto, toLineDto } from './infrastructure/invoice_mappers.js'
 import {
   findFirstInvoiceIdForCustomer,
   getInvoiceById,
@@ -34,13 +40,7 @@ import {
   listInvoiceLinesForInvoice,
   listInvoiceLinesForInvoiceIds,
   listInvoicesByTenant,
-} from './db/invoice_queries.js'
-import { toInvoiceDto, toLineDto } from './mappers.js'
-import { cancelInvoiceUseCase } from './use_cases/cancel_invoice.js'
-import { createInvoiceUseCase } from './use_cases/create_invoice.js'
-import { markInvoicePaidUseCase } from './use_cases/mark_invoice_paid.js'
-import { sendInvoiceUseCase } from './use_cases/send_invoice.js'
-import { updateInvoiceDraftUseCase } from './use_cases/update_invoice_draft.js'
+} from './infrastructure/invoice_queries.js'
 
 const MAX_PER_PAGE = 100
 const MIN_PER_PAGE = 1

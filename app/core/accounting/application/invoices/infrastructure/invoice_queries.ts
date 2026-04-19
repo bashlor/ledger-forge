@@ -77,17 +77,6 @@ export async function getInvoiceForListScope(
   return row
 }
 
-export async function getInvoiceForUpdate(
-  tx: InvoiceDbExecutor,
-  input: { id: string; tenantId?: null | string }
-): Promise<InvoiceRow | undefined> {
-  const [row] = await tx
-    .select()
-    .from(invoices)
-    .where(applyInvoiceTenantScope(eq(invoices.id, input.id), input.tenantId))
-  return row
-}
-
 export async function getInvoiceSummary(
   db: DrizzleDb,
   input: {
@@ -189,6 +178,17 @@ export async function listInvoicesByTenant(
   return { rows, totalCount }
 }
 
+export async function loadInvoiceForMutation(
+  tx: InvoiceDbExecutor,
+  input: { id: string; tenantId?: null | string }
+): Promise<InvoiceRow | undefined> {
+  const [row] = await tx
+    .select()
+    .from(invoices)
+    .where(applyInvoiceTenantScope(eq(invoices.id, input.id), input.tenantId))
+  return row
+}
+
 export async function nextInvoiceNumber(db: InvoiceDbExecutor, issueDate: string): Promise<string> {
   const year = issueDate.slice(0, 4)
   const lockKey = `invoice-number-${year}`
@@ -223,7 +223,7 @@ export async function readCustomerSnapshot(db: InvoiceDbExecutor, customerId: st
 }
 
 function applyInvoiceTenantScope<T>(where: T, tenantId: TenantScopedQueryInput['tenantId']): T {
-  // Tenant filtering is intentionally a no-op until tenant columns are introduced.
+  // Placeholder until invoice rows carry tenant data and queries can enforce isolation in SQL.
   void tenantId
   return where
 }
