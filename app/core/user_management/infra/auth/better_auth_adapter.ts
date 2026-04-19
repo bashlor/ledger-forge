@@ -1,8 +1,9 @@
 import { DomainError } from '#core/common/errors/domain_error'
-import logger from '@adonisjs/core/services/logger'
+import { getDefaultStructuredLogFields, toIsoTimestamp } from '#core/common/logging/structured_log'
 import { type betterAuth } from 'better-auth'
 
 import type { AuthProviderUser, AuthResult } from '../../domain/authentication.js'
+import type { UserManagementActivitySink } from '../../support/activity_log.js'
 
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '../../auth_session_cookie.js'
 import { AuthenticationPort } from '../../domain/authentication.js'
@@ -12,7 +13,8 @@ import { mapBetterAuthError } from './map_better_auth_error.js'
 export class BetterAuthAdapter extends AuthenticationPort {
   public constructor(
     private auth: Awaited<ReturnType<typeof betterAuth<any>>>,
-    private drizzle: any
+    private drizzle: any,
+    private readonly activitySink?: UserManagementActivitySink
   ) {
     super()
   }
@@ -53,12 +55,18 @@ export class BetterAuthAdapter extends AuthenticationPort {
       })
 
       if (!session) {
-        logger.trace({}, 'getSession: session not found in database')
+        this.recordAuthEvent('auth_session_not_found', 'failure', 'unknown', null, 'trace')
         return null
       }
 
       if (new Date(session.expiresAt) < new Date()) {
-        logger.trace({ userId: session.userId }, 'getSession: session expired')
+        this.recordAuthEvent(
+          'auth_session_expired',
+          'failure',
+          String(session.userId),
+          null,
+          'trace'
+        )
         return null
       }
 
@@ -67,7 +75,13 @@ export class BetterAuthAdapter extends AuthenticationPort {
       })
 
       if (!user) {
-        logger.trace({ userId: session.userId }, 'getSession: user not found')
+        this.recordAuthEvent(
+          'auth_session_user_not_found',
+          'failure',
+          String(session.userId),
+          null,
+          'trace'
+        )
         return null
       }
 
@@ -80,7 +94,14 @@ export class BetterAuthAdapter extends AuthenticationPort {
         user: this.mapToAuthProviderUser(user),
       }
     } catch (err) {
-      logger.error({ err }, 'getSession: database error')
+      this.recordAuthEvent(
+        'auth_session_database_error',
+        'failure',
+        'unknown',
+        null,
+        'error',
+        err instanceof Error ? { errorMessage: err.message, errorName: err.name } : undefined
+      )
       return null
     }
   }
@@ -320,5 +341,30 @@ export class BetterAuthAdapter extends AuthenticationPort {
       isAnonymous: user.isAnonymous ?? false,
       name: user.name ?? null,
     }
+  }
+
+  private recordAuthEvent(
+    event: string,
+    outcome: 'failure' | 'success',
+    entityId: string,
+    userId: null | string,
+    level: 'debug' | 'error' | 'fatal' | 'info' | 'trace' | 'warn',
+    metadata?: Record<string, unknown>
+  ): void {
+    const defaults = getDefaultStructuredLogFields()
+
+    this.activitySink?.record({
+      context: 'UserManagement',
+      entityId,
+      entityType: 'auth',
+      event,
+      level,
+      metadata,
+      outcome,
+      requestId: defaults.requestId ?? 'system',
+      tenantId: defaults.tenantId ?? null,
+      timestamp: toIsoTimestamp(),
+      userId: userId ?? defaults.userId ?? null,
+    })
   }
 }

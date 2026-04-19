@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { getDefaultStructuredLogFields, toIsoTimestamp } from '#core/common/logging/structured_log'
 import { HttpProblem } from '#core/common/resources/http_problem'
 import { AuthenticationError } from '#core/user_management/domain/errors'
 import app from '@adonisjs/core/services/app'
@@ -29,7 +30,22 @@ router
     try {
       webResponse = await auth.handler(webRequest)
     } catch (error) {
-      logger.error({ err: error }, 'Better Auth handler threw')
+      const defaults = getDefaultStructuredLogFields()
+
+      logger.error(
+        {
+          context: 'UserManagement',
+          entityId: 'authentication',
+          entityType: 'auth',
+          event: 'better_auth_handler_error',
+          level: 'error',
+          requestId: defaults.requestId ?? request.header('x-request-id') ?? 'unknown',
+          tenantId: defaults.tenantId ?? null,
+          timestamp: toIsoTimestamp(),
+          userId: defaults.userId ?? null,
+        },
+        error instanceof Error ? error.name : 'Better Auth handler threw'
+      )
       HttpProblem.fromError(new AuthenticationError()).toResponse(response)
       return
     }

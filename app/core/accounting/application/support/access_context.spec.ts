@@ -24,6 +24,7 @@ test.group('Accounting access context', () => {
     assert.deepEqual(access, {
       actorId: 'user-1',
       isAnonymous: true,
+      requestId: 'unknown',
     })
   })
 })
