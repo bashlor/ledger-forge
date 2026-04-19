@@ -9,40 +9,36 @@ import type {
   SaveInvoiceLineInput,
 } from './types.js'
 
+import {
+  assertInvoiceCanBeMarkedPaid as assertInvoiceCanBeMarkedPaidRule,
+  assertInvoiceCanBeSent,
+  assertInvoiceDateIsValidForBusinessRules,
+  assertInvoiceDueDateIsNotBefore,
+  assertInvoiceIsDraft,
+} from './domain/invoice_rules.js'
+
 export function assertDueDateIsNotBefore(dueDate: string, minDate: string, message: string) {
-  if (!dueDate || dueDate < minDate) {
-    throw new DomainError(message, 'business_logic_error')
-  }
+  assertInvoiceDueDateIsNotBefore(dueDate, minDate, message)
 }
 
 export function assertInvoiceCanBeDeleted(status: InvoiceStatus) {
-  if (status !== 'draft') {
-    throw new DomainError('Only draft invoices can be deleted.', 'business_logic_error')
-  }
+  assertInvoiceIsDraft(status, 'Only draft invoices can be deleted.')
 }
 
 export function assertInvoiceCanBeIssued(status: InvoiceStatus) {
-  if (status !== 'draft') {
-    throw new DomainError('Only draft invoices can be issued.', 'business_logic_error')
-  }
+  assertInvoiceCanBeSent(status)
 }
 
 export function assertInvoiceCanBeMarkedPaid(status: InvoiceStatus) {
-  if (status !== 'issued') {
-    throw new DomainError('Only issued invoices can be marked as paid.', 'business_logic_error')
-  }
+  assertInvoiceCanBeMarkedPaidRule(status)
 }
 
 export function assertInvoiceCanBeUpdated(status: InvoiceStatus) {
-  if (status !== 'draft') {
-    throw new DomainError('Only draft invoices can be edited.', 'business_logic_error')
-  }
+  assertInvoiceIsDraft(status)
 }
 
 export function assertInvoiceDates(issueDate: string, dueDate: string) {
-  if (dueDate < issueDate) {
-    throw new DomainError('Due date cannot be before the issue date.', 'business_logic_error')
-  }
+  assertInvoiceDateIsValidForBusinessRules(issueDate, dueDate)
 }
 
 export function normalizeIssueInvoiceInput(input: IssueInvoiceInput): NormalizedIssueInvoiceInput {

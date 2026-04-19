@@ -1,4 +1,8 @@
 import type { DateFilter } from '#core/accounting/application/expenses/index'
+import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
+
+import type { InvoiceStatus } from './domain/invoice_status.js'
+export type { InvoiceStatus } from './domain/invoice_status.js'
 
 export interface CustomerForSelectDto {
   company: string
@@ -80,10 +84,13 @@ export interface InvoiceListScopeInput {
   dateFilter?: DateFilter
 }
 
+export interface InvoiceRequestContext extends AccountingAccessContext {
+  tenantId?: null | string
+}
+
 export type InvoiceRow =
   (typeof import('#core/accounting/drizzle/schema'))['invoices']['$inferSelect']
 
-export type InvoiceStatus = 'draft' | 'issued' | 'paid'
 export interface InvoiceSummaryDto {
   draftCount: number
   issuedCount: number

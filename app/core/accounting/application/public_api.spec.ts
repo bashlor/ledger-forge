@@ -1,12 +1,18 @@
-import { CustomerService, type CustomerDto } from '#core/accounting/application/customers/index'
+import { type CustomerDto, CustomerService } from '#core/accounting/application/customers/index'
+import { type DashboardDto, DashboardService } from '#core/accounting/application/dashboard/index'
 import {
-  ExpenseService,
   EXPENSE_CATEGORIES,
   type ExpenseConcurrencyHooks,
   type ExpenseDto,
+  ExpenseService,
   type ExpenseSummary,
 } from '#core/accounting/application/expenses/index'
-import { DashboardService, type DashboardDto } from '#core/accounting/application/dashboard/index'
+import {
+  createInvoiceUseCase,
+  type InvoiceDto,
+  InvoiceService,
+  type InvoiceStatus,
+} from '#core/accounting/application/invoices/index'
 import { test } from '@japa/runner'
 
 test.group('Accounting application public API', () => {
@@ -14,6 +20,8 @@ test.group('Accounting application public API', () => {
     assert.isFunction(CustomerService)
     assert.isFunction(ExpenseService)
     assert.isFunction(DashboardService)
+    assert.isFunction(InvoiceService)
+    assert.isFunction(createInvoiceUseCase)
     assert.isArray(EXPENSE_CATEGORIES)
 
     const customerDto: CustomerDto = {
@@ -53,11 +61,42 @@ test.group('Accounting application public API', () => {
         totalRevenue: 0,
       },
     }
+    const invoiceStatus: InvoiceStatus = 'draft'
+    const invoiceDto: InvoiceDto = {
+      createdAt: '2026-04-01',
+      customerCompanyAddressSnapshot: '1 rue de test',
+      customerCompanyName: 'Acme',
+      customerCompanySnapshot: 'Acme',
+      customerEmailSnapshot: 'contact@acme.test',
+      customerId: 'customer-1',
+      customerPhoneSnapshot: '+33 6 00 00 00 00',
+      customerPrimaryContactSnapshot: 'Alice',
+      dueDate: '2026-04-10',
+      id: 'invoice-1',
+      invoiceNumber: 'INV-2026-001',
+      issueDate: '2026-04-01',
+      issuedCompanyAddress: '',
+      issuedCompanyName: '',
+      lines: [],
+      status: invoiceStatus,
+      subtotalExclTax: 0,
+      totalInclTax: 0,
+      totalVat: 0,
+    }
 
     assert.equal(customerDto.company, 'Acme')
     assert.equal(expenseDto.label, 'Coffee')
     assert.equal(expenseSummary.totalCount, 1)
     assert.deepEqual(expenseHooks, {})
     assert.deepEqual(dashboardDto.recentInvoices, [])
+    assert.equal(invoiceDto.invoiceNumber, 'INV-2026-001')
+  })
+
+  test('invoice index hides internal db helpers', async ({ assert }) => {
+    const invoiceApi = await import('#core/accounting/application/invoices/index')
+
+    assert.isUndefined((invoiceApi as Record<string, unknown>).insertInvoice)
+    assert.isUndefined((invoiceApi as Record<string, unknown>).getInvoiceById)
+    assert.isUndefined((invoiceApi as Record<string, unknown>).assertInvoiceCanBeSent)
   })
 })
