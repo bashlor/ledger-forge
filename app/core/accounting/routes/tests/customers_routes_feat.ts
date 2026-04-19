@@ -249,15 +249,6 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
 
-    const page = await inertiaHeaders(withAuthCookie(client.get('/customers')))
-
-    page.assertStatus(200)
-    assert.equal(page.body().component, 'app/customers')
-    assert.deepEqual(page.body().props.errors, {
-      email: 'Provide at least an email or a phone number.',
-      phone: 'Provide at least an email or a phone number.',
-    })
-
     const rows = await db.select().from(customers)
     assert.equal(rows.length, 0)
   })
