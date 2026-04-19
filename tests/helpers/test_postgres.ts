@@ -11,6 +11,8 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 
+import { prepareTestcontainersRuntime } from './testcontainers_runtime.js'
+
 const TEST_CONTAINER_DATABASE = 'accounting_integration_test'
 const TEST_CONTAINER_PASSWORD = 'accounting_test_password'
 const TEST_CONTAINER_USERNAME = 'accounting_test_user'
@@ -34,6 +36,8 @@ export function bindTestServices(context: TestPostgresContext): void {
 }
 
 export async function createTestPostgresContext(): Promise<TestPostgresContext> {
+  prepareTestcontainersRuntime()
+
   const postgresImage = env.get('POSTGRES_TEST_IMAGE')
   if (!postgresImage) {
     throw new Error('Missing POSTGRES_TEST_IMAGE in test environment configuration.')
