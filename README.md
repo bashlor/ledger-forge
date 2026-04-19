@@ -83,9 +83,10 @@ A simpler request/response model keeps the code easier to review and discuss.
 app/
   core/
     accounting/
+      application/
       http/
-      services/
-      dto/
+      drizzle/
+      routes/
     user_management/
     common/
 ```
@@ -96,13 +97,13 @@ app/
 Routes
 -> Controllers
 -> Validators
--> Services
+-> Application
 -> Database
 ```
 
 - Controllers handle HTTP concerns
 - Validators sanitize inputs
-- Services enforce business rules
+- Application enforces business rules and orchestration
 - Database guarantees persistence
 
 ---
@@ -201,10 +202,30 @@ This script:
 
 # Tests
 
-## Integration tests
+## Backend suites
+
+- `pnpm test:backend` or `pnpm test` runs all backend suites through `node ace test`
+- `pnpm test:unit:backend` runs only `unit`
+- `pnpm test:integration` runs only `integration`
+- `pnpm test:routes` runs only `routes`
+- `pnpm test:console` runs only `console`
+- `pnpm test:browser` runs only `browser`
+
+Naming and discovery conventions are intentionally frozen:
+
+- `*_spec.ts` or `*.spec.ts` for `unit`
+- `*_int.ts` or `*.int.ts` for `integration`
+- `*_feat.ts` or `*.feat.ts` for `routes`
+- `*_e2e.ts` or `*.e2e.ts` for `browser`
+- `*_console.spec.ts` or `*.console.spec.ts` for `console`
+
+`unit` only scans `app/**` and `tests/helpers/**`.
+`tests/console/**` is isolated from the unit suite on purpose.
+
+## Testcontainers / Podman
 
 Integration, routes, browser, and console suites rely on `testcontainers`.
-On Podman rootless, the test wrapper exports the Podman socket for `testcontainers` automatically when `podman.socket` is available.
+On Podman rootless, the backend test wrapper exports the Podman socket automatically when `podman.socket` is available.
 
 ```bash
 pnpm test:integration
@@ -215,6 +236,15 @@ If you use Podman outside Toolbox and the runtime is not detected:
 ```bash
 systemctl --user enable --now podman.socket
 pnpm test:integration
+```
+
+## Playwright
+
+Browser tests also need a local Playwright browser binary:
+
+```bash
+pnpm playwright:install
+pnpm test:browser
 ```
 
 # Podman

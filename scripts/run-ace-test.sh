@@ -12,6 +12,10 @@ require_cmd() {
   }
 }
 
+generate_registry() {
+  node "$REPO_ROOT/scripts/generate_tuyau_registry.mjs"
+}
+
 ensure_podman_socket() {
   local socket_path="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
 
@@ -64,7 +68,26 @@ EOF
   exit 1
 }
 
+ensure_playwright_browser() {
+  if pnpm exec node -e "import('node:fs').then((fs) => import('playwright').then(({ chromium }) => process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)))" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  cat >&2 <<'EOF'
+Playwright is installed, but no browser binary is available for the browser suite.
+
+Run:
+  pnpm playwright:install
+
+Then re-run the test command.
+EOF
+  exit 1
+}
+
 require_cmd pnpm
+require_cmd node
+
+generate_registry
 
 SUITE="${1:-}"
 shift || true
@@ -72,6 +95,9 @@ shift || true
 case "$SUITE" in
   integration|routes|browser|console)
     prepare_testcontainers_runtime
+    if [[ "$SUITE" == "browser" ]]; then
+      ensure_playwright_browser
+    fi
     exec pnpm exec node ace test "$SUITE" "$@"
     ;;
   "")

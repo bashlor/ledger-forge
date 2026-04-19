@@ -6,6 +6,7 @@ import { test } from '@japa/runner'
 
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 import {
+  authCookie,
   bindInvoiceAuth,
   createDraftViaService,
   inertiaGet,
@@ -199,6 +200,80 @@ test.group('Invoices routes | GET /invoices', (group) => {
       props.invoices.items.map((item: any) => item.customerId),
       [SECOND_CUSTOMER_ID]
     )
+  })
+
+  test('GET /invoices does not inject an explicit invoice when it falls outside the current customer scope', async ({
+    assert,
+    client,
+  }) => {
+    const service = new InvoiceService(db)
+    const otherCustomerInvoice = await createDraftViaService(service, {
+      customerId: SECOND_CUSTOMER_ID,
+      issueDate: '2026-04-01',
+    })
+    await createDraftViaService(service, { customerId: TEST_CUSTOMER_ID, issueDate: '2026-04-02' })
+    await createDraftViaService(service, { customerId: TEST_CUSTOMER_ID, issueDate: '2026-04-03' })
+    await createDraftViaService(service, { customerId: TEST_CUSTOMER_ID, issueDate: '2026-04-04' })
+    await createDraftViaService(service, { customerId: TEST_CUSTOMER_ID, issueDate: '2026-04-05' })
+    await createDraftViaService(service, { customerId: TEST_CUSTOMER_ID, issueDate: '2026-04-06' })
+    const newestInPage = await createDraftViaService(service, {
+      customerId: TEST_CUSTOMER_ID,
+      issueDate: '2026-04-07',
+    })
+
+    const response = await inertiaGet(
+      client,
+      `/invoices?customer=${TEST_CUSTOMER_ID}&invoice=${otherCustomerInvoice.id}`
+    )
+
+    response.assertStatus(200)
+
+    const props = inertiaProps(response)
+    // The requested invoice id stays in UI state, but the page must not prepend
+    // a record that is outside the current customer-scoped selection.
+    assert.equal(props.initialCustomerId, TEST_CUSTOMER_ID)
+    assert.equal(props.initialInvoiceId, otherCustomerInvoice.id)
+    assert.equal(props.invoices.pagination.page, 1)
+    assert.lengthOf(props.invoices.items, 5)
+    assert.equal(props.invoices.items[0].id, newestInPage.id)
+    assert.notInclude(
+      props.invoices.items.map((item: any) => item.id),
+      otherCustomerInvoice.id
+    )
+  })
+
+  test('GET /invoices with only startDate redirects back with validation errors', async ({
+    client,
+  }) => {
+    const response = await client
+      .get('/invoices')
+      .header('cookie', authCookie())
+      .qs({ startDate: '2026-04-01' })
+      .redirects(0)
+
+    response.assertStatus(302)
+  })
+
+  test('GET /invoices with only endDate redirects back with validation errors', async ({
+    client,
+  }) => {
+    const response = await client
+      .get('/invoices')
+      .header('cookie', authCookie())
+      .qs({ endDate: '2026-04-30' })
+      .redirects(0)
+
+    response.assertStatus(302)
+  })
+
+  test('GET /invoices rejects inverted date ranges', async ({ client }) => {
+    const response = await client
+      .get('/invoices')
+      .header('cookie', authCookie())
+      .qs({ endDate: '2026-04-01', startDate: '2026-04-30' })
+      .redirects(0)
+
+    response.assertStatus(302)
   })
 
   test('GET /invoices with mode=new exposes create mode in inertia props', async ({
