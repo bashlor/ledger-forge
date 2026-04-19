@@ -14,8 +14,6 @@ export default class ForgotPasswordController {
   async store({ logger, request, response, session }: HttpContext, auth: AuthenticationPort) {
     const { email } = await request.validateUsing(forgotPasswordValidator)
 
-    logger.info({ email }, 'Password reset request')
-
     try {
       await auth.requestPasswordReset(email)
     } catch (error) {

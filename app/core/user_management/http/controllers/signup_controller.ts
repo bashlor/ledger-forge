@@ -17,7 +17,6 @@ export default class SignupController {
     const { email, fullName, password } = await ctx.request.validateUsing(signupValidator)
 
     try {
-      ctx.logger.info({ email }, 'Signup attempt')
       const authentication = await auth.signUp(email, password, fullName ?? undefined)
 
       writeSessionToken(ctx, {
@@ -25,7 +24,7 @@ export default class SignupController {
         token: authentication.session.token,
       })
 
-      ctx.logger.info({ email }, 'Signup success')
+      ctx.logger.info('Signup success')
       return ctx.response.redirect('/dashboard')
     } catch (error) {
       return presentAuthError(ctx, error as Error, 'E_SIGNUP_ERROR')

@@ -17,7 +17,6 @@ export default class SigninController {
     const { email, password } = await ctx.request.validateUsing(loginValidator)
 
     try {
-      ctx.logger.info({ email }, 'Login attempt')
       const authentication = await auth.signIn(email, password)
 
       writeSessionToken(ctx, {
@@ -25,7 +24,7 @@ export default class SigninController {
         token: authentication.session.token,
       })
 
-      ctx.logger.info({ email }, 'Login success')
+      ctx.logger.info('Login success')
       return ctx.response.redirect('/dashboard')
     } catch (error) {
       return presentAuthError(ctx, error as Error, 'E_INVALID_CREDENTIALS')

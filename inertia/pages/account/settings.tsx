@@ -12,6 +12,7 @@ interface SettingsProps {
 
 export default function Settings({ user }: SettingsProps) {
   const isAnonymous = usePage<Data.SharedProps>().props.user?.isAnonymous ?? false
+
   if (!user) {
     return (
       <div className="mx-auto max-w-3xl px-1">
@@ -50,9 +51,13 @@ export default function Settings({ user }: SettingsProps) {
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
                 Security
               </p>
-              <p className="mt-1.5 text-sm font-semibold text-on-surface">Password protected</p>
+              <p className="mt-1.5 text-sm font-semibold text-on-surface">
+                {isAnonymous ? 'Anonymous session' : 'Password protected'}
+              </p>
               <p className="mt-0.5 text-sm text-on-surface-variant">
-                Rotate credentials when needed.
+                {isAnonymous
+                  ? 'Anonymous accounts can browse the workspace but cannot change profile or credentials.'
+                  : 'Rotate credentials when needed.'}
               </p>
             </div>
           </div>
@@ -69,62 +74,71 @@ export default function Settings({ user }: SettingsProps) {
               Public identity
             </h2>
             <p className="mt-2 text-sm text-on-surface-variant">
-              Update the operator name shown across the workspace.
+              {isAnonymous
+                ? 'Anonymous sessions are read-only and cannot update profile details.'
+                : 'Update the operator name shown across the workspace.'}
             </p>
           </div>
 
-          <Form className="mt-6 space-y-5" route="account.store">
-            {({ errors }) => (
-              <>
-                <div className="grid gap-5 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label
-                      className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
-                      htmlFor="email"
-                    >
-                      Email
-                    </label>
-                    <input
-                      className="w-full rounded-xl border border-outline-variant/35 bg-surface-container-low px-3 py-3 text-sm text-on-surface-variant outline-hidden"
-                      defaultValue={user.email}
-                      disabled
-                      id="email"
-                      type="email"
-                    />
+          {!isAnonymous ? (
+            <Form className="mt-6 space-y-5" route="account.store">
+              {({ errors }) => (
+                <>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
+                        htmlFor="email"
+                      >
+                        Email
+                      </label>
+                      <input
+                        className="w-full rounded-xl border border-outline-variant/35 bg-surface-container-low px-3 py-3 text-sm text-on-surface-variant outline-hidden"
+                        defaultValue={user.email}
+                        disabled
+                        id="email"
+                        type="email"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
+                        htmlFor="name"
+                      >
+                        Full name
+                      </label>
+                      <input
+                        className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                        data-invalid={errors.name ? 'true' : undefined}
+                        defaultValue={user.name}
+                        id="name"
+                        name="name"
+                        type="text"
+                      />
+                      {errors.name ? (
+                        <p className="text-sm font-medium text-error">{errors.name}</p>
+                      ) : null}
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label
-                      className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
-                      htmlFor="name"
+                  <div className="flex justify-end">
+                    <button
+                      className="inline-flex min-w-44 items-center justify-center rounded-xl px-4 py-3 font-headline text-sm font-bold text-on-primary milled-steel-gradient transition-all hover:opacity-95"
+                      type="submit"
                     >
-                      Full name
-                    </label>
-                    <input
-                      className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-                      data-invalid={errors.name ? 'true' : undefined}
-                      defaultValue={user.name}
-                      id="name"
-                      name="name"
-                      type="text"
-                    />
-                    {errors.name ? (
-                      <p className="text-sm font-medium text-error">{errors.name}</p>
-                    ) : null}
+                      Update profile
+                    </button>
                   </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    className="inline-flex min-w-44 items-center justify-center rounded-xl px-4 py-3 font-headline text-sm font-bold text-on-primary milled-steel-gradient transition-all hover:opacity-95"
-                    type="submit"
-                  >
-                    Update profile
-                  </button>
-                </div>
-              </>
-            )}
-          </Form>
+                </>
+              )}
+            </Form>
+          ) : (
+            <div className="mt-6 rounded-2xl bg-surface-container-low px-4 py-4 text-sm text-on-surface-variant">
+              Anonymous mode keeps this page visible for inspection only. Create a full account to
+              edit your profile or password.
+            </div>
+          )}
         </section>
 
         {!isAnonymous ? (

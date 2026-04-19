@@ -45,7 +45,7 @@ export default class HttpExceptionHandler extends ExceptionHandler {
       const status = domainErrorToHttpStatus(error.type)
 
       if (wantsJson(ctx)) {
-        HttpProblem.fromDomainError(error).toResponse(ctx.response)
+        HttpProblem.fromError(error).toResponse(ctx.response)
         return
       }
 
@@ -63,12 +63,10 @@ export default class HttpExceptionHandler extends ExceptionHandler {
     // ----- Generic unhandled error + JSON consumer → Problem Details -----
     if (wantsJson(ctx)) {
       const status = (error as { status?: number })?.status ?? 500
-      const message =
-        app.inProduction && status === 500
-          ? 'An unexpected error occurred.'
-          : ((error as Error)?.message ?? 'An unexpected error occurred.')
-
-      HttpProblem.fromStatus(status, message).toResponse(ctx.response)
+      HttpProblem.fromError(error, {
+        exposeInternalMessage: !app.inProduction,
+        statusOverride: status,
+      }).toResponse(ctx.response)
       return
     }
 

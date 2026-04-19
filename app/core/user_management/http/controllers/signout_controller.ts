@@ -11,8 +11,6 @@ export default class SignoutController {
     const sessionToken = readSessionToken(ctx)
     const isAnonymous = ctx.authSession?.user.isAnonymous ?? false
 
-    ctx.logger.info({ isAnonymous, userId: ctx.authSession?.user.id ?? null }, 'Signout attempt')
-
     try {
       if (sessionToken) {
         await auth.signOut(sessionToken)
