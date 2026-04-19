@@ -389,6 +389,51 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(free?.canDelete, true)
   })
 
+  test('customer listing clamps invalid pagination inputs', async ({ assert }) => {
+    await db.insert(customers).values([
+      {
+        address: '1 test street',
+        company: 'Alpha Co',
+        email: 'alpha@example.com',
+        id: uuidv7(),
+        name: 'Alpha User',
+        phone: '+1 555 1000',
+      },
+      {
+        address: '2 test street',
+        company: 'Beta Co',
+        email: 'beta@example.com',
+        id: uuidv7(),
+        name: 'Beta User',
+        phone: '+1 555 1001',
+      },
+      {
+        address: '3 test street',
+        company: 'Gamma Co',
+        email: 'gamma@example.com',
+        id: uuidv7(),
+        name: 'Gamma User',
+        phone: '+1 555 1002',
+      },
+    ])
+
+    const customerService = new CustomerService(db)
+
+    const negativePage = await customerService.listCustomersPage(-4, 2)
+    assert.equal(negativePage.pagination.page, 1)
+    assert.equal(negativePage.pagination.perPage, 2)
+    assert.equal(negativePage.items.length, 2)
+
+    const oversizedPage = await customerService.listCustomersPage(999, 2)
+    assert.equal(oversizedPage.pagination.page, 2)
+    assert.equal(oversizedPage.pagination.totalPages, 2)
+    assert.equal(oversizedPage.items.length, 1)
+
+    const invalidPerPage = await customerService.listCustomersPage(1, 0)
+    assert.equal(invalidPerPage.pagination.perPage, 1)
+    assert.equal(invalidPerPage.items.length, 1)
+  })
+
   test('deleting a non-existent customer returns 404', async ({ assert, client }) => {
     const response = await withAuthCookie(client.delete('/customers/non-existent-id'))
       .header('accept', 'application/json')

@@ -6,59 +6,26 @@ import {
   type AccountingAccessContext,
   SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
 } from '#core/accounting/application/support/access_context'
-import { customers, invoices } from '#core/accounting/drizzle/schema'
+import { clampInteger } from '#core/accounting/application/support/pagination'
 import { DomainError } from '#core/common/errors/domain_error'
-import { and, count, eq, inArray, sql } from 'drizzle-orm'
-import { v7 as uuidv7 } from 'uuid'
 
-export interface CreateCustomerInput {
-  address: string
-  company: string
-  email?: string
-  name: string
-  note?: string
-  phone?: string
-}
+import type { CreateCustomerInput, CustomerDto, CustomerListResult } from './types.js'
 
-export interface CustomerListResult {
-  items: CustomerDto[]
-  pagination: {
-    page: number
-    perPage: number
-    totalItems: number
-    totalPages: number
-  }
-  summary: {
-    linkedCustomers: number
-    totalCount: number
-    totalInvoiced: number
-  }
-}
-
-interface CustomerDto {
-  address: string
-  canDelete: boolean
-  company: string
-  deleteBlockReason?: string
-  email: string
-  id: string
-  invoiceCount: number
-  name: string
-  note?: string
-  phone: string
-  totalInvoiced: number
-}
-
-type CustomerRow = typeof customers.$inferSelect
-
-interface NormalizedCustomerInput {
-  address: string
-  company: string
-  email: string
-  name: string
-  note: string | undefined
-  phone: string
-}
+import {
+  deleteCustomerIfUnlinked,
+  insertCustomer,
+  syncDraftInvoiceCustomerSnapshots,
+  updateCustomerById,
+} from './commands.js'
+import { toCustomerDto } from './mappers.js'
+import {
+  customerStateForDelete,
+  findCustomerById,
+  invoiceAggregateForCustomer,
+  listCustomersWithAggregates,
+} from './queries.js'
+import { MAX_PER_PAGE, MIN_PER_PAGE } from './types.js'
+import { normalizeCustomerInput } from './validation.js'
 
 export class CustomerService {
   private readonly activitySink?: AccountingActivitySink
@@ -75,19 +42,7 @@ export class CustomerService {
     access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<CustomerDto> {
     const normalized = normalizeCustomerInput(input)
-
-    const [row] = await this.db
-      .insert(customers)
-      .values({
-        address: normalized.address,
-        company: normalized.company,
-        email: normalized.email,
-        id: uuidv7(),
-        name: normalized.name,
-        note: normalized.note,
-        phone: normalized.phone,
-      })
-      .returning()
+    const row = await insertCustomer(this.db, normalized)
 
     await this.activitySink?.record({
       actorId: access.actorId,
@@ -107,30 +62,10 @@ export class CustomerService {
     access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<void> {
     await this.db.transaction(async (tx) => {
-      const [deleted] = await tx
-        .delete(customers)
-        .where(
-          and(
-            eq(customers.id, id),
-            sql`not exists (
-              select 1
-              from ${invoices}
-              where ${invoices.customerId} = ${customers.id}
-            )`
-          )
-        )
-        .returning({ id: customers.id })
+      const deleted = await deleteCustomerIfUnlinked(tx, id)
 
       if (!deleted) {
-        const [state] = await tx
-          .select({
-            id: customers.id,
-            invoiceCount: count(invoices.id),
-          })
-          .from(customers)
-          .leftJoin(invoices, eq(invoices.customerId, customers.id))
-          .where(eq(customers.id, id))
-          .groupBy(customers.id)
+        const state = await customerStateForDelete(tx, id)
 
         if (!state) {
           throw new DomainError('Customer not found.', 'not_found')
@@ -163,88 +98,34 @@ export class CustomerService {
     perPage = 5,
     _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<CustomerListResult> {
-    const [{ totalCount }] = await this.db.select({ totalCount: count() }).from(customers)
-
-    const totalPages = Math.max(1, Math.ceil(totalCount / perPage))
-    const safePage = Math.min(Math.max(page, 1), totalPages)
-    const offset = (safePage - 1) * perPage
-
-    const [{ linkedCustomers }] = await this.db
-      .select({
-        linkedCustomers: sql<number>`count(distinct ${invoices.customerId})::int`.mapWith(Number),
-      })
-      .from(invoices)
-
-    const [{ totalInvoicedCents }] = await this.db
-      .select({
-        totalInvoicedCents:
-          sql<number>`coalesce(sum(${invoices.totalInclTaxCents}) filter (where ${invoices.status} <> 'draft'), 0)::bigint`.mapWith(
-            Number
-          ),
-      })
-      .from(invoices)
-
-    const rows = await this.db
-      .select()
-      .from(customers)
-      .orderBy(customers.company)
-      .limit(perPage)
-      .offset(offset)
+    const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
+    const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
+    const { aggregatesByCustomerId, linkedCustomers, pagination, rows, totalInvoicedCents } =
+      await listCustomersWithAggregates(this.db, requestedPage, safePerPage)
 
     if (rows.length === 0) {
       return {
         items: [],
-        pagination: {
-          page: safePage,
-          perPage,
-          totalItems: totalCount,
-          totalPages,
-        },
+        pagination,
         summary: {
           linkedCustomers,
-          totalCount,
+          totalCount: pagination.totalItems,
           totalInvoiced: Number(totalInvoicedCents ?? 0) / 100,
         },
       }
     }
 
-    const ids = rows.map((r) => r.id)
-    const aggRows = await this.db
-      .select({
-        customerId: invoices.customerId,
-        invoiceCount: sql<number>`count(${invoices.id})::int`.mapWith(Number),
-        totalInvoicedCents:
-          sql<number>`coalesce(sum(case when ${invoices.status} <> 'draft' then ${invoices.totalInclTaxCents} else 0 end), 0)::bigint`.mapWith(
-            Number
-          ),
-      })
-      .from(invoices)
-      .where(inArray(invoices.customerId, ids))
-      .groupBy(invoices.customerId)
-
-    const aggById = new Map(
-      aggRows.map((a) => [
-        a.customerId,
-        { invoiceCount: a.invoiceCount, totalInvoicedCents: a.totalInvoicedCents },
-      ])
-    )
-
     const items = rows.map((row) => {
-      const agg = aggById.get(row.id) ?? { invoiceCount: 0, totalInvoicedCents: 0 }
+      const agg = aggregatesByCustomerId.get(row.id) ?? { invoiceCount: 0, totalInvoicedCents: 0 }
       return toCustomerDto(row, agg)
     })
 
     return {
       items,
-      pagination: {
-        page: safePage,
-        perPage,
-        totalItems: totalCount,
-        totalPages,
-      },
+      pagination,
       summary: {
         linkedCustomers,
-        totalCount,
+        totalCount: pagination.totalItems,
         totalInvoiced: Number(totalInvoicedCents ?? 0) / 100,
       },
     }
@@ -255,7 +136,7 @@ export class CustomerService {
     input: CreateCustomerInput,
     access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<CustomerDto> {
-    const [existing] = await this.db.select().from(customers).where(eq(customers.id, id))
+    const existing = await findCustomerById(this.db, id)
 
     if (!existing) {
       throw new DomainError('Customer not found.', 'not_found')
@@ -270,35 +151,14 @@ export class CustomerService {
       existing.phone !== normalized.phone
 
     const updatedRow = await this.db.transaction(async (tx) => {
-      const [updated] = await tx
-        .update(customers)
-        .set({
-          address: normalized.address,
-          company: normalized.company,
-          email: normalized.email,
-          name: normalized.name,
-          note: normalized.note,
-          phone: normalized.phone,
-        })
-        .where(eq(customers.id, id))
-        .returning()
+      const updated = await updateCustomerById(tx, id, normalized)
 
       if (!updated) {
         throw new DomainError('Customer not found.', 'not_found')
       }
 
       if (snapshotChanged) {
-        await tx
-          .update(invoices)
-          .set({
-            customerCompanyAddressSnapshot: normalized.address,
-            customerCompanyName: normalized.company,
-            customerCompanySnapshot: normalized.company,
-            customerEmailSnapshot: normalized.email,
-            customerPhoneSnapshot: normalized.phone,
-            customerPrimaryContactSnapshot: normalized.name,
-          })
-          .where(and(eq(invoices.customerId, id), eq(invoices.status, 'draft')))
+        await syncDraftInvoiceCustomerSnapshots(tx, id, normalized)
       }
 
       return updated
@@ -314,84 +174,7 @@ export class CustomerService {
       resourceType: 'customer',
     })
 
-    const agg = await this.invoiceAggregateForCustomer(id)
+    const agg = await invoiceAggregateForCustomer(this.db, id)
     return toCustomerDto(updatedRow, agg)
-  }
-
-  private async invoiceAggregateForCustomer(customerId: string): Promise<{
-    invoiceCount: number
-    totalInvoicedCents: number
-  }> {
-    const [row] = await this.db
-      .select({
-        invoiceCount: sql<number>`count(${invoices.id})::int`.mapWith(Number),
-        totalInvoicedCents:
-          sql<number>`coalesce(sum(case when ${invoices.status} <> 'draft' then ${invoices.totalInclTaxCents} else 0 end), 0)::bigint`.mapWith(
-            Number
-          ),
-      })
-      .from(invoices)
-      .where(eq(invoices.customerId, customerId))
-
-    return {
-      invoiceCount: row?.invoiceCount ?? 0,
-      totalInvoicedCents: row?.totalInvoicedCents ?? 0,
-    }
-  }
-}
-
-function normalizeCustomerInput(input: CreateCustomerInput): NormalizedCustomerInput {
-  const address = input.address.trim()
-  const company = input.company.trim()
-  const email = input.email?.trim() || ''
-  const name = input.name.trim()
-  const note = input.note?.trim() || undefined
-  const phone = input.phone?.trim() || ''
-
-  if (!address) {
-    throw new DomainError('Customer address is required.', 'invalid_data')
-  }
-
-  if (!company) {
-    throw new DomainError('Customer company is required.', 'invalid_data')
-  }
-
-  if (!name) {
-    throw new DomainError('Customer contact name is required.', 'invalid_data')
-  }
-
-  if (!email && !phone) {
-    throw new DomainError('Provide at least an email or a phone number.', 'invalid_data')
-  }
-
-  return {
-    address,
-    company,
-    email,
-    name,
-    note,
-    phone,
-  }
-}
-
-function toCustomerDto(
-  row: CustomerRow,
-  agg: { invoiceCount: number; totalInvoicedCents: number }
-): CustomerDto {
-  const canDelete = agg.invoiceCount === 0
-  return {
-    address: row.address,
-    canDelete,
-    company: row.company,
-    deleteBlockReason: canDelete
-      ? undefined
-      : 'This customer is referenced by one or more invoices.',
-    email: row.email,
-    id: row.id,
-    invoiceCount: agg.invoiceCount,
-    name: row.name,
-    note: row.note ?? undefined,
-    phone: row.phone,
-    totalInvoiced: agg.totalInvoicedCents / 100,
   }
 }
