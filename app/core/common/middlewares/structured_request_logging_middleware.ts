@@ -14,12 +14,13 @@ export default class StructuredRequestLoggingMiddleware {
     const requestId = getRequestIdFromHttpContext(ctx)
     const context = resolveLogContext(ctx)
     const entityId = resolveEntityId(ctx)
+    const tenantId = resolveTenantIdFromAuthSession(ctx)
 
     return runWithRequestStructuredLogContext(
       {
         context,
         requestId,
-        tenantId: null,
+        tenantId,
         userId: ctx.authSession?.user.id ?? null,
       },
       async () => {
@@ -33,7 +34,7 @@ export default class StructuredRequestLoggingMiddleware {
             method: ctx.request.method().toUpperCase(),
             path: ctx.request.url(),
             requestId,
-            tenantId: null,
+            tenantId,
             timestamp: toIsoTimestamp(),
             userId: ctx.authSession?.user.id ?? null,
           },
@@ -46,7 +47,10 @@ export default class StructuredRequestLoggingMiddleware {
           const status = ctx.response.getStatus()
           const level = resolveLevel(status)
           const userId = ctx.authSession?.user.id ?? null
-          updateRequestStructuredLogContext({ userId })
+          updateRequestStructuredLogContext({
+            tenantId: resolveTenantIdFromAuthSession(ctx),
+            userId,
+          })
 
           ctx.logger[level](
             {
@@ -60,7 +64,7 @@ export default class StructuredRequestLoggingMiddleware {
               path: ctx.request.url(),
               requestId,
               status,
-              tenantId: null,
+              tenantId: resolveTenantIdFromAuthSession(ctx),
               timestamp: toIsoTimestamp(),
               userId,
             },
@@ -68,7 +72,10 @@ export default class StructuredRequestLoggingMiddleware {
           )
         } catch (error) {
           const userId = ctx.authSession?.user.id ?? null
-          updateRequestStructuredLogContext({ userId })
+          updateRequestStructuredLogContext({
+            tenantId: resolveTenantIdFromAuthSession(ctx),
+            userId,
+          })
 
           ctx.logger.error(
             {
@@ -83,7 +90,7 @@ export default class StructuredRequestLoggingMiddleware {
               path: ctx.request.url(),
               requestId,
               status: (error as { status?: number })?.status ?? 500,
-              tenantId: null,
+              tenantId: resolveTenantIdFromAuthSession(ctx),
               timestamp: toIsoTimestamp(),
               userId,
             },
@@ -131,4 +138,8 @@ function resolveLogContext(ctx: HttpContext): 'Accounting' | 'UserManagement' {
   }
 
   return 'Accounting'
+}
+
+function resolveTenantIdFromAuthSession(ctx: HttpContext): null | string {
+  return ctx.authSession?.session.activeOrganizationId ?? null
 }

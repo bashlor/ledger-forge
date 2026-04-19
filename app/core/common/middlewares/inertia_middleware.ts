@@ -4,6 +4,7 @@ import type { NextFn } from '@adonisjs/core/types/http'
 import BaseInertiaMiddleware from '@adonisjs/inertia/inertia_middleware'
 
 import '../../user_management/http/types/auth_session_context.js'
+import '../../user_management/http/types/workspace_context.js'
 
 export default class InertiaMiddleware extends BaseInertiaMiddleware {
   async handle(ctx: HttpContext, next: NextFn) {
@@ -32,6 +33,21 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
      * Shared with all Inertia pages for SSR/client-side rendering.
      */
     const authUser = ctx.authSession?.user
+    const workspace = ctx.workspaceShare
+    /**
+     * Inertia / http-transformers refuse top-level `null` for serialized props
+     * (`Cannot serialize an item with null value`). Use `undefined` when there
+     * is no active workspace so the key is omitted from the serialized payload.
+     */
+    const workspaceProps =
+      workspace === null || workspace === undefined
+        ? undefined
+        : {
+            id: workspace.id,
+            isAnonymousWorkspace: workspace.isAnonymousWorkspace,
+            name: workspace.name,
+            slug: workspace.slug,
+          }
 
     return {
       errors: ctx.inertia.always({
@@ -53,6 +69,7 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
             }
           : undefined
       ),
+      workspace: ctx.inertia.always(workspaceProps),
     }
   }
 
