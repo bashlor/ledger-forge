@@ -3,6 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
+import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
 import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'
@@ -18,7 +19,7 @@ export default class CustomersController {
   @inject()
   async destroy(ctx: HttpContext, customerService: CustomerService) {
     const { params } = await ctx.request.validateUsing(customerParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
@@ -32,7 +33,7 @@ export default class CustomersController {
   @inject()
   async index(ctx: HttpContext, customerService: CustomerService) {
     const { page } = await ctx.request.validateUsing(customerIndexValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
     const customers = await customerService.listCustomersPage(page ?? 1, PER_PAGE, access)
 
     return renderInertiaPage(ctx.inertia, 'app/customers', { customers })
@@ -41,7 +42,7 @@ export default class CustomersController {
   @inject()
   async store(ctx: HttpContext, customerService: CustomerService) {
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
@@ -56,7 +57,7 @@ export default class CustomersController {
   async update(ctx: HttpContext, customerService: CustomerService) {
     const { params } = await ctx.request.validateUsing(customerParamsValidator)
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,

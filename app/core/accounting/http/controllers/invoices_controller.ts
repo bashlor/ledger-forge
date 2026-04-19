@@ -4,6 +4,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
+import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
 import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'
@@ -20,7 +21,7 @@ export default class InvoicesController {
   @inject()
   async destroy(ctx: HttpContext, invoiceService: InvoiceService) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
@@ -34,7 +35,7 @@ export default class InvoicesController {
   @inject()
   async index(ctx: HttpContext, invoiceService: InvoiceService) {
     const { inertia, request } = ctx
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     const {
       customer,
@@ -87,7 +88,7 @@ export default class InvoicesController {
   async issue(ctx: HttpContext, invoiceService: InvoiceService) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const payload = await ctx.request.validateUsing(issueInvoiceValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
@@ -101,7 +102,7 @@ export default class InvoicesController {
   @inject()
   async markPaid(ctx: HttpContext, invoiceService: InvoiceService) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
@@ -115,7 +116,7 @@ export default class InvoicesController {
   @inject()
   async store(ctx: HttpContext, invoiceService: InvoiceService) {
     const payload = await ctx.request.validateUsing(saveInvoiceDraftValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     let createdId: string | undefined
 
@@ -137,7 +138,7 @@ export default class InvoicesController {
   async updateDraft(ctx: HttpContext, invoiceService: InvoiceService) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const payload = await ctx.request.validateUsing(saveInvoiceDraftValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,

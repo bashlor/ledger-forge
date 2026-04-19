@@ -3,6 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
+import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
 import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'
@@ -19,7 +20,7 @@ export default class ExpensesController {
   @inject()
   async confirmDraftExpense(ctx: HttpContext, expenseService: ExpenseService) {
     const { params } = await ctx.request.validateUsing(expenseParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
@@ -33,7 +34,7 @@ export default class ExpensesController {
   @inject()
   async deleteDraftExpense(ctx: HttpContext, expenseService: ExpenseService) {
     const { params } = await ctx.request.validateUsing(expenseParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
@@ -49,7 +50,7 @@ export default class ExpensesController {
     const { endDate, page, startDate } = await ctx.request.validateUsing(expenseIndexValidator)
     const dateFilter: DateFilter | undefined =
       startDate && endDate ? { endDate, startDate } : undefined
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     return ctx.inertia.render(
       'app/expenses' as never,
@@ -67,7 +68,7 @@ export default class ExpensesController {
   @inject()
   async store(ctx: HttpContext, expenseService: ExpenseService) {
     const payload = await ctx.request.validateUsing(createExpenseValidator)
-    const access = accountingAccessFromSession(ctx.authSession)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
