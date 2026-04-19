@@ -1,4 +1,4 @@
-type DomainErrorTag =
+export type DomainErrorTag =
   | 'already_exists'
   | 'business_logic_error'
   | 'forbidden'

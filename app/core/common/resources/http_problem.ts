@@ -1,4 +1,4 @@
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
 
 import {
   resolveBetterAuthPublicError,
@@ -49,18 +49,6 @@ export class HttpProblem {
   }
 
   /**
-   * Build a Problem Details from a DomainError-like object.
-   * Accepts any object whose `.type` is a known domain-error tag.
-   */
-  static fromDomainError(error: { message: string; type: string }): HttpProblem {
-    return HttpProblem.fromError(
-      error instanceof DomainError
-        ? error
-        : new DomainError(error.message, error.type as ConstructorParameters<typeof DomainError>[1])
-    )
-  }
-
-  /**
    * Build a Problem Details from any application error using the shared
    * public-error resolver.
    */
@@ -79,13 +67,6 @@ export class HttpProblem {
       undefined,
       { code: resolved.code }
     )
-  }
-
-  /**
-   * Build a Problem Details from an HTTP status code and an optional detail.
-   */
-  static fromStatus(status: number, detail?: string): HttpProblem {
-    return new HttpProblem(status, HTTP_STATUS_TITLES[status] ?? 'Error', detail)
   }
 
   // ---------------------------------------------------------------------------

@@ -1,10 +1,11 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { presentPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
 import { inject } from '@adonisjs/core'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
 import { SessionExpiredError } from '../../domain/errors.js'
-import { presentAuthError } from '../presenters/auth_error_presenter.js'
+import { rejectAnonymousAccountMutation } from '../helpers/reject_anonymous_account_mutation.js'
 import { readSessionToken } from '../session/session_token.js'
 import { updateProfileValidator } from '../validators/user.js'
 
@@ -45,14 +46,10 @@ export default class UpdateAccountController {
       ctx.session.flash('success', 'Profile updated successfully.')
       return ctx.response.redirect().toPath(ctx.request.url())
     } catch (error) {
-      return presentAuthError(ctx, error as Error, 'E_UPDATE_PROFILE')
+      return presentPublicError(ctx, error, {
+        errorKey: 'E_UPDATE_PROFILE',
+        flashAll: true,
+      })
     }
   }
-}
-
-function rejectAnonymousAccountMutation(ctx: HttpContext, message: string) {
-  ctx.logger.warn({ isAnonymous: true }, 'Anonymous account mutation rejected')
-  ctx.session.flashAll()
-  ctx.session.flash('notification', { message, type: 'error' })
-  return ctx.response.redirect().toPath(ctx.request.url())
 }

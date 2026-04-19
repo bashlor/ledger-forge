@@ -1,4 +1,4 @@
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
 import { test } from '@japa/runner'
 
 import { flashAction } from './flash_action.js'
@@ -22,7 +22,7 @@ test.group('flashAction', () => {
   test('flashes a success notification when the action succeeds', async ({ assert }) => {
     const { ctx, flashes } = createContext()
 
-    await flashAction(ctx as never, async () => {}, 'Saved.', 'Fallback.')
+    await flashAction(ctx as never, async () => {}, 'Saved.')
 
     assert.deepEqual(flashes, [
       {
@@ -40,8 +40,7 @@ test.group('flashAction', () => {
       async () => {
         throw new DomainError('Business rule failed', 'business_logic_error')
       },
-      'Saved.',
-      'Fallback.'
+      'Saved.'
     )
 
     assert.deepEqual(flashes, [
@@ -62,8 +61,7 @@ test.group('flashAction', () => {
       async () => {
         throw new DomainError('Customer address is required.', 'invalid_data')
       },
-      'Saved.',
-      'Fallback.'
+      'Saved.'
     )
 
     assert.deepEqual(flashes, [
@@ -89,8 +87,7 @@ test.group('flashAction', () => {
           async () => {
             throw error
           },
-          'Saved.',
-          'Fallback.'
+          'Saved.'
         ),
       'Missing'
     )
@@ -107,8 +104,7 @@ test.group('flashAction', () => {
           async () => {
             throw new Error('Boom')
           },
-          'Saved.',
-          'Fallback.'
+          'Saved.'
         ),
       'Boom'
     )

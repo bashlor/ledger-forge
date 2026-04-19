@@ -226,6 +226,7 @@ Naming and discovery conventions are intentionally frozen:
 
 Integration, routes, browser, and console suites rely on `testcontainers`.
 On Podman rootless, the backend test wrapper exports the Podman socket automatically when `podman.socket` is available.
+The TypeScript test helpers also perform the same runtime detection, so direct IDE/Japa runs can start containers without going through `pnpm test:*`.
 
 ```bash
 pnpm test:integration

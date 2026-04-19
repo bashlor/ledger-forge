@@ -23,8 +23,7 @@ export default class CustomersController {
     await flashAction(
       ctx,
       () => customerService.deleteCustomer(params.id, access),
-      'Customer deleted.',
-      'Could not delete the customer.'
+      'Customer deleted.'
     )
 
     return this.redirectToCustomers(ctx)
@@ -47,8 +46,7 @@ export default class CustomersController {
     await flashAction(
       ctx,
       () => customerService.createCustomer(payload, access),
-      'Customer created.',
-      'Could not save the customer.'
+      'Customer created.'
     )
 
     return this.redirectToCustomers(ctx)
@@ -63,8 +61,7 @@ export default class CustomersController {
     await flashAction(
       ctx,
       () => customerService.updateCustomer(params.id, payload, access),
-      'Customer updated.',
-      'Could not update the customer.'
+      'Customer updated.'
     )
 
     return this.redirectToCustomers(ctx)

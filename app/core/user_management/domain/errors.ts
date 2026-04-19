@@ -1,4 +1,4 @@
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
 
 export class AuthenticationError extends DomainError {
   constructor(message: string = 'Authentication provider error') {

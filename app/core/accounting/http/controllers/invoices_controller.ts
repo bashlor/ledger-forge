@@ -25,8 +25,7 @@ export default class InvoicesController {
     await flashAction(
       ctx,
       () => invoiceService.deleteDraft(params.id, access),
-      'Draft invoice deleted.',
-      'Could not delete the draft.'
+      'Draft invoice deleted.'
     )
 
     return this.redirectToInvoices(ctx)
@@ -93,8 +92,7 @@ export default class InvoicesController {
     await flashAction(
       ctx,
       () => invoiceService.issueInvoice(params.id, payload, undefined, access),
-      'Invoice issued.',
-      'Could not issue the invoice.'
+      'Invoice issued.'
     )
 
     return this.redirectToInvoices(ctx, { invoice: params.id })
@@ -108,8 +106,7 @@ export default class InvoicesController {
     await flashAction(
       ctx,
       () => invoiceService.markInvoicePaid(params.id, undefined, access),
-      'Invoice marked as paid.',
-      'Could not mark the invoice as paid.'
+      'Invoice marked as paid.'
     )
 
     return this.redirectToInvoices(ctx, { invoice: params.id })
@@ -128,8 +125,7 @@ export default class InvoicesController {
         const created = await invoiceService.createDraft(payload, access)
         createdId = created.id
       },
-      'Draft invoice created.',
-      'Could not save the draft.'
+      'Draft invoice created.'
     )
 
     return createdId
@@ -146,8 +142,7 @@ export default class InvoicesController {
     await flashAction(
       ctx,
       () => invoiceService.updateDraft(params.id, payload, undefined, access),
-      'Draft invoice updated.',
-      'Could not save the draft.'
+      'Draft invoice updated.'
     )
 
     return this.redirectToInvoices(ctx, { invoice: params.id })

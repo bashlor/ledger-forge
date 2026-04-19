@@ -1,10 +1,11 @@
 import type { StatusPageRange, StatusPageRenderer } from '@adonisjs/core/types/http'
 
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
+import { type ResolvedPublicError, resolvePublicError } from '#core/common/errors/public_error'
+import { presentPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
 import { ExceptionHandler, type HttpContext } from '@adonisjs/core/http'
 import app from '@adonisjs/core/services/app'
 
-import { presentAuthError } from '../../user_management/http/presenters/auth_error_presenter.js'
 import { HttpProblem } from '../resources/http_problem.js'
 
 export default class HttpExceptionHandler extends ExceptionHandler {
@@ -41,7 +42,7 @@ export default class HttpExceptionHandler extends ExceptionHandler {
    */
   async handle(error: unknown, ctx: HttpContext) {
     // ----- DomainError → proper HTTP status + Problem Details -----
-    if (isDomainError(error)) {
+    if (error instanceof DomainError) {
       const problem = HttpProblem.fromError(error)
 
       if (wantsJson(ctx)) {
@@ -49,17 +50,11 @@ export default class HttpExceptionHandler extends ExceptionHandler {
         return
       }
 
-      // Route auth DomainError subclasses (e.g. InvalidCredentialsError, SessionExpiredError)
-      // through the shared presenter for web flows. Plain accounting DomainErrors have
-      // name === 'DomainError' (the default) and must NOT be routed here — their errors are
-      // already handled by flashAction in controllers, and not_found should render the 404 page.
-      const isAuthDomainError = (error as Error).name !== 'DomainError'
-      if (
-        isAuthDomainError &&
-        ctx.request.method() !== 'GET' &&
-        ctx.request.accepts(['html']) === 'html'
-      ) {
-        presentAuthError(ctx, error, 'E_AUTH_ERROR')
+      const resolved = resolvePublicError(error)
+
+      // Route only form-presentable errors through the shared presenter for web flows.
+      if (shouldPresentDomainErrorAsFormRedirect(resolved, ctx)) {
+        presentPublicError(ctx, error, { flashAll: true })
         return
       }
 
@@ -96,15 +91,14 @@ export default class HttpExceptionHandler extends ExceptionHandler {
   }
 }
 
-/**
- * Detect a DomainError — any Error with a string `.type` property
- * that matches a known domain-error tag.
- */
-function isDomainError(error: unknown): error is Error & { exposeCause: boolean; type: string } {
+export function shouldPresentDomainErrorAsFormRedirect(
+  resolved: ResolvedPublicError,
+  ctx: HttpContext
+): boolean {
   return (
-    error instanceof Error &&
-    'type' in error &&
-    typeof (error as Record<string, unknown>).type === 'string'
+    resolved.presentation === 'form' &&
+    ctx.request.method() !== 'GET' &&
+    ctx.request.accepts(['html']) === 'html'
   )
 }
 

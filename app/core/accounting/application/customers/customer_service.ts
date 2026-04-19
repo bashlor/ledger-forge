@@ -7,7 +7,7 @@ import {
   SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
 } from '#core/accounting/application/support/access_context'
 import { customers, invoices } from '#core/accounting/drizzle/schema'
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
 import { and, count, eq, inArray, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 

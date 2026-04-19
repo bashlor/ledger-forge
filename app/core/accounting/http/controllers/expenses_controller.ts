@@ -24,8 +24,7 @@ export default class ExpensesController {
     await flashAction(
       ctx,
       () => expenseService.confirmExpense(params.id, undefined, access),
-      'Expense confirmed.',
-      'Could not confirm the expense.'
+      'Expense confirmed.'
     )
 
     return this.redirectToExpenses(ctx)
@@ -39,8 +38,7 @@ export default class ExpensesController {
     await flashAction(
       ctx,
       () => expenseService.deleteExpense(params.id, undefined, access),
-      'Draft expense deleted.',
-      'Could not delete the expense.'
+      'Draft expense deleted.'
     )
 
     return this.redirectToExpenses(ctx)
@@ -74,8 +72,7 @@ export default class ExpensesController {
     await flashAction(
       ctx,
       () => expenseService.createExpense(payload, access),
-      'Expense saved as draft.',
-      'Could not save the expense.'
+      'Expense saved as draft.'
     )
 
     return this.redirectToExpenses(ctx)

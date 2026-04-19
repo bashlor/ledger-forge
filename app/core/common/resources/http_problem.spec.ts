@@ -1,4 +1,4 @@
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
 import { AuthenticationError } from '#core/user_management/domain/errors'
 import { test } from '@japa/runner'
 
@@ -41,13 +41,6 @@ test.group('HttpProblem', () => {
     assert.equal(problem.detail, 'An unexpected authentication error occurred. Please try again.')
     assert.equal(problem.type, 'urn:accounting-app:error:unspecified_internal_error')
     assert.deepEqual(problem.extensions, { code: 'auth.provider_failure' })
-  })
-
-  test('keeps fromDomainError as a thin alias over the shared mapping path', ({ assert }) => {
-    const direct = HttpProblem.fromError(new DomainError('Invoice not found.', 'not_found'))
-    const alias = HttpProblem.fromDomainError(new DomainError('Invoice not found.', 'not_found'))
-
-    assert.deepEqual(alias.toJSON(), direct.toJSON())
   })
 
   test('serializes and writes problem details to a response', ({ assert }) => {
