@@ -30,6 +30,7 @@ server.use([
   // Must run before inertia_middleware so ctx.authSession is available when
   // share() is called — even on unmatched routes (404, 403, etc.)
   () => import('../../user_management/http/middlewares/silent_auth_middleware.js'),
+  () => import('../middlewares/structured_request_logging_middleware.js'),
   () => import('../middlewares/inertia_middleware.js'),
 ])
 
