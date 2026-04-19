@@ -1,18 +1,15 @@
 import { Form } from '@adonisjs/inertia/react'
-import { type Data } from '@generated/data'
-import { usePage } from '@inertiajs/react'
 
 interface SettingsProps {
   user: null | {
     email: string
     image: null | string
+    isAnonymous: boolean
     name: string
   }
 }
 
 export default function Settings({ user }: SettingsProps) {
-  const isAnonymous = usePage<Data.SharedProps>().props.user?.isAnonymous ?? false
-
   if (!user) {
     return (
       <div className="mx-auto max-w-3xl px-1">
@@ -22,6 +19,8 @@ export default function Settings({ user }: SettingsProps) {
       </div>
     )
   }
+
+  const isAnonymous = user.isAnonymous
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

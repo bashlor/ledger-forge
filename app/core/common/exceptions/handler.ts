@@ -5,7 +5,7 @@ import { ExceptionHandler, type HttpContext } from '@adonisjs/core/http'
 import app from '@adonisjs/core/services/app'
 
 import { presentAuthError } from '../../user_management/http/presenters/auth_error_presenter.js'
-import { domainErrorToHttpStatus, HttpProblem } from '../resources/http_problem.js'
+import { HttpProblem } from '../resources/http_problem.js'
 
 export default class HttpExceptionHandler extends ExceptionHandler {
   /**
@@ -42,10 +42,10 @@ export default class HttpExceptionHandler extends ExceptionHandler {
   async handle(error: unknown, ctx: HttpContext) {
     // ----- DomainError → proper HTTP status + Problem Details -----
     if (isDomainError(error)) {
-      const status = domainErrorToHttpStatus(error.type)
+      const problem = HttpProblem.fromError(error)
 
       if (wantsJson(ctx)) {
-        HttpProblem.fromError(error).toResponse(ctx.response)
+        problem.toResponse(ctx.response)
         return
       }
 
@@ -56,7 +56,7 @@ export default class HttpExceptionHandler extends ExceptionHandler {
       }
 
       // For Inertia/HTML: set the status so AdonisJS renders the right page
-      ctx.response.status(status)
+      ctx.response.status(problem.status)
       return super.handle(error, ctx)
     }
 

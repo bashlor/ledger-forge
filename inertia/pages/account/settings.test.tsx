@@ -1,12 +1,7 @@
-import { usePage } from '@inertiajs/react'
 import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import Settings from './settings'
-
-vi.mock('@inertiajs/react', () => ({
-  usePage: vi.fn(),
-}))
 
 vi.mock('@adonisjs/inertia/react', () => ({
   Form: ({
@@ -23,22 +18,13 @@ vi.mock('@adonisjs/inertia/react', () => ({
 }))
 
 describe('account settings page', () => {
-  beforeEach(() => {
-    vi.mocked(usePage).mockReset()
-  })
-
   it('hides profile and password mutation controls for anonymous users', () => {
-    vi.mocked(usePage).mockReturnValue({
-      props: {
-        user: { isAnonymous: true },
-      },
-    } as never)
-
     render(
       <Settings
         user={{
           email: 'anonymous@example.com',
           image: null,
+          isAnonymous: true,
           name: 'Anonymous User',
         }}
       />

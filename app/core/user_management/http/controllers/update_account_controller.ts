@@ -12,7 +12,14 @@ export default class UpdateAccountController {
   async show({ authSession, inertia }: HttpContext) {
     const user = authSession?.user
     return inertia.render('account/settings', {
-      user: user ? { email: user.email, image: user.image ?? null, name: user.name } : null,
+      user: user
+        ? {
+            email: user.email,
+            image: user.image ?? null,
+            isAnonymous: user.isAnonymous,
+            name: user.name,
+          }
+        : null,
     })
   }
 
