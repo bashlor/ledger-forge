@@ -1,59 +1,10 @@
 import { DomainError } from '#core/common/errors/domain_error'
 
 import type {
-  InvoiceStatus,
-  IssueInvoiceInput,
-  NormalizedIssueInvoiceInput,
   NormalizedSaveInvoiceDraftInput,
   SaveInvoiceDraftInput,
   SaveInvoiceLineInput,
-} from './types.js'
-
-import {
-  assertInvoiceCanBeMarkedPaid as assertInvoiceCanBeMarkedPaidRule,
-  assertInvoiceCanBeSent,
-  assertInvoiceDateIsValidForBusinessRules,
-  assertInvoiceDueDateIsNotBefore,
-  assertInvoiceIsDraft,
-} from './domain/invoice_rules.js'
-
-export function assertDueDateIsNotBefore(dueDate: string, minDate: string, message: string) {
-  assertInvoiceDueDateIsNotBefore(dueDate, minDate, message)
-}
-
-export function assertInvoiceCanBeDeleted(status: InvoiceStatus) {
-  assertInvoiceIsDraft(status, 'Only draft invoices can be deleted.')
-}
-
-export function assertInvoiceCanBeIssued(status: InvoiceStatus) {
-  assertInvoiceCanBeSent(status)
-}
-
-export function assertInvoiceCanBeMarkedPaid(status: InvoiceStatus) {
-  assertInvoiceCanBeMarkedPaidRule(status)
-}
-
-export function assertInvoiceCanBeUpdated(status: InvoiceStatus) {
-  assertInvoiceIsDraft(status)
-}
-
-export function assertInvoiceDates(issueDate: string, dueDate: string) {
-  assertInvoiceDateIsValidForBusinessRules(issueDate, dueDate)
-}
-
-export function normalizeIssueInvoiceInput(input: IssueInvoiceInput): NormalizedIssueInvoiceInput {
-  const issuedCompanyAddress = input.issuedCompanyAddress.trim()
-  const issuedCompanyName = input.issuedCompanyName.trim()
-
-  if (!issuedCompanyName || !issuedCompanyAddress) {
-    throw new DomainError('Company name and company address are required to issue.', 'invalid_data')
-  }
-
-  return {
-    issuedCompanyAddress,
-    issuedCompanyName,
-  }
-}
+} from '../../types.js'
 
 export function normalizeSaveInvoiceDraftInput(
   input: SaveInvoiceDraftInput

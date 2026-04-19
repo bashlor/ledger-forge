@@ -2,6 +2,37 @@ import { DomainError } from '#core/common/errors/domain_error'
 
 import type { InvoiceStatus } from './invoice_status.js'
 
+export function assertDraftCanBeCanceled(
+  status: InvoiceStatus,
+  message = 'Only draft invoices can be deleted.'
+) {
+  assertInvoiceIsDraft(status, message)
+}
+
+export function assertDraftCanBeCreatedToday(issueDate: string, dueDate: string, today: string) {
+  assertInvoiceDateIsValidForBusinessRules(issueDate, dueDate)
+  assertInvoiceDueDateIsNotBefore(
+    dueDate,
+    today,
+    'Due date must be on or after the draft creation date.'
+  )
+}
+
+export function assertDraftCanBeUpdated(input: {
+  createdAt: string
+  dueDate: string
+  issueDate: string
+  status: InvoiceStatus
+}) {
+  assertInvoiceIsDraft(input.status)
+  assertInvoiceDateIsValidForBusinessRules(input.issueDate, input.dueDate)
+  assertInvoiceDueDateIsNotBefore(
+    input.dueDate,
+    input.createdAt,
+    'Due date must be on or after the draft creation date.'
+  )
+}
+
 export function assertInvoiceBelongsToTenant(
   invoiceTenantId: null | string | undefined,
   tenantId: null | string | undefined
@@ -14,10 +45,27 @@ export function assertInvoiceBelongsToTenant(
   }
 }
 
+export function assertInvoiceCanBeIssuedToday(
+  status: InvoiceStatus,
+  dueDate: string,
+  today: string
+) {
+  assertInvoiceCanBeSent(status)
+  assertInvoiceDueDateIsNotBefore(
+    dueDate,
+    today,
+    'Due date must be today or later to issue an invoice.'
+  )
+}
+
 export function assertInvoiceCanBeMarkedPaid(status: InvoiceStatus) {
   if (status !== 'issued') {
     throw new DomainError('Only issued invoices can be marked as paid.', 'business_logic_error')
   }
+}
+
+export function assertInvoiceCanBeMarkedPaidNow(status: InvoiceStatus) {
+  assertInvoiceCanBeMarkedPaid(status)
 }
 
 export function assertInvoiceCanBeSent(status: InvoiceStatus) {

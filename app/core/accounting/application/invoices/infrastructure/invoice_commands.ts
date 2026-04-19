@@ -4,7 +4,7 @@ import { invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle
 import { and, eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
-import type { InvoiceStatus } from '../domain/invoice_status.js'
+import type { InvoiceStatus } from '../types.js'
 
 type DrizzleDb = PostgresJsDatabase<any>
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]

@@ -5,7 +5,7 @@ import type {
   InvoiceLineDto,
   InvoiceLineRow,
   InvoiceRow,
-} from './types.js'
+} from '../types.js'
 
 export function toCustomerSnapshot(customer: CustomerSnapshotSource): InvoiceCustomerSnapshot {
   return {
