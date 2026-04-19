@@ -14,7 +14,8 @@ export function clearSessionToken(ctx: HttpContext): void {
 }
 
 export function readSessionToken(ctx: HttpContext): null | string {
-  const requestCookie = ctx.request.cookie(COOKIE_NAME)
+  const requestCookie =
+    typeof ctx.request.cookie === 'function' ? ctx.request.cookie(COOKIE_NAME) : undefined
 
   if (typeof requestCookie === 'string' && requestCookie.length > 0) {
     return requestCookie
