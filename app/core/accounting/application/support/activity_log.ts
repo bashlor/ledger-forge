@@ -55,30 +55,27 @@ export class StructuredAccountingActivitySink implements AccountingActivitySink 
     const tenantId = event.tenantId ?? defaults.tenantId ?? null
     const timestamp = event.timestamp || toIsoTimestamp()
 
-    const bindings = {
+    const bindings: Record<string, unknown> = {
       ...this.baseFields,
-      ...event,
-      actorId: userId,
       boundedContext: 'accounting',
       context: event.context ?? defaults.context ?? 'Accounting',
       entityId,
       entityType,
       event: event.event || event.operation || 'accounting.activity',
+      isAnonymous: event.isAnonymous,
       level,
       operation: event.operation || event.event,
+      outcome: event.outcome,
       requestId,
-      resourceId: entityId,
-      resourceType: event.resourceType,
       tenantId,
       timestamp,
       userId,
     }
+    if (event.metadata !== undefined) {
+      bindings['metadata'] = event.metadata
+    }
     const message = `Accounting ${(event.event || event.operation) ?? 'activity'} ${event.outcome}`
-    const loggerMethod =
-      this.logger[level] ??
-      (level === 'warn' || level === 'error' || level === 'fatal'
-        ? this.logger.info
-        : this.logger.info)
+    const loggerMethod = this.logger[level] ?? this.logger.info
 
     loggerMethod.call(this.logger, bindings, message)
   }

@@ -42,7 +42,11 @@ export default class AccountingProvider {
 
     this.app.container.bind(DashboardService, async (resolver) => {
       const db = await resolver.make('drizzle')
-      return new DashboardService(db)
+      return new DashboardService(db, {
+        activitySink: new StructuredAccountingActivitySink(logger, {
+          adapter: 'service',
+        }),
+      })
     })
   }
 }
