@@ -37,7 +37,6 @@ test.group('Structured accounting activity sink', () => {
     assert.lengthOf(calls, 1)
     assert.deepEqual(calls[0], {
       bindings: {
-        actorId: 'user-1',
         adapter: 'service',
         boundedContext: 'accounting',
         context: 'Accounting',
@@ -49,8 +48,6 @@ test.group('Structured accounting activity sink', () => {
         operation: 'create_invoice_draft',
         outcome: 'success',
         requestId: 'req-1',
-        resourceId: 'inv-1',
-        resourceType: 'invoice',
         tenantId: 'tenant-1',
         timestamp: '2026-01-01T00:00:00.000Z',
         userId: 'user-1',

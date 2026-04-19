@@ -104,7 +104,7 @@ function resolveEntityId(ctx: HttpContext): string {
 
 function resolveLevel(status: number): 'error' | 'info' | 'warn' {
   if (status >= 500) return 'error'
-  if (status >= 400 || status >= 300) return 'warn'
+  if (status >= 300) return 'warn'
   return 'info'
 }
 
