@@ -1,9 +1,9 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { presentPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
 import { inject } from '@adonisjs/core'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
-import { presentAuthError } from '../presenters/auth_error_presenter.js'
 import { writeSessionToken } from '../session/session_token.js'
 
 export default class AnonymousSigninController {
@@ -19,7 +19,7 @@ export default class AnonymousSigninController {
 
       return ctx.response.redirect('/dashboard')
     } catch (error) {
-      return presentAuthError(ctx, error as Error, 'E_ANONYMOUS_SIGNIN_ERROR')
+      return presentPublicError(ctx, error, { flashAll: true })
     }
   }
 }

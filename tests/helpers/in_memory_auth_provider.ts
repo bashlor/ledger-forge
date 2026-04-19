@@ -4,7 +4,7 @@ import type {
   AuthSession,
 } from '#core/user_management/domain/authentication'
 
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
 import { AuthenticationPort } from '#core/user_management/domain/authentication'
 import {
   InvalidCredentialsError,

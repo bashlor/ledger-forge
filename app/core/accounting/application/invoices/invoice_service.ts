@@ -12,7 +12,7 @@ import {
   SystemAccountingBusinessCalendar,
 } from '#core/accounting/application/support/business_calendar'
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
 import { and, count, desc, eq, gte, inArray, like, lte, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 

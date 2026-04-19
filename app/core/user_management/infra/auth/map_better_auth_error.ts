@@ -1,5 +1,5 @@
-import { lookupBetterAuthError } from '#core/common/resources/http_problem'
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
+import { lookupBetterAuthError } from '#core/common/errors/public_error'
 
 import {
   AuthenticationError,

@@ -8,7 +8,7 @@ import {
 } from '#core/accounting/application/support/access_context'
 import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from '#core/accounting/expense_categories'
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
 import { toCents } from '#core/shared/money'
 import { and, count, desc, eq, gte, lte, sql, sum } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'

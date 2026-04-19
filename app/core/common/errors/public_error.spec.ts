@@ -1,4 +1,4 @@
-import { DomainError } from '#core/shared/domain_error'
+import { DomainError } from '#core/common/errors/domain_error'
 import {
   AuthenticationError,
   InvalidCredentialsError,
@@ -14,6 +14,7 @@ test.group('resolvePublicError', () => {
       code: 'auth.invalid_credentials',
       fieldBag: { password: 'Invalid email or password.' },
       message: 'Invalid email or password.',
+      presentation: 'form',
       status: 401,
     })
 
@@ -23,6 +24,7 @@ test.group('resolvePublicError', () => {
         code: 'auth.session_expired',
         fieldBag: { currentPassword: 'Session has expired or is invalid' },
         message: 'Session has expired or is invalid',
+        presentation: 'form',
         status: 401,
       }
     )
@@ -37,6 +39,7 @@ test.group('resolvePublicError', () => {
         code: 'auth.provider_failure',
         fieldBag: { name: 'An unexpected authentication error occurred. Please try again.' },
         message: 'An unexpected authentication error occurred. Please try again.',
+        presentation: 'form',
         status: 500,
       }
     )
@@ -51,6 +54,7 @@ test.group('resolvePublicError', () => {
         code: 'accounting.customer_missing_address',
         fieldBag: { address: 'Customer address is required.' },
         message: 'Customer address is required.',
+        presentation: 'notification',
         status: 422,
       }
     )
@@ -62,6 +66,7 @@ test.group('resolvePublicError', () => {
       {
         code: 'accounting.invoice_not_found',
         message: 'Invoice not found.',
+        presentation: 'status_page',
         status: 404,
       }
     )
@@ -73,6 +78,7 @@ test.group('resolvePublicError', () => {
       {
         code: 'accounting.expense_confirm_draft_only',
         message: 'Only draft expenses can be confirmed.',
+        presentation: 'notification',
         status: 422,
       }
     )
@@ -82,12 +88,14 @@ test.group('resolvePublicError', () => {
     assert.deepEqual(resolveBetterAuthPublicError('INVALID_EMAIL_OR_PASSWORD'), {
       code: 'auth.invalid_credentials',
       message: 'Invalid email or password.',
+      presentation: 'form',
       status: 401,
     })
 
     assert.deepEqual(resolveBetterAuthPublicError('SOME_UNKNOWN_CODE'), {
       code: 'auth.provider_failure',
       message: 'An unexpected error occurred. Please try again.',
+      presentation: 'form',
       status: 500,
     })
   })
@@ -98,6 +106,7 @@ test.group('resolvePublicError', () => {
       {
         code: 'domain.business_logic_error',
         message: 'The requested action could not be completed.',
+        presentation: 'notification',
         status: 422,
       }
     )
@@ -112,6 +121,7 @@ test.group('resolvePublicError', () => {
         code: 'auth.invalid_payload',
         fieldBag: { email: 'The email address is invalid.' },
         message: 'The email address is invalid.',
+        presentation: 'form',
         status: 422,
       }
     )
@@ -129,6 +139,37 @@ test.group('resolvePublicError', () => {
         code: 'auth.invalid_token',
         fieldBag: { newPassword: 'The link has expired or is invalid.' },
         message: 'The link has expired or is invalid.',
+        presentation: 'form',
+        status: 401,
+      }
+    )
+
+    assert.deepEqual(
+      resolvePublicError(
+        new DomainError(
+          'Your session has expired. Please sign in again.',
+          'unauthorized_user_operation',
+          'InvalidTokenError'
+        )
+      ),
+      {
+        code: 'auth.session_expired',
+        fieldBag: { password: 'Your session has expired. Please sign in again.' },
+        message: 'Your session has expired. Please sign in again.',
+        presentation: 'form',
+        status: 401,
+      }
+    )
+
+    assert.deepEqual(
+      resolvePublicError(
+        new DomainError('Session has expired or is invalid', 'unauthorized_user_operation')
+      ),
+      {
+        code: 'auth.session_expired',
+        fieldBag: { password: 'Session has expired or is invalid' },
+        message: 'Session has expired or is invalid',
+        presentation: 'form',
         status: 401,
       }
     )
@@ -143,6 +184,7 @@ test.group('resolvePublicError', () => {
       {
         code: 'app.unexpected_error',
         message: 'Database unavailable',
+        presentation: 'notification',
         status: 503,
       }
     )

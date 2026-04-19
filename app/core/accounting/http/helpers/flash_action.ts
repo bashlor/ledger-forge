@@ -1,8 +1,8 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { DomainError } from '#core/common/errors/domain_error'
 import { resolvePublicError } from '#core/common/errors/public_error'
-import { flashInertiaInputErrors } from '#core/common/http/presenters/inertia_input_errors'
-import { DomainError } from '#core/shared/domain_error'
+import { flashResolvedPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
 
 /**
  * Runs a service action and flashes the outcome.
@@ -14,8 +14,7 @@ import { DomainError } from '#core/shared/domain_error'
 export async function flashAction(
   ctx: HttpContext,
   action: () => Promise<unknown>,
-  successMessage: string,
-  fallbackMessage: string
+  successMessage: string
 ): Promise<void> {
   try {
     await action()
@@ -23,12 +22,6 @@ export async function flashAction(
   } catch (error) {
     if (!(error instanceof DomainError) || error.type === 'not_found') throw error
 
-    const resolved = resolvePublicError(error)
-    flashInertiaInputErrors(ctx, resolved.fieldBag ?? {})
-
-    ctx.session.flash('notification', {
-      message: resolved.message || fallbackMessage,
-      type: 'error',
-    })
+    flashResolvedPublicError(ctx, resolvePublicError(error))
   }
 }
