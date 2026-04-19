@@ -4,13 +4,27 @@ import { presentPublicError } from '#core/common/http/presenters/inertia_public_
 import { inject } from '@adonisjs/core'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
+import { userManagementHttpLogger } from '../helpers/activity_log.js'
 import { writeSessionToken } from '../session/session_token.js'
 
 export default class AnonymousSigninController {
   @inject()
   async store(ctx: HttpContext, auth: AuthenticationPort) {
+    const authLog = userManagementHttpLogger(ctx)
+
     try {
-      const authentication = await auth.signInAnonymously()
+      const authentication = await authLog.run(() => auth.signInAnonymously(), {
+        failure: {
+          entityId: 'authentication',
+          entityType: 'auth',
+          event: 'anonymous_sign_in_failure',
+        },
+        success: (result) => ({
+          entityId: result.user.id,
+          entityType: 'user',
+          event: 'anonymous_sign_in_success',
+        }),
+      })
 
       writeSessionToken(ctx, {
         expiresAt: authentication.session.expiresAt,

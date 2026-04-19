@@ -3,6 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { inject } from '@adonisjs/core'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
+import { userManagementHttpLogger } from '../helpers/activity_log.js'
 import { forgotPasswordValidator } from '../validators/user.js'
 
 export default class ForgotPasswordController {
@@ -11,13 +12,19 @@ export default class ForgotPasswordController {
   }
 
   @inject()
-  async store({ logger, request, response, session }: HttpContext, auth: AuthenticationPort) {
+  async store(ctx: HttpContext, auth: AuthenticationPort) {
+    const { request, response, session } = ctx
     const { email } = await request.validateUsing(forgotPasswordValidator)
+    const authLog = userManagementHttpLogger(ctx, {
+      entityId: 'authentication',
+      entityType: 'auth',
+    })
 
     try {
       await auth.requestPasswordReset(email)
+      authLog.success('password_reset_request_success')
     } catch (error) {
-      logger.error({ err: error }, 'Password reset request error')
+      authLog.failure('password_reset_request_failure', error)
     }
 
     session.flash(

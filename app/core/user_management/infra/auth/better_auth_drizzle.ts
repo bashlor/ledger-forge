@@ -1,15 +1,20 @@
+import type { StructuredLogLevel } from '#core/common/logging/structured_log'
+
+import { getDefaultStructuredLogFields, toIsoTimestamp } from '#core/common/logging/structured_log'
 import env from '#start/env'
-import appLogger from '@adonisjs/core/services/logger'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
 import { anonymous } from 'better-auth/plugins'
 import { v7 as uuidv7 } from 'uuid'
+
+import type { UserManagementActivitySink } from '../../support/activity_log.js'
 
 import { AUTH_COOKIE_PREFIX } from '../../auth_session_cookie.js'
 
 export async function createBetterAuth(
   drizzle: any,
   options: {
+    activitySink?: UserManagementActivitySink
     emailAndPassword?: {
       enabled: boolean
       maxPasswordLength?: number
@@ -28,16 +33,52 @@ export async function createBetterAuth(
     }
   } = {}
 ) {
+  function recordActivity(
+    event: string,
+    level: StructuredLogLevel,
+    outcome: 'failure' | 'success',
+    metadata?: Record<string, unknown>,
+    entityId = 'authentication',
+    entityType = 'auth',
+    userId?: null | string
+  ) {
+    const defaults = getDefaultStructuredLogFields()
+
+    activitySink?.record({
+      context: 'UserManagement',
+      entityId,
+      entityType,
+      event,
+      level,
+      metadata,
+      outcome,
+      requestId: defaults.requestId ?? 'system',
+      tenantId: defaults.tenantId ?? null,
+      timestamp: toIsoTimestamp(),
+      userId: userId ?? defaults.userId ?? null,
+    })
+  }
+
   const requireEmailVerification = env.get('REQUIRE_EMAIL_VERIFICATION')
 
   const {
+    activitySink,
     emailAndPassword = {
       enabled: true,
       maxPasswordLength: 128,
       minPasswordLength: 8,
       requireEmailVerification,
       sendResetPassword: async ({ url, user }) => {
-        appLogger.info({ email: user.email, url }, 'Password reset email')
+        void url
+        recordActivity(
+          'password_reset_email_requested',
+          'info',
+          'success',
+          undefined,
+          String(user.id ?? user.email ?? 'unknown'),
+          'user',
+          String(user.id ?? null)
+        )
         // TODO: Wire up a real email transport for production
       },
     },
@@ -84,10 +125,30 @@ export async function createBetterAuth(
           typeof message === 'string' && /invalid.*(credential|password|email)/i.test(message)
 
         if (isRoutineAuthFailure) {
-          appLogger.trace({ args, source: 'better-auth' }, message)
+          recordActivity('better_auth_routine_failure', 'trace', 'failure', {
+            argumentCount: args.length,
+            message: String(message),
+            source: 'better-auth',
+          })
         } else {
-          const pinoLevel = (level as string) === 'success' ? 'info' : level
-          appLogger[pinoLevel]({ args, source: 'better-auth' }, String(message))
+          const rawLevel = (level as string) === 'success' ? 'info' : String(level)
+          let normalizedLevel: StructuredLogLevel = 'info'
+          if (rawLevel === 'trace') normalizedLevel = 'trace'
+          else if (rawLevel === 'debug') normalizedLevel = 'debug'
+          else if (rawLevel === 'warn') normalizedLevel = 'warn'
+          else if (rawLevel === 'error') normalizedLevel = 'error'
+          else if (rawLevel === 'fatal') normalizedLevel = 'fatal'
+
+          recordActivity(
+            'better_auth_log',
+            normalizedLevel,
+            normalizedLevel === 'error' || normalizedLevel === 'fatal' ? 'failure' : 'success',
+            {
+              argumentCount: args.length,
+              message: String(message),
+              source: 'better-auth',
+            }
+          )
         }
       },
     },
