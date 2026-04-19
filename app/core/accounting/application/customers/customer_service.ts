@@ -106,24 +106,43 @@ export class CustomerService {
     id: string,
     access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
   ): Promise<void> {
-    return this.db.transaction(async (tx) => {
-      const [{ invCount }] = await tx
-        .select({ invCount: count() })
-        .from(invoices)
-        .where(eq(invoices.customerId, id))
-
-      if (invCount > 0) {
-        throw new DomainError(
-          'This customer is referenced by one or more invoices.',
-          'business_logic_error'
+    await this.db.transaction(async (tx) => {
+      const [deleted] = await tx
+        .delete(customers)
+        .where(
+          and(
+            eq(customers.id, id),
+            sql`not exists (
+              select 1
+              from ${invoices}
+              where ${invoices.customerId} = ${customers.id}
+            )`
+          )
         )
-      }
-
-      const [deleted] = await tx.delete(customers).where(eq(customers.id, id)).returning({
-        id: customers.id,
-      })
+        .returning({ id: customers.id })
 
       if (!deleted) {
+        const [state] = await tx
+          .select({
+            id: customers.id,
+            invoiceCount: count(invoices.id),
+          })
+          .from(customers)
+          .leftJoin(invoices, eq(invoices.customerId, customers.id))
+          .where(eq(customers.id, id))
+          .groupBy(customers.id)
+
+        if (!state) {
+          throw new DomainError('Customer not found.', 'not_found')
+        }
+
+        if (state.invoiceCount > 0) {
+          throw new DomainError(
+            'This customer is referenced by one or more invoices.',
+            'business_logic_error'
+          )
+        }
+
         throw new DomainError('Customer not found.', 'not_found')
       }
 

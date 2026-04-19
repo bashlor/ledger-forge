@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 
 import * as schema from '../../app/core/common/drizzle/index.js'
+import { prepareTestcontainersRuntime } from './testcontainers_runtime.js'
 
 const migrationsFolder = fileURLToPath(new URL('../../drizzle/migrations', import.meta.url))
 const TEST_CONTAINER_DATABASE = 'accounting_routes_test'
@@ -21,6 +22,8 @@ export async function setupTestDatabaseForGroup(): Promise<{
   cleanup: () => Promise<void>
   container: StartedPostgreSqlContainer
 }> {
+  prepareTestcontainersRuntime()
+
   const postgresImage = env.get('POSTGRES_TEST_IMAGE')
 
   if (!postgresImage) {

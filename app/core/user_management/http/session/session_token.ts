@@ -14,6 +14,13 @@ export function clearSessionToken(ctx: HttpContext): void {
 }
 
 export function readSessionToken(ctx: HttpContext): null | string {
+  const requestCookie =
+    typeof ctx.request.cookie === 'function' ? ctx.request.cookie(COOKIE_NAME) : undefined
+
+  if (typeof requestCookie === 'string' && requestCookie.length > 0) {
+    return requestCookie
+  }
+
   const cookieHeader = ctx.request.header('cookie') ?? ''
   return parseCookie(cookieHeader).get(COOKIE_NAME) ?? null
 }

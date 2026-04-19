@@ -16,6 +16,20 @@ generate_registry() {
   node "$REPO_ROOT/scripts/generate_tuyau_registry.mjs"
 }
 
+normalize_test_server_env() {
+  export PORT="${PORT:-3333}"
+
+  # Prefer an explicit IPv4 loopback for test runs to avoid distro/runtime
+  # differences around localhost and IPv6 resolution.
+  if [[ -z "${HOST:-}" || "${HOST}" == "localhost" ]]; then
+    export HOST="127.0.0.1"
+  fi
+}
+
+run_tests() {
+  exec pnpm exec node --import @poppinss/ts-exec "$REPO_ROOT/bin/test.ts" "$@"
+}
+
 ensure_podman_socket() {
   local socket_path="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
 
@@ -88,6 +102,7 @@ require_cmd pnpm
 require_cmd node
 
 generate_registry
+normalize_test_server_env
 
 SUITE="${1:-}"
 shift || true
@@ -98,12 +113,12 @@ case "$SUITE" in
     if [[ "$SUITE" == "browser" ]]; then
       ensure_playwright_browser
     fi
-    exec pnpm exec node ace test "$SUITE" "$@"
+    run_tests "$SUITE" "$@"
     ;;
   "")
-    exec pnpm exec node ace test "$@"
+    run_tests "$@"
     ;;
   *)
-    exec pnpm exec node ace test "$SUITE" "$@"
+    run_tests "$SUITE" "$@"
     ;;
 esac
