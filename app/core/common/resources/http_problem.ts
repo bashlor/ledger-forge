@@ -1,12 +1,10 @@
-type DomainErrorTag =
-  | 'already_exists'
-  | 'business_logic_error'
-  | 'forbidden'
-  | 'invalid_data'
-  | 'not_found'
-  | 'unauthorized_user_operation'
-  | 'unknown'
-  | 'unspecified_internal_error'
+import { DomainError } from '#core/shared/domain_error'
+
+import {
+  resolveBetterAuthPublicError,
+  type ResolvedPublicError,
+  resolvePublicError,
+} from '../errors/public_error.js'
 
 const PROBLEM_TYPE_NAMESPACE = 'urn:accounting-app'
 
@@ -38,13 +36,15 @@ export class HttpProblem {
   /**
    * Build a Problem Details from a Better Auth error code.
    */
-  static fromBetterAuthCode(code: string | undefined, detail?: string): HttpProblem {
-    const entry = BETTER_AUTH_ERROR_MAP[code ?? ''] ?? BETTER_AUTH_ERROR_MAP['_default']
+  static fromBetterAuthCode(code: string | undefined, _detail?: string): HttpProblem {
+    const resolved = resolveBetterAuthPublicError(code)
     return new HttpProblem(
-      entry.status,
-      HTTP_STATUS_TITLES[entry.status] ?? 'Error',
-      detail ?? entry.userMessage,
-      `${PROBLEM_TYPE_NAMESPACE}:better-auth:${code ?? 'unknown'}`
+      resolved.status,
+      HTTP_STATUS_TITLES[resolved.status] ?? 'Error',
+      resolved.message,
+      `${PROBLEM_TYPE_NAMESPACE}:better-auth:${code ?? 'unknown'}`,
+      undefined,
+      { code: resolved.code }
     )
   }
 
@@ -53,12 +53,35 @@ export class HttpProblem {
    * Accepts any object whose `.type` is a known domain-error tag.
    */
   static fromDomainError(error: { message: string; type: string }): HttpProblem {
-    const status = DOMAIN_TAG_TO_HTTP[error.type as DomainErrorTag] ?? 500
+    const resolved = resolvePublicError(error)
     return new HttpProblem(
-      status,
-      HTTP_STATUS_TITLES[status] ?? 'Error',
-      error.message,
-      `${PROBLEM_TYPE_NAMESPACE}:error:${error.type}`
+      resolved.status,
+      HTTP_STATUS_TITLES[resolved.status] ?? 'Error',
+      resolved.message,
+      `${PROBLEM_TYPE_NAMESPACE}:error:${error.type}`,
+      undefined,
+      { code: resolved.code }
+    )
+  }
+
+  /**
+   * Build a Problem Details from any application error using the shared
+   * public-error resolver.
+   */
+  static fromError(
+    error: unknown,
+    options?: { exposeInternalMessage?: boolean; statusOverride?: number }
+  ): HttpProblem {
+    const resolved = resolvePublicError(error, options)
+    const type = problemTypeForError(error, resolved)
+
+    return new HttpProblem(
+      resolved.status,
+      HTTP_STATUS_TITLES[resolved.status] ?? 'Error',
+      resolved.message,
+      type,
+      undefined,
+      { code: resolved.code }
     )
   }
 
@@ -99,96 +122,7 @@ export class HttpProblem {
   }
 }
 
-const DOMAIN_TAG_TO_HTTP: Record<DomainErrorTag, number> = {
-  already_exists: 409,
-  business_logic_error: 422,
-  forbidden: 403,
-  invalid_data: 422,
-  not_found: 404,
-  unauthorized_user_operation: 401,
-  unknown: 500,
-  unspecified_internal_error: 500,
-}
-
-interface BetterAuthErrorEntry {
-  status: number
-  userMessage: string
-}
-
-// =============================================================================
-// Better Auth error code → { status, userMessage }
-// =============================================================================
-
-/**
- * Resolve an HTTP status from a domain-error tag string.
- * Falls back to 500 for unknown tags.
- */
-export function domainErrorToHttpStatus(tag: string): number {
-  return DOMAIN_TAG_TO_HTTP[tag as DomainErrorTag] ?? 500
-}
-
-const BETTER_AUTH_ERROR_MAP: Record<string, BetterAuthErrorEntry> = {
-  _default: {
-    status: 500,
-    userMessage: 'An unexpected error occurred. Please try again.',
-  },
-  CREDENTIAL_ACCOUNT_NOT_FOUND: {
-    status: 401,
-    userMessage: 'Invalid email or password.',
-  },
-  EMAIL_NOT_VERIFIED: {
-    status: 403,
-    userMessage: 'Please verify your email address before signing in.',
-  },
-  FAILED_TO_CREATE_USER: {
-    status: 500,
-    userMessage: 'Unable to create account. Please try again.',
-  },
-  INVALID_EMAIL: {
-    status: 422,
-    userMessage: 'The email address is invalid.',
-  },
-  INVALID_EMAIL_OR_PASSWORD: {
-    status: 401,
-    userMessage: 'Invalid email or password.',
-  },
-  INVALID_PASSWORD: {
-    status: 422,
-    userMessage: 'The password does not meet the requirements.',
-  },
-  INVALID_TOKEN: {
-    status: 401,
-    userMessage: 'The link has expired or is invalid.',
-  },
-  PASSWORD_TOO_LONG: {
-    status: 422,
-    userMessage: 'The password exceeds the maximum allowed length.',
-  },
-  PASSWORD_TOO_SHORT: {
-    status: 422,
-    userMessage: 'The password is too short.',
-  },
-  SESSION_EXPIRED: {
-    status: 401,
-    userMessage: 'Your session has expired. Please sign in again.',
-  },
-  USER_ALREADY_EXISTS: {
-    status: 409,
-    userMessage: 'An account with this email already exists.',
-  },
-  USER_NOT_FOUND: {
-    status: 404,
-    userMessage: 'No account found with this email.',
-  },
-}
-
-/**
- * Look up a known Better Auth error code and return its HTTP status
- * and user-facing message.
- */
-export function lookupBetterAuthError(code: string | undefined): BetterAuthErrorEntry {
-  return BETTER_AUTH_ERROR_MAP[code ?? ''] ?? BETTER_AUTH_ERROR_MAP['_default']
-}
+export { domainErrorToHttpStatus, lookupBetterAuthError } from '../errors/public_error.js'
 
 // =============================================================================
 // Standard HTTP status → title
@@ -202,4 +136,12 @@ const HTTP_STATUS_TITLES: Record<number, string> = {
   409: 'Conflict',
   422: 'Unprocessable Entity',
   500: 'Internal Server Error',
+}
+
+function problemTypeForError(error: unknown, resolved: ResolvedPublicError): string {
+  if (error instanceof DomainError) {
+    return `${PROBLEM_TYPE_NAMESPACE}:error:${error.type}`
+  }
+
+  return `${PROBLEM_TYPE_NAMESPACE}:error:${resolved.code}`
 }

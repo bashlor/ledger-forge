@@ -1,4 +1,4 @@
-import { InvalidCredentialsError } from '#core/user_management/domain/errors'
+import { AuthenticationError, InvalidCredentialsError } from '#core/user_management/domain/errors'
 import { test } from '@japa/runner'
 
 import { presentAuthError } from './auth_error_presenter.js'
@@ -57,6 +57,30 @@ test.group('presentAuthError', () => {
       {
         key: 'inputErrorsBag',
         value: { password: 'Invalid email or password.' },
+      },
+    ])
+  })
+
+  test('sanitizes generic authentication failures before flashing them', ({ assert }) => {
+    const { ctx, flashes } = createContext()
+
+    presentAuthError(
+      ctx as never,
+      new AuthenticationError('Leaky internal detail'),
+      'E_UPDATE_PROFILE'
+    )
+
+    assert.deepEqual(flashes, [
+      {
+        key: 'notification',
+        value: {
+          message: 'An unexpected authentication error occurred. Please try again.',
+          type: 'error',
+        },
+      },
+      {
+        key: 'inputErrorsBag',
+        value: { name: 'An unexpected authentication error occurred. Please try again.' },
       },
     ])
   })

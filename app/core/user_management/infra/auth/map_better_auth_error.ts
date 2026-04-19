@@ -36,7 +36,7 @@ export function mapBetterAuthError(error: unknown): Error {
     case 'USER_NOT_FOUND':
       return new UserNotFoundError()
     default:
-      return AuthenticationError.linkingFailed(entry.userMessage)
+      return new AuthenticationError()
   }
 }
 

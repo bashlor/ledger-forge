@@ -9,7 +9,11 @@ import {
 } from '#core/user_management/domain/errors'
 import { test } from '@japa/runner'
 
-import { authFailureToInputErrorsBag, flashInertiaInputErrors } from './inertia_input_errors.js'
+import {
+  authFailureToInputErrorsBag,
+  authFailureToNotificationMessage,
+  flashInertiaInputErrors,
+} from './inertia_input_errors.js'
 
 test.group('inertia input errors', () => {
   test('maps core auth failures to the expected form fields', ({ assert }) => {
@@ -42,8 +46,8 @@ test.group('inertia input errors', () => {
         errorKey: 'E_RESET_PASSWORD',
       }),
       {
-        newPassword: 'Reset failed',
-        token: 'Reset failed',
+        newPassword: 'An unexpected authentication error occurred. Please try again.',
+        token: 'An unexpected authentication error occurred. Please try again.',
       }
     )
     assert.deepEqual(
@@ -51,7 +55,7 @@ test.group('inertia input errors', () => {
         errorKey: 'E_UPDATE_PROFILE',
       }),
       {
-        name: 'Profile failed',
+        name: 'An unexpected authentication error occurred. Please try again.',
       }
     )
   })
@@ -87,5 +91,20 @@ test.group('inertia input errors', () => {
     flashInertiaInputErrors(ctx as never, { email: 'Invalid' })
 
     assert.deepEqual(flashes, [{ key: 'inputErrorsBag', value: { email: 'Invalid' } }])
+  })
+
+  test('builds a sanitized notification message for auth failures', ({ assert }) => {
+    assert.equal(
+      authFailureToNotificationMessage(new InvalidCredentialsError(), {
+        errorKey: 'E_SIGNIN_ERROR',
+      }),
+      'Invalid email or password.'
+    )
+    assert.equal(
+      authFailureToNotificationMessage(new AuthenticationError('Leaky internal detail'), {
+        errorKey: 'E_UPDATE_PROFILE',
+      }),
+      'An unexpected authentication error occurred. Please try again.'
+    )
   })
 })

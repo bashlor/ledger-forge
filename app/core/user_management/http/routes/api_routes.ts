@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
 import { HttpProblem } from '#core/common/resources/http_problem'
+import { AuthenticationError } from '#core/user_management/domain/errors'
 import app from '@adonisjs/core/services/app'
 import router from '@adonisjs/core/services/router'
 
@@ -29,25 +30,21 @@ router
       webResponse = await auth.handler(webRequest)
     } catch (error) {
       logger.error({ err: error }, 'Better Auth handler threw')
-      HttpProblem.fromStatus(500, 'An unexpected authentication error occurred.').toResponse(
-        response
-      )
+      HttpProblem.fromError(new AuthenticationError()).toResponse(response)
       return
     }
 
     if (webResponse.status >= 400) {
       let code: string | undefined
-      let detail: string | undefined
       try {
         const body = (await webResponse.json()) as Record<string, unknown>
         code = body?.code as string | undefined
-        detail = body?.message as string | undefined
       } catch {}
 
       for (const cookie of webResponse.headers.getSetCookie()) {
         response.append('Set-Cookie', cookie)
       }
-      HttpProblem.fromBetterAuthCode(code, detail).toResponse(response)
+      HttpProblem.fromBetterAuthCode(code).toResponse(response)
       return
     }
 

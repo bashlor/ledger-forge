@@ -12,11 +12,13 @@ export default class UpdatePasswordController {
   @inject()
   async store(ctx: HttpContext, auth: AuthenticationPort) {
     if (ctx.authSession?.user.isAnonymous) {
-      ctx.logger.warn(
-        { userId: ctx.authSession.user.id },
-        'Anonymous user attempted password change — rejected'
-      )
-      return ctx.response.forbidden('Password change is not available for anonymous accounts.')
+      ctx.logger.warn({ isAnonymous: true }, 'Anonymous account mutation rejected')
+      ctx.session.flashAll()
+      ctx.session.flash('notification', {
+        message: 'Password changes are not available for anonymous accounts.',
+        type: 'error',
+      })
+      return ctx.response.redirect().toPath('/account')
     }
 
     const { currentPassword, newPassword } =
@@ -31,9 +33,9 @@ export default class UpdatePasswordController {
       await auth.changePassword(sessionToken, currentPassword, newPassword)
       ctx.logger.info('Password changed successfully')
       ctx.session.flash('success', 'Password changed successfully.')
-      return ctx.response.redirect().toPath(ctx.request.url())
+      return ctx.response.redirect().toPath('/account')
     } catch (error) {
-      return presentAuthError(ctx, error as Error, 'E_CHANGE_PASSWORD')
+      return presentAuthError(ctx, error as Error, 'E_CHANGE_PASSWORD', '/account')
     }
   }
 }

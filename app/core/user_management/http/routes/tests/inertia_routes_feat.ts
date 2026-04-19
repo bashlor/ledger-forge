@@ -18,7 +18,20 @@ const guestUser: AuthProviderUser = {
   name: 'Guest User',
 }
 
+const anonymousUser: AuthProviderUser = {
+  createdAt: new Date('2024-01-01T00:00:00.000Z'),
+  email: 'anonymous@example.com',
+  emailVerified: true,
+  id: 'user_anonymous',
+  image: null,
+  isAnonymous: true,
+  name: 'Anonymous User',
+}
+
 class RouteAuthenticationStub extends AuthenticationPort {
+  changePasswordCalls = 0
+  updateUserCalls = 0
+
   constructor(private readonly session: AuthResult | null = null) {
     super()
   }
@@ -27,7 +40,9 @@ class RouteAuthenticationStub extends AuthenticationPort {
     _sessionToken: string,
     _currentPassword: string,
     _newPassword: string
-  ): Promise<void> {}
+  ): Promise<void> {
+    this.changePasswordCalls += 1
+  }
   getOAuthUrl(): string {
     return '/api/auth/sign-in/social'
   }
@@ -55,9 +70,9 @@ class RouteAuthenticationStub extends AuthenticationPort {
       session: {
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'anonymous_session_token',
-        userId: guestUser.id,
+        userId: anonymousUser.id,
       },
-      user: guestUser,
+      user: anonymousUser,
     }
   }
   async signOut(_sessionToken: string): Promise<void> {}
@@ -75,7 +90,8 @@ class RouteAuthenticationStub extends AuthenticationPort {
     _sessionToken: string,
     _data: { image?: string; name?: string }
   ): Promise<AuthProviderUser> {
-    return guestUser
+    this.updateUserCalls += 1
+    return this.session?.user ?? guestUser
   }
   async validateSession(_token: string): Promise<AuthResult> {
     return {
@@ -88,6 +104,12 @@ class RouteAuthenticationStub extends AuthenticationPort {
     }
   }
   async verifyEmail(_token: string): Promise<void> {}
+}
+
+function inertiaHeaders(request: any) {
+  request.header('x-inertia', 'true')
+  request.header('x-inertia-version', '1')
+  return request
 }
 
 test.group('Auth inertia routes', (group) => {
@@ -168,5 +190,88 @@ test.group('Auth inertia routes', (group) => {
     const serializedCookies = Array.isArray(setCookies) ? setCookies.join('; ') : (setCookies ?? '')
     assert.include(serializedCookies, `${AUTH_SESSION_TOKEN_COOKIE_NAME}=`)
     assert.notInclude(serializedCookies, 'e:')
+  })
+
+  test('renders account settings for anonymous users in read-only mode', async ({
+    assert,
+    client,
+  }) => {
+    const auth = new RouteAuthenticationStub({
+      session: {
+        expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+        token: 'anonymous_session_token',
+        userId: anonymousUser.id,
+      },
+      user: anonymousUser,
+    })
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+
+    const response = await inertiaHeaders(client.get('/account')).cookie(
+      AUTH_SESSION_TOKEN_COOKIE_NAME,
+      'anonymous_session_token'
+    )
+
+    response.assertStatus(200)
+    assert.equal(response.body().component, 'account/settings')
+    assert.deepEqual(response.body().props.user, {
+      email: anonymousUser.email,
+      image: anonymousUser.image,
+      name: anonymousUser.name,
+    })
+  })
+
+  test('rejects anonymous profile updates without calling the auth provider', async ({
+    assert,
+    client,
+  }) => {
+    const auth = new RouteAuthenticationStub({
+      session: {
+        expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+        token: 'anonymous_session_token',
+        userId: anonymousUser.id,
+      },
+      user: anonymousUser,
+    })
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+
+    const response = await inertiaHeaders(client.post('/account'))
+      .cookie(AUTH_SESSION_TOKEN_COOKIE_NAME, 'anonymous_session_token')
+      .redirects(0)
+      .form({ name: 'Changed Name' })
+
+    response.assertStatus(302)
+    response.assertHeader('location', '/account')
+    assert.equal(auth.updateUserCalls, 0)
+  })
+
+  test('rejects anonymous password changes without calling the auth provider', async ({
+    assert,
+    client,
+  }) => {
+    const auth = new RouteAuthenticationStub({
+      session: {
+        expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+        token: 'anonymous_session_token',
+        userId: anonymousUser.id,
+      },
+      user: anonymousUser,
+    })
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+
+    const response = await inertiaHeaders(client.post('/account/password'))
+      .cookie(AUTH_SESSION_TOKEN_COOKIE_NAME, 'anonymous_session_token')
+      .redirects(0)
+      .form({
+        currentPassword: 'current-password',
+        newPassword: 'SecureP@ss123',
+        newPasswordConfirmation: 'SecureP@ss123',
+      })
+
+    response.assertStatus(302)
+    response.assertHeader('location', '/account')
+    assert.equal(auth.changePasswordCalls, 0)
   })
 })

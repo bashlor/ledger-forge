@@ -1,4 +1,5 @@
 import { DomainError } from '#core/shared/domain_error'
+import { AuthenticationError } from '#core/user_management/domain/errors'
 import { test } from '@japa/runner'
 
 import { domainErrorToHttpStatus, HttpProblem, lookupBetterAuthError } from './http_problem.js'
@@ -22,10 +23,21 @@ test.group('HttpProblem', () => {
     assert.equal(known.status, 401)
     assert.equal(known.detail, 'Invalid email or password.')
     assert.equal(known.type, 'urn:accounting-app:better-auth:INVALID_EMAIL_OR_PASSWORD')
+    assert.deepEqual(known.extensions, { code: 'auth.invalid_credentials' })
 
     assert.equal(unknown.status, 500)
     assert.equal(unknown.detail, 'An unexpected error occurred. Please try again.')
     assert.equal(unknown.type, 'urn:accounting-app:better-auth:SOME_UNKNOWN_CODE')
+    assert.deepEqual(unknown.extensions, { code: 'auth.provider_failure' })
+  })
+
+  test('maps generic application errors through the shared public-error resolver', ({ assert }) => {
+    const problem = HttpProblem.fromError(new AuthenticationError('Leaky internal detail'))
+
+    assert.equal(problem.status, 500)
+    assert.equal(problem.detail, 'An unexpected authentication error occurred. Please try again.')
+    assert.equal(problem.type, 'urn:accounting-app:error:unspecified_internal_error')
+    assert.deepEqual(problem.extensions, { code: 'auth.provider_failure' })
   })
 
   test('serializes and writes problem details to a response', ({ assert }) => {
