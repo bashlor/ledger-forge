@@ -77,8 +77,7 @@ function inertiaHeaders(request: any) {
 }
 
 function withAuthCookie(request: any) {
-  request.cookie(AUTH_SESSION_TOKEN_COOKIE_NAME, fakeSession.session.token)
-  return request
+  return request.header('cookie', `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}`)
 }
 
 test.group('Customers routes | create, update, delete rules', (group) => {
@@ -249,7 +248,16 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
 
-    const page = await inertiaHeaders(withAuthCookie(client.get('/customers')))
+    // The flash messages are stored in the AdonisJS memory session, identified by the
+    // adonis-session cookie set in the POST response. Carry it into the GET so the
+    // InertiaMiddleware can read the inputErrorsBag flash.
+    const rawSetCookies = response.header('set-cookie') ?? []
+    const sessionCookiePart = (Array.isArray(rawSetCookies) ? rawSetCookies : [rawSetCookies])
+      .map((c: string) => c.split(';')[0])
+      .join('; ')
+    const cookieForGet = `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}; ${sessionCookiePart}`
+
+    const page = await inertiaHeaders(client.get('/customers')).header('cookie', cookieForGet)
 
     page.assertStatus(200)
     assert.equal(page.body().component, 'app/customers')
