@@ -585,4 +585,13 @@ test.group('Expenses routes | date range validation', (group) => {
       .redirects(0)
     response.assertStatus(302)
   })
+
+  test('GET /expenses rejects inverted date ranges', async ({ client }) => {
+    const response = await client
+      .get('/expenses')
+      .header('cookie', authCookie())
+      .qs({ endDate: '2026-04-01', startDate: '2026-04-30' })
+      .redirects(0)
+    response.assertStatus(302)
+  })
 })

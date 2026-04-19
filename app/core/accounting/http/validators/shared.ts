@@ -1,5 +1,10 @@
 import vine from '@vinejs/vine'
 
+export interface VineFieldContextLike {
+  data: unknown
+  report(message: string, rule: string, field: unknown): void
+}
+
 /**
  * Vine schema for validated ISO-8601 calendar dates (YYYY-MM-DD).
  *
@@ -20,3 +25,20 @@ export const vineDateString = vine
     }
     return value
   })
+
+export const dateRangeRule = vine.createRule((value, _options, field) => {
+  const record = value as { endDate?: string; startDate?: string }
+
+  if (
+    typeof record?.startDate === 'string' &&
+    typeof record?.endDate === 'string' &&
+    record.endDate < record.startDate
+  ) {
+    field.report('End date must be on or after start date.', 'date_range', field)
+  }
+})
+
+export function hasFieldValue(field: VineFieldContextLike, key: string): boolean {
+  const record = field.data as Record<string, unknown>
+  return typeof record[key] === 'string' && record[key].length > 0
+}
