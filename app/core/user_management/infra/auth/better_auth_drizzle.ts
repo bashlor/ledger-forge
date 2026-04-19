@@ -4,12 +4,13 @@ import { getDefaultStructuredLogFields, toIsoTimestamp } from '#core/common/logg
 import env from '#start/env'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
-import { anonymous } from 'better-auth/plugins'
+import { anonymous, organization } from 'better-auth/plugins'
 import { v7 as uuidv7 } from 'uuid'
 
 import type { UserManagementActivitySink } from '../../support/activity_log.js'
 
 import { AUTH_COOKIE_PREFIX } from '../../auth_session_cookie.js'
+import * as authTables from '../../drizzle/schema.js'
 
 export async function createBetterAuth(
   drizzle: any,
@@ -104,6 +105,15 @@ export async function createBetterAuth(
     baseURL: env.get('APP_URL'),
     database: drizzleAdapter(drizzle, {
       provider: 'pg',
+      schema: {
+        account: authTables.account,
+        invitation: authTables.invitation,
+        member: authTables.member,
+        organization: authTables.organization,
+        session: authTables.session,
+        user: authTables.user,
+        verification: authTables.verification,
+      },
     }),
     databaseHooks: {
       user: {
@@ -152,7 +162,12 @@ export async function createBetterAuth(
         }
       },
     },
-    plugins: [anonymous()],
+    plugins: [
+      anonymous(),
+      organization({
+        allowUserToCreateOrganization: true,
+      }),
+    ],
     secret,
     session,
   })

@@ -2,7 +2,7 @@ import { DomainError } from '#core/common/errors/domain_error'
 import { getDefaultStructuredLogFields, toIsoTimestamp } from '#core/common/logging/structured_log'
 import { type betterAuth } from 'better-auth'
 
-import type { AuthProviderUser, AuthResult } from '../../domain/authentication.js'
+import type { AuthProviderUser, AuthResult, AuthSession } from '../../domain/authentication.js'
 import type { UserManagementActivitySink } from '../../support/activity_log.js'
 
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '../../auth_session_cookie.js'
@@ -86,11 +86,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
       }
 
       return {
-        session: {
-          expiresAt: new Date(session.expiresAt),
-          token: session.token,
-          userId: session.userId,
-        },
+        session: this.mapSessionRow(session),
         user: this.mapToAuthProviderUser(user),
       }
     } catch (err) {
@@ -172,11 +168,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
     }
 
     return {
-      session: {
-        expiresAt: session.expiresAt,
-        token: session.token,
-        userId: session.userId,
-      },
+      session: this.mapSessionRow(session),
       user: this.mapToAuthProviderUser(response.user),
     }
   }
@@ -212,11 +204,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
     }
 
     return {
-      session: {
-        expiresAt: session.expiresAt,
-        token: session.token,
-        userId: session.userId,
-      },
+      session: this.mapSessionRow(session),
       user: {
         createdAt: new Date(response.user.createdAt),
         email: response.user.email,
@@ -267,11 +255,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
     }
 
     return {
-      session: {
-        expiresAt: session.expiresAt,
-        token: session.token,
-        userId: session.userId,
-      },
+      session: this.mapSessionRow(session),
       user: this.mapToAuthProviderUser(response.user),
     }
   }
@@ -321,6 +305,22 @@ export class BetterAuthAdapter extends AuthenticationPort {
     const headers = new Headers()
     headers.set('cookie', `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${sessionToken}`)
     return headers
+  }
+
+  private mapSessionRow(session: {
+    activeOrganizationId?: null | string
+    expiresAt: Date | string
+    token: string
+    userId: string
+  }): AuthSession {
+    const expiresAt =
+      session.expiresAt instanceof Date ? session.expiresAt : new Date(session.expiresAt)
+    return {
+      activeOrganizationId: session.activeOrganizationId ?? null,
+      expiresAt,
+      token: session.token,
+      userId: session.userId,
+    }
   }
 
   private mapToAuthProviderUser(user: {
