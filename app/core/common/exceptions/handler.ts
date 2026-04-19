@@ -49,8 +49,16 @@ export default class HttpExceptionHandler extends ExceptionHandler {
         return
       }
 
-      // Route auth-like domain errors through the shared presenter for web flows.
-      if (ctx.request.method() !== 'GET' && ctx.request.accepts(['html']) === 'html') {
+      // Route auth DomainError subclasses (e.g. InvalidCredentialsError, SessionExpiredError)
+      // through the shared presenter for web flows. Plain accounting DomainErrors have
+      // name === 'DomainError' (the default) and must NOT be routed here — their errors are
+      // already handled by flashAction in controllers, and not_found should render the 404 page.
+      const isAuthDomainError = (error as Error).name !== 'DomainError'
+      if (
+        isAuthDomainError &&
+        ctx.request.method() !== 'GET' &&
+        ctx.request.accepts(['html']) === 'html'
+      ) {
         presentAuthError(ctx, error, 'E_AUTH_ERROR')
         return
       }

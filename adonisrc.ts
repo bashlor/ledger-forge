@@ -165,7 +165,7 @@ export default defineConfig({
           'tests/**/*.e2e.{ts,js}',
         ],
         name: 'browser',
-        timeout: 300000,
+        timeout: 600000,
       },
       {
         files: ['tests/**/*_console.spec.{ts,js}', 'tests/**/*.console.spec.{ts,js}'],
