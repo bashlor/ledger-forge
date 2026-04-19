@@ -1,7 +1,11 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import * as schema from '#core/common/drizzle/index'
 import { presentPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
+import { provisionPersonalWorkspace } from '#core/user_management/application/workspace_provisioning'
 import { inject } from '@adonisjs/core'
+import app from '@adonisjs/core/services/app'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
 import { userManagementHttpLogger } from '../helpers/activity_log.js'
@@ -34,6 +38,19 @@ export default class SignupController {
           }),
         }
       )
+
+      try {
+        const db = (await app.container.make('drizzle')) as PostgresJsDatabase<typeof schema>
+        await provisionPersonalWorkspace(db, {
+          displayName: fullName ?? undefined,
+          email,
+          isAnonymous: false,
+          sessionToken: authentication.session.token,
+          userId: authentication.user.id,
+        })
+      } catch (error) {
+        ctx.logger.warn({ err: error }, 'workspace_provision_on_signup_failed')
+      }
 
       writeSessionToken(ctx, {
         expiresAt: authentication.session.expiresAt,
