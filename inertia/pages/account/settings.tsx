@@ -1,4 +1,6 @@
 import { Form } from '@adonisjs/inertia/react'
+import { type Data } from '@generated/data'
+import { usePage } from '@inertiajs/react'
 
 interface SettingsProps {
   user: null | {
@@ -10,6 +12,9 @@ interface SettingsProps {
 }
 
 export default function Settings({ user }: SettingsProps) {
+  const page = usePage<Data.SharedProps>()
+  const workspace = page.props.workspace
+
   if (!user) {
     return (
       <div className="mx-auto max-w-3xl px-1">
@@ -38,7 +43,7 @@ export default function Settings({ user }: SettingsProps) {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-2xl bg-surface-container-low px-4 py-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
                 Identity
@@ -59,6 +64,28 @@ export default function Settings({ user }: SettingsProps) {
                   : 'Rotate credentials when needed.'}
               </p>
             </div>
+            {workspace ? (
+              <div className="rounded-2xl bg-surface-container-low px-4 py-3 sm:col-span-2 lg:col-span-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+                  Active workspace
+                </p>
+                <p className="mt-1.5 text-sm font-semibold text-on-surface">{workspace.name}</p>
+                <p className="mt-0.5 truncate font-mono text-xs text-on-surface-variant">
+                  {workspace.slug}
+                </p>
+                {workspace.isAnonymousWorkspace ? (
+                  <p className="mt-2 text-xs text-on-surface-variant">
+                    Dedicated anonymous workspace — upgrade to a full account to keep data under a
+                    named organization later.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-on-surface-variant">
+                    This workspace was created for your account. Organization switching may be added
+                    in a future update.
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
