@@ -25,6 +25,7 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
 
     const notification: null | { message: string; type: 'error' | 'success' } =
       session?.flashMessages.get('notification') ?? null
+    const inputErrorsBag = this.getInputErrorsBag(ctx)
 
     /**
      * Auth session data — populated by SilentAuthMiddleware.
@@ -33,7 +34,10 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
     const authUser = ctx.authSession?.user
 
     return {
-      errors: ctx.inertia.always(this.getValidationErrors(ctx)),
+      errors: ctx.inertia.always({
+        ...this.getValidationErrors(ctx),
+        ...inputErrorsBag,
+      }),
       flash: ctx.inertia.always({
         notification,
       }),
@@ -58,6 +62,20 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
       return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase()
     }
     return `${first.slice(0, 2)}`.toUpperCase()
+  }
+
+  private getInputErrorsBag(ctx: HttpContext): Record<string, string> {
+    const candidate = ctx.session?.flashMessages.get('inputErrorsBag')
+
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      return {}
+    }
+
+    return Object.fromEntries(
+      Object.entries(candidate).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string'
+      )
+    )
   }
 }
 

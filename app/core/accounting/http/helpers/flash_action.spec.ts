@@ -47,7 +47,33 @@ test.group('flashAction', () => {
     assert.deepEqual(flashes, [
       {
         key: 'notification',
-        value: { message: 'Business rule failed', type: 'error' },
+        value: { message: 'The requested action could not be completed.', type: 'error' },
+      },
+    ])
+  })
+
+  test('flashes customer field errors when the resolved public error includes them', async ({
+    assert,
+  }) => {
+    const { ctx, flashes } = createContext()
+
+    await flashAction(
+      ctx as never,
+      async () => {
+        throw new DomainError('Customer address is required.', 'invalid_data')
+      },
+      'Saved.',
+      'Fallback.'
+    )
+
+    assert.deepEqual(flashes, [
+      {
+        key: 'inputErrorsBag',
+        value: { address: 'Customer address is required.' },
+      },
+      {
+        key: 'notification',
+        value: { message: 'Customer address is required.', type: 'error' },
       },
     ])
   })

@@ -62,17 +62,21 @@ test.group('inertia input errors', () => {
 
   test('maps domain auth payload and token errors to the right fields', ({ assert }) => {
     const invalidPayload = new DomainError(
-      'Email is invalid',
+      'The email address is invalid.',
       'invalid_data',
       'InvalidAuthPayloadError'
     )
-    const invalidToken = new DomainError('Invalid token', 'invalid_data', 'InvalidTokenError')
+    const invalidToken = new DomainError(
+      'The link has expired or is invalid.',
+      'unauthorized_user_operation',
+      'InvalidTokenError'
+    )
 
     assert.deepEqual(authFailureToInputErrorsBag(invalidPayload), {
-      email: 'Email is invalid',
+      email: 'The email address is invalid.',
     })
     assert.deepEqual(authFailureToInputErrorsBag(invalidToken, { errorKey: 'E_RESET_PASSWORD' }), {
-      newPassword: 'Invalid token',
+      newPassword: 'The link has expired or is invalid.',
     })
     assert.deepEqual(authFailureToInputErrorsBag(new Error('Unknown')), {})
   })

@@ -53,14 +53,10 @@ export class HttpProblem {
    * Accepts any object whose `.type` is a known domain-error tag.
    */
   static fromDomainError(error: { message: string; type: string }): HttpProblem {
-    const resolved = resolvePublicError(error)
-    return new HttpProblem(
-      resolved.status,
-      HTTP_STATUS_TITLES[resolved.status] ?? 'Error',
-      resolved.message,
-      `${PROBLEM_TYPE_NAMESPACE}:error:${error.type}`,
-      undefined,
-      { code: resolved.code }
+    return HttpProblem.fromError(
+      error instanceof DomainError
+        ? error
+        : new DomainError(error.message, error.type as ConstructorParameters<typeof DomainError>[1])
     )
   }
 

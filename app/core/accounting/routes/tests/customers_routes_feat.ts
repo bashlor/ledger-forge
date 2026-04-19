@@ -70,8 +70,14 @@ class FakeAuth extends AuthenticationPort {
 
 let db: PostgresJsDatabase<any>
 
-function authCookie() {
-  return `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}`
+function inertiaHeaders(request: any) {
+  request.header('x-inertia', 'true')
+  request.header('x-inertia-version', '1')
+  return request
+}
+
+function withAuthCookie(request: any) {
+  return request.header('cookie', `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}`)
 }
 
 test.group('Customers routes | create, update, delete rules', (group) => {
@@ -96,17 +102,13 @@ test.group('Customers routes | create, update, delete rules', (group) => {
   group.teardown(async () => cleanup())
 
   test('creates a customer via POST /customers', async ({ assert, client }) => {
-    const response = await client
-      .post('/customers')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({
-        address: '1 rue des Tests, Paris',
-        company: 'Feat Test Co',
-        email: 'feat-test@example.com',
-        name: 'Test User',
-        phone: '+1 555 0100',
-      })
+    const response = await withAuthCookie(client.post('/customers')).redirects(0).form({
+      address: '1 rue des Tests, Paris',
+      company: 'Feat Test Co',
+      email: 'feat-test@example.com',
+      name: 'Test User',
+      phone: '+1 555 0100',
+    })
 
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
@@ -144,9 +146,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       phone: '+33 6 20 30 40 50',
     })
 
-    const response = await client
-      .put(`/customers/${id}`)
-      .header('cookie', authCookie())
+    const response = await withAuthCookie(client.put(`/customers/${id}`))
       .redirects(0)
       .form({
         address: '7 impasse du Port, Nantes',
@@ -166,9 +166,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
   })
 
   test('rejects PUT /customers/:id when customer does not exist', async ({ assert, client }) => {
-    const response = await client
-      .put('/customers/unknown-client-id')
-      .header('cookie', authCookie())
+    const response = await withAuthCookie(client.put('/customers/unknown-client-id'))
       .header('accept', 'application/json')
       .json({
         address: 'Nowhere',
@@ -185,17 +183,13 @@ test.group('Customers routes | create, update, delete rules', (group) => {
   })
 
   test('rejects POST /customers when validation fails', async ({ assert, client }) => {
-    const response = await client
-      .post('/customers')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({
-        address: 'Short Street',
-        company: 'X',
-        email: 'not-an-email',
-        name: 'Y',
-        phone: '1',
-      })
+    const response = await withAuthCookie(client.post('/customers')).redirects(0).form({
+      address: 'Short Street',
+      company: 'X',
+      email: 'not-an-email',
+      name: 'Y',
+      phone: '1',
+    })
 
     response.assertStatus(302)
 
@@ -204,16 +198,12 @@ test.group('Customers routes | create, update, delete rules', (group) => {
   })
 
   test('creates a customer when only email is provided', async ({ assert, client }) => {
-    const response = await client
-      .post('/customers')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({
-        address: '22 boulevard Email, Lille',
-        company: 'Email Only Co',
-        email: 'email-only@example.com',
-        name: 'Email Contact',
-      })
+    const response = await withAuthCookie(client.post('/customers')).redirects(0).form({
+      address: '22 boulevard Email, Lille',
+      company: 'Email Only Co',
+      email: 'email-only@example.com',
+      name: 'Email Contact',
+    })
 
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
@@ -226,16 +216,12 @@ test.group('Customers routes | create, update, delete rules', (group) => {
   })
 
   test('creates a customer when only phone is provided', async ({ assert, client }) => {
-    const response = await client
-      .post('/customers')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({
-        address: '44 avenue Phone, Rennes',
-        company: 'Phone Only Co',
-        name: 'Phone Contact',
-        phone: '+1 555 0000',
-      })
+    const response = await withAuthCookie(client.post('/customers')).redirects(0).form({
+      address: '44 avenue Phone, Rennes',
+      company: 'Phone Only Co',
+      name: 'Phone Contact',
+      phone: '+1 555 0000',
+    })
 
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
@@ -251,9 +237,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert,
     client,
   }) => {
-    const response = await client
-      .post('/customers')
-      .header('cookie', authCookie())
+    const response = await inertiaHeaders(withAuthCookie(client.post('/customers')))
       .redirects(0)
       .form({
         address: 'Missing Contact Street',
@@ -263,6 +247,24 @@ test.group('Customers routes | create, update, delete rules', (group) => {
 
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
+
+    // The flash messages are stored in the AdonisJS memory session, identified by the
+    // adonis-session cookie set in the POST response. Carry it into the GET so the
+    // InertiaMiddleware can read the inputErrorsBag flash.
+    const rawSetCookies = response.header('set-cookie') ?? []
+    const sessionCookiePart = (Array.isArray(rawSetCookies) ? rawSetCookies : [rawSetCookies])
+      .map((c: string) => c.split(';')[0])
+      .join('; ')
+    const cookieForGet = `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}; ${sessionCookiePart}`
+
+    const page = await inertiaHeaders(client.get('/customers')).header('cookie', cookieForGet)
+
+    page.assertStatus(200)
+    assert.equal(page.body().component, 'app/customers')
+    assert.deepEqual(page.body().props.errors, {
+      email: 'Provide at least an email or a phone number.',
+      phone: 'Provide at least an email or a phone number.',
+    })
 
     const rows = await db.select().from(customers)
     assert.equal(rows.length, 0)
@@ -345,10 +347,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       status: 'draft',
     })
 
-    const response = await client
-      .delete(`/customers/${customerId}`)
-      .header('cookie', authCookie())
-      .redirects(0)
+    const response = await withAuthCookie(client.delete(`/customers/${customerId}`)).redirects(0)
 
     response.assertStatus(302)
 
@@ -408,9 +407,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
   })
 
   test('deleting a non-existent customer returns 404', async ({ assert, client }) => {
-    const response = await client
-      .delete('/customers/non-existent-id')
-      .header('cookie', authCookie())
+    const response = await withAuthCookie(client.delete('/customers/non-existent-id'))
       .header('accept', 'application/json')
       .redirects(0)
 
@@ -432,8 +429,8 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     })
 
     await Promise.allSettled([
-      client.delete(`/customers/${id}`).header('cookie', authCookie()).redirects(0),
-      client.delete(`/customers/${id}`).header('cookie', authCookie()).redirects(0),
+      withAuthCookie(client.delete(`/customers/${id}`)).redirects(0),
+      withAuthCookie(client.delete(`/customers/${id}`)).redirects(0),
     ])
 
     const rows = await db.select().from(customers).where(eq(customers.id, id))

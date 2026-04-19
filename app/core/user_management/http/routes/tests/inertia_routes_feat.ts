@@ -217,6 +217,7 @@ test.group('Auth inertia routes', (group) => {
     assert.deepEqual(response.body().props.user, {
       email: anonymousUser.email,
       image: anonymousUser.image,
+      isAnonymous: true,
       name: anonymousUser.name,
     })
   })
