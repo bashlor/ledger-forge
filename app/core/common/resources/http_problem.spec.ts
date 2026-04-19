@@ -5,15 +5,18 @@ import { test } from '@japa/runner'
 import { domainErrorToHttpStatus, HttpProblem, lookupBetterAuthError } from './http_problem.js'
 
 test.group('HttpProblem', () => {
-  test('maps domain errors to problem details', ({ assert }) => {
-    const problem = HttpProblem.fromDomainError(
+  test('maps domain errors to problem details through the shared public-error resolver', ({
+    assert,
+  }) => {
+    const problem = HttpProblem.fromError(
       new DomainError('Missing invoice', 'not_found', 'InvoiceNotFoundError')
     )
 
     assert.equal(problem.status, 404)
     assert.equal(problem.title, 'Not Found')
-    assert.equal(problem.detail, 'Missing invoice')
+    assert.equal(problem.detail, 'The requested resource was not found.')
     assert.equal(problem.type, 'urn:accounting-app:error:not_found')
+    assert.deepEqual(problem.extensions, { code: 'domain.not_found' })
   })
 
   test('maps Better Auth errors and falls back for unknown codes', ({ assert }) => {
@@ -38,6 +41,13 @@ test.group('HttpProblem', () => {
     assert.equal(problem.detail, 'An unexpected authentication error occurred. Please try again.')
     assert.equal(problem.type, 'urn:accounting-app:error:unspecified_internal_error')
     assert.deepEqual(problem.extensions, { code: 'auth.provider_failure' })
+  })
+
+  test('keeps fromDomainError as a thin alias over the shared mapping path', ({ assert }) => {
+    const direct = HttpProblem.fromError(new DomainError('Invoice not found.', 'not_found'))
+    const alias = HttpProblem.fromDomainError(new DomainError('Invoice not found.', 'not_found'))
+
+    assert.deepEqual(alias.toJSON(), direct.toJSON())
   })
 
   test('serializes and writes problem details to a response', ({ assert }) => {

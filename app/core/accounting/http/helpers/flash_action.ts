@@ -1,5 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { resolvePublicError } from '#core/common/errors/public_error'
+import { flashInertiaInputErrors } from '#core/common/http/presenters/inertia_input_errors'
 import { DomainError } from '#core/shared/domain_error'
 
 /**
@@ -21,8 +23,11 @@ export async function flashAction(
   } catch (error) {
     if (!(error instanceof DomainError) || error.type === 'not_found') throw error
 
+    const resolved = resolvePublicError(error)
+    flashInertiaInputErrors(ctx, resolved.fieldBag ?? {})
+
     ctx.session.flash('notification', {
-      message: error.message || fallbackMessage,
+      message: resolved.message || fallbackMessage,
       type: 'error',
     })
   }

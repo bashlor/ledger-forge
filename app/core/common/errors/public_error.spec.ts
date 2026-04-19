@@ -42,15 +42,38 @@ test.group('resolvePublicError', () => {
     )
   })
 
-  test('keeps domain-business messages while assigning stable codes', ({ assert }) => {
+  test('maps allowlisted accounting domain errors to stable public codes and field bags', ({
+    assert,
+  }) => {
+    assert.deepEqual(
+      resolvePublicError(new DomainError('Customer address is required.', 'invalid_data')),
+      {
+        code: 'accounting.customer_missing_address',
+        fieldBag: { address: 'Customer address is required.' },
+        message: 'Customer address is required.',
+        status: 422,
+      }
+    )
+
     assert.deepEqual(
       resolvePublicError(
         new DomainError('Invoice not found.', 'not_found', 'InvoiceNotFoundError')
       ),
       {
-        code: 'domain.not_found',
+        code: 'accounting.invoice_not_found',
         message: 'Invoice not found.',
         status: 404,
+      }
+    )
+
+    assert.deepEqual(
+      resolvePublicError(
+        new DomainError('Only draft expenses can be confirmed.', 'business_logic_error')
+      ),
+      {
+        code: 'accounting.expense_confirm_draft_only',
+        message: 'Only draft expenses can be confirmed.',
+        status: 422,
       }
     )
   })
@@ -67,6 +90,48 @@ test.group('resolvePublicError', () => {
       message: 'An unexpected error occurred. Please try again.',
       status: 500,
     })
+  })
+
+  test('sanitizes non-allowlisted domain errors', ({ assert }) => {
+    assert.deepEqual(
+      resolvePublicError(new DomainError('Leaky business detail', 'business_logic_error')),
+      {
+        code: 'domain.business_logic_error',
+        message: 'The requested action could not be completed.',
+        status: 422,
+      }
+    )
+  })
+
+  test('keeps controlled auth-domain failures safe and field-aware', ({ assert }) => {
+    assert.deepEqual(
+      resolvePublicError(
+        new DomainError('The email address is invalid.', 'invalid_data', 'InvalidAuthPayloadError')
+      ),
+      {
+        code: 'auth.invalid_payload',
+        fieldBag: { email: 'The email address is invalid.' },
+        message: 'The email address is invalid.',
+        status: 422,
+      }
+    )
+
+    assert.deepEqual(
+      resolvePublicError(
+        new DomainError(
+          'The link has expired or is invalid.',
+          'unauthorized_user_operation',
+          'InvalidTokenError'
+        ),
+        { errorKey: 'E_RESET_PASSWORD' }
+      ),
+      {
+        code: 'auth.invalid_token',
+        fieldBag: { newPassword: 'The link has expired or is invalid.' },
+        message: 'The link has expired or is invalid.',
+        status: 401,
+      }
+    )
   })
 
   test('supports controlled exposure of internal messages for generic errors', ({ assert }) => {
