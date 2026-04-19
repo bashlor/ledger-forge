@@ -74,6 +74,15 @@ export async function updateInvoice(tx: DrizzleTx, id: string, values: InvoiceUp
   return row
 }
 
+export async function updateInvoiceDraft(tx: DrizzleTx, id: string, values: InvoiceUpdate) {
+  const [row] = await tx
+    .update(invoices)
+    .set(values)
+    .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
+    .returning()
+  return row
+}
+
 export async function updateInvoiceStatus(
   tx: DrizzleTx,
   id: string,

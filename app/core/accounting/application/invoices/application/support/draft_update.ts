@@ -10,7 +10,7 @@ import {
   buildDraftInvoiceMutation,
 } from '../../domain/invoice_mutations.js'
 import { assertDraftCanBeUpdated } from '../../domain/invoice_rules.js'
-import { replaceInvoiceLines, updateInvoice } from '../../infrastructure/invoice_commands.js'
+import { replaceInvoiceLines, updateInvoiceDraft } from '../../infrastructure/invoice_commands.js'
 import { normalizeSaveInvoiceDraftInput } from '../validators/save_invoice_draft_input.js'
 import { loadCustomerSnapshotOrThrow, loadInvoiceForMutationOrThrow } from './invoice_snapshot.js'
 
@@ -52,7 +52,7 @@ export async function persistDraftUpdate(
   await hooks?.afterRead?.()
 
   const preparedLines = buildDraftInvoiceLinesMutation(context.normalized.lines)
-  const invoice = await updateInvoice(tx, id, {
+  const invoice = await updateInvoiceDraft(tx, id, {
     ...buildDraftInvoiceMutation({
       customer: context.customer,
       customerId: context.normalized.customerId,

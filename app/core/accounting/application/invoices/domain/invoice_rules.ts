@@ -38,9 +38,7 @@ export function assertInvoiceBelongsToTenant(
   tenantId: null | string | undefined
 ) {
   // We intentionally treat both null and undefined as "no tenant context" here.
-  // A strict !== null check would change system-access semantics by rejecting undefined.
-  // eslint-disable-next-line eqeqeq
-  if (tenantId != null && invoiceTenantId !== tenantId) {
+  if (tenantId !== null && tenantId !== undefined && invoiceTenantId !== tenantId) {
     throw new DomainError('Invoice not found.', 'not_found')
   }
 }
