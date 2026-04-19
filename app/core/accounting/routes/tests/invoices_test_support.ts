@@ -129,6 +129,12 @@ export function inertiaGet(client: any, url: string) {
     .header('x-inertia-version', '1')
 }
 
+export function inertiaHeaders(request: any) {
+  request.header('x-inertia', 'true')
+  request.header('x-inertia-version', '1')
+  return request
+}
+
 export function inertiaProps(response: any) {
   return response.body().props as any
 }

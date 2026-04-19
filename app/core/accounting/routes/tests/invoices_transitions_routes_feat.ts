@@ -120,6 +120,29 @@ test.group(
       assert.equal(row.status, 'draft', 'draft invoice was not changed to paid')
     })
 
+    test('POST /invoices/:id/mark-paid marks an issued invoice as paid', async ({
+      assert,
+      client,
+    }) => {
+      const draft = await createDraftViaHttp(db, client)
+
+      await client
+        .post(`/invoices/${draft.id}/issue`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form(issuePayload())
+
+      const response = await client
+        .post(`/invoices/${draft.id}/mark-paid`)
+        .header('cookie', authCookie())
+        .redirects(0)
+
+      response.assertStatus(302)
+
+      const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+      assert.equal(row.status, 'paid')
+    })
+
     test('POST /invoices/:id/issue succeeds even when customer has no address', async ({
       assert,
       client,
