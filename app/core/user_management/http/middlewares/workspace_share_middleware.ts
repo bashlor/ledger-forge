@@ -5,10 +5,13 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import {
   clearActiveOrganizationForSession,
+  ensureSingleTenantMembership,
   loadWorkspaceShare,
   provisionPersonalWorkspace,
+  setActiveOrganizationForSession,
 } from '#core/user_management/application/workspace_provisioning'
 import { userIsMemberOfOrganization } from '#core/user_management/support/tenant_membership'
+import { getSingleTenantOrgId, isSingleTenantMode } from '#core/user_management/support/tenant_mode'
 import { inject } from '@adonisjs/core'
 import app from '@adonisjs/core/services/app'
 
@@ -40,10 +43,25 @@ export default class WorkspaceShareMiddleware {
 
     const token = readSessionToken(ctx)
     const db = (await app.container.make('drizzle')) as PostgresJsDatabase<typeof schema>
+    const singleTenantMode = this.isSingleTenantMode()
 
-    if (!ctx.authSession.session.activeOrganizationId && token) {
+    if (singleTenantMode) {
       try {
-        await provisionPersonalWorkspace(db, {
+        const orgId = this.getSingleTenantOrgId()
+        await this.ensureSingleTenantMembership(db, ctx.authSession.user.id, orgId)
+
+        if (token && ctx.authSession.session.activeOrganizationId !== orgId) {
+          await setActiveOrganizationForSession(db, token, orgId)
+        }
+
+        this.setActiveOrganizationId(ctx, orgId)
+      } catch (error) {
+        this.setActiveOrganizationId(ctx, null)
+        this.logSingleTenantResolutionFailure(ctx, pathname, error)
+      }
+    } else if (!ctx.authSession.session.activeOrganizationId && token) {
+      try {
+        await this.provisionPersonalWorkspace(db, {
           displayName: ctx.authSession.user.name ?? undefined,
           email: ctx.authSession.user.email,
           isAnonymous: ctx.authSession.user.isAnonymous,
@@ -60,8 +78,8 @@ export default class WorkspaceShareMiddleware {
       }
     }
 
-    if (ctx.authSession.session.activeOrganizationId && token) {
-      const hasMembership = await userIsMemberOfOrganization(
+    if (ctx.authSession.session.activeOrganizationId && !singleTenantMode && token) {
+      const hasMembership = await this.hasActiveTenantMembership(
         db,
         ctx.authSession.user.id,
         ctx.authSession.session.activeOrganizationId
@@ -107,6 +125,43 @@ export default class WorkspaceShareMiddleware {
     return next()
   }
 
+  protected async ensureSingleTenantMembership(
+    db: PostgresJsDatabase<typeof schema>,
+    userId: string,
+    organizationId: string
+  ): Promise<void> {
+    await ensureSingleTenantMembership(db, userId, organizationId)
+  }
+
+  protected getSingleTenantOrgId(): string {
+    return getSingleTenantOrgId()
+  }
+
+  protected async hasActiveTenantMembership(
+    db: PostgresJsDatabase<typeof schema>,
+    userId: string,
+    organizationId: string
+  ): Promise<boolean> {
+    return userIsMemberOfOrganization(db, userId, organizationId)
+  }
+
+  protected isSingleTenantMode(): boolean {
+    return isSingleTenantMode()
+  }
+
+  protected async provisionPersonalWorkspace(
+    db: PostgresJsDatabase<typeof schema>,
+    input: {
+      displayName?: string
+      email?: string
+      isAnonymous: boolean
+      sessionToken: string
+      userId: string
+    }
+  ): Promise<void> {
+    await provisionPersonalWorkspace(db, input)
+  }
+
   private async attachWorkspaceShare(ctx: HttpContext): Promise<void> {
     const activeOrganizationId = ctx.authSession?.session.activeOrganizationId
     if (!activeOrganizationId) {
@@ -132,6 +187,27 @@ export default class WorkspaceShareMiddleware {
     return pathname === '/signin' || pathname === '/signup' || pathname === '/signin/anonymous'
   }
 
+  private logSingleTenantResolutionFailure(
+    ctx: HttpContext,
+    pathname: string,
+    error: unknown
+  ): void {
+    const bindings = {
+      err: error,
+      mode: 'single',
+      orgId: ctx.authSession?.session.activeOrganizationId,
+      path: pathname,
+      userId: ctx.authSession?.user.id,
+    }
+
+    if (error instanceof Error && error.message.includes('SINGLE_TENANT_ORG_ID')) {
+      ctx.logger.error(bindings, 'single_tenant_configuration_invalid')
+      return
+    }
+
+    ctx.logger.warn(bindings, 'single_tenant_provision_failed')
+  }
+
   private normalizePathname(ctx: HttpContext): string {
     const raw = ctx.request.url(true)
     let path = raw.split('?')[0] ?? '/'
@@ -140,5 +216,16 @@ export default class WorkspaceShareMiddleware {
     }
     path = path.replace(/\/+$/, '') || '/'
     return path
+  }
+
+  private setActiveOrganizationId(ctx: HttpContext, organizationId: null | string): void {
+    if (!ctx.authSession) {
+      return
+    }
+
+    ctx.authSession = {
+      ...ctx.authSession,
+      session: { ...ctx.authSession.session, activeOrganizationId: organizationId },
+    }
   }
 }

@@ -24,7 +24,7 @@ fi
 
 get_env_value() {
   local key="$1" file="$2"
-  grep "^${key}=" "$file" | head -1 | cut -d= -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || true
 }
 
 write_secret() {

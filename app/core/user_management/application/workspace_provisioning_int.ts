@@ -7,7 +7,10 @@ import {
   bindTestServices,
   createTestPostgresContext,
 } from '../../../../tests/helpers/test_postgres.js'
-import { provisionPersonalWorkspace } from './workspace_provisioning.js'
+import {
+  ensureSingleTenantMembership,
+  provisionPersonalWorkspace,
+} from './workspace_provisioning.js'
 
 async function assertOkJson<T>(res: Response): Promise<T> {
   const text = await res.text()
@@ -228,5 +231,78 @@ test.group('Workspace provisioning (integration)', (group) => {
     assert.lengthOf(organizations, 1)
     assert.lengthOf(memberships, 1)
     assert.equal(sessionAfter!.activeOrganizationId, memberships[0]!.organizationId)
+  })
+
+  test('ensureSingleTenantMembership provisions the organization and makes the first user owner', async ({
+    assert,
+  }) => {
+    const signUpRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'single-owner@example.com',
+      name: 'Single Owner',
+      password: 'SecureP@ss123',
+    })
+    const signedUp = await assertOkJson<{ user: { id: string } }>(signUpRes)
+
+    await ensureSingleTenantMembership(context.db, signedUp.user.id, 'org-single-test')
+
+    const organization = await context.db.query.organization.findFirst({
+      where: (organizationRow, { eq: equal }) => equal(organizationRow.id, 'org-single-test'),
+    })
+    assert.isNotNull(organization)
+    assert.match(organization!.slug, /^single-/)
+
+    const memberships = await context.db.query.member.findMany({
+      where: (memberRow, { eq: equal }) => equal(memberRow.organizationId, 'org-single-test'),
+    })
+    assert.lengthOf(memberships, 1)
+    assert.equal(memberships[0]!.role, 'owner')
+    assert.equal(memberships[0]!.userId, signedUp.user.id)
+  })
+
+  test('ensureSingleTenantMembership reuses the single-tenant org and keeps later users as members', async ({
+    assert,
+  }) => {
+    const firstRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'single-first@example.com',
+      name: 'Single First',
+      password: 'SecureP@ss123',
+    })
+    const secondRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'single-second@example.com',
+      name: 'Single Second',
+      password: 'SecureP@ss123',
+    })
+    const first = await assertOkJson<{ user: { id: string } }>(firstRes)
+    const second = await assertOkJson<{ user: { id: string } }>(secondRes)
+
+    await context.db.insert(schema.organization).values({
+      createdAt: new Date(),
+      id: 'legacy-single-org',
+      logo: null,
+      metadata: JSON.stringify({ workspaceKind: 'personal' }),
+      name: 'Legacy Single',
+      slug: 'single-org',
+    })
+
+    await ensureSingleTenantMembership(context.db, first.user.id, 'org-single-shared')
+    await ensureSingleTenantMembership(context.db, second.user.id, 'org-single-shared')
+    await ensureSingleTenantMembership(context.db, second.user.id, 'org-single-shared')
+
+    const organization = await context.db.query.organization.findFirst({
+      where: (organizationRow, { eq: equal }) => equal(organizationRow.id, 'org-single-shared'),
+    })
+    assert.isNotNull(organization)
+    assert.notEqual(organization!.slug, 'single-org')
+
+    const memberships = await context.db.query.member.findMany({
+      orderBy: (memberRow, { asc }) => [asc(memberRow.createdAt)],
+      where: (memberRow, { eq: equal }) => equal(memberRow.organizationId, 'org-single-shared'),
+    })
+
+    assert.lengthOf(memberships, 2)
+    assert.equal(memberships[0]!.role, 'owner')
+    assert.equal(memberships[1]!.role, 'member')
+    assert.equal(memberships[0]!.userId, first.user.id)
+    assert.equal(memberships[1]!.userId, second.user.id)
   })
 })
