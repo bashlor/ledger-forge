@@ -16,6 +16,28 @@ import { prepareTestcontainersRuntime } from './testcontainers_runtime.js'
 export const TEST_TENANT_ID = 'test_org_id'
 
 /**
+ * Insert a test member row into `auth.member`.
+ */
+export async function seedTestMember(
+  db: PostgresJsDatabase<any>,
+  fields: {
+    id: string
+    isActive?: boolean
+    organizationId: string
+    role: string
+    userId: string
+  }
+): Promise<void> {
+  await db.insert(schema.member).values({
+    id: fields.id,
+    isActive: fields.isActive ?? true,
+    organizationId: fields.organizationId,
+    role: fields.role,
+    userId: fields.userId,
+  })
+}
+
+/**
  * Insert the shared test organization into `auth.organization`.
  * Call this once per test group in `group.setup` after the DB is ready.
  */
@@ -25,6 +47,17 @@ export async function seedTestOrganization(db: PostgresJsDatabase<any>): Promise
     name: 'Test Organization',
     slug: 'test-org',
   })
+}
+
+/**
+ * Insert a test user into `auth.user`.
+ * Only `id`, `email`, `name`, and `publicId` are required; all other fields default.
+ */
+export async function seedTestUser(
+  db: PostgresJsDatabase<any>,
+  fields: { email: string; id: string; name: string; publicId: string }
+): Promise<void> {
+  await db.insert(schema.user).values(fields)
 }
 
 const migrationsFolder = fileURLToPath(new URL('../../drizzle/migrations', import.meta.url))

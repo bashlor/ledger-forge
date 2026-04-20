@@ -49,6 +49,7 @@ export const member = authSchema.table(
   {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     id: text('id').primaryKey(),
+    isActive: boolean('is_active').notNull().default(true),
     organizationId: text('organization_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
