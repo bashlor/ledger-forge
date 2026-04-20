@@ -10,14 +10,13 @@ import type { InvoiceListScopeInput, InvoiceRow } from '../types.js'
 type DrizzleDb = PostgresJsDatabase<any>
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 type InvoiceDbExecutor = DrizzleDb | DrizzleTx
-type TenantScopedQueryInput = { tenantId?: null | string }
 
 export async function findFirstInvoiceIdForCustomer(
   db: DrizzleDb,
   input: {
     customerId: string
     dateFilter?: DateFilter
-    tenantId?: null | string
+    tenantId: string
   }
 ): Promise<null | string> {
   const where = applyInvoiceTenantScope(
@@ -35,7 +34,7 @@ export async function findFirstInvoiceIdForCustomer(
 
 export async function getInvoiceById(
   db: InvoiceDbExecutor,
-  input: { id: string; tenantId?: null | string }
+  input: { id: string; tenantId: string }
 ): Promise<InvoiceRow | undefined> {
   const [row] = await db
     .select()
@@ -46,7 +45,7 @@ export async function getInvoiceById(
 
 export async function getInvoiceByPublicId(
   db: InvoiceDbExecutor,
-  input: { invoiceNumber: string; tenantId?: null | string }
+  input: { invoiceNumber: string; tenantId: string }
 ): Promise<InvoiceRow | undefined> {
   const [row] = await db
     .select()
@@ -60,7 +59,7 @@ export async function getInvoiceForListScope(
   input: {
     id: string
     scope: InvoiceListScopeInput
-    tenantId?: null | string
+    tenantId: string
   }
 ): Promise<InvoiceRow | undefined> {
   let where = eq(invoices.id, input.id)
@@ -82,7 +81,7 @@ export async function getInvoiceSummary(
   db: DrizzleDb,
   input: {
     filter?: DateFilter
-    tenantId?: null | string
+    tenantId: string
     today: string
   }
 ): Promise<{ draftCount: number; issuedCount: number; overdueCount: number }> {
@@ -117,8 +116,7 @@ export function invoiceDateCondition(filter?: DateFilter) {
   return and(gte(invoices.issueDate, filter.startDate), lte(invoices.issueDate, filter.endDate))
 }
 
-export async function listCustomersForSelect(db: DrizzleDb, tenantId?: null | string) {
-  const where = tenantId ? eq(customers.organizationId, tenantId) : undefined
+export async function listCustomersForSelect(db: DrizzleDb, tenantId: string) {
   return db
     .select({
       company: customers.company,
@@ -128,7 +126,7 @@ export async function listCustomersForSelect(db: DrizzleDb, tenantId?: null | st
       phone: customers.phone,
     })
     .from(customers)
-    .where(where)
+    .where(eq(customers.organizationId, tenantId))
     .orderBy(customers.company)
 }
 
@@ -154,7 +152,7 @@ export async function listInvoicesByTenant(
     dateFilter?: DateFilter
     page: number
     perPage: number
-    tenantId?: null | string
+    tenantId: string
   }
 ): Promise<{ rows: InvoiceRow[]; totalCount: number }> {
   const where = applyInvoiceTenantScope(invoiceDateCondition(input.dateFilter), input.tenantId)
@@ -173,7 +171,7 @@ export async function listInvoicesByTenant(
 
 export async function loadInvoiceForMutation(
   tx: InvoiceDbExecutor,
-  input: { id: string; tenantId?: null | string }
+  input: { id: string; tenantId: string }
 ): Promise<InvoiceRow | undefined> {
   const [row] = await tx
     .select()
@@ -203,11 +201,8 @@ export async function nextInvoiceNumber(db: InvoiceDbExecutor, issueDate: string
 export async function readCustomerSnapshot(
   db: InvoiceDbExecutor,
   customerId: string,
-  tenantId?: null | string
+  tenantId: string
 ) {
-  const where = tenantId
-    ? and(eq(customers.id, customerId), eq(customers.organizationId, tenantId))
-    : eq(customers.id, customerId)
   const [row] = await db
     .select({
       address: customers.address,
@@ -218,14 +213,10 @@ export async function readCustomerSnapshot(
       phone: customers.phone,
     })
     .from(customers)
-    .where(where)
+    .where(and(eq(customers.id, customerId), eq(customers.organizationId, tenantId)))
   return row
 }
 
-function applyInvoiceTenantScope(
-  where: SQL<unknown> | undefined,
-  tenantId: TenantScopedQueryInput['tenantId']
-): SQL<unknown> | undefined {
-  if (!tenantId) return where
-  return and(where, eq(invoices.organizationId, tenantId))
+function applyInvoiceTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
+  return and(where, eq(invoices.organizationId, tenantId))!
 }

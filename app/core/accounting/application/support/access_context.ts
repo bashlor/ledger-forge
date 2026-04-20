@@ -5,28 +5,38 @@ export interface AccountingAccessContext {
   isAnonymous: boolean
   requestId: string
   /** Active organization id — same as Better Auth `activeOrganizationId` (tenant). */
-  tenantId?: null | string
-}
-
-export const SYSTEM_ACCOUNTING_ACCESS_CONTEXT: AccountingAccessContext = {
-  actorId: null,
-  isAnonymous: false,
-  requestId: 'system',
-  tenantId: null,
+  tenantId: string
 }
 
 export function accountingAccessFromSession(
   session: AuthResult | undefined,
   requestId = 'unknown'
 ): AccountingAccessContext {
-  if (!session) {
-    return { ...SYSTEM_ACCOUNTING_ACCESS_CONTEXT, requestId }
+  const tenantId = session?.session.activeOrganizationId
+  if (!tenantId) {
+    throw new Error('Missing active organization — cannot build accounting access context.')
   }
 
   return {
     actorId: session.user.id,
     isAnonymous: session.user.isAnonymous,
     requestId,
-    tenantId: session.session.activeOrganizationId ?? null,
+    tenantId,
+  }
+}
+
+/**
+ * Build an access context with an explicit tenant id for system/seed use.
+ * Prefer `accountingAccessFromSession` in HTTP paths.
+ */
+export function systemAccessContext(
+  tenantId: string,
+  requestId = 'system'
+): AccountingAccessContext {
+  return {
+    actorId: null,
+    isAnonymous: false,
+    requestId,
+    tenantId,
   }
 }

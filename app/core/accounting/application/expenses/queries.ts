@@ -17,7 +17,7 @@ export function dateCondition(filter?: DateFilter) {
 export async function findExpenseById(
   db: DrizzleDb,
   id: string,
-  tenantId?: null | string
+  tenantId: string
 ): Promise<ExpenseRow | undefined> {
   const where = applyExpenseTenantScope(eq(expenses.id, id), tenantId)
   const [existing] = await db.select().from(expenses).where(where)
@@ -26,8 +26,8 @@ export async function findExpenseById(
 
 export async function getExpenseSummary(
   db: DrizzleDb,
-  filter?: DateFilter,
-  tenantId?: null | string
+  tenantId: string,
+  filter?: DateFilter
 ): Promise<ExpenseSummary> {
   const where = applyExpenseTenantScope(dateCondition(filter), tenantId)
   const [row] = await db
@@ -56,8 +56,8 @@ export async function listExpenseRows(
   db: DrizzleDb,
   page: number,
   perPage: number,
-  filter?: DateFilter,
-  tenantId?: null | string
+  tenantId: string,
+  filter?: DateFilter
 ): Promise<{ pagination: ExpenseListResult['pagination']; rows: ExpenseRow[] }> {
   const where = applyExpenseTenantScope(dateCondition(filter), tenantId)
   const [countRow] = await db.select({ total: count() }).from(expenses).where(where)
@@ -91,10 +91,6 @@ export async function listExpenseRows(
   }
 }
 
-function applyExpenseTenantScope(
-  where: SQL<unknown> | undefined,
-  tenantId: null | string | undefined
-): SQL<unknown> | undefined {
-  if (!tenantId) return where
-  return and(where, eq(expenses.organizationId, tenantId))
+function applyExpenseTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
+  return and(where, eq(expenses.organizationId, tenantId))!
 }

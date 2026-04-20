@@ -16,7 +16,6 @@ import { canTransitionInvoiceStatus } from './invoice_status.js'
 
 test.group('invoice domain rules', () => {
   test('enforces tenant mismatch guard for invoice access', ({ assert }) => {
-    assert.doesNotThrow(() => assertInvoiceBelongsToTenant('tenant-a', undefined))
     assert.doesNotThrow(() => assertInvoiceBelongsToTenant('tenant-a', 'tenant-a'))
     assert.throws(() => assertInvoiceBelongsToTenant(undefined, 'tenant-a'), DomainError)
     assert.throws(() => assertInvoiceBelongsToTenant(null, 'tenant-a'), DomainError)

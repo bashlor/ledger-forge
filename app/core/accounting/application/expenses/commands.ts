@@ -9,11 +9,7 @@ import type { NormalizedExpenseInput } from './types.js'
 type DrizzleDb = PostgresJsDatabase<any>
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 
-export async function confirmDraftExpense(
-  tx: DrizzleTx,
-  id: string,
-  organizationId?: null | string
-) {
+export async function confirmDraftExpense(tx: DrizzleTx, id: string, organizationId: string) {
   const [updated] = await tx
     .update(expenses)
     .set({ status: 'confirmed' })
@@ -21,7 +17,7 @@ export async function confirmDraftExpense(
       and(
         eq(expenses.id, id),
         eq(expenses.status, 'draft'),
-        organizationId ? eq(expenses.organizationId, organizationId) : undefined
+        eq(expenses.organizationId, organizationId)
       )
     )
     .returning()
@@ -31,7 +27,7 @@ export async function confirmDraftExpense(
 export async function deleteDraftExpense(
   tx: DrizzleTx,
   id: string,
-  organizationId?: null | string
+  organizationId: string
 ): Promise<undefined | { id: string }> {
   const [deleted] = await tx
     .delete(expenses)
@@ -39,7 +35,7 @@ export async function deleteDraftExpense(
       and(
         eq(expenses.id, id),
         eq(expenses.status, 'draft'),
-        organizationId ? eq(expenses.organizationId, organizationId) : undefined
+        eq(expenses.organizationId, organizationId)
       )
     )
     .returning({ id: expenses.id })
@@ -49,7 +45,7 @@ export async function deleteDraftExpense(
 export async function insertDraftExpense(
   tx: DrizzleDb,
   input: NormalizedExpenseInput,
-  actor: { createdBy: null | string; organizationId: null | string }
+  actor: { createdBy: null | string; organizationId: string }
 ) {
   const [row] = await tx
     .insert(expenses)

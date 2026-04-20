@@ -46,7 +46,7 @@ export async function persistDraftCreation(
     createdBy: requestContext.actorId ?? null,
     id: context.invoiceId,
     invoiceNumber: context.invoiceNumber,
-    organizationId: requestContext.tenantId ?? null,
+    organizationId: requestContext.tenantId,
     status: 'draft',
     ...buildDraftInvoiceMutation({
       customer: context.customer,

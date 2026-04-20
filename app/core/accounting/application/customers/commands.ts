@@ -12,14 +12,14 @@ type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 export async function deleteCustomerIfUnlinked(
   tx: DrizzleTx,
   id: string,
-  organizationId?: null | string
+  organizationId: string
 ): Promise<undefined | { id: string }> {
   const [deleted] = await tx
     .delete(customers)
     .where(
       and(
         eq(customers.id, id),
-        organizationId ? eq(customers.organizationId, organizationId) : undefined,
+        eq(customers.organizationId, organizationId),
         sql`not exists (
           select 1
           from ${invoices}
@@ -35,7 +35,7 @@ export async function deleteCustomerIfUnlinked(
 export async function insertCustomer(
   db: DrizzleDb,
   input: NormalizedCustomerInput,
-  actor: { createdBy: null | string; organizationId: null | string }
+  actor: { createdBy: null | string; organizationId: string }
 ): Promise<CustomerRow> {
   const [row] = await db
     .insert(customers)
@@ -77,11 +77,8 @@ export async function updateCustomerById(
   tx: DrizzleTx,
   id: string,
   input: NormalizedCustomerInput,
-  organizationId?: null | string
+  organizationId: string
 ): Promise<CustomerRow | undefined> {
-  const where = organizationId
-    ? and(eq(customers.id, id), eq(customers.organizationId, organizationId))
-    : eq(customers.id, id)
   const [updated] = await tx
     .update(customers)
     .set({
@@ -92,7 +89,7 @@ export async function updateCustomerById(
       note: input.note,
       phone: input.phone,
     })
-    .where(where)
+    .where(and(eq(customers.id, id), eq(customers.organizationId, organizationId)))
     .returning()
   return updated
 }

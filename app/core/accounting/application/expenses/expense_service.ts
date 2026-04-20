@@ -90,7 +90,7 @@ export class ExpenseService {
     const normalized = normalizeExpenseInput(input)
     const row = await insertDraftExpense(this.db, normalized, {
       createdBy: access.actorId ?? null,
-      organizationId: access.tenantId ?? null,
+      organizationId: access.tenantId,
     })
 
     await this.activitySink?.record({
@@ -144,7 +144,7 @@ export class ExpenseService {
     access: AccountingAccessContext,
     dateFilter?: DateFilter
   ): Promise<ExpenseSummary> {
-    return getExpenseSummary(this.db, dateFilter, access.tenantId)
+    return getExpenseSummary(this.db, access.tenantId, dateFilter)
   }
 
   async listExpenses(
@@ -159,8 +159,8 @@ export class ExpenseService {
       this.db,
       requestedPage,
       safePerPage,
-      dateFilter,
-      access.tenantId
+      access.tenantId,
+      dateFilter
     )
 
     return {

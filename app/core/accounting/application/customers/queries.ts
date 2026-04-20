@@ -13,7 +13,7 @@ type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 export async function customerStateForDelete(
   tx: DrizzleTx,
   id: string,
-  organizationId?: null | string
+  organizationId: string
 ): Promise<undefined | { id: string; invoiceCount: number }> {
   const where = applyCustomerTenantScope(eq(customers.id, id), organizationId)
   const [state] = await tx
@@ -30,7 +30,7 @@ export async function customerStateForDelete(
 export async function findCustomerById(
   db: DrizzleDb,
   id: string,
-  tenantId?: null | string
+  tenantId: string
 ): Promise<CustomerRow | undefined> {
   const where = applyCustomerTenantScope(eq(customers.id, id), tenantId)
   const [existing] = await db.select().from(customers).where(where)
@@ -62,7 +62,7 @@ export async function listCustomersWithAggregates(
   db: DrizzleDb,
   page: number,
   perPage: number,
-  tenantId?: null | string
+  tenantId: string
 ): Promise<{
   aggregatesByCustomerId: Map<string, CustomerAggregate>
   linkedCustomers: number
@@ -148,10 +148,6 @@ export async function listCustomersWithAggregates(
   }
 }
 
-function applyCustomerTenantScope(
-  where: SQL<unknown> | undefined,
-  tenantId: null | string | undefined
-): SQL<unknown> | undefined {
-  if (!tenantId) return where
-  return and(where, eq(customers.organizationId, tenantId))
+function applyCustomerTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
+  return and(where, eq(customers.organizationId, tenantId))!
 }
