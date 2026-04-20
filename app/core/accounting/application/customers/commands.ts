@@ -33,7 +33,7 @@ export async function deleteCustomerIfUnlinked(
 }
 
 export async function insertCustomer(
-  db: DrizzleDb,
+  db: DrizzleDb | DrizzleTx,
   input: NormalizedCustomerInput,
   actor: { createdBy: null | string; organizationId: string }
 ): Promise<CustomerRow> {

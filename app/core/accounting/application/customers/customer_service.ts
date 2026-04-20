@@ -9,6 +9,7 @@ import { fromCents } from '#core/shared/money'
 
 import type { CreateCustomerInput, CustomerDto, CustomerListResult } from './types.js'
 
+import { insertAuditEvent } from '../audit/audit_writer.js'
 import {
   deleteCustomerIfUnlinked,
   insertCustomer,
@@ -40,9 +41,21 @@ export class CustomerService {
     access: AccountingAccessContext
   ): Promise<CustomerDto> {
     const normalized = normalizeCustomerInput(input)
-    const row = await insertCustomer(this.db, normalized, {
-      createdBy: access.actorId ?? null,
-      organizationId: access.tenantId,
+    const row = await this.db.transaction(async (tx) => {
+      const created = await insertCustomer(tx, normalized, {
+        createdBy: access.actorId ?? null,
+        organizationId: access.tenantId,
+      })
+
+      await insertAuditEvent(tx, {
+        action: 'create',
+        actorId: access.actorId,
+        entityId: created.id,
+        entityType: 'customer',
+        tenantId: access.tenantId,
+      })
+
+      return created
     })
 
     await this.activitySink?.record({
@@ -78,6 +91,14 @@ export class CustomerService {
 
         throw new DomainError('Customer not found.', 'not_found')
       }
+
+      await insertAuditEvent(tx, {
+        action: 'delete',
+        actorId: access.actorId,
+        entityId: id,
+        entityType: 'customer',
+        tenantId: access.tenantId,
+      })
 
       await this.activitySink?.record({
         actorId: access.actorId,
@@ -158,6 +179,32 @@ export class CustomerService {
       if (snapshotChanged) {
         await syncDraftInvoiceCustomerSnapshots(tx, id, normalized, access.tenantId)
       }
+
+      await insertAuditEvent(tx, {
+        action: 'update',
+        actorId: access.actorId,
+        changes: {
+          after: {
+            address: normalized.address,
+            company: normalized.company,
+            email: normalized.email,
+            name: normalized.name,
+            note: normalized.note,
+            phone: normalized.phone,
+          },
+          before: {
+            address: existing.address,
+            company: existing.company,
+            email: existing.email,
+            name: existing.name,
+            note: existing.note,
+            phone: existing.phone,
+          },
+        },
+        entityId: id,
+        entityType: 'customer',
+        tenantId: access.tenantId,
+      })
 
       return updated
     })

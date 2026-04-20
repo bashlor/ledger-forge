@@ -6,6 +6,8 @@ import { type AccountingAccessContext } from '#core/accounting/application/suppo
 import { clampInteger } from '#core/accounting/application/support/pagination'
 import { DomainError } from '#core/common/errors/domain_error'
 
+import { insertAuditEvent } from '../audit/audit_writer.js'
+
 export { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
 export type { ExpenseCategory } from '#core/accounting/expense_categories'
 import type {
@@ -68,6 +70,15 @@ export class ExpenseService {
         organizationId: access.tenantId,
       })
 
+      await insertAuditEvent(tx, {
+        action: 'confirm',
+        actorId: access.actorId,
+        changes: { after: { status: 'confirmed' }, before: { status: existing.status } },
+        entityId: updated.id,
+        entityType: 'expense',
+        tenantId: access.tenantId,
+      })
+
       return toExpenseDto(updated)
     })
 
@@ -89,9 +100,21 @@ export class ExpenseService {
     access: AccountingAccessContext
   ): Promise<ExpenseDto> {
     const normalized = normalizeExpenseInput(input)
-    const row = await insertDraftExpense(this.db, normalized, {
-      createdBy: access.actorId ?? null,
-      organizationId: access.tenantId,
+    const row = await this.db.transaction(async (tx) => {
+      const created = await insertDraftExpense(tx, normalized, {
+        createdBy: access.actorId ?? null,
+        organizationId: access.tenantId,
+      })
+
+      await insertAuditEvent(tx, {
+        action: 'create',
+        actorId: access.actorId,
+        entityId: created.id,
+        entityType: 'expense',
+        tenantId: access.tenantId,
+      })
+
+      return created
     })
 
     await this.activitySink?.record({
@@ -128,6 +151,14 @@ export class ExpenseService {
         }
         throw new DomainError('Only draft expenses can be deleted.', 'business_logic_error')
       }
+
+      await insertAuditEvent(tx, {
+        action: 'delete',
+        actorId: access.actorId,
+        entityId: id,
+        entityType: 'expense',
+        tenantId: access.tenantId,
+      })
     })
 
     await this.activitySink?.record({
