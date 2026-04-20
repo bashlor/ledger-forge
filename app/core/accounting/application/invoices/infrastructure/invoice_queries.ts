@@ -2,8 +2,9 @@ import type { DateFilter } from '#core/accounting/application/expenses/index'
 import type { SQL } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { buildDateFilterCondition } from '#core/accounting/application/support/date_filter'
 import { customers, invoiceLines, invoices } from '#core/accounting/drizzle/schema'
-import { and, count, desc, eq, gte, inArray, like, lte, sql } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, like, sql } from 'drizzle-orm'
 
 import type { InvoiceListScopeInput, InvoiceRow } from '../types.js'
 
@@ -114,8 +115,7 @@ export async function getInvoiceSummary(
 }
 
 export function invoiceDateCondition(filter?: DateFilter) {
-  if (!filter) return undefined
-  return and(gte(invoices.issueDate, filter.startDate), lte(invoices.issueDate, filter.endDate))
+  return buildDateFilterCondition(invoices.issueDate, filter)
 }
 
 export async function listCustomersForSelect(db: DrizzleDb, tenantId: string) {

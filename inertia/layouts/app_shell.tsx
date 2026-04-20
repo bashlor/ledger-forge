@@ -9,6 +9,7 @@ import { toast, Toaster } from 'sonner'
 import { AppIcon } from '~/components/app_icon'
 import { DateScopeControls } from '~/components/date_scope_controls'
 import { DateScopeProvider } from '~/components/date_scope_provider'
+import { todayDateOnlyUtc } from '~/lib/date'
 import { formatTopbarDate, getInitials } from '~/lib/format'
 
 const mainNavLinks = [
@@ -45,7 +46,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
   const initials = user?.initials ?? getInitials(displayName || email || 'PL')
   const pageLabel = pageLabelForUrl(url)
   const workspace = page.props.workspace
-  const todayLine = formatTopbarDate(new Date().toISOString().slice(0, 10))
+  const todayLine = formatTopbarDate(todayDateOnlyUtc())
   const showDateScopeControls =
     url === '/dashboard' || url.startsWith('/expenses') || url.startsWith('/invoices')
 

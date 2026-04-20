@@ -1,5 +1,7 @@
 import type { DateRange, DateScope } from '~/lib/types'
 
+import { parseDateOnlyUtc, toDateOnlyUtc } from '~/lib/date'
+
 const monthFormatter = new Intl.DateTimeFormat('en-GB', {
   month: 'long',
   year: 'numeric',
@@ -27,8 +29,8 @@ export function createCustomDateScope(range: DateRange): DateScope {
 }
 
 export function createMonthDateScope(year: number, monthIndex: number): DateScope {
-  const startDate = toDateOnly(new Date(Date.UTC(year, monthIndex, 1)))
-  const endDate = toDateOnly(new Date(Date.UTC(year, monthIndex + 1, 0)))
+  const startDate = toDateOnlyUtc(new Date(Date.UTC(year, monthIndex, 1)))
+  const endDate = toDateOnlyUtc(new Date(Date.UTC(year, monthIndex + 1, 0)))
 
   return {
     endDate,
@@ -52,17 +54,17 @@ export function isValidDateRange(range: DateRange) {
 
 export function shiftDateScope(scope: DateScope, delta: -1 | 1): DateScope {
   if (scope.mode === 'month') {
-    const start = parseDateOnly(scope.startDate)
+    const start = parseDateOnlyUtc(scope.startDate)
     return createMonthDateScope(start.getUTCFullYear(), start.getUTCMonth() + delta)
   }
 
   const daySpan = differenceInDaysInclusive(scope.startDate, scope.endDate)
-  const nextStart = addUtcDays(parseDateOnly(scope.startDate), daySpan * delta)
-  const nextEnd = addUtcDays(parseDateOnly(scope.endDate), daySpan * delta)
+  const nextStart = addUtcDays(parseDateOnlyUtc(scope.startDate), daySpan * delta)
+  const nextEnd = addUtcDays(parseDateOnlyUtc(scope.endDate), daySpan * delta)
 
   return createCustomDateScope({
-    endDate: toDateOnly(nextEnd),
-    startDate: toDateOnly(nextStart),
+    endDate: toDateOnlyUtc(nextEnd),
+    startDate: toDateOnlyUtc(nextStart),
   })
 }
 
@@ -71,25 +73,13 @@ function addUtcDays(date: Date, days: number) {
 }
 
 function differenceInDaysInclusive(startDate: string, endDate: string) {
-  const diffMs = parseDateOnly(endDate).getTime() - parseDateOnly(startDate).getTime()
+  const diffMs = parseDateOnlyUtc(endDate).getTime() - parseDateOnlyUtc(startDate).getTime()
   return Math.floor(diffMs / 86_400_000) + 1
 }
 
 function formatRangeLabel(range: DateRange) {
-  const start = parseDateOnly(range.startDate)
-  const end = parseDateOnly(range.endDate)
+  const start = parseDateOnlyUtc(range.startDate)
+  const end = parseDateOnlyUtc(range.endDate)
 
   return `${rangeFormatter.format(start)} - ${rangeFormatter.format(end)}`
-}
-
-function parseDateOnly(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, day))
-}
-
-function toDateOnly(value: Date) {
-  const year = value.getUTCFullYear()
-  const month = String(value.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(value.getUTCDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }

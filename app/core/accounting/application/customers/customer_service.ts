@@ -5,6 +5,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import { clampInteger } from '#core/accounting/application/support/pagination'
 import { DomainError } from '#core/common/errors/domain_error'
+import { fromCents } from '#core/shared/money'
 
 import type { CreateCustomerInput, CustomerDto, CustomerListResult } from './types.js'
 
@@ -107,7 +108,7 @@ export class CustomerService {
         summary: {
           linkedCustomers,
           totalCount: pagination.totalItems,
-          totalInvoiced: Number(totalInvoicedCents ?? 0) / 100,
+          totalInvoiced: fromCents(Number(totalInvoicedCents ?? 0)),
         },
       }
     }
@@ -123,7 +124,7 @@ export class CustomerService {
       summary: {
         linkedCustomers,
         totalCount: pagination.totalItems,
-        totalInvoiced: Number(totalInvoicedCents ?? 0) / 100,
+        totalInvoiced: fromCents(Number(totalInvoicedCents ?? 0)),
       },
     }
   }

@@ -1,4 +1,11 @@
 /**
+ * Converts integer cents to a decimal amount (major currency unit, e.g. euros).
+ */
+export function fromCents(amountCents: number): number {
+  return amountCents / 100
+}
+
+/**
  * Converts a decimal amount (in major currency unit, e.g. euros) to integer cents.
  *
  * Using `+ Number.EPSILON` before rounding neutralises the binary floating-point

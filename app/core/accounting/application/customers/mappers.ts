@@ -1,3 +1,5 @@
+import { fromCents } from '#core/shared/money'
+
 import type { CustomerAggregate, CustomerDto, CustomerRow } from './types.js'
 
 export function toCustomerDto(row: CustomerRow, aggregate: CustomerAggregate): CustomerDto {
@@ -15,6 +17,6 @@ export function toCustomerDto(row: CustomerRow, aggregate: CustomerAggregate): C
     name: row.name,
     note: row.note ?? undefined,
     phone: row.phone,
-    totalInvoiced: aggregate.totalInvoicedCents / 100,
+    totalInvoiced: fromCents(aggregate.totalInvoicedCents),
   }
 }

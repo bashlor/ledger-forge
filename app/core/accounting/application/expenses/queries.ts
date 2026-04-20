@@ -1,9 +1,11 @@
 import type { SQL } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { buildDateFilterCondition } from '#core/accounting/application/support/date_filter'
 import { computePaginationWindow } from '#core/accounting/application/support/pagination'
 import { expenses } from '#core/accounting/drizzle/schema'
-import { and, count, desc, eq, gte, lte, sql, sum } from 'drizzle-orm'
+import { fromCents } from '#core/shared/money'
+import { count, desc, eq, sql, sum } from 'drizzle-orm'
 
 import type { DateFilter, ExpenseListResult, ExpenseRow, ExpenseSummary } from './types.js'
 
@@ -12,8 +14,7 @@ import { requireTenantScope } from '../support/tenant_scope.js'
 type DrizzleDb = PostgresJsDatabase<any>
 
 export function dateCondition(filter?: DateFilter) {
-  if (!filter) return undefined
-  return and(gte(expenses.date, filter.startDate), lte(expenses.date, filter.endDate))
+  return buildDateFilterCondition(expenses.date, filter)
 }
 
 export async function findExpenseById(
@@ -49,7 +50,7 @@ export async function getExpenseSummary(
   return {
     confirmedCount: row.confirmedCount,
     draftCount: row.draftCount,
-    totalAmount: Number(row.totalAmountCents ?? 0) / 100,
+    totalAmount: fromCents(Number(row.totalAmountCents ?? 0)),
     totalCount: row.totalCount,
   }
 }

@@ -1,9 +1,11 @@
+import { fromCents } from '#core/shared/money'
+
 import type { DashboardDto, DashboardQueryData } from './types.js'
 
 export function toDashboardDto(data: DashboardQueryData): DashboardDto {
-  const totalRevenue = data.revenueTotalCents / 100
-  const totalCollected = data.collectedTotalCents / 100
-  const totalExpenses = data.expenseTotalCents / 100
+  const totalRevenue = fromCents(data.revenueTotalCents)
+  const totalCollected = fromCents(data.collectedTotalCents)
+  const totalExpenses = fromCents(data.expenseTotalCents)
 
   return {
     recentInvoices: data.recentInvoicesRows.map((row) => ({
@@ -13,7 +15,7 @@ export function toDashboardDto(data: DashboardQueryData): DashboardDto {
       id: row.id,
       invoiceNumber: row.invoiceNumber,
       status: row.status,
-      totalInclTax: row.totalInclTaxCents / 100,
+      totalInclTax: fromCents(row.totalInclTaxCents),
     })),
     summary: {
       profit: totalRevenue - totalExpenses,
