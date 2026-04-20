@@ -8,7 +8,12 @@ import {
   type AccountingBusinessCalendar,
   SystemAccountingBusinessCalendar,
 } from '#core/accounting/application/support/business_calendar'
-import { clampInteger } from '#core/accounting/application/support/pagination'
+import {
+  clampInteger,
+  DEFAULT_LIST_PER_PAGE,
+  MAX_LIST_PER_PAGE,
+  MIN_LIST_PER_PAGE,
+} from '#core/accounting/application/support/pagination'
 
 import type {
   CustomerForSelectDto,
@@ -38,9 +43,6 @@ import {
   listInvoiceLinesForInvoiceIds,
   listInvoicesByTenant,
 } from './infrastructure/invoice_queries.js'
-
-const MAX_PER_PAGE = 100
-const MIN_PER_PAGE = 1
 
 export class InvoiceService {
   private readonly activitySink?: AccountingActivitySink
@@ -111,9 +113,11 @@ export class InvoiceService {
 
   async getInvoiceSummary(
     access: AccountingAccessContext,
-    dateFilter?: DateFilter
+    dateFilter?: DateFilter,
+    customerId?: string
   ): Promise<InvoiceSummaryDto> {
     return getInvoiceSummaryQuery(this.db, {
+      customerId,
       filter: dateFilter,
       tenantId: toInvoiceRequestContext(access).tenantId,
       today: this.businessCalendar.today(),
@@ -141,24 +145,30 @@ export class InvoiceService {
 
   async listInvoices(
     page = 1,
-    perPage = 5,
+    perPage = DEFAULT_LIST_PER_PAGE,
     access: AccountingAccessContext,
-    dateFilter?: DateFilter
+    dateFilter?: DateFilter,
+    customerId?: string,
+    search?: string
   ): Promise<InvoiceListResult> {
     const requestContext = toInvoiceRequestContext(access)
-    const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
+    const safePerPage = clampInteger(perPage, MIN_LIST_PER_PAGE, MAX_LIST_PER_PAGE)
     const { totalCount } = await listInvoicesByTenant(this.db, {
+      customerId,
       dateFilter,
       page: 1,
       perPage: 1,
+      search,
       tenantId: requestContext.tenantId,
     })
     const totalPages = Math.max(1, Math.ceil(totalCount / safePerPage))
     const safePage = clampInteger(page, 1, totalPages)
     const { rows } = await listInvoicesByTenant(this.db, {
+      customerId,
       dateFilter,
       page: safePage,
       perPage: safePerPage,
+      search,
       tenantId: requestContext.tenantId,
     })
 

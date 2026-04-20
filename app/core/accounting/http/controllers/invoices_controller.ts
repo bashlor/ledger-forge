@@ -3,6 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
+import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
 import { inject } from '@adonisjs/core'
@@ -14,8 +15,6 @@ import {
   issueInvoiceValidator,
   saveInvoiceDraftValidator,
 } from '../validators/invoice.js'
-
-const PER_PAGE = 5
 
 export default class InvoicesController {
   @inject()
@@ -42,6 +41,8 @@ export default class InvoicesController {
       endDate,
       invoice: invoiceFromQuery,
       page,
+      perPage,
+      search,
       startDate,
     } = await ctx.request.validateUsing(invoiceIndexValidator)
 
@@ -57,7 +58,14 @@ export default class InvoicesController {
       )
     }
 
-    const listResult = await invoiceService.listInvoices(page ?? 1, PER_PAGE, access, dateFilter)
+    const listResult = await invoiceService.listInvoices(
+      page ?? 1,
+      perPage ?? DEFAULT_LIST_PER_PAGE,
+      access,
+      dateFilter,
+      customer ?? undefined,
+      search
+    )
 
     let { items, pagination } = listResult
     if (initialInvoiceId && !items.some((i) => i.id === initialInvoiceId)) {
@@ -77,9 +85,10 @@ export default class InvoicesController {
       initialInvoiceId,
       invoices: { items, pagination },
       invoiceSummary: inertia.defer(
-        () => invoiceService.getInvoiceSummary(access, dateFilter) as never,
+        () => invoiceService.getInvoiceSummary(access, dateFilter, customer ?? undefined) as never,
         'invoiceSummary'
       ),
+      filters: { search: search ?? '' },
       mode: request.input('mode') === 'new' ? 'new' : 'view',
     })
   }
@@ -154,13 +163,16 @@ export default class InvoicesController {
     extras: { customer?: string; invoice?: string; mode?: 'new' } = {}
   ) {
     const page = Number(ctx.request.input('page'))
+    const perPage = Number(ctx.request.input('perPage'))
     const startDate = ctx.request.input('startDate')
     const endDate = ctx.request.input('endDate')
     const customer = ctx.request.input('customer')
+    const search = String(ctx.request.input('search') ?? '').trim()
     const invoiceFromRequest = ctx.request.input('invoice')
     const qs: Record<string, number | string> = {}
 
     if (Number.isFinite(page) && page > 1) qs.page = page
+    if (Number.isFinite(perPage) && perPage !== DEFAULT_LIST_PER_PAGE) qs.perPage = perPage
     if (startDate) qs.startDate = startDate
     if (endDate) qs.endDate = endDate
 
@@ -169,6 +181,7 @@ export default class InvoicesController {
 
     const customerId = extras.customer ?? customer
     if (customerId) qs.customer = customerId
+    if (search) qs.search = search
 
     const mode = extras.mode ?? ctx.request.input('mode')
     if (mode === 'new') qs.mode = 'new'

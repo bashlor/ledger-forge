@@ -2,6 +2,8 @@ import vine from '@vinejs/vine'
 
 export const customerIndexValidator = vine.create({
   page: vine.number().min(1).optional(),
+  perPage: vine.number().min(1).max(100).optional(),
+  search: vine.string().trim().maxLength(255).optional(),
 })
 
 export const saveCustomerValidator = vine.create({

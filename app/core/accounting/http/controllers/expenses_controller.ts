@@ -3,6 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
+import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
 import { inject } from '@adonisjs/core'
 
@@ -13,8 +14,6 @@ import {
   expenseIndexValidator,
   expenseParamsValidator,
 } from '../validators/expense.js'
-
-const PER_PAGE = 5
 
 export default class ExpensesController {
   @inject()
@@ -47,7 +46,8 @@ export default class ExpensesController {
 
   @inject()
   async index(ctx: HttpContext, expenseService: ExpenseService) {
-    const { endDate, page, startDate } = await ctx.request.validateUsing(expenseIndexValidator)
+    const { endDate, page, perPage, search, startDate } =
+      await ctx.request.validateUsing(expenseIndexValidator)
     const dateFilter: DateFilter | undefined =
       startDate && endDate ? { endDate, startDate } : undefined
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
@@ -56,11 +56,18 @@ export default class ExpensesController {
       'app/expenses' as never,
       {
         categories: EXPENSE_CATEGORIES,
-        expenses: await expenseService.listExpenses(page ?? 1, PER_PAGE, access, dateFilter),
+        expenses: await expenseService.listExpenses(
+          page ?? 1,
+          perPage ?? DEFAULT_LIST_PER_PAGE,
+          access,
+          dateFilter,
+          search
+        ),
         summary: ctx.inertia.defer(
           () => expenseService.getSummary(access, dateFilter) as never,
           'summary'
         ),
+        filters: { search: search ?? '' },
       } as never
     )
   }
@@ -81,11 +88,15 @@ export default class ExpensesController {
 
   private redirectToExpenses(ctx: HttpContext) {
     const page = Number(ctx.request.input('page'))
+    const perPage = Number(ctx.request.input('perPage'))
+    const search = String(ctx.request.input('search') ?? '').trim()
     const startDate = ctx.request.input('startDate')
     const endDate = ctx.request.input('endDate')
     const qs: Record<string, number | string> = {}
 
     if (Number.isFinite(page) && page > 1) qs.page = page
+    if (Number.isFinite(perPage) && perPage !== DEFAULT_LIST_PER_PAGE) qs.perPage = perPage
+    if (search) qs.search = search
     if (startDate) qs.startDate = startDate
     if (endDate) qs.endDate = endDate
 

@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
+import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
 import { inject } from '@adonisjs/core'
@@ -12,8 +13,6 @@ import {
   customerParamsValidator,
   saveCustomerValidator,
 } from '../validators/customer.js'
-
-const PER_PAGE = 5
 
 export default class CustomersController {
   @inject()
@@ -32,11 +31,19 @@ export default class CustomersController {
 
   @inject()
   async index(ctx: HttpContext, customerService: CustomerService) {
-    const { page } = await ctx.request.validateUsing(customerIndexValidator)
+    const { page, perPage, search } = await ctx.request.validateUsing(customerIndexValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const customers = await customerService.listCustomersPage(page ?? 1, PER_PAGE, access)
+    const customers = await customerService.listCustomersPage(
+      page ?? 1,
+      perPage ?? DEFAULT_LIST_PER_PAGE,
+      access,
+      search
+    )
 
-    return renderInertiaPage(ctx.inertia, 'app/customers', { customers })
+    return renderInertiaPage(ctx.inertia, 'app/customers', {
+      customers,
+      filters: { search: search ?? '' },
+    })
   }
 
   @inject()
@@ -70,12 +77,21 @@ export default class CustomersController {
 
   private redirectToCustomers(ctx: HttpContext) {
     const page = Number(ctx.request.input('page'))
+    const perPage = Number(ctx.request.input('perPage'))
+    const search = String(ctx.request.input('search') ?? '').trim()
     const qs: Record<string, number> = {}
+    const strQs: Record<string, string> = {}
 
     if (Number.isFinite(page) && page > 1) qs.page = page
+    if (Number.isFinite(perPage) && perPage !== DEFAULT_LIST_PER_PAGE) qs.perPage = perPage
+    if (search) strQs.search = search
 
     return ctx.response
       .redirect()
-      .toRoute('customers.page', [], Object.keys(qs).length > 0 ? { qs } : undefined)
+      .toRoute(
+        'customers.page',
+        [],
+        Object.keys({ ...qs, ...strQs }).length > 0 ? { qs: { ...qs, ...strQs } } : undefined
+      )
   }
 }

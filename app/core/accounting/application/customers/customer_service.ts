@@ -3,7 +3,12 @@ import type { AccountingServiceDependencies } from '#core/accounting/application
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
-import { clampInteger } from '#core/accounting/application/support/pagination'
+import {
+  clampInteger,
+  DEFAULT_LIST_PER_PAGE,
+  MAX_LIST_PER_PAGE,
+  MIN_LIST_PER_PAGE,
+} from '#core/accounting/application/support/pagination'
 import { DomainError } from '#core/common/errors/domain_error'
 import { fromCents } from '#core/shared/money'
 
@@ -22,7 +27,6 @@ import {
   invoiceAggregateForCustomer,
   listCustomersWithAggregates,
 } from './queries.js'
-import { MAX_PER_PAGE, MIN_PER_PAGE } from './types.js'
 import { normalizeCustomerInput } from './validation.js'
 
 export class CustomerService {
@@ -93,13 +97,20 @@ export class CustomerService {
 
   async listCustomersPage(
     page = 1,
-    perPage = 5,
-    access: AccountingAccessContext
+    perPage = DEFAULT_LIST_PER_PAGE,
+    access: AccountingAccessContext,
+    search?: string
   ): Promise<CustomerListResult> {
-    const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
+    const safePerPage = clampInteger(perPage, MIN_LIST_PER_PAGE, MAX_LIST_PER_PAGE)
     const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
     const { aggregatesByCustomerId, linkedCustomers, pagination, rows, totalInvoicedCents } =
-      await listCustomersWithAggregates(this.db, requestedPage, safePerPage, access.tenantId)
+      await listCustomersWithAggregates(
+        this.db,
+        requestedPage,
+        safePerPage,
+        access.tenantId,
+        search
+      )
 
     if (rows.length === 0) {
       return {
