@@ -51,6 +51,8 @@ router.use([
  */
 export const middleware = router.named({
   auth: () => import('../../user_management/http/middlewares/auth_middleware.js'),
+  ensureActiveTenant: () =>
+    import('../../user_management/http/middlewares/ensure_active_tenant_middleware.js'),
   ensureApiSession: () =>
     import('../../user_management/http/middlewares/ensure_api_session_middleware.js'),
   guest: () => import('../../user_management/http/middlewares/guest_middleware.js'),
