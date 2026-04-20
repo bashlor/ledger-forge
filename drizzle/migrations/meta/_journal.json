@@ -134,6 +134,13 @@
       "when": 1776940000000,
       "tag": "0018_member_is_active",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1777000000000,
+      "tag": "0019_organization_id_not_null",
+      "breakpoints": true
     }
   ]
 }

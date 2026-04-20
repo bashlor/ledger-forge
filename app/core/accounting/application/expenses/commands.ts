@@ -65,7 +65,13 @@ export async function insertDraftExpense(
 
 export async function insertExpenseJournalEntry(
   tx: DrizzleTx,
-  input: { amountCents: number; date: string; expenseId: string; label: string }
+  input: {
+    amountCents: number
+    date: string
+    expenseId: string
+    label: string
+    organizationId: string
+  }
 ) {
   await tx.insert(journalEntries).values({
     amountCents: input.amountCents,
@@ -73,6 +79,7 @@ export async function insertExpenseJournalEntry(
     expenseId: input.expenseId,
     id: uuidv7(),
     label: input.label,
+    organizationId: input.organizationId,
     type: 'expense',
   })
 }

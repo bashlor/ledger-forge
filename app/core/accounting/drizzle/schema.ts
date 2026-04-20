@@ -17,7 +17,7 @@ export const customers = mainSchema.table('customers', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   note: text('note'),
-  organizationId: text('organization_id'),
+  organizationId: text('organization_id').notNull(),
   phone: text('phone').notNull(),
 })
 
@@ -49,7 +49,7 @@ export const invoices = mainSchema.table(
     issueDate: date('issue_date', { mode: 'string' }).notNull(),
     issuedCompanyAddress: text('issued_company_address').notNull().default(''),
     issuedCompanyName: text('issued_company_name').notNull().default(''),
-    organizationId: text('organization_id'),
+    organizationId: text('organization_id').notNull(),
     status: text('status', { enum: ['draft', 'issued', 'paid'] })
       .notNull()
       .default('draft'),
@@ -101,7 +101,7 @@ export const expenses = mainSchema.table(
     date: date('date', { mode: 'string' }).notNull(),
     id: text('id').primaryKey(),
     label: text('label').notNull(),
-    organizationId: text('organization_id'),
+    organizationId: text('organization_id').notNull(),
     status: text('status', { enum: ['draft', 'confirmed'] })
       .notNull()
       .default('draft'),
@@ -130,6 +130,7 @@ export const journalEntries = mainSchema.table(
     id: text('id').primaryKey(),
     invoiceId: text('invoice_id').references(() => invoices.id, { onDelete: 'restrict' }),
     label: text('label').notNull(),
+    organizationId: text('organization_id').notNull(),
     type: text('type', { enum: ['expense', 'invoice'] }).notNull(),
   },
   (table) => [

@@ -352,6 +352,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       issueDate: '2026-04-01',
       issuedCompanyAddress: '',
       issuedCompanyName: '',
+      organizationId: TEST_TENANT_ID,
       status: 'draft',
     })
 
@@ -402,6 +403,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       issueDate: '2026-05-01',
       issuedCompanyAddress: '',
       issuedCompanyName: '',
+      organizationId: TEST_TENANT_ID,
       status: 'draft',
     })
 

@@ -375,6 +375,7 @@ export default class SeedDemo extends BaseCommand {
           id: uuidv7(),
           invoiceId,
           label: inv.invoiceNumber,
+          organizationId: SEED_ORG_ID,
           type: 'invoice',
         })
       }

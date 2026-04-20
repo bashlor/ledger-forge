@@ -38,7 +38,13 @@ export async function insertInvoice(tx: DrizzleTx, values: InvoiceInsert) {
 
 export async function insertInvoiceJournalEntry(
   tx: DrizzleTx,
-  input: { amountCents: number; date: string; invoiceId: string; label: string }
+  input: {
+    amountCents: number
+    date: string
+    invoiceId: string
+    label: string
+    organizationId: string
+  }
 ) {
   await tx.insert(journalEntries).values({
     amountCents: input.amountCents,
@@ -46,6 +52,7 @@ export async function insertInvoiceJournalEntry(
     id: uuidv7(),
     invoiceId: input.invoiceId,
     label: input.label,
+    organizationId: input.organizationId,
     type: 'invoice',
   })
 }
