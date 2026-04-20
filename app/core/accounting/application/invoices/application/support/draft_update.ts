@@ -5,6 +5,7 @@ import type {
 } from '../../types.js'
 import type { InvoiceUseCaseDeps } from './invoice_use_case_deps.js'
 
+import { insertAuditEvent } from '../../../audit/audit_writer.js'
 import {
   buildDraftInvoiceLinesMutation,
   buildDraftInvoiceMutation,
@@ -80,6 +81,26 @@ export async function persistDraftUpdate(
   }
 
   await replaceInvoiceLines(tx, id, preparedLines.lineValues)
+
+  await insertAuditEvent(tx, {
+    action: 'update_draft',
+    actorId: requestContext.actorId,
+    changes: {
+      after: {
+        customerId: context.normalized.customerId,
+        dueDate: context.normalized.dueDate,
+        issueDate: context.normalized.issueDate,
+      },
+      before: {
+        customerId: context.existing.customerId,
+        dueDate: context.existing.dueDate,
+        issueDate: context.existing.issueDate,
+      },
+    },
+    entityId: id,
+    entityType: 'invoice',
+    tenantId: requestContext.tenantId,
+  })
 
   return { invoice: invoice!, invoiceId: id }
 }

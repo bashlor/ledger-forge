@@ -1,6 +1,7 @@
 import type { InvoiceConcurrencyHooks, InvoiceRequestContext } from '../../types.js'
 import type { InvoiceUseCaseDeps } from './invoice_use_case_deps.js'
 
+import { insertAuditEvent } from '../../../audit/audit_writer.js'
 import { assertInvoiceCanBeMarkedPaidNow } from '../../domain/invoice_rules.js'
 import { updateInvoiceStatus } from '../../infrastructure/invoice_commands.js'
 import { loadInvoiceForMutationOrThrow } from './invoice_snapshot.js'
@@ -30,6 +31,15 @@ export async function persistInvoicePayment(
     const again = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
     assertInvoiceCanBeMarkedPaidNow(again.status)
   }
+
+  await insertAuditEvent(tx, {
+    action: 'mark_paid',
+    actorId: requestContext.actorId,
+    changes: { after: { status: 'paid' }, before: { status: 'issued' } },
+    entityId: id,
+    entityType: 'invoice',
+    tenantId: requestContext.tenantId,
+  })
 
   return { invoice: invoice!, invoiceId: id }
 }

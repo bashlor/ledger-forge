@@ -3,7 +3,13 @@ import type { AccountingBusinessCalendar } from '#core/accounting/application/su
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { InvoiceService } from '#core/accounting/application/invoices/index'
-import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
+import {
+  auditEvents,
+  customers,
+  invoiceLines,
+  invoices,
+  journalEntries,
+} from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 
@@ -35,6 +41,7 @@ test.group('Invoice service integration', (group) => {
   })
 
   group.each.setup(async () => {
+    await db.delete(auditEvents)
     await db.delete(journalEntries)
     await db.delete(invoiceLines)
     await db.delete(invoices)
