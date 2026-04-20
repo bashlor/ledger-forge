@@ -2,7 +2,7 @@ import type { AccountingAccessContext } from '#core/accounting/application/suppo
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { ExpenseService } from '#core/accounting/application/expenses/index'
-import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
+import { auditEvents, expenses, journalEntries } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/common/errors/domain_error'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
@@ -35,6 +35,7 @@ function makeInput(overrides: Partial<Parameters<ExpenseService['createExpense']
 }
 
 async function truncateExpenses() {
+  await db.delete(auditEvents)
   await db.delete(journalEntries)
   await db.delete(expenses)
 }

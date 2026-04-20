@@ -4,6 +4,7 @@ import { CustomerService } from '#core/accounting/application/customers/index'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { systemAccessContext } from '#core/accounting/application/support/access_context'
 import {
+  auditEvents,
   customers,
   expenses,
   invoiceLines,
@@ -291,6 +292,7 @@ export default class SeedDemo extends BaseCommand {
 
     if (this.reset) {
       // Delete in FK-safe order; invoices cascade-deletes invoice_lines
+      await db.delete(auditEvents)
       await db.delete(journalEntries)
       await db.delete(invoices)
       await db.delete(expenses)

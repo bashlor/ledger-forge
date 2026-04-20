@@ -3,6 +3,7 @@ import { v7 as uuidv7 } from 'uuid'
 import type { InvoiceRequestContext, SaveInvoiceDraftInput } from '../../types.js'
 import type { InvoiceUseCaseDeps } from './invoice_use_case_deps.js'
 
+import { insertAuditEvent } from '../../../audit/audit_writer.js'
 import {
   buildDraftInvoiceLinesMutation,
   buildDraftInvoiceMutation,
@@ -67,6 +68,14 @@ export async function persistDraftCreation(
       ...line,
     }))
   )
+
+  await insertAuditEvent(tx, {
+    action: 'create_draft',
+    actorId: requestContext.actorId,
+    entityId: context.invoiceId,
+    entityType: 'invoice',
+    tenantId: requestContext.tenantId,
+  })
 
   return { invoice, invoiceId: context.invoiceId }
 }

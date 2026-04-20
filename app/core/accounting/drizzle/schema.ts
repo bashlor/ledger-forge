@@ -1,7 +1,17 @@
 import { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
 import { organization } from '#core/user_management/drizzle/schema'
 import { sql } from 'drizzle-orm'
-import { check, date, integer, pgSchema, text, timestamp, unique } from 'drizzle-orm/pg-core'
+import {
+  check,
+  date,
+  index,
+  integer,
+  jsonb,
+  pgSchema,
+  text,
+  timestamp,
+  unique,
+} from 'drizzle-orm/pg-core'
 
 export const mainSchema = pgSchema('main')
 
@@ -153,6 +163,38 @@ export const journalEntries = mainSchema.table(
     check(
       'journal_entries_source_xor',
       sql`(${table.expenseId} IS NOT NULL)::int + (${table.invoiceId} IS NOT NULL)::int = 1`
+    ),
+  ]
+)
+
+// ---------------------------------------------------------------------------
+// Audit events
+// ---------------------------------------------------------------------------
+
+export const auditEvents = mainSchema.table(
+  'audit_events',
+  {
+    action: text('action').notNull(),
+    actorId: text('actor_id'),
+    changes: jsonb('changes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    entityId: text('entity_id').notNull(),
+    entityType: text('entity_type').notNull(),
+    id: text('id').primaryKey(),
+    metadata: jsonb('metadata'),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    check(
+      'audit_events_entity_type_check',
+      sql`${table.entityType} IN ('invoice', 'expense', 'customer')`
+    ),
+    index('audit_events_entity_history_idx').on(
+      table.entityType,
+      table.entityId,
+      table.createdAt.desc()
     ),
   ]
 )

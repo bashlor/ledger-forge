@@ -6,6 +6,7 @@ import { DashboardService } from '#core/accounting/application/dashboard/index'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import {
+  auditEvents,
   customers,
   expenses,
   invoiceLines,
@@ -60,6 +61,7 @@ test.group('Cross-tenant isolation', (group) => {
   })
 
   group.each.setup(async () => {
+    await db.delete(auditEvents)
     await db.delete(journalEntries)
     await db.delete(invoiceLines)
     await db.delete(invoices)

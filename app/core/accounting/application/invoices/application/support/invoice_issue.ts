@@ -7,6 +7,7 @@ import type {
 } from '../../types.js'
 import type { InvoiceUseCaseDeps } from './invoice_use_case_deps.js'
 
+import { insertAuditEvent } from '../../../audit/audit_writer.js'
 import { buildInvoiceIssueMutation } from '../../domain/invoice_mutations.js'
 import { assertInvoiceCanBeIssuedToday } from '../../domain/invoice_rules.js'
 import {
@@ -70,6 +71,15 @@ export async function persistInvoiceIssue(
     invoiceId: id,
     label: `Invoice ${invoice.invoiceNumber}`,
     organizationId: requestContext.tenantId,
+  })
+
+  await insertAuditEvent(tx, {
+    action: 'issue',
+    actorId: requestContext.actorId,
+    changes: { after: { status: 'issued' }, before: { status: 'draft' } },
+    entityId: id,
+    entityType: 'invoice',
+    tenantId: requestContext.tenantId,
   })
 
   return { invoice, invoiceId: id }

@@ -2,7 +2,7 @@ import type { AccountingAccessContext } from '#core/accounting/application/suppo
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { ExpenseService } from '#core/accounting/application/expenses/index'
-import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
+import { auditEvents, expenses, journalEntries } from '#core/accounting/drizzle/schema'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
   AuthenticationPort,
@@ -103,6 +103,7 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
   })
 
   group.each.setup(async () => {
+    await db.delete(auditEvents)
     await db.delete(journalEntries)
     await db.delete(expenses)
   })
@@ -376,6 +377,7 @@ test.group('Expenses routes | validation', (group) => {
   })
 
   group.each.setup(async () => {
+    await validationDb.delete(auditEvents)
     await validationDb.delete(journalEntries)
     await validationDb.delete(expenses)
   })
@@ -468,6 +470,7 @@ test.group('Expenses service | getSummary and listExpenses', (group) => {
   })
 
   group.each.setup(async () => {
+    await serviceDb.delete(auditEvents)
     await serviceDb.delete(journalEntries)
     await serviceDb.delete(expenses)
   })

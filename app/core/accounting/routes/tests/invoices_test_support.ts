@@ -2,7 +2,7 @@ import type { AccountingAccessContext } from '#core/accounting/application/suppo
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { type InvoiceService } from '#core/accounting/application/invoices/index'
-import { customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
+import { auditEvents, customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
   AuthenticationPort,
@@ -167,6 +167,7 @@ export function issuePayload() {
 }
 
 export async function resetInvoiceFixtures(db: PostgresJsDatabase<any>) {
+  await db.delete(auditEvents)
   await db.delete(journalEntries)
   await db.delete(invoices)
   await db.delete(customers)
