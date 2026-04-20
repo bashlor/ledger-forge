@@ -19,6 +19,11 @@ import { CustomerDrawer } from './customers/customer_drawer'
 import { SummaryCards } from './customers/summary_cards'
 import { CustomerTable } from './customers/table'
 
+interface CustomerSearchFormProps {
+  appliedSearch: string
+  onSubmit: (searchQuery: string) => void
+}
+
 interface CustomersPageProps {
   customers: CustomerListDto
   filters?: { search?: string }
@@ -31,21 +36,21 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
   const [drawerKey, setDrawerKey] = useState(0)
   const [editTarget, setEditTarget] = useState<CustomerDto | null>(null)
   const [processing, setProcessing] = useState(false)
-  const [searchQuery, setSearchQuery] = useState(filters?.search ?? '')
   const [filter, setFilter] = useState<'all' | 'no_invoices' | 'with_invoices'>('all')
 
   const { items, pagination, summary } = customers
+  const appliedSearch = filters?.search?.trim() ?? ''
   const hasPageItems = items.length > 0
   const filteredItems = useMemo(
     () =>
       items.filter((customer) => {
-      const matchesFilter =
-        filter === 'all'
-          ? true
-          : filter === 'with_invoices'
-            ? customer.invoiceCount > 0
-            : customer.invoiceCount === 0
-      return matchesFilter
+        const matchesFilter =
+          filter === 'all'
+            ? true
+            : filter === 'with_invoices'
+              ? customer.invoiceCount > 0
+              : customer.invoiceCount === 0
+        return matchesFilter
       }),
     [filter, items]
   )
@@ -58,11 +63,11 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
     if (pagination.perPage !== DEFAULT_PAGE_SIZE) {
       qs.perPage = pagination.perPage
     }
-    if (searchQuery.trim()) {
-      qs.search = searchQuery.trim()
+    if (appliedSearch) {
+      qs.search = appliedSearch
     }
     return qs
-  }, [pagination.page, pagination.perPage, searchQuery])
+  }, [appliedSearch, pagination.page, pagination.perPage])
   const customerErrors = useMemo(
     () =>
       Object.fromEntries(
@@ -79,10 +84,6 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
       setDrawerOpen(true)
     }
   }, [hasCustomerErrors])
-
-  useEffect(() => {
-    setSearchQuery(filters?.search ?? '')
-  }, [filters?.search])
 
   function openCreate() {
     setEditTarget(null)
@@ -135,7 +136,7 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
     })
   }
 
-  function submitSearch() {
+  function submitSearch(searchQuery: string) {
     const search = searchQuery.trim()
     router.get(
       '/customers',
@@ -184,27 +185,11 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
           emptyMessage="No customers yet."
           headerContent={
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <form
-                className="flex w-full gap-2 sm:w-auto"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  submitSearch()
-                }}
-              >
-                <input
-                  className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search company, contact, email, phone"
-                  type="search"
-                  value={searchQuery}
-                />
-                <button
-                  className="rounded-lg border border-outline-variant/35 px-3 text-sm text-on-surface"
-                  type="submit"
-                >
-                  Search
-                </button>
-              </form>
+              <CustomerSearchForm
+                appliedSearch={appliedSearch}
+                key={appliedSearch}
+                onSubmit={submitSearch}
+              />
               <select
                 aria-label="Filter customers"
                 className="h-9 rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
@@ -225,8 +210,10 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
               '/customers',
               {
                 ...(nextPage > 1 ? { page: nextPage } : {}),
-                ...(pagination.perPage !== DEFAULT_PAGE_SIZE ? { perPage: pagination.perPage } : {}),
-                ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+                ...(pagination.perPage !== DEFAULT_PAGE_SIZE
+                  ? { perPage: pagination.perPage }
+                  : {}),
+                ...(appliedSearch ? { search: appliedSearch } : {}),
               },
               {
                 only: ['customers', 'filters'],
@@ -240,7 +227,7 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
               '/customers',
               {
                 ...(perPage !== DEFAULT_PAGE_SIZE ? { perPage } : {}),
-                ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+                ...(appliedSearch ? { search: appliedSearch } : {}),
               },
               { only: ['customers', 'filters'], preserveScroll: true, replace: true }
             )
@@ -265,5 +252,34 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
         </DataTable>
       </div>
     </>
+  )
+}
+
+function CustomerSearchForm({ appliedSearch, onSubmit }: CustomerSearchFormProps) {
+  const [searchQuery, setSearchQuery] = useState(appliedSearch)
+
+  return (
+    <form
+      className="flex w-full gap-2 sm:w-auto"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit(searchQuery)
+      }}
+    >
+      <input
+        aria-label="Search customers"
+        className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
+        onChange={(event) => setSearchQuery(event.target.value)}
+        placeholder="Search company, contact, email, phone"
+        type="search"
+        value={searchQuery}
+      />
+      <button
+        className="rounded-lg border border-outline-variant/35 px-3 text-sm text-on-surface"
+        type="submit"
+      >
+        Search
+      </button>
+    </form>
   )
 }

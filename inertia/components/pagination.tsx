@@ -1,4 +1,5 @@
 import type { PaginationMetaDto } from '~/lib/types'
+
 import { PAGE_SIZE_OPTIONS } from '~/lib/pagination'
 
 interface PaginationProps {

@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import type { InvoiceDto, InvoiceSummaryDto, PaginatedList } from '~/lib/types'
 
 import { DataTable } from '~/components/data_table'
@@ -6,34 +8,33 @@ import { formatCurrency, formatShortDate } from '~/lib/format'
 import { canDeleteInvoice } from '~/lib/invoices'
 
 interface Props {
+  appliedSearch: string
   deleteConfirmId: null | string
   invoices: PaginatedList<InvoiceDto>
   onCancelDelete: () => void
   onDeleteDraft: (invoice: InvoiceDto) => void
   onPageChange: (page: number) => void
   onPerPageChange: (perPage: number) => void
-  onSearchChange: (value: string) => void
-  onSearchSubmit: () => void
+  onSearchSubmit: (value: string) => void
   onSelectInvoice: (invoice: InvoiceDto) => void
-  searchQuery: string
   saving: boolean
   summary: InvoiceSummaryDto | null
 }
 
 export function InvoiceList({
+  appliedSearch,
   deleteConfirmId,
   invoices,
   onCancelDelete,
   onDeleteDraft,
   onPageChange,
   onPerPageChange,
-  onSearchChange,
   onSearchSubmit,
   onSelectInvoice,
-  searchQuery,
   saving,
   summary,
 }: Props) {
+  const [searchQuery, setSearchQuery] = useState(appliedSearch)
   const draftCount = summary?.draftCount ?? 0
   const issuedCount = summary?.issuedCount ?? 0
   const overdueCount = summary?.overdueCount ?? 0
@@ -85,12 +86,13 @@ export function InvoiceList({
             className="flex w-full gap-2 sm:w-auto"
             onSubmit={(event) => {
               event.preventDefault()
-              onSearchSubmit()
+              onSearchSubmit(searchQuery)
             }}
           >
             <input
+              aria-label="Search invoices"
               className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
-              onChange={(event) => onSearchChange(event.target.value)}
+              onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search invoice, company, contact"
               type="search"
               value={searchQuery}

@@ -479,7 +479,9 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(invalidPerPage.items.length, 1)
   })
 
-  test('customer listing applies server-side search with coherent pagination', async ({ assert }) => {
+  test('customer listing applies server-side search with coherent pagination', async ({
+    assert,
+  }) => {
     await db.insert(customers).values([
       {
         address: '1 test street',
@@ -502,7 +504,12 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     ])
 
     const customerService = new CustomerService(db)
-    const result = await customerService.listCustomersPage(1, 10, TEST_ACCOUNTING_ACCESS_CONTEXT, 'cursor')
+    const result = await customerService.listCustomersPage(
+      1,
+      10,
+      TEST_ACCOUNTING_ACCESS_CONTEXT,
+      'cursor'
+    )
 
     assert.equal(result.items.length, 1)
     assert.equal(result.items[0].company, 'Cursor Labs')

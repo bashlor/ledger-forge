@@ -81,6 +81,7 @@ export default class InvoicesController {
 
     return renderInertiaPage(inertia, 'app/invoices', {
       customers: await invoiceService.listCustomersForSelect(access),
+      filters: { search: search ?? '' },
       initialCustomerId: customer ?? null,
       initialInvoiceId,
       invoices: { items, pagination },
@@ -88,7 +89,6 @@ export default class InvoicesController {
         () => invoiceService.getInvoiceSummary(access, dateFilter, customer ?? undefined) as never,
         'invoiceSummary'
       ),
-      filters: { search: search ?? '' },
       mode: request.input('mode') === 'new' ? 'new' : 'view',
     })
   }

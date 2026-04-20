@@ -135,7 +135,10 @@ test.group('Invoices routes | GET /invoices', (group) => {
     )
   })
 
-  test('GET /invoices filters items by search with coherent pagination', async ({ assert, client }) => {
+  test('GET /invoices filters items by search with coherent pagination', async ({
+    assert,
+    client,
+  }) => {
     const service = new InvoiceService(db)
     const matching = await createDraftViaService(service, {
       customerId: TEST_CUSTOMER_ID,

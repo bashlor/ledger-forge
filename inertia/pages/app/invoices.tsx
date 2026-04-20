@@ -175,11 +175,7 @@ function InvoicesContent({
   const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<null | string>(null)
   const [issueForm, setIssueForm] = useState(createInitialIssueForm())
-  const [searchQuery, setSearchQuery] = useState(filters?.search ?? '')
-
-  useEffect(() => {
-    setSearchQuery(filters?.search ?? '')
-  }, [filters?.search])
+  const appliedSearch = filters?.search?.trim() ?? ''
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -197,12 +193,12 @@ function InvoicesContent({
         ...(invoices.pagination.perPage !== DEFAULT_PAGE_SIZE
           ? { perPage: invoices.pagination.perPage }
           : {}),
-        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(appliedSearch ? { search: appliedSearch } : {}),
         startDate: scope.startDate,
       },
       { preserveScroll: true, preserveState: true, replace: true }
     )
-  }, [scope.endDate, scope.startDate, invoices.pagination.perPage, initialCustomerId, searchQuery])
+  }, [scope.endDate, scope.startDate])
 
   const selectedInvoice = useMemo(
     () => invoices.items.find((invoice) => invoice.id === selectedInvoiceId) ?? null,
@@ -239,7 +235,7 @@ function InvoicesContent({
         ...(invoices.pagination.perPage !== DEFAULT_PAGE_SIZE
           ? { perPage: invoices.pagination.perPage }
           : {}),
-        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(appliedSearch ? { search: appliedSearch } : {}),
         startDate: scope.startDate,
       },
       { preserveScroll: true }
@@ -255,7 +251,7 @@ function InvoicesContent({
         ...(invoices.pagination.perPage !== DEFAULT_PAGE_SIZE
           ? { perPage: invoices.pagination.perPage }
           : {}),
-        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(appliedSearch ? { search: appliedSearch } : {}),
         startDate: scope.startDate,
       },
       { preserveScroll: true }
@@ -273,7 +269,7 @@ function InvoicesContent({
         ...(invoices.pagination.perPage !== DEFAULT_PAGE_SIZE
           ? { perPage: invoices.pagination.perPage }
           : {}),
-        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(appliedSearch ? { search: appliedSearch } : {}),
         startDate: scope.startDate,
       },
       { preserveScroll: true }
@@ -290,7 +286,7 @@ function InvoicesContent({
         ...(invoices.pagination.perPage !== DEFAULT_PAGE_SIZE
           ? { perPage: invoices.pagination.perPage }
           : {}),
-        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(appliedSearch ? { search: appliedSearch } : {}),
         startDate: scope.startDate,
       },
       { only: ['invoices', 'invoiceSummary', 'filters'], preserveScroll: true, preserveState: true }
@@ -304,7 +300,7 @@ function InvoicesContent({
         ...(initialCustomerId ? { customer: initialCustomerId } : {}),
         endDate: scope.endDate,
         ...(perPage !== DEFAULT_PAGE_SIZE ? { perPage } : {}),
-        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(appliedSearch ? { search: appliedSearch } : {}),
         startDate: scope.startDate,
       },
       {
@@ -316,7 +312,7 @@ function InvoicesContent({
     )
   }
 
-  function handleSearchSubmit() {
+  function handleSearchSubmit(searchQuery: string) {
     router.get(
       '/invoices',
       {
@@ -380,7 +376,7 @@ function InvoicesContent({
     const payload = buildPayload({ ...form, customerId: effectiveCustomerId })
     const path =
       selectedInvoice && editingInvoice ? `/invoices/${selectedInvoice.id}/draft` : '/invoices'
-    const url = invoicesUrl(path, scope, invoices.pagination, initialCustomerId, searchQuery)
+    const url = invoicesUrl(path, scope, invoices.pagination, initialCustomerId, appliedSearch)
 
     if (selectedInvoice && editingInvoice) {
       router.put(url, payload as never, {
@@ -419,7 +415,7 @@ function InvoicesContent({
         scope,
         invoices.pagination,
         initialCustomerId,
-        searchQuery
+        appliedSearch
       ),
       {
         issuedCompanyAddress: issueForm.issuedCompanyAddress,
@@ -442,7 +438,7 @@ function InvoicesContent({
         scope,
         invoices.pagination,
         initialCustomerId,
-        searchQuery
+        appliedSearch
       ),
       {},
       {
@@ -465,7 +461,7 @@ function InvoicesContent({
         scope,
         invoices.pagination,
         initialCustomerId,
-        searchQuery
+        appliedSearch
       ),
       {
         onFinish: () => setSaving(false),
@@ -483,7 +479,7 @@ function InvoicesContent({
         scope,
         invoices.pagination,
         initialCustomerId,
-        searchQuery
+        appliedSearch
       ),
       {
         onFinish: () => setSaving(false),
@@ -569,16 +565,15 @@ function InvoicesContent({
 
         {!isFocusMode ? (
           <InvoiceList
+            appliedSearch={appliedSearch}
             deleteConfirmId={deleteConfirmId}
             invoices={invoices}
             onCancelDelete={() => setDeleteConfirmId(null)}
             onDeleteDraft={handleDeleteDraftFromList}
             onPageChange={handlePageChange}
             onPerPageChange={handlePerPageChange}
-            onSearchChange={setSearchQuery}
             onSearchSubmit={handleSearchSubmit}
             onSelectInvoice={handleSelectInvoice}
-            searchQuery={searchQuery}
             saving={saving}
             summary={summary}
           />

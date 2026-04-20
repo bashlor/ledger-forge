@@ -63,11 +63,11 @@ export default class ExpensesController {
           dateFilter,
           search
         ),
+        filters: { search: search ?? '' },
         summary: ctx.inertia.defer(
           () => expenseService.getSummary(access, dateFilter) as never,
           'summary'
         ),
-        filters: { search: search ?? '' },
       } as never
     )
   }

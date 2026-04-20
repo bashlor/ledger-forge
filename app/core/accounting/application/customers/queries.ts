@@ -156,6 +156,10 @@ export async function listCustomersWithAggregates(
   }
 }
 
+function applyCustomerTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
+  return requireTenantScope(where, tenantId, customers.organizationId)
+}
+
 function searchCondition(search?: string): SQL<unknown> | undefined {
   const term = search?.trim().toLowerCase()
   if (!term) {
@@ -169,8 +173,4 @@ function searchCondition(search?: string): SQL<unknown> | undefined {
     sql`lower(${customers.email}) like ${pattern}`,
     sql`lower(${customers.phone}) like ${pattern}`
   )
-}
-
-function applyCustomerTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
-  return requireTenantScope(where, tenantId, customers.organizationId)
 }
