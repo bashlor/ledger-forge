@@ -19,13 +19,46 @@ test.group('Dashboard routes', (group) => {
     await seedTestOrganization(db)
   })
 
-  group.teardown(async () => cleanup())
+  group.teardown(async () => await cleanup())
 
   group.each.setup(() => {
     bindInvoiceAuth()
   })
 
-  test('GET /dashboard renders the dashboard page with stubbed dashboard props', async ({
+  test('GET /dashboard initial Inertia visit lists dashboard as deferred (no sync prop)', async ({
+    assert,
+    client,
+  }) => {
+    const dashboard: DashboardDto = {
+      recentInvoices: [],
+      summary: {
+        profit: 0,
+        totalCollected: 0,
+        totalExpenses: 0,
+        totalRevenue: 0,
+      },
+    }
+
+    let calls = 0
+    const dashboardService = {
+      async getDashboard() {
+        calls += 1
+        return dashboard
+      },
+    } as unknown as DashboardService
+
+    app.container.bindValue(DashboardService, dashboardService)
+
+    const response = await inertiaHeaders(client.get('/dashboard')).header('cookie', authCookie())
+
+    response.assertStatus(200)
+    assert.equal(response.body().component, 'app/dashboard')
+    assert.deepEqual(response.body().deferredProps, { dashboard: ['dashboard'] })
+    assert.isUndefined(response.body().props.dashboard)
+    assert.equal(calls, 0, 'deferred prop must not run on the initial standard visit')
+  })
+
+  test('GET /dashboard partial request loads dashboard prop via deferred compute', async ({
     assert,
     client,
   }) => {
@@ -59,7 +92,13 @@ test.group('Dashboard routes', (group) => {
 
     app.container.bindValue(DashboardService, dashboardService)
 
-    const response = await inertiaHeaders(client.get('/dashboard')).header('cookie', authCookie())
+    const response = await client
+      .get('/dashboard')
+      .header('cookie', authCookie())
+      .header('x-inertia', 'true')
+      .header('x-inertia-version', '1')
+      .header('x-inertia-partial-component', 'app/dashboard')
+      .header('x-inertia-partial-data', 'dashboard')
 
     response.assertStatus(200)
     assert.equal(response.body().component, 'app/dashboard')

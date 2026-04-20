@@ -9,9 +9,11 @@ import { inject } from '@adonisjs/core'
 export default class DashboardController {
   @inject()
   async dashboard(ctx: HttpContext, dashboardService: DashboardService) {
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
     return renderInertiaPage(ctx.inertia, 'app/dashboard', {
-      dashboard: await dashboardService.getDashboard(
-        accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+      dashboard: ctx.inertia.defer(
+        () => dashboardService.getDashboard(access) as never,
+        'dashboard'
       ),
     })
   }
