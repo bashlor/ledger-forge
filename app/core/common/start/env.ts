@@ -24,14 +24,17 @@ export default await Env.create(new URL('../../../../', import.meta.url), {
   DB_PORT: Env.schema.number(),
   DB_USER: Env.schema.string(),
   HOST: Env.schema.string({ format: 'host' }),
-
   LOG_LEVEL: Env.schema.string(),
   // Node
   NODE_ENV: Env.schema.enum(['development', 'production', 'test'] as const),
+
   PORT: Env.schema.number(),
   POSTGRES_TEST_IMAGE: Env.schema.string.optional(),
   REQUIRE_EMAIL_VERIFICATION: Env.schema.boolean(),
   // Session (AdonisJS — for flash messages, CSRF, transient HTTP data only)
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory'] as const),
+  // Tenant mode
+  SINGLE_TENANT_ORG_ID: Env.schema.string.optional(),
+  TENANT_MODE: Env.schema.string.optional(),
   TZ: Env.schema.string.optional(),
 })

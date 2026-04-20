@@ -1,7 +1,8 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import * as schema from '#core/common/drizzle/index'
-import { eq, sql } from 'drizzle-orm'
+import { and, count, eq, sql } from 'drizzle-orm'
+import { createHash } from 'node:crypto'
 import { v7 as uuidv7 } from 'uuid'
 
 export type WorkspaceKind = 'anonymous' | 'personal'
@@ -21,6 +22,73 @@ export async function clearActiveOrganizationForSession(
     .update(schema.session)
     .set({ activeOrganizationId: null })
     .where(eq(schema.session.token, sessionToken))
+}
+
+/**
+ * Ensures a single-tenant organization exists and that the given user is a member.
+ *
+ * - Upserts the organization row (no-op when already present).
+ * - If the user is already a member, returns immediately.
+ * - First member of the org receives the `owner` role; subsequent users get `member`.
+ *
+ * Idempotent: safe to call on every request.
+ */
+export async function ensureSingleTenantMembership(
+  db: PostgresJsDatabase<typeof schema>,
+  userId: string,
+  orgId: string
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`single-tenant:${orgId}`}))`)
+
+    await tx
+      .insert(schema.organization)
+      .values({
+        createdAt: new Date(),
+        id: orgId,
+        logo: null,
+        metadata: JSON.stringify({ workspaceKind: 'personal' satisfies WorkspaceKind }),
+        name: 'Organization',
+        slug: buildSingleTenantSlug(orgId),
+      })
+      .onConflictDoNothing()
+
+    const organizationRow = await tx.query.organization.findFirst({
+      where: (organization, { eq: equal }) => equal(organization.id, orgId),
+    })
+
+    if (!organizationRow) {
+      throw new Error(`Single-tenant organization ${orgId} could not be provisioned`)
+    }
+
+    const [existing] = await tx
+      .select({ id: schema.member.id })
+      .from(schema.member)
+      .where(and(eq(schema.member.userId, userId), eq(schema.member.organizationId, orgId)))
+      .limit(1)
+
+    if (existing) {
+      return
+    }
+
+    const [{ memberCount }] = await tx
+      .select({ memberCount: count() })
+      .from(schema.member)
+      .where(eq(schema.member.organizationId, orgId))
+
+    const role = memberCount === 0 ? 'owner' : 'member'
+
+    await tx
+      .insert(schema.member)
+      .values({
+        createdAt: new Date(),
+        id: uuidv7(),
+        organizationId: orgId,
+        role,
+        userId,
+      })
+      .onConflictDoNothing()
+  })
 }
 
 export async function loadWorkspaceShare(
@@ -120,6 +188,22 @@ export async function provisionPersonalWorkspace(
       .set({ activeOrganizationId: organizationId })
       .where(eq(schema.session.token, input.sessionToken))
   })
+}
+
+export async function setActiveOrganizationForSession(
+  db: PostgresJsDatabase<typeof schema>,
+  sessionToken: string,
+  organizationId: string
+): Promise<void> {
+  await db
+    .update(schema.session)
+    .set({ activeOrganizationId: organizationId })
+    .where(eq(schema.session.token, sessionToken))
+}
+
+function buildSingleTenantSlug(orgId: string): string {
+  const digest = createHash('sha256').update(orgId).digest('hex').slice(0, 24)
+  return `single-${digest}`
 }
 
 function buildWorkspaceLabel(input: {

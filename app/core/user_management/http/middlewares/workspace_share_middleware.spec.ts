@@ -10,6 +10,40 @@ import WorkspaceShareMiddleware from './workspace_share_middleware.js'
 
 type AppDrizzleDb = PostgresJsDatabase<typeof DrizzleSchema>
 
+class SingleTenantTestMiddleware extends WorkspaceShareMiddleware {
+  constructor(
+    auth: AuthenticationPort,
+    private readonly options: {
+      ensureSingleTenantMembership?: () => Promise<void>
+      getSingleTenantOrgId?: () => string
+      hasActiveTenantMembership?: () => Promise<boolean>
+      isSingleTenantMode?: boolean
+    } = {}
+  ) {
+    super(auth)
+  }
+
+  protected override async ensureSingleTenantMembership(): Promise<void> {
+    await this.options.ensureSingleTenantMembership?.()
+  }
+
+  protected override getSingleTenantOrgId(): string {
+    return this.options.getSingleTenantOrgId?.() ?? 'org-single'
+  }
+
+  protected override async hasActiveTenantMembership(): Promise<boolean> {
+    if (!this.options.hasActiveTenantMembership) {
+      throw new Error('hasActiveTenantMembership should not be called in this test')
+    }
+
+    return this.options.hasActiveTenantMembership()
+  }
+
+  protected override isSingleTenantMode(): boolean {
+    return this.options.isSingleTenantMode ?? true
+  }
+}
+
 function createAuthSession(activeOrganizationId: null | string): AuthResult {
   return {
     session: {
@@ -33,10 +67,11 @@ function createAuthSession(activeOrganizationId: null | string): AuthResult {
 
 function createContext(input: { authSession: AuthResult; cookie?: string; path: string }) {
   const redirects: string[] = []
-  const { logger } = createLogger()
+  const { errors, logger, warnings } = createLogger()
 
   return {
     authSession: input.authSession,
+    errors,
     logger,
     redirects,
     request: {
@@ -59,19 +94,25 @@ function createContext(input: { authSession: AuthResult; cookie?: string; path: 
         return path
       },
     },
+    warnings,
     workspaceShare: undefined,
   }
 }
 
 function createLogger() {
+  const errors: { bindings: Record<string, unknown>; message: string }[] = []
   const warnings: { bindings: Record<string, unknown>; message: string }[] = []
   const debugs: { bindings: Record<string, unknown>; message: string }[] = []
 
   return {
     debugs,
+    errors,
     logger: {
       debug(bindings: Record<string, unknown>, message: string) {
         debugs.push({ bindings, message })
+      },
+      error(bindings: Record<string, unknown>, message: string) {
+        errors.push({ bindings, message })
       },
       warn(bindings: Record<string, unknown>, message: string) {
         warnings.push({ bindings, message })
@@ -165,5 +206,109 @@ test.group('WorkspaceShareMiddleware', () => {
     assert.deepEqual(clearedTokens, ['session-token'])
     assert.isNull(ctx.authSession.session.activeOrganizationId)
     assert.deepEqual(ctx.redirects, [])
+  })
+
+  test('single-tenant mode forces the configured organization and synchronizes the session', async ({
+    assert,
+  }) => {
+    const synchronized: string[] = []
+    const db = {
+      query: {
+        organization: {
+          findFirst: async () => ({
+            id: 'org-single',
+            logo: null,
+            metadata: JSON.stringify({ workspaceKind: 'personal' }),
+            name: 'Organization',
+            slug: 'single-abc123',
+          }),
+        },
+      },
+      update() {
+        return {
+          set(payload: Record<string, unknown>) {
+            assert.deepEqual(payload, { activeOrganizationId: 'org-single' })
+            return {
+              where() {
+                synchronized.push('session-token')
+                return Promise.resolve()
+              },
+            }
+          },
+        }
+      },
+    }
+    app.container.bindValue('drizzle', db as unknown as AppDrizzleDb)
+
+    let ensureCalled = 0
+    const auth = {
+      getSession: async () => createAuthSession('org-stale'),
+    } satisfies Pick<AuthenticationPort, 'getSession'>
+
+    const middleware = new SingleTenantTestMiddleware(auth as unknown as AuthenticationPort, {
+      ensureSingleTenantMembership: async () => {
+        ensureCalled += 1
+      },
+      hasActiveTenantMembership: async () => {
+        throw new Error('membership check should be skipped in single-tenant mode')
+      },
+    })
+
+    const ctx = createContext({
+      authSession: createAuthSession('org-stale'),
+      cookie: 'session-token',
+      path: '/app/dashboard',
+    })
+    let nextCalled = false
+
+    await middleware.handle(ctx as never, async () => {
+      nextCalled = true
+    })
+
+    assert.isTrue(nextCalled)
+    assert.equal(ensureCalled, 1)
+    assert.equal(ctx.authSession.session.activeOrganizationId, 'org-single')
+    assert.deepEqual(synchronized, ['session-token'])
+    assert.deepEqual(ctx.redirects, [])
+  })
+
+  test('single-tenant mode logs a visible configuration error and clears the active organization', async ({
+    assert,
+  }) => {
+    const db = {
+      query: {
+        organization: {
+          findFirst: async () => null,
+        },
+      },
+    }
+    app.container.bindValue('drizzle', db as unknown as AppDrizzleDb)
+
+    const auth = {
+      getSession: async () => createAuthSession('org-stale'),
+    } satisfies Pick<AuthenticationPort, 'getSession'>
+
+    const middleware = new SingleTenantTestMiddleware(auth as unknown as AuthenticationPort, {
+      getSingleTenantOrgId: () => {
+        throw new Error('SINGLE_TENANT_ORG_ID must be set when TENANT_MODE=single')
+      },
+    })
+
+    const ctx = createContext({
+      authSession: createAuthSession('org-stale'),
+      cookie: 'session-token',
+      path: '/app/dashboard',
+    })
+    let nextCalled = false
+
+    await middleware.handle(ctx as never, async () => {
+      nextCalled = true
+    })
+
+    assert.isTrue(nextCalled)
+    assert.isNull(ctx.authSession.session.activeOrganizationId)
+    assert.deepEqual(ctx.redirects, [])
+    assert.lengthOf(ctx.errors, 1)
+    assert.equal(ctx.errors[0]!.message, 'single_tenant_configuration_invalid')
   })
 })

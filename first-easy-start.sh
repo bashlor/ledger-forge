@@ -21,7 +21,7 @@ require_cmd() {
 
 get_env_value() {
   local key="$1" file="$2"
-  grep "^${key}=" "$file" | head -1 | cut -d= -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || true
 }
 
 set_env_value() {
@@ -83,15 +83,17 @@ ensure_env_value 'REDIS_PASSWORD' "$DEFAULT_REDIS_PASSWORD" "$REPO_ROOT/.env"
 set_env_value 'APP_KEY' "$(openssl rand -hex 32)" "$REPO_ROOT/.env"
 set_env_value 'BETTER_AUTH_SECRET' "$(openssl rand -hex 32)" "$REPO_ROOT/.env"
 set_env_value 'APP_URL' "$APP_URL_FIXED" "$REPO_ROOT/.env"
-
-echo '==> Write secret files from .env'
-bash "$REPO_ROOT/docker/write-docker-secrets.sh" "$REPO_ROOT/.env" "$REPO_ROOT/tmp/docker-secrets/dev" DB_PASSWORD=db_password REDIS_PASSWORD=redis_password
+set_env_value 'TENANT_MODE' 'single' "$REPO_ROOT/.env"
+ensure_env_value 'SINGLE_TENANT_ORG_ID' "$(openssl rand -hex 16)" "$REPO_ROOT/.env"
 
 echo '==> Create .env.test from .env.test.example'
 cp "$REPO_ROOT/.env.test.example" "$REPO_ROOT/.env.test"
 set_env_value 'APP_KEY' "$(openssl rand -hex 32)" "$REPO_ROOT/.env.test"
 set_env_value 'BETTER_AUTH_SECRET' "$(openssl rand -hex 32)" "$REPO_ROOT/.env.test"
 set_env_value 'APP_URL' "$APP_URL_FIXED" "$REPO_ROOT/.env.test"
+
+echo '==> Write secret files from .env'
+bash "$REPO_ROOT/docker/write-docker-secrets.sh" "$REPO_ROOT/.env" "$REPO_ROOT/tmp/docker-secrets/dev" DB_PASSWORD=db_password REDIS_PASSWORD=redis_password
 
 DB_USER_VAL="$(get_env_value DB_USER "$REPO_ROOT/.env")"
 DB_DATABASE_VAL="$(get_env_value DB_DATABASE "$REPO_ROOT/.env")"
