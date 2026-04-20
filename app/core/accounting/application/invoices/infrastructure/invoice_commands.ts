@@ -15,11 +15,18 @@ type InvoiceUpdate = Partial<typeof invoices.$inferInsert>
 
 export async function deleteDraftInvoice(
   tx: DrizzleTx,
-  id: string
+  id: string,
+  organizationId: string
 ): Promise<undefined | { id: string }> {
   const [deleted] = await tx
     .delete(invoices)
-    .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
+    .where(
+      and(
+        eq(invoices.id, id),
+        eq(invoices.status, 'draft'),
+        eq(invoices.organizationId, organizationId)
+      )
+    )
     .returning({ id: invoices.id })
   return deleted
 }
@@ -74,11 +81,22 @@ export async function updateInvoice(tx: DrizzleTx, id: string, values: InvoiceUp
   return row
 }
 
-export async function updateInvoiceDraft(tx: DrizzleTx, id: string, values: InvoiceUpdate) {
+export async function updateInvoiceDraft(
+  tx: DrizzleTx,
+  id: string,
+  values: InvoiceUpdate,
+  organizationId: string
+) {
   const [row] = await tx
     .update(invoices)
     .set(values)
-    .where(and(eq(invoices.id, id), eq(invoices.status, 'draft')))
+    .where(
+      and(
+        eq(invoices.id, id),
+        eq(invoices.status, 'draft'),
+        eq(invoices.organizationId, organizationId)
+      )
+    )
     .returning()
   return row
 }
@@ -87,12 +105,19 @@ export async function updateInvoiceStatus(
   tx: DrizzleTx,
   id: string,
   expectedStatus: InvoiceStatus,
-  nextStatus: InvoiceStatus
+  nextStatus: InvoiceStatus,
+  organizationId: string
 ) {
   const [row] = await tx
     .update(invoices)
     .set({ status: nextStatus })
-    .where(and(eq(invoices.id, id), eq(invoices.status, expectedStatus)))
+    .where(
+      and(
+        eq(invoices.id, id),
+        eq(invoices.status, expectedStatus),
+        eq(invoices.organizationId, organizationId)
+      )
+    )
     .returning()
   return row
 }

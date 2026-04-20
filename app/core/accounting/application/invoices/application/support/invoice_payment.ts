@@ -25,7 +25,7 @@ export async function persistInvoicePayment(
 ) {
   await hooks?.afterRead?.()
 
-  const invoice = await updateInvoiceStatus(tx, id, 'issued', 'paid')
+  const invoice = await updateInvoiceStatus(tx, id, 'issued', 'paid', requestContext.tenantId)
   if (!invoice) {
     const again = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
     assertInvoiceCanBeMarkedPaidNow(again.status)

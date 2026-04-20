@@ -180,9 +180,13 @@ export async function loadInvoiceForMutation(
   return row
 }
 
-export async function nextInvoiceNumber(db: InvoiceDbExecutor, issueDate: string): Promise<string> {
+export async function nextInvoiceNumber(
+  db: InvoiceDbExecutor,
+  issueDate: string,
+  tenantId: string
+): Promise<string> {
   const year = issueDate.slice(0, 4)
-  const lockKey = `invoice-number-${year}`
+  const lockKey = `invoice-number-${year}-${tenantId}`
   await db.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`)
 
   const [{ lastSequence }] = await db
@@ -193,7 +197,9 @@ export async function nextInvoiceNumber(db: InvoiceDbExecutor, issueDate: string
         ),
     })
     .from(invoices)
-    .where(like(invoices.invoiceNumber, `INV-${year}-%`))
+    .where(
+      and(like(invoices.invoiceNumber, `INV-${year}-%`), eq(invoices.organizationId, tenantId))
+    )
 
   return `INV-${year}-${String((lastSequence ?? 0) + 1).padStart(3, '0')}`
 }

@@ -155,7 +155,7 @@ export class CustomerService {
       }
 
       if (snapshotChanged) {
-        await syncDraftInvoiceCustomerSnapshots(tx, id, normalized)
+        await syncDraftInvoiceCustomerSnapshots(tx, id, normalized, access.tenantId)
       }
 
       return updated
@@ -171,7 +171,7 @@ export class CustomerService {
       resourceType: 'customer',
     })
 
-    const agg = await invoiceAggregateForCustomer(this.db, id)
+    const agg = await invoiceAggregateForCustomer(this.db, id, access.tenantId)
     return toCustomerDto(updatedRow, agg)
   }
 }

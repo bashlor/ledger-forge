@@ -22,7 +22,7 @@ export async function persistInvoiceCancellation(
   id: string,
   requestContext: InvoiceRequestContext
 ) {
-  const deleted = await deleteDraftInvoice(tx, id)
+  const deleted = await deleteDraftInvoice(tx, id, requestContext.tenantId)
   if (!deleted) {
     const again = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
     assertDraftCanBeCanceled(again.status, 'Only draft invoices can be deleted.')

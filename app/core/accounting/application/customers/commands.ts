@@ -58,7 +58,8 @@ export async function insertCustomer(
 export async function syncDraftInvoiceCustomerSnapshots(
   tx: DrizzleTx,
   customerId: string,
-  input: NormalizedCustomerInput
+  input: NormalizedCustomerInput,
+  organizationId: string
 ): Promise<void> {
   await tx
     .update(invoices)
@@ -70,7 +71,13 @@ export async function syncDraftInvoiceCustomerSnapshots(
       customerPhoneSnapshot: input.phone,
       customerPrimaryContactSnapshot: input.name,
     })
-    .where(and(eq(invoices.customerId, customerId), eq(invoices.status, 'draft')))
+    .where(
+      and(
+        eq(invoices.customerId, customerId),
+        eq(invoices.status, 'draft'),
+        eq(invoices.organizationId, organizationId)
+      )
+    )
 }
 
 export async function updateCustomerById(
