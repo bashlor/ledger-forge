@@ -9,10 +9,10 @@ type DrizzleDb = PostgresJsDatabase<any>
 
 export async function loadDashboardQueryData(
   db: DrizzleDb,
-  tenantId?: null | string
+  tenantId: string
 ): Promise<DashboardQueryData> {
-  const orgWhere = tenantId ? eq(invoices.organizationId, tenantId) : undefined
-  const orgExpenseWhere = tenantId ? eq(expenses.organizationId, tenantId) : undefined
+  const orgWhere = eq(invoices.organizationId, tenantId)
+  const orgExpenseWhere = eq(expenses.organizationId, tenantId)
   const [recentInvoicesRows, revenueSumRow, collectedSumRow, expenseSumRow] = await Promise.all([
     db
       .select({

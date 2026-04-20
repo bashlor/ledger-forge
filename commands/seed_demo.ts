@@ -2,7 +2,7 @@ import type { CommandOptions } from '@adonisjs/core/types/ace'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
-import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
+import { systemAccessContext } from '#core/accounting/application/support/access_context'
 import {
   customers,
   expenses,
@@ -10,6 +10,7 @@ import {
   invoices,
   journalEntries,
 } from '#core/accounting/drizzle/schema'
+import { organization } from '#core/user_management/drizzle/schema'
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import { count } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
@@ -305,6 +306,17 @@ export default class SeedDemo extends BaseCommand {
     }
 
     // -----------------------------------------------------------------------
+    // 0. Seed organization (upsert)
+    // -----------------------------------------------------------------------
+    const SEED_ORG_ID = 'seed-demo-org'
+    await db
+      .insert(organization)
+      .values({ id: SEED_ORG_ID, name: 'Demo Organization', slug: 'demo-org' })
+      .onConflictDoNothing({ target: organization.id })
+
+    const seedAccess = systemAccessContext(SEED_ORG_ID, 'seed')
+
+    // -----------------------------------------------------------------------
     // 1. Customers
     // -----------------------------------------------------------------------
     const customerService = await this.app.container.make(CustomerService)
@@ -313,7 +325,7 @@ export default class SeedDemo extends BaseCommand {
     const keyMap = ['northwind', 'atelier', 'kestrel'] as const
 
     for (const [i, seed] of DEMO_CUSTOMERS.entries()) {
-      const created = await customerService.createCustomer(seed, SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
+      const created = await customerService.createCustomer(seed, seedAccess)
       createdCustomers[keyMap[i]] = created.id
     }
 
@@ -340,6 +352,7 @@ export default class SeedDemo extends BaseCommand {
         issueDate: inv.issueDate,
         issuedCompanyAddress: inv.issuedCompanyAddress,
         issuedCompanyName: inv.issuedCompanyName,
+        organizationId: SEED_ORG_ID,
         status: inv.status,
         subtotalExclTaxCents: inv.subtotalExclTaxCents,
         totalInclTaxCents: inv.totalInclTaxCents,
@@ -383,10 +396,10 @@ export default class SeedDemo extends BaseCommand {
           date: seed.date,
           label: seed.label,
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        seedAccess
       )
       if (seed.confirmed) {
-        await expenseService.confirmExpense(created.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
+        await expenseService.confirmExpense(created.id, seedAccess)
         confirmedCount++
       }
     }

@@ -41,7 +41,7 @@ export class CustomerService {
     const normalized = normalizeCustomerInput(input)
     const row = await insertCustomer(this.db, normalized, {
       createdBy: access.actorId ?? null,
-      organizationId: access.tenantId ?? null,
+      organizationId: access.tenantId,
     })
 
     await this.activitySink?.record({

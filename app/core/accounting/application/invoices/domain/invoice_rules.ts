@@ -35,10 +35,9 @@ export function assertDraftCanBeUpdated(input: {
 
 export function assertInvoiceBelongsToTenant(
   invoiceTenantId: null | string | undefined,
-  tenantId: null | string | undefined
+  tenantId: string
 ) {
-  // We intentionally treat both null and undefined as "no tenant context" here.
-  if (tenantId !== null && tenantId !== undefined && invoiceTenantId !== tenantId) {
+  if (invoiceTenantId !== tenantId) {
     throw new DomainError('Invoice not found.', 'not_found')
   }
 }

@@ -33,7 +33,7 @@ export async function loadInvoiceIssueContext(
   assertInvoiceCanBeIssuedToday(existing.status, existing.dueDate, today)
 
   return {
-    customer: await loadCustomerSnapshotOrThrow(tx, existing.customerId),
+    customer: await loadCustomerSnapshotOrThrow(tx, existing.customerId, requestContext.tenantId),
     existing,
     normalized,
     today,

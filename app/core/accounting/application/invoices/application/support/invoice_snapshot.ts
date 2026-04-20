@@ -20,7 +20,7 @@ type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 export async function loadCustomerSnapshotOrThrow(
   db: DrizzleDb | DrizzleTx,
   customerId: string,
-  tenantId?: null | string
+  tenantId: string
 ) {
   const customer = await readCustomerSnapshot(db, customerId, tenantId)
   if (!customer) throw new DomainError('Customer not found.', 'not_found')
@@ -65,6 +65,6 @@ export async function loadInvoiceForMutationOrThrow(
   return invoice
 }
 
-function getInvoiceTenantId(invoice: InvoiceRow): null | string | undefined {
+function getInvoiceTenantId(invoice: InvoiceRow): null | string {
   return invoice.organizationId
 }

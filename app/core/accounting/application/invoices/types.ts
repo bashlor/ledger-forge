@@ -85,7 +85,7 @@ export interface InvoiceListScopeInput {
 }
 
 export interface InvoiceRequestContext extends AccountingAccessContext {
-  tenantId?: null | string
+  tenantId: string
 }
 
 export type InvoiceRow =
