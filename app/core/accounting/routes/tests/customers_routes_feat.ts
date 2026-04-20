@@ -1,7 +1,7 @@
+import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
-import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
@@ -15,7 +15,11 @@ import { eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
-import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
+import {
+  seedTestOrganization,
+  setupTestDatabaseForGroup,
+  TEST_TENANT_ID,
+} from '../../../../../tests/helpers/testcontainers_db.js'
 
 const fakeUser: AuthProviderUser = {
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
@@ -30,12 +34,19 @@ const fakeUser: AuthProviderUser = {
 
 const fakeSession: AuthResult = {
   session: {
-    activeOrganizationId: null,
+    activeOrganizationId: TEST_TENANT_ID,
     expiresAt: new Date('2030-01-01T00:00:00.000Z'),
     token: 'test_session_token_customers',
     userId: fakeUser.id,
   },
   user: fakeUser,
+}
+
+const TEST_ACCOUNTING_ACCESS_CONTEXT: AccountingAccessContext = {
+  actorId: fakeUser.id,
+  isAnonymous: false,
+  requestId: 'test',
+  tenantId: TEST_TENANT_ID,
 }
 
 class FakeAuth extends AuthenticationPort {
@@ -91,6 +102,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     const ctx = await setupTestDatabaseForGroup()
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
 
     const auth = new FakeAuth()
     app.container.bindValue(AuthenticationPort, auth)
@@ -147,6 +159,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       email: 'nina@kestrel.test',
       id,
       name: 'Nina Rossi',
+      organizationId: TEST_TENANT_ID,
       phone: '+33 6 20 30 40 50',
     })
 
@@ -270,7 +283,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
           name: '   ',
           phone: '   ',
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        TEST_ACCOUNTING_ACCESS_CONTEXT
       )
     )
 
@@ -288,6 +301,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       email: 'nina@kestrel.test',
       id,
       name: 'Nina Rossi',
+      organizationId: TEST_TENANT_ID,
       phone: '+33 6 20 30 40 50',
     })
 
@@ -303,7 +317,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
           name: 'Nina Rossi',
           phone: '   ',
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        TEST_ACCOUNTING_ACCESS_CONTEXT
       )
     )
 
@@ -320,6 +334,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       email: 'linked@example.com',
       id: customerId,
       name: 'Linked User',
+      organizationId: TEST_TENANT_ID,
       phone: '+1 555 0200',
     })
 
@@ -359,6 +374,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
         email: 'linked-company@example.com',
         id: linkedCustomerId,
         name: 'Linked Person',
+        organizationId: TEST_TENANT_ID,
         phone: '+1 555 0300',
       },
       {
@@ -367,6 +383,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
         email: 'free-company@example.com',
         id: freeCustomerId,
         name: 'Free Person',
+        organizationId: TEST_TENANT_ID,
         phone: '+1 555 0400',
       },
     ])
@@ -389,11 +406,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     })
 
     const customerService = new CustomerService(db)
-    const { items } = await customerService.listCustomersPage(
-      1,
-      10,
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
-    )
+    const { items } = await customerService.listCustomersPage(1, 10, TEST_ACCOUNTING_ACCESS_CONTEXT)
     const linked = items.find((entry) => entry.id === linkedCustomerId)
     const free = items.find((entry) => entry.id === freeCustomerId)
 
@@ -411,6 +424,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
         email: 'alpha@example.com',
         id: uuidv7(),
         name: 'Alpha User',
+        organizationId: TEST_TENANT_ID,
         phone: '+1 555 1000',
       },
       {
@@ -419,6 +433,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
         email: 'beta@example.com',
         id: uuidv7(),
         name: 'Beta User',
+        organizationId: TEST_TENANT_ID,
         phone: '+1 555 1001',
       },
       {
@@ -427,6 +442,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
         email: 'gamma@example.com',
         id: uuidv7(),
         name: 'Gamma User',
+        organizationId: TEST_TENANT_ID,
         phone: '+1 555 1002',
       },
     ])
@@ -436,7 +452,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     const negativePage = await customerService.listCustomersPage(
       -4,
       2,
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
     assert.equal(negativePage.pagination.page, 1)
     assert.equal(negativePage.pagination.perPage, 2)
@@ -445,7 +461,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     const oversizedPage = await customerService.listCustomersPage(
       999,
       2,
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
     assert.equal(oversizedPage.pagination.page, 2)
     assert.equal(oversizedPage.pagination.totalPages, 2)
@@ -454,7 +470,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     const invalidPerPage = await customerService.listCustomersPage(
       1,
       0,
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
     assert.equal(invalidPerPage.pagination.perPage, 1)
     assert.equal(invalidPerPage.items.length, 1)
@@ -479,6 +495,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
       email: 'concurrent-delete@example.com',
       id,
       name: 'Concurrent Delete User',
+      organizationId: TEST_TENANT_ID,
       phone: '+1 555 0500',
     })
 

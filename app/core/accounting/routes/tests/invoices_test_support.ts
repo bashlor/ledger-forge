@@ -1,7 +1,7 @@
+import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { type InvoiceService } from '#core/accounting/application/invoices/index'
-import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
@@ -10,6 +10,11 @@ import {
   type AuthResult,
 } from '#core/user_management/domain/authentication'
 import app from '@adonisjs/core/services/app'
+
+import {
+  seedTestOrganization,
+  TEST_TENANT_ID,
+} from '../../../../../tests/helpers/testcontainers_db.js'
 
 export const TEST_CUSTOMER_ID = 'test-customer-for-invoices'
 export const SECOND_CUSTOMER_ID = 'test-customer-for-invoices-2'
@@ -27,13 +32,22 @@ const fakeUser: AuthProviderUser = {
 
 const fakeSession: AuthResult = {
   session: {
-    activeOrganizationId: null,
+    activeOrganizationId: TEST_TENANT_ID,
     expiresAt: new Date('2030-01-01T00:00:00.000Z'),
     token: 'test_session_token_invoices',
     userId: fakeUser.id,
   },
   user: fakeUser,
 }
+
+export const TEST_ACCOUNTING_ACCESS_CONTEXT: AccountingAccessContext = {
+  actorId: fakeUser.id,
+  isAnonymous: false,
+  requestId: 'test',
+  tenantId: TEST_TENANT_ID,
+}
+
+export { seedTestOrganization }
 
 class FakeAuth extends AuthenticationPort {
   async changePassword(): Promise<void> {}
@@ -123,7 +137,7 @@ export async function createDraftViaService(
         },
       ],
     },
-    SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    TEST_ACCOUNTING_ACCESS_CONTEXT
   )
 }
 
@@ -163,6 +177,7 @@ export async function resetInvoiceFixtures(db: PostgresJsDatabase<any>) {
     email: 'contact@testco.fr',
     id: TEST_CUSTOMER_ID,
     name: 'Alice Martin',
+    organizationId: TEST_TENANT_ID,
     phone: '+33 6 12 34 56 78',
   })
 
@@ -172,6 +187,7 @@ export async function resetInvoiceFixtures(db: PostgresJsDatabase<any>) {
     email: 'second@testco.fr',
     id: SECOND_CUSTOMER_ID,
     name: 'Bob Martin',
+    organizationId: TEST_TENANT_ID,
     phone: '+33 6 98 76 54 32',
   })
 }

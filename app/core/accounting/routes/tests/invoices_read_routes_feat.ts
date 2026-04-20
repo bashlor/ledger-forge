@@ -13,6 +13,7 @@ import {
   inertiaProps,
   resetInvoiceFixtures,
   SECOND_CUSTOMER_ID,
+  seedTestOrganization,
   TEST_CUSTOMER_ID,
 } from './invoices_test_support.js'
 
@@ -25,6 +26,7 @@ test.group('Invoices routes | GET /invoices', (group) => {
     const ctx = await setupTestDatabaseForGroup()
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
     bindInvoiceAuth()
   })
 

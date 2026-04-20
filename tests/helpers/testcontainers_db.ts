@@ -1,13 +1,31 @@
 import env from '#start/env'
 import app from '@adonisjs/core/services/app'
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
-import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js'
+import { drizzle as drizzlePostgres, type PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 
 import * as schema from '../../app/core/common/drizzle/index.js'
 import { prepareTestcontainersRuntime } from './testcontainers_runtime.js'
+
+/**
+ * Stable organization id used across all integration and route tests.
+ * Must be seeded in the DB before any tenant-scoped insert.
+ */
+export const TEST_TENANT_ID = 'test_org_id'
+
+/**
+ * Insert the shared test organization into `auth.organization`.
+ * Call this once per test group in `group.setup` after the DB is ready.
+ */
+export async function seedTestOrganization(db: PostgresJsDatabase<any>): Promise<void> {
+  await db.insert(schema.organization).values({
+    id: TEST_TENANT_ID,
+    name: 'Test Organization',
+    slug: 'test-org',
+  })
+}
 
 const migrationsFolder = fileURLToPath(new URL('../../drizzle/migrations', import.meta.url))
 const TEST_CONTAINER_DATABASE = 'accounting_routes_test'
