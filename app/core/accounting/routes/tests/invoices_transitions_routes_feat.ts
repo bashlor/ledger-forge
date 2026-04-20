@@ -146,6 +146,28 @@ test.group(
       assert.equal(row.status, 'paid')
     })
 
+    test('POST /invoices/:id/issue preserves customer scope in redirect query', async ({
+      assert,
+      client,
+    }) => {
+      const draft = await createDraftViaHttp(db, client)
+
+      const response = await client
+        .post(`/invoices/${draft.id}/issue?customer=${TEST_CUSTOMER_ID}&perPage=25&search=alpha`)
+        .header('cookie', authCookie())
+        .redirects(0)
+        .form(issuePayload())
+
+      response.assertStatus(302)
+      response.assertHeader(
+        'location',
+        `/invoices?perPage=25&invoice=${draft.id}&customer=${TEST_CUSTOMER_ID}&search=alpha`
+      )
+
+      const [issued] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+      assert.equal(issued.status, 'issued')
+    })
+
     test('POST /invoices/:id/issue succeeds even when customer has no address', async ({
       assert,
       client,
