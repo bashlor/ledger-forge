@@ -2,10 +2,13 @@ import type { AccountingAccessContext } from '#core/accounting/application/suppo
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { listAuditEventsForEntity } from '#core/accounting/application/audit/audit_queries'
+import { CustomerService } from '#core/accounting/application/customers/index'
+import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import {
   auditEvents,
   customers,
+  expenses,
   invoiceLines,
   invoices,
   journalEntries,
@@ -201,6 +204,178 @@ test.group('Audit trail | invoice lifecycle', (group) => {
   })
 })
 
+test.group('Audit trail | expense lifecycle', (group) => {
+  let cleanup: () => Promise<void>
+  let db: PostgresJsDatabase<any>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+    db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
+  })
+
+  group.each.setup(async () => {
+    await db.delete(auditEvents)
+    await db.delete(journalEntries)
+    await db.delete(expenses)
+  })
+
+  group.teardown(async () => cleanup())
+
+  const expenseInput = {
+    amount: 12.34,
+    category: 'Software',
+    date: '2099-04-01',
+    label: 'Audit expense',
+  }
+
+  test('create records an audit event', async ({ assert }) => {
+    const service = new ExpenseService(db)
+    const expense = await service.createExpense(expenseInput, ACCESS)
+
+    const events = await listAuditEventsForEntity(db, {
+      entityId: expense.id,
+      entityType: 'expense',
+      tenantId: TEST_TENANT_ID,
+    })
+
+    assert.lengthOf(events, 1)
+    assert.equal(events[0].action, 'create')
+    assert.equal(events[0].actorId, ACCESS.actorId)
+  })
+
+  test('confirm records an audit event with status transition', async ({ assert }) => {
+    const service = new ExpenseService(db)
+    const expense = await service.createExpense(expenseInput, ACCESS)
+
+    await service.confirmExpense(expense.id, ACCESS)
+
+    const events = await listAuditEventsForEntity(db, {
+      entityId: expense.id,
+      entityType: 'expense',
+      tenantId: TEST_TENANT_ID,
+    })
+
+    assert.lengthOf(events, 2)
+    assert.equal(events[0].action, 'confirm')
+    const changes = events[0].changes as {
+      after: Record<string, unknown>
+      before: Record<string, unknown>
+    }
+    assert.equal(changes.before.status, 'draft')
+    assert.equal(changes.after.status, 'confirmed')
+  })
+
+  test('delete records an audit event', async ({ assert }) => {
+    const service = new ExpenseService(db)
+    const expense = await service.createExpense(expenseInput, ACCESS)
+
+    await service.deleteExpense(expense.id, ACCESS)
+
+    const events = await listAuditEventsForEntity(db, {
+      entityId: expense.id,
+      entityType: 'expense',
+      tenantId: TEST_TENANT_ID,
+    })
+
+    assert.lengthOf(events, 2)
+    assert.equal(events[0].action, 'delete')
+    assert.equal(events[1].action, 'create')
+  })
+})
+
+test.group('Audit trail | customer lifecycle', (group) => {
+  let cleanup: () => Promise<void>
+  let db: PostgresJsDatabase<any>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+    db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
+  })
+
+  group.each.setup(async () => {
+    await db.delete(auditEvents)
+    await db.delete(invoiceLines)
+    await db.delete(journalEntries)
+    await db.delete(invoices)
+    await db.delete(customers)
+  })
+
+  group.teardown(async () => cleanup())
+
+  const customerInput = {
+    address: '1 rue Customer',
+    company: 'Customer Audit Co',
+    email: 'customer-audit@test.com',
+    name: 'Customer Tester',
+    note: 'Initial note',
+    phone: '+33 1 00 00 00 03',
+  }
+
+  test('create records an audit event', async ({ assert }) => {
+    const service = new CustomerService(db)
+    const customer = await service.createCustomer(customerInput, ACCESS)
+
+    const events = await listAuditEventsForEntity(db, {
+      entityId: customer.id,
+      entityType: 'customer',
+      tenantId: TEST_TENANT_ID,
+    })
+
+    assert.lengthOf(events, 1)
+    assert.equal(events[0].action, 'create')
+    assert.equal(events[0].actorId, ACCESS.actorId)
+  })
+
+  test('update records an audit event with changes', async ({ assert }) => {
+    const service = new CustomerService(db)
+    const customer = await service.createCustomer(customerInput, ACCESS)
+
+    await service.updateCustomer(
+      customer.id,
+      { ...customerInput, company: 'Customer Audit Co 2', note: 'Updated note' },
+      ACCESS
+    )
+
+    const events = await listAuditEventsForEntity(db, {
+      entityId: customer.id,
+      entityType: 'customer',
+      tenantId: TEST_TENANT_ID,
+    })
+
+    assert.lengthOf(events, 2)
+    assert.equal(events[0].action, 'update')
+    const changes = events[0].changes as {
+      after: Record<string, unknown>
+      before: Record<string, unknown>
+    }
+    assert.equal(changes.before.company, 'Customer Audit Co')
+    assert.equal(changes.after.company, 'Customer Audit Co 2')
+    assert.equal(changes.before.note, 'Initial note')
+    assert.equal(changes.after.note, 'Updated note')
+  })
+
+  test('delete records an audit event', async ({ assert }) => {
+    const service = new CustomerService(db)
+    const customer = await service.createCustomer(customerInput, ACCESS)
+
+    await service.deleteCustomer(customer.id, ACCESS)
+
+    const events = await listAuditEventsForEntity(db, {
+      entityId: customer.id,
+      entityType: 'customer',
+      tenantId: TEST_TENANT_ID,
+    })
+
+    assert.lengthOf(events, 2)
+    assert.equal(events[0].action, 'delete')
+    assert.equal(events[1].action, 'create')
+  })
+})
+
 test.group('Audit trail | cross-tenant isolation', (group) => {
   let cleanup: () => Promise<void>
   let db: PostgresJsDatabase<any>
@@ -235,6 +410,7 @@ test.group('Audit trail | cross-tenant isolation', (group) => {
 
   group.each.setup(async () => {
     await db.delete(auditEvents)
+    await db.delete(expenses)
     await db.delete(journalEntries)
     await db.delete(invoiceLines)
     await db.delete(invoices)
@@ -311,6 +487,88 @@ test.group('Audit trail | cross-tenant isolation', (group) => {
     const crossLeak = await listAuditEventsForEntity(db, {
       entityId: invoiceB.id,
       entityType: 'invoice',
+      tenantId: TENANT_A,
+    })
+    assert.lengthOf(crossLeak, 0)
+  })
+
+  test('expense audit events are tenant-scoped', async ({ assert }) => {
+    const serviceA = new ExpenseService(db)
+    const serviceB = new ExpenseService(db)
+
+    const expenseA = await serviceA.createExpense(
+      {
+        amount: 10,
+        category: 'Software',
+        date: '2099-04-01',
+        label: 'Expense A',
+      },
+      accessA
+    )
+
+    const expenseB = await serviceB.createExpense(
+      {
+        amount: 20,
+        category: 'Software',
+        date: '2099-04-01',
+        label: 'Expense B',
+      },
+      accessB
+    )
+
+    const eventsA = await listAuditEventsForEntity(db, {
+      entityId: expenseA.id,
+      entityType: 'expense',
+      tenantId: TENANT_A,
+    })
+    assert.lengthOf(eventsA, 1)
+    assert.equal(eventsA[0].organizationId, TENANT_A)
+
+    const crossLeak = await listAuditEventsForEntity(db, {
+      entityId: expenseB.id,
+      entityType: 'expense',
+      tenantId: TENANT_A,
+    })
+    assert.lengthOf(crossLeak, 0)
+  })
+
+  test('customer audit events are tenant-scoped', async ({ assert }) => {
+    const serviceA = new CustomerService(db)
+    const serviceB = new CustomerService(db)
+
+    const customerA = await serviceA.createCustomer(
+      {
+        address: 'Tenant A street',
+        company: 'Tenant A Co',
+        email: 'tenant-a@test.com',
+        name: 'Tenant A',
+        phone: '+33 1 00 00 00 04',
+      },
+      accessA
+    )
+
+    const customerB = await serviceB.createCustomer(
+      {
+        address: 'Tenant B street',
+        company: 'Tenant B Co',
+        email: 'tenant-b@test.com',
+        name: 'Tenant B',
+        phone: '+33 1 00 00 00 05',
+      },
+      accessB
+    )
+
+    const eventsA = await listAuditEventsForEntity(db, {
+      entityId: customerA.id,
+      entityType: 'customer',
+      tenantId: TENANT_A,
+    })
+    assert.lengthOf(eventsA, 1)
+    assert.equal(eventsA[0].organizationId, TENANT_A)
+
+    const crossLeak = await listAuditEventsForEntity(db, {
+      entityId: customerB.id,
+      entityType: 'customer',
       tenantId: TENANT_A,
     })
     assert.lengthOf(crossLeak, 0)

@@ -43,7 +43,7 @@ export async function deleteDraftExpense(
 }
 
 export async function insertDraftExpense(
-  tx: DrizzleDb,
+  tx: DrizzleDb | DrizzleTx,
   input: NormalizedExpenseInput,
   actor: { createdBy: null | string; organizationId: string }
 ) {
