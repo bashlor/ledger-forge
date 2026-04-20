@@ -1,16 +1,14 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 
-import { type betterAuth } from 'better-auth'
-
 import { AuthenticationPort } from '../domain/authentication.js'
 import { BetterAuthAdapter } from '../infra/auth/better_auth_adapter.js'
-import { createBetterAuth } from '../infra/auth/better_auth_drizzle.js'
+import { type BetterAuthInstance, createBetterAuth } from '../infra/auth/better_auth_drizzle.js'
 import { StructuredUserManagementActivitySink } from '../support/activity_log.js'
 
 declare module '@adonisjs/core/types' {
   interface ContainerBindings {
     authAdapter: AuthenticationPort
-    betterAuth: Awaited<ReturnType<typeof betterAuth<any>>>
+    betterAuth: BetterAuthInstance
     userManagementActivitySink: StructuredUserManagementActivitySink
   }
 }

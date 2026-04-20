@@ -15,7 +15,7 @@ export interface AuthResult {
 
 export interface AuthSession {
   /** Active workspace (organization) id — canonical tenant id for the app. */
-  activeOrganizationId?: null | string
+  activeOrganizationId: null | string
   expiresAt: Date
   token: string
   userId: string

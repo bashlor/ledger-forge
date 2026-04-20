@@ -12,6 +12,8 @@ import type { UserManagementActivitySink } from '../../support/activity_log.js'
 import { AUTH_COOKIE_PREFIX } from '../../auth_session_cookie.js'
 import * as authTables from '../../drizzle/schema.js'
 
+export type BetterAuthInstance = Awaited<ReturnType<typeof createBetterAuth>>
+
 export async function createBetterAuth(
   drizzle: any,
   options: {

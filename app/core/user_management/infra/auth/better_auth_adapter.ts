@@ -1,9 +1,9 @@
 import { DomainError } from '#core/common/errors/domain_error'
 import { getDefaultStructuredLogFields, toIsoTimestamp } from '#core/common/logging/structured_log'
-import { type betterAuth } from 'better-auth'
 
 import type { AuthProviderUser, AuthResult, AuthSession } from '../../domain/authentication.js'
 import type { UserManagementActivitySink } from '../../support/activity_log.js'
+import type { BetterAuthInstance } from './better_auth_drizzle.js'
 
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '../../auth_session_cookie.js'
 import { AuthenticationPort } from '../../domain/authentication.js'
@@ -12,7 +12,7 @@ import { mapBetterAuthError } from './map_better_auth_error.js'
 
 export class BetterAuthAdapter extends AuthenticationPort {
   public constructor(
-    private auth: Awaited<ReturnType<typeof betterAuth<any>>>,
+    private auth: BetterAuthInstance,
     private drizzle: any,
     private readonly activitySink?: UserManagementActivitySink
   ) {
@@ -329,7 +329,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
     emailVerified: boolean
     id: string
     image?: null | string
-    isAnonymous?: boolean
+    isAnonymous?: boolean | null
     name: string
   }): AuthProviderUser {
     return {
