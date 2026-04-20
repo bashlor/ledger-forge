@@ -127,6 +127,13 @@
       "when": 1776880000000,
       "tag": "0017_user_public_id",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1776940000000,
+      "tag": "0018_member_is_active",
+      "breakpoints": true
     }
   ]
 }

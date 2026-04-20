@@ -1,5 +1,6 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 
+import { MemberService } from '../application/member_service.js'
 import { AuthenticationPort } from '../domain/authentication.js'
 import { BetterAuthAdapter } from '../infra/auth/better_auth_adapter.js'
 import { type BetterAuthInstance, createBetterAuth } from '../infra/auth/better_auth_drizzle.js'
@@ -38,6 +39,11 @@ export default class AuthProvider {
 
     this.app.container.singleton(AuthenticationPort, async () => {
       return this.app.container.make('authAdapter')
+    })
+
+    this.app.container.bind(MemberService, async (resolver) => {
+      const drizzle = await resolver.make('drizzle')
+      return new MemberService(drizzle)
     })
   }
 }

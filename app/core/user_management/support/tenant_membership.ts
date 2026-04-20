@@ -15,7 +15,13 @@ export async function userIsMemberOfOrganization(
   const [row] = await db
     .select({ id: schema.member.id })
     .from(schema.member)
-    .where(and(eq(schema.member.userId, userId), eq(schema.member.organizationId, organizationId)))
+    .where(
+      and(
+        eq(schema.member.userId, userId),
+        eq(schema.member.organizationId, organizationId),
+        eq(schema.member.isActive, true)
+      )
+    )
     .limit(1)
 
   return row !== undefined
