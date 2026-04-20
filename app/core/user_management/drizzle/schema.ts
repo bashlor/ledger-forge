@@ -18,6 +18,7 @@ export const user = authSchema.table('user', {
   image: text('image'),
   isAnonymous: boolean('is_anonymous').notNull().default(false),
   name: text('name').notNull(),
+  publicId: text('public_id').notNull().unique(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
     .defaultNow()

@@ -22,6 +22,7 @@ const fakeUser: AuthProviderUser = {
   image: null,
   isAnonymous: false,
   name: 'Test User',
+  publicId: 'pub_user_test_invoices',
 }
 
 const fakeSession: AuthResult = {

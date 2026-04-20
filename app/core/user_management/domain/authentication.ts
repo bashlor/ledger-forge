@@ -6,6 +6,8 @@ export interface AuthProviderUser {
   image?: null | string
   isAnonymous: boolean
   name: null | string
+  /** Stable, opaque public identifier — safe to expose to the frontend. */
+  publicId: string
 }
 
 export interface AuthResult {

@@ -116,7 +116,9 @@ case "$SUITE" in
     run_tests "$SUITE" "$@"
     ;;
   "")
-    run_tests "$@"
+    # Run all suites except browser (e2e) — use "browser" explicitly to run e2e tests.
+    prepare_testcontainers_runtime
+    run_tests unit integration routes console "$@"
     ;;
   *)
     run_tests "$SUITE" "$@"

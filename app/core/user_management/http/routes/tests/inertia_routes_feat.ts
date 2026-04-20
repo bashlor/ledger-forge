@@ -17,6 +17,7 @@ const guestUser: AuthProviderUser = {
   image: null,
   isAnonymous: false,
   name: 'Guest User',
+  publicId: 'pub_user_guest',
 }
 
 const anonymousUser: AuthProviderUser = {
@@ -27,6 +28,7 @@ const anonymousUser: AuthProviderUser = {
   image: null,
   isAnonymous: true,
   name: 'Anonymous User',
+  publicId: 'pub_user_anonymous',
 }
 
 class RouteAuthenticationStub extends AuthenticationPort {

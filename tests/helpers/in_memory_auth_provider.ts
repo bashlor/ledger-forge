@@ -119,6 +119,7 @@ export class InMemoryAuthProvider extends AuthenticationPort {
       isAnonymous: true,
       name: 'Anonymous',
       password: randomUUID(),
+      publicId: randomUUID(),
     }
 
     this.users.set(id, user)
@@ -149,6 +150,7 @@ export class InMemoryAuthProvider extends AuthenticationPort {
       isAnonymous: false,
       name: name ?? 'User',
       password,
+      publicId: randomUUID(),
     }
 
     this.users.set(id, user)
@@ -227,6 +229,7 @@ export class InMemoryAuthProvider extends AuthenticationPort {
       image: user.image,
       isAnonymous: user.isAnonymous,
       name: user.name,
+      publicId: user.publicId,
     }
   }
 }

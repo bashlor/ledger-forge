@@ -37,4 +37,4 @@ router
       .as('invoices.mark_paid')
     router.delete('/invoices/:id', [InvoicesController, 'destroy']).as('invoices.destroy')
   })
-  .use(middleware.auth())
+  .use([middleware.auth(), middleware.ensureActiveTenant()])

@@ -19,6 +19,7 @@ test.group('Accounting access context', () => {
         image: null,
         isAnonymous: true,
         name: 'Anonymous User',
+        publicId: 'pub-user-1',
       },
     })
 
@@ -46,6 +47,7 @@ test.group('Accounting access context', () => {
         image: null,
         isAnonymous: false,
         name: 'User',
+        publicId: 'pub-user-1',
       },
     })
 
