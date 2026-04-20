@@ -19,21 +19,15 @@ ALTER TABLE "main"."expenses"
 -- Foreign keys
 ALTER TABLE "main"."customers"
   ADD CONSTRAINT "customers_organization_id_organization_id_fk"
-    FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE set null,
-  ADD CONSTRAINT "customers_created_by_user_id_fk"
-    FOREIGN KEY ("created_by") REFERENCES "auth"."user"("id") ON DELETE set null;
+    FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE set null;
 
 ALTER TABLE "main"."invoices"
   ADD CONSTRAINT "invoices_organization_id_organization_id_fk"
-    FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE set null,
-  ADD CONSTRAINT "invoices_created_by_user_id_fk"
-    FOREIGN KEY ("created_by") REFERENCES "auth"."user"("id") ON DELETE set null;
+    FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE set null;
 
 ALTER TABLE "main"."expenses"
   ADD CONSTRAINT "expenses_organization_id_organization_id_fk"
-    FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE set null,
-  ADD CONSTRAINT "expenses_created_by_user_id_fk"
-    FOREIGN KEY ("created_by") REFERENCES "auth"."user"("id") ON DELETE set null;
+    FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE set null;
 
 -- Indexes for tenant-scoped queries
 CREATE INDEX "customers_organization_id_idx" ON "main"."customers" ("organization_id");
