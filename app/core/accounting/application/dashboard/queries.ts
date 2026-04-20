@@ -7,6 +7,17 @@ import type { DashboardQueryData } from './types.js'
 
 type DrizzleDb = PostgresJsDatabase<any>
 
+/**
+ * Dashboard aggregates for the active organization (`tenantId` = `organizationId` on rows).
+ * All queries are org-scoped; there is no per-user row filter — same model as invoice/expense
+ * lists today. If the product later requires “my data only” metrics, add an explicit predicate
+ * (e.g. `createdBy`) once the schema exposes it.
+ *
+ * Performance note (PR 9): this runs four SQL queries in parallel. Loading it synchronously in
+ * the controller blocks the first Inertia response until they finish; deferring the dashboard
+ * prop moves that work off the critical path so time-to-first-byte drops by roughly the DB
+ * portion of that work (measurable with server timing or `curl -w '%{time_starttransfer}'`).
+ */
 export async function loadDashboardQueryData(
   db: DrizzleDb,
   tenantId: string
