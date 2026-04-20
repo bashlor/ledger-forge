@@ -104,7 +104,7 @@ export const session = authSchema.table('session', {
   userAgent: text('user_agent'),
   userId: text('user_id')
     .notNull()
-    .references(() => user.id),
+    .references(() => user.id, { onDelete: 'cascade' }),
 })
 
 /**
@@ -129,7 +129,7 @@ export const account = authSchema.table('account', {
     .$onUpdate(() => new Date()),
   userId: text('user_id')
     .notNull()
-    .references(() => user.id),
+    .references(() => user.id, { onDelete: 'cascade' }),
 })
 
 /**

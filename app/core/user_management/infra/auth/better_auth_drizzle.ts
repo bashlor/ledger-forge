@@ -4,6 +4,7 @@ import { getDefaultStructuredLogFields, toIsoTimestamp } from '#core/common/logg
 import env from '#start/env'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
+import { createAuthMiddleware } from 'better-auth/api'
 import { anonymous, organization } from 'better-auth/plugins'
 import { v7 as uuidv7 } from 'uuid'
 
@@ -130,39 +131,40 @@ export async function createBetterAuth(
       },
     },
     emailAndPassword,
-    logger: {
-      level: 'debug',
-      log: (level, message, ...args) => {
-        const isRoutineAuthFailure =
-          typeof message === 'string' && /invalid.*(credential|password|email)/i.test(message)
+    hooks: {
+      after: createAuthMiddleware(async (ctx) => {
+        const path = ctx.path
+        const returned = ctx.context.returned
+        const isError = returned instanceof Error || (returned as any)?.status >= 400
+        const outcome: 'failure' | 'success' = isError ? 'failure' : 'success'
 
-        if (isRoutineAuthFailure) {
-          recordActivity('better_auth_routine_failure', 'trace', 'failure', {
-            argumentCount: args.length,
-            message: String(message),
-            source: 'better-auth',
-          })
-        } else {
-          const rawLevel = (level as string) === 'success' ? 'info' : String(level)
-          let normalizedLevel: StructuredLogLevel = 'info'
-          if (rawLevel === 'trace') normalizedLevel = 'trace'
-          else if (rawLevel === 'debug') normalizedLevel = 'debug'
-          else if (rawLevel === 'warn') normalizedLevel = 'warn'
-          else if (rawLevel === 'error') normalizedLevel = 'error'
-          else if (rawLevel === 'fatal') normalizedLevel = 'fatal'
+        const eventMap: Record<string, { event: string; level: StructuredLogLevel }> = {
+          '/change-password': { event: 'user_change_password', level: 'info' },
+          '/delete-user': { event: 'user_delete_account', level: 'warn' },
+          '/forget-password': { event: 'user_forget_password', level: 'info' },
+          '/reset-password': { event: 'user_reset_password', level: 'info' },
+          '/sign-in/email': { event: 'user_sign_in', level: 'info' },
+          '/sign-in/social': { event: 'user_social_sign_in', level: 'info' },
+          '/sign-out': { event: 'user_sign_out', level: 'info' },
+          '/sign-up/email': { event: 'user_sign_up', level: 'info' },
+          '/update-user': { event: 'user_update_profile', level: 'info' },
+          '/verify-email': { event: 'user_verify_email', level: 'info' },
+        }
 
+        const mapped = eventMap[path]
+        if (mapped) {
+          const newSession = ctx.context.newSession
           recordActivity(
-            'better_auth_log',
-            normalizedLevel,
-            normalizedLevel === 'error' || normalizedLevel === 'fatal' ? 'failure' : 'success',
-            {
-              argumentCount: args.length,
-              message: String(message),
-              source: 'better-auth',
-            }
+            mapped.event,
+            isError ? 'warn' : mapped.level,
+            outcome,
+            { path },
+            newSession?.user?.id ?? 'unknown',
+            'user',
+            newSession?.user?.id ?? null
           )
         }
-      },
+      }),
     },
     plugins: [
       anonymous(),

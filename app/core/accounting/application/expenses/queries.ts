@@ -7,6 +7,8 @@ import { and, count, desc, eq, gte, lte, sql, sum } from 'drizzle-orm'
 
 import type { DateFilter, ExpenseListResult, ExpenseRow, ExpenseSummary } from './types.js'
 
+import { requireTenantScope } from '../support/tenant_scope.js'
+
 type DrizzleDb = PostgresJsDatabase<any>
 
 export function dateCondition(filter?: DateFilter) {
@@ -92,5 +94,5 @@ export async function listExpenseRows(
 }
 
 function applyExpenseTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
-  return and(where, eq(expenses.organizationId, tenantId))!
+  return requireTenantScope(where, tenantId, expenses.organizationId)
 }

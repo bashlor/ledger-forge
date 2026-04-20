@@ -1,4 +1,5 @@
 import { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
+import { organization } from '#core/user_management/drizzle/schema'
 import { sql } from 'drizzle-orm'
 import { check, date, integer, pgSchema, text, timestamp, unique } from 'drizzle-orm/pg-core'
 
@@ -17,7 +18,9 @@ export const customers = mainSchema.table('customers', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   note: text('note'),
-  organizationId: text('organization_id').notNull(),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organization.id, { onDelete: 'restrict' }),
   phone: text('phone').notNull(),
 })
 
@@ -49,7 +52,9 @@ export const invoices = mainSchema.table(
     issueDate: date('issue_date', { mode: 'string' }).notNull(),
     issuedCompanyAddress: text('issued_company_address').notNull().default(''),
     issuedCompanyName: text('issued_company_name').notNull().default(''),
-    organizationId: text('organization_id').notNull(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
     status: text('status', { enum: ['draft', 'issued', 'paid'] })
       .notNull()
       .default('draft'),
@@ -104,7 +109,9 @@ export const expenses = mainSchema.table(
     date: date('date', { mode: 'string' }).notNull(),
     id: text('id').primaryKey(),
     label: text('label').notNull(),
-    organizationId: text('organization_id').notNull(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
     status: text('status', { enum: ['draft', 'confirmed'] })
       .notNull()
       .default('draft'),
@@ -133,7 +140,9 @@ export const journalEntries = mainSchema.table(
     id: text('id').primaryKey(),
     invoiceId: text('invoice_id').references(() => invoices.id, { onDelete: 'restrict' }),
     label: text('label').notNull(),
-    organizationId: text('organization_id').notNull(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
     type: text('type', { enum: ['expense', 'invoice'] }).notNull(),
   },
   (table) => [
