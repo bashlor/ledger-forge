@@ -62,7 +62,7 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
           ? {
               email: authUser.email,
               fullName: authUser.name,
-              id: authUser.id,
+              id: authUser.publicId,
               image: authUser.image ?? null,
               initials: this.getInitials(authUser.name, authUser.email),
               isAnonymous: authUser.isAnonymous,

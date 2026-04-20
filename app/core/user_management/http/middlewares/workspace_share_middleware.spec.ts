@@ -26,6 +26,7 @@ function createAuthSession(activeOrganizationId: null | string): AuthResult {
       image: null,
       isAnonymous: false,
       name: 'User',
+      publicId: 'pub-user-1',
     },
   }
 }

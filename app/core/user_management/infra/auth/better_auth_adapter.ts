@@ -167,9 +167,17 @@ export class BetterAuthAdapter extends AuthenticationPort {
       throw AuthenticationError.linkingFailed('Session not found after sign-in')
     }
 
+    const user = await this.drizzle.query.user.findFirst({
+      where: (u: any, { eq }: any) => eq(u.id, session.userId),
+    })
+
+    if (!user) {
+      throw AuthenticationError.linkingFailed('User not found after sign-in')
+    }
+
     return {
       session: this.mapSessionRow(session),
-      user: this.mapToAuthProviderUser(response.user),
+      user: this.mapToAuthProviderUser(user),
     }
   }
 
@@ -203,17 +211,17 @@ export class BetterAuthAdapter extends AuthenticationPort {
       throw AuthenticationError.linkingFailed('Session not found after anonymous sign-in')
     }
 
+    const user = await this.drizzle.query.user.findFirst({
+      where: (u: any, { eq }: any) => eq(u.id, session.userId),
+    })
+
+    if (!user) {
+      throw AuthenticationError.linkingFailed('User not found after anonymous sign-in')
+    }
+
     return {
       session: this.mapSessionRow(session),
-      user: {
-        createdAt: new Date(response.user.createdAt),
-        email: response.user.email,
-        emailVerified: response.user.emailVerified,
-        id: response.user.id,
-        image: response.user.image ?? null,
-        isAnonymous: true,
-        name: response.user.name ?? null,
-      },
+      user: this.mapToAuthProviderUser(user),
     }
   }
 
@@ -254,9 +262,17 @@ export class BetterAuthAdapter extends AuthenticationPort {
       throw AuthenticationError.linkingFailed('Session not found after sign-up')
     }
 
+    const user = await this.drizzle.query.user.findFirst({
+      where: (u: any, { eq }: any) => eq(u.id, session.userId),
+    })
+
+    if (!user) {
+      throw AuthenticationError.linkingFailed('User not found after sign-up')
+    }
+
     return {
       session: this.mapSessionRow(session),
-      user: this.mapToAuthProviderUser(response.user),
+      user: this.mapToAuthProviderUser(user),
     }
   }
 
@@ -331,6 +347,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
     image?: null | string
     isAnonymous?: boolean | null
     name: string
+    publicId: string
   }): AuthProviderUser {
     return {
       createdAt: new Date(user.createdAt),
@@ -340,6 +357,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
       image: user.image ?? null,
       isAnonymous: user.isAnonymous ?? false,
       name: user.name ?? null,
+      publicId: user.publicId,
     }
   }
 
