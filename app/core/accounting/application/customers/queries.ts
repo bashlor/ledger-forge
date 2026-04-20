@@ -133,7 +133,7 @@ export async function listCustomersWithAggregates(
         ),
     })
     .from(invoices)
-    .where(inArray(invoices.customerId, ids))
+    .where(and(inArray(invoices.customerId, ids), eq(invoices.organizationId, tenantId)))
     .groupBy(invoices.customerId)
 
   return {
