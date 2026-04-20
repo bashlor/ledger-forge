@@ -15,6 +15,7 @@ import type {
 import { useDateScope } from '~/components/date_scope_provider'
 import { DateScopeSummary } from '~/components/date_scope_summary'
 import { PageHeader } from '~/components/page_header'
+import { addDaysDateOnlyUtc, todayDateOnlyUtc } from '~/lib/date'
 import { formatCurrency } from '~/lib/format'
 import {
   calculateInvoiceTotals,
@@ -69,10 +70,10 @@ function createEditableLine(line?: InvoiceLineInput): EditableInvoiceLine {
 }
 
 function createInitialForm(customerId = '') {
-  const issueDate = todayValue()
+  const issueDate = todayDateOnlyUtc()
   return {
     customerId,
-    dueDate: plusDays(issueDate, 15),
+    dueDate: addDaysDateOnlyUtc(issueDate, 15),
     issueDate,
     lines: [createEditableLine()],
   }
@@ -377,7 +378,7 @@ function InvoicesContent({
 
   // --- Derived ---
 
-  const minDueDate = editingInvoice ? selectedInvoice.createdAt : todayValue()
+  const minDueDate = editingInvoice ? selectedInvoice.createdAt : todayDateOnlyUtc()
   const hasStructurallyValidLines = form.lines.every(
     (line) => line.description.trim() && Number(line.quantity) > 0 && Number(line.unitPrice) >= 0
   )
@@ -525,14 +526,4 @@ function invoiceToForm(invoice: InvoiceDto) {
   }
 }
 
-function plusDays(value: string, days: number) {
-  const date = new Date(`${value}T12:00:00`)
-  date.setDate(date.getDate() + days)
-  return date.toISOString().slice(0, 10)
-}
-
 // --- Main component ---
-
-function todayValue() {
-  return new Date().toISOString().slice(0, 10)
-}

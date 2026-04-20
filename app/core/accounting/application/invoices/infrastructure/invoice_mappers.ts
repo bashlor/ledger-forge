@@ -1,3 +1,5 @@
+import { fromCents } from '#core/shared/money'
+
 import type {
   CustomerSnapshotSource,
   InvoiceCustomerSnapshot,
@@ -39,9 +41,9 @@ export function toInvoiceDto(
     issuedCompanyName: row.issuedCompanyName,
     lines,
     status: row.status,
-    subtotalExclTax: row.subtotalExclTaxCents / 100,
-    totalInclTax: row.totalInclTaxCents / 100,
-    totalVat: row.totalVatCents / 100,
+    subtotalExclTax: fromCents(row.subtotalExclTaxCents),
+    totalInclTax: fromCents(row.totalInclTaxCents),
+    totalVat: fromCents(row.totalVatCents),
   }
 }
 
@@ -49,11 +51,11 @@ export function toLineDto(row: InvoiceLineRow): InvoiceLineDto {
   return {
     description: row.description,
     id: row.id,
-    lineTotalExclTax: row.lineTotalExclTaxCents / 100,
-    lineTotalInclTax: row.lineTotalInclTaxCents / 100,
-    lineVatAmount: row.lineTotalVatCents / 100,
-    quantity: row.quantityCents / 100,
-    unitPrice: row.unitPriceCents / 100,
-    vatRate: row.vatRateCents / 100,
+    lineTotalExclTax: fromCents(row.lineTotalExclTaxCents),
+    lineTotalInclTax: fromCents(row.lineTotalInclTaxCents),
+    lineVatAmount: fromCents(row.lineTotalVatCents),
+    quantity: fromCents(row.quantityCents),
+    unitPrice: fromCents(row.unitPriceCents),
+    vatRate: fromCents(row.vatRateCents),
   }
 }

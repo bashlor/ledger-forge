@@ -1,4 +1,5 @@
 import { DomainError } from '#core/common/errors/domain_error'
+import { isValidIsoDate } from '#core/shared/date'
 
 import type {
   NormalizedSaveInvoiceDraftInput,
@@ -17,11 +18,11 @@ export function normalizeSaveInvoiceDraftInput(
     throw new DomainError('Customer is required.', 'invalid_data')
   }
 
-  if (!issueDate || !isISODate(issueDate)) {
+  if (!issueDate || !isValidIsoDate(issueDate)) {
     throw new DomainError('Issue date is required.', 'invalid_data')
   }
 
-  if (!dueDate || !isISODate(dueDate)) {
+  if (!dueDate || !isValidIsoDate(dueDate)) {
     throw new DomainError('Due date is required.', 'invalid_data')
   }
 
@@ -37,10 +38,6 @@ export function normalizeSaveInvoiceDraftInput(
     issueDate,
     lines,
   }
-}
-
-function isISODate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value)
 }
 
 function normalizeInvoiceLine(input: SaveInvoiceLineInput): SaveInvoiceLineInput {

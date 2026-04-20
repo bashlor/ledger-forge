@@ -1,6 +1,4 @@
-function parseDateValue(value: string) {
-  return new Date(`${value}T12:00:00`)
-}
+import { parseDateOnlyForDisplay } from '~/lib/date'
 
 const currencyFormatter = new Intl.NumberFormat('en-GB', {
   currency: 'EUR',
@@ -24,7 +22,7 @@ export function formatCurrency(value: number) {
 }
 
 export function formatShortDate(value: string) {
-  return shortDateFormatter.format(parseDateValue(value))
+  return shortDateFormatter.format(parseDateOnlyForDisplay(value))
 }
 
 export function formatSignedCurrency(value: number) {
@@ -33,7 +31,7 @@ export function formatSignedCurrency(value: number) {
 }
 
 export function formatTopbarDate(value: string) {
-  return topbarDateFormatter.format(parseDateValue(value))
+  return topbarDateFormatter.format(parseDateOnlyForDisplay(value))
 }
 
 export function getInitials(value: string) {

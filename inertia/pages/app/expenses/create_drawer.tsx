@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { CreateExpenseInput, ExpenseDto } from '~/lib/types'
 
 import { DrawerPanel } from '~/components/drawer_panel'
+import { todayDateOnlyUtc } from '~/lib/date'
 
 interface CreateDrawerProps {
   categories: string[]
@@ -167,16 +168,9 @@ function freshForm(categories: string[]): CreateExpenseInput {
   return {
     amount: 0,
     category: categories[0] ?? '',
-    date: localISODate(),
+    date: todayDateOnlyUtc(),
     label: '',
   }
-}
-
-function localISODate(d = new Date()) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
 }
 
 function toFormInput(expense: ExpenseDto): CreateExpenseInput {
