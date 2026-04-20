@@ -3,7 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { computePaginationWindow } from '#core/accounting/application/support/pagination'
 import { customers, invoices } from '#core/accounting/drizzle/schema'
-import { and, count, eq, inArray, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, or, sql } from 'drizzle-orm'
 
 import type { CustomerAggregate, CustomerRow } from './types.js'
 
@@ -65,7 +65,8 @@ export async function listCustomersWithAggregates(
   db: DrizzleDb,
   page: number,
   perPage: number,
-  tenantId: string
+  tenantId: string,
+  search?: string
 ): Promise<{
   aggregatesByCustomerId: Map<string, CustomerAggregate>
   linkedCustomers: number
@@ -73,7 +74,7 @@ export async function listCustomersWithAggregates(
   rows: CustomerRow[]
   totalInvoicedCents: number
 }> {
-  const tenantWhere = applyCustomerTenantScope(undefined, tenantId)
+  const tenantWhere = applyCustomerTenantScope(searchCondition(search), tenantId)
   const [{ totalCount }] = await db
     .select({ totalCount: count() })
     .from(customers)
@@ -103,7 +104,7 @@ export async function listCustomersWithAggregates(
     .select()
     .from(customers)
     .where(tenantWhere)
-    .orderBy(customers.company)
+    .orderBy(customers.company, customers.id)
     .limit(perPage)
     .offset(paginationWindow.offset)
 
@@ -157,4 +158,19 @@ export async function listCustomersWithAggregates(
 
 function applyCustomerTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
   return requireTenantScope(where, tenantId, customers.organizationId)
+}
+
+function searchCondition(search?: string): SQL<unknown> | undefined {
+  const term = search?.trim().toLowerCase()
+  if (!term) {
+    return undefined
+  }
+
+  const pattern = `%${term}%`
+  return or(
+    sql`lower(${customers.company}) like ${pattern}`,
+    sql`lower(${customers.name}) like ${pattern}`,
+    sql`lower(${customers.email}) like ${pattern}`,
+    sql`lower(${customers.phone}) like ${pattern}`
+  )
 }

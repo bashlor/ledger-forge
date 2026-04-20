@@ -4,6 +4,10 @@ export interface PaginationWindow {
   totalPages: number
 }
 
+export const DEFAULT_LIST_PER_PAGE = 10
+export const MAX_LIST_PER_PAGE = 100
+export const MIN_LIST_PER_PAGE = 1
+
 export function clampInteger(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min
   const normalized = Math.trunc(value)

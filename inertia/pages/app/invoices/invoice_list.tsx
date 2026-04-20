@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import type { InvoiceDto, InvoiceSummaryDto, PaginatedList } from '~/lib/types'
 
 import { DataTable } from '~/components/data_table'
@@ -6,26 +8,33 @@ import { formatCurrency, formatShortDate } from '~/lib/format'
 import { canDeleteInvoice } from '~/lib/invoices'
 
 interface Props {
+  appliedSearch: string
   deleteConfirmId: null | string
   invoices: PaginatedList<InvoiceDto>
   onCancelDelete: () => void
   onDeleteDraft: (invoice: InvoiceDto) => void
   onPageChange: (page: number) => void
+  onPerPageChange: (perPage: number) => void
+  onSearchSubmit: (value: string) => void
   onSelectInvoice: (invoice: InvoiceDto) => void
   saving: boolean
   summary: InvoiceSummaryDto | null
 }
 
 export function InvoiceList({
+  appliedSearch,
   deleteConfirmId,
   invoices,
   onCancelDelete,
   onDeleteDraft,
   onPageChange,
+  onPerPageChange,
+  onSearchSubmit,
   onSelectInvoice,
   saving,
   summary,
 }: Props) {
+  const [searchQuery, setSearchQuery] = useState(appliedSearch)
   const draftCount = summary?.draftCount ?? 0
   const issuedCount = summary?.issuedCount ?? 0
   const overdueCount = summary?.overdueCount ?? 0
@@ -72,9 +81,34 @@ export function InvoiceList({
 
       <DataTable
         emptyMessage="No invoices fall within the selected period."
+        headerContent={
+          <form
+            className="flex w-full gap-2 sm:w-auto"
+            onSubmit={(event) => {
+              event.preventDefault()
+              onSearchSubmit(searchQuery)
+            }}
+          >
+            <input
+              aria-label="Search invoices"
+              className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search invoice, company, contact"
+              type="search"
+              value={searchQuery}
+            />
+            <button
+              className="rounded-lg border border-outline-variant/35 px-3 text-sm text-on-surface"
+              type="submit"
+            >
+              Search
+            </button>
+          </form>
+        }
         isEmpty={invoices.items.length === 0}
         onPageChange={onPageChange}
-        pagination={invoices.pagination.totalItems > 0 ? invoices.pagination : undefined}
+        onPerPageChange={onPerPageChange}
+        pagination={invoices.pagination}
         title="Invoice register"
       >
         <table className="w-full min-w-[640px] border-collapse text-left text-sm">

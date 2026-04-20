@@ -11,6 +11,7 @@ import type { FormErrors } from '~/types'
 
 import { DataTable } from '~/components/data_table'
 import { PageHeader } from '~/components/page_header'
+import { DEFAULT_PAGE_SIZE } from '~/lib/pagination'
 
 import type { InertiaProps } from '../../types'
 
@@ -18,41 +19,55 @@ import { CustomerDrawer } from './customers/customer_drawer'
 import { SummaryCards } from './customers/summary_cards'
 import { CustomerTable } from './customers/table'
 
-export default function CustomersPage({ customers }: InertiaProps<{ customers: CustomerListDto }>) {
+interface CustomerSearchFormProps {
+  appliedSearch: string
+  onSubmit: (searchQuery: string) => void
+}
+
+interface CustomersPageProps {
+  customers: CustomerListDto
+  filters?: { search?: string }
+}
+
+export default function CustomersPage({ customers, filters }: InertiaProps<CustomersPageProps>) {
   const { errors } =
     usePage<InertiaProps<{ customers: CustomerListDto; errors?: FormErrors }>>().props
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerKey, setDrawerKey] = useState(0)
   const [editTarget, setEditTarget] = useState<CustomerDto | null>(null)
   const [processing, setProcessing] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'no_invoices' | 'with_invoices'>('all')
 
   const { items, pagination, summary } = customers
+  const appliedSearch = filters?.search?.trim() ?? ''
   const hasPageItems = items.length > 0
-  const filteredItems = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase()
-
-    return items.filter((customer) => {
-      const matchesFilter =
-        filter === 'all'
-          ? true
-          : filter === 'with_invoices'
-            ? customer.invoiceCount > 0
-            : customer.invoiceCount === 0
-      if (!matchesFilter) return false
-      if (!normalizedQuery) return true
-
-      return [customer.company, customer.name, customer.email, customer.phone]
-        .join(' ')
-        .toLowerCase()
-        .includes(normalizedQuery)
-    })
-  }, [filter, items, searchQuery])
+  const filteredItems = useMemo(
+    () =>
+      items.filter((customer) => {
+        const matchesFilter =
+          filter === 'all'
+            ? true
+            : filter === 'with_invoices'
+              ? customer.invoiceCount > 0
+              : customer.invoiceCount === 0
+        return matchesFilter
+      }),
+    [filter, items]
+  )
 
   const pageQs = useMemo(() => {
-    return pagination.page > 1 ? { page: pagination.page } : {}
-  }, [pagination.page])
+    const qs: Record<string, number | string> = {}
+    if (pagination.page > 1) {
+      qs.page = pagination.page
+    }
+    if (pagination.perPage !== DEFAULT_PAGE_SIZE) {
+      qs.perPage = pagination.perPage
+    }
+    if (appliedSearch) {
+      qs.search = appliedSearch
+    }
+    return qs
+  }, [appliedSearch, pagination.page, pagination.perPage])
   const customerErrors = useMemo(
     () =>
       Object.fromEntries(
@@ -121,6 +136,18 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
     })
   }
 
+  function submitSearch(searchQuery: string) {
+    const search = searchQuery.trim()
+    router.get(
+      '/customers',
+      {
+        ...(pagination.perPage !== DEFAULT_PAGE_SIZE ? { perPage: pagination.perPage } : {}),
+        ...(search ? { search } : {}),
+      },
+      { only: ['customers', 'filters'], preserveScroll: true, replace: true }
+    )
+  }
+
   return (
     <>
       <Head title="Customers" />
@@ -158,12 +185,10 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
           emptyMessage="No customers yet."
           headerContent={
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <input
-                className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search company, contact, email, phone"
-                type="search"
-                value={searchQuery}
+              <CustomerSearchForm
+                appliedSearch={appliedSearch}
+                key={appliedSearch}
+                onSubmit={submitSearch}
               />
               <select
                 aria-label="Filter customers"
@@ -181,11 +206,31 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
           }
           isEmpty={!hasPageItems}
           onPageChange={(nextPage) =>
-            router.get('/customers', nextPage > 1 ? { page: nextPage } : {}, {
-              only: ['customers'],
-              preserveScroll: true,
-              replace: true,
-            })
+            router.get(
+              '/customers',
+              {
+                ...(nextPage > 1 ? { page: nextPage } : {}),
+                ...(pagination.perPage !== DEFAULT_PAGE_SIZE
+                  ? { perPage: pagination.perPage }
+                  : {}),
+                ...(appliedSearch ? { search: appliedSearch } : {}),
+              },
+              {
+                only: ['customers', 'filters'],
+                preserveScroll: true,
+                replace: true,
+              }
+            )
+          }
+          onPerPageChange={(perPage) =>
+            router.get(
+              '/customers',
+              {
+                ...(perPage !== DEFAULT_PAGE_SIZE ? { perPage } : {}),
+                ...(appliedSearch ? { search: appliedSearch } : {}),
+              },
+              { only: ['customers', 'filters'], preserveScroll: true, replace: true }
+            )
           }
           pagination={pagination}
           title="Customer register"
@@ -207,5 +252,34 @@ export default function CustomersPage({ customers }: InertiaProps<{ customers: C
         </DataTable>
       </div>
     </>
+  )
+}
+
+function CustomerSearchForm({ appliedSearch, onSubmit }: CustomerSearchFormProps) {
+  const [searchQuery, setSearchQuery] = useState(appliedSearch)
+
+  return (
+    <form
+      className="flex w-full gap-2 sm:w-auto"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit(searchQuery)
+      }}
+    >
+      <input
+        aria-label="Search customers"
+        className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
+        onChange={(event) => setSearchQuery(event.target.value)}
+        placeholder="Search company, contact, email, phone"
+        type="search"
+        value={searchQuery}
+      />
+      <button
+        className="rounded-lg border border-outline-variant/35 px-3 text-sm text-on-surface"
+        type="submit"
+      >
+        Search
+      </button>
+    </form>
   )
 }

@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type { CreateExpenseInput, ExpenseDto, ExpenseSummaryDto, PaginatedList } from '~/lib/types'
 
@@ -7,6 +7,7 @@ import { DataTable } from '~/components/data_table'
 import { useDateScope } from '~/components/date_scope_provider'
 import { Modal } from '~/components/modal'
 import { PageHeader } from '~/components/page_header'
+import { DEFAULT_PAGE_SIZE } from '~/lib/pagination'
 
 import type { InertiaProps } from '../../types'
 
@@ -14,15 +15,21 @@ import { CreateDrawer } from './expenses/create_drawer'
 import { SummaryCards, SummaryCardsSkeleton } from './expenses/summary_cards'
 import { ExpenseTable } from './expenses/table'
 
+interface ExpenseSearchFormProps {
+  appliedSearch: string
+  onSubmit: (searchQuery: string) => void
+}
+
 type PendingAction = { id: string; kind: 'confirm' | 'delete'; label: string }
 
 type Props = InertiaProps<{
   categories: string[]
   expenses: PaginatedList<ExpenseDto>
+  filters?: { search?: string }
   summary?: ExpenseSummaryDto
 }>
 
-export default function ExpensesPage({ categories, expenses, summary }: Props) {
+export default function ExpensesPage({ categories, expenses, filters, summary }: Props) {
   const { scope } = useDateScope()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedExpense, setSelectedExpense] = useState<ExpenseDto | null>(null)
@@ -30,6 +37,7 @@ export default function ExpensesPage({ categories, expenses, summary }: Props) {
   const [processingId, setProcessingId] = useState<null | string>(null)
   const [pendingAction, setPendingAction] = useState<null | PendingAction>(null)
   const cachedSummary = useRef<ExpenseSummaryDto | null>(null)
+  const appliedSearch = filters?.search?.trim() ?? ''
 
   if (summary) cachedSummary.current = summary
 
@@ -44,17 +52,46 @@ export default function ExpensesPage({ categories, expenses, summary }: Props) {
 
     router.get(
       '/expenses',
-      { endDate: scope.endDate, startDate: scope.startDate },
+      {
+        endDate: scope.endDate,
+        ...(expenses.pagination.perPage !== DEFAULT_PAGE_SIZE
+          ? { perPage: expenses.pagination.perPage }
+          : {}),
+        ...(appliedSearch ? { search: appliedSearch } : {}),
+        startDate: scope.startDate,
+      },
       { preserveScroll: true, preserveState: true, replace: true }
     )
-  }, [scope.startDate, scope.endDate])
+  }, [scope.endDate, scope.startDate])
 
   function dateQs() {
     return { endDate: scope.endDate, startDate: scope.startDate }
   }
 
+  function listQs(
+    page = expenses.pagination.page,
+    perPage = expenses.pagination.perPage,
+    search = appliedSearch
+  ) {
+    return {
+      ...dateQs(),
+      ...(page > 1 ? { page } : {}),
+      ...(perPage !== DEFAULT_PAGE_SIZE ? { perPage } : {}),
+      ...(search ? { search } : {}),
+    }
+  }
+
+  function submitSearch(searchQuery: string) {
+    router.get('/expenses', listQs(1, expenses.pagination.perPage, searchQuery.trim()), {
+      only: ['expenses', 'summary', 'filters'],
+      preserveScroll: true,
+      preserveState: true,
+      replace: true,
+    })
+  }
+
   function handleCreate(input: CreateExpenseInput) {
-    router.post('/expenses', { ...input, ...dateQs() } as never, {
+    router.post('/expenses', { ...input, ...listQs() } as never, {
       onFinish: () => setProcessing(false),
       onStart: () => setProcessing(true),
       onSuccess: () => setDrawerOpen(false),
@@ -87,30 +124,26 @@ export default function ExpensesPage({ categories, expenses, summary }: Props) {
     setPendingAction({ id, kind: 'delete', label: expense?.label ?? 'this expense' })
   }
 
-  const executeAction = useCallback(() => {
+  function executeAction() {
     if (!pendingAction) return
     const { id, kind } = pendingAction
     setPendingAction(null)
 
     if (kind === 'confirm') {
-      router.post(
-        `/expenses/${id}/confirm-draft`,
-        { ...dateQs(), page: expenses.pagination.page },
-        {
-          onFinish: () => setProcessingId(null),
-          onStart: () => setProcessingId(id),
-          preserveScroll: true,
-        }
-      )
+      router.post(`/expenses/${id}/confirm-draft`, listQs(), {
+        onFinish: () => setProcessingId(null),
+        onStart: () => setProcessingId(id),
+        preserveScroll: true,
+      })
     } else {
       router.delete(`/expenses/${id}`, {
-        data: { ...dateQs(), page: expenses.pagination.page },
+        data: listQs(),
         onFinish: () => setProcessingId(null),
         onStart: () => setProcessingId(id),
         preserveScroll: true,
       })
     }
-  }, [pendingAction, expenses.pagination.page, scope.startDate, scope.endDate])
+  }
 
   return (
     <>
@@ -149,13 +182,28 @@ export default function ExpensesPage({ categories, expenses, summary }: Props) {
 
         <DataTable
           emptyMessage="No expenses found."
+          headerContent={
+            <ExpenseSearchForm
+              appliedSearch={appliedSearch}
+              key={appliedSearch}
+              onSubmit={submitSearch}
+            />
+          }
           isEmpty={expenses.items.length === 0}
           onPageChange={(page) =>
-            router.get(
-              '/expenses',
-              { ...dateQs(), page },
-              { only: ['expenses'], preserveScroll: true, preserveState: true }
-            )
+            router.get('/expenses', listQs(page), {
+              only: ['expenses', 'summary', 'filters'],
+              preserveScroll: true,
+              preserveState: true,
+            })
+          }
+          onPerPageChange={(perPage) =>
+            router.get('/expenses', listQs(1, perPage), {
+              only: ['expenses', 'summary', 'filters'],
+              preserveScroll: true,
+              preserveState: true,
+              replace: true,
+            })
           }
           pagination={expenses.pagination}
           title="Expense register"
@@ -206,5 +254,34 @@ export default function ExpensesPage({ categories, expenses, summary }: Props) {
         <p className="text-sm text-on-surface-variant">This action cannot be undone.</p>
       </Modal>
     </>
+  )
+}
+
+function ExpenseSearchForm({ appliedSearch, onSubmit }: ExpenseSearchFormProps) {
+  const [searchQuery, setSearchQuery] = useState(appliedSearch)
+
+  return (
+    <form
+      className="flex w-full gap-2 sm:w-auto"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit(searchQuery)
+      }}
+    >
+      <input
+        aria-label="Search expenses"
+        className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
+        onChange={(event) => setSearchQuery(event.target.value)}
+        placeholder="Search label or category"
+        type="search"
+        value={searchQuery}
+      />
+      <button
+        className="rounded-lg border border-outline-variant/35 px-3 text-sm text-on-surface"
+        type="submit"
+      >
+        Search
+      </button>
+    </form>
   )
 }

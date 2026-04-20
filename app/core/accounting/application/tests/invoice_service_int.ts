@@ -163,4 +163,41 @@ test.group('Invoice service integration', (group) => {
 
     assert.equal(accepted.dueDate, '2099-04-10')
   })
+
+  test('getInvoiceSummary remains global when list search is active', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'Cursor design work', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createDraft(
+      {
+        customerId: SECOND_CUSTOMER_ID,
+        dueDate: '2099-05-02',
+        issueDate: '2099-04-02',
+        lines: [{ description: 'General support', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const filteredList = await service.listInvoices(
+      1,
+      10,
+      TEST_ACCOUNTING_ACCESS_CONTEXT,
+      undefined,
+      undefined,
+      'invoice test company 2'
+    )
+    const summary = await service.getInvoiceSummary(TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    assert.equal(filteredList.pagination.totalItems, 1)
+    assert.equal(summary.draftCount, 2)
+    assert.equal(summary.issuedCount, 0)
+    assert.equal(summary.overdueCount, 0)
+  })
 })

@@ -42,6 +42,8 @@ export const invoiceIndexValidator = vine.create(
         .requiredWhen((field: VineFieldContextLike) => hasFieldValue(field, 'startDate')),
       invoice: vine.string().trim().minLength(1).maxLength(128).optional(),
       page: vine.number().min(1).optional(),
+      perPage: vine.number().min(1).max(100).optional(),
+      search: vine.string().trim().maxLength(255).optional(),
       startDate: vineDateString
         .clone()
         .optional()

@@ -368,6 +368,30 @@ test.group('ExpenseService | listExpenses', (group) => {
     assert.equal(result.pagination.totalItems, 1)
   })
 
+  test('filters by search term with pagination coherence', async ({ assert }) => {
+    await service.createExpense(
+      makeInput({ category: 'Software', label: 'Cursor subscription' }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createExpense(
+      makeInput({ category: 'Travel', label: 'Train ticket' }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const result = await service.listExpenses(
+      1,
+      10,
+      TEST_ACCOUNTING_ACCESS_CONTEXT,
+      undefined,
+      'cursor'
+    )
+
+    assert.equal(result.items.length, 1)
+    assert.equal(result.items[0].label, 'Cursor subscription')
+    assert.equal(result.pagination.totalItems, 1)
+    assert.equal(result.pagination.totalPages, 1)
+  })
+
   test('getSummary respects date filter', async ({ assert }) => {
     const jan = await service.createExpense(
       makeInput({ amount: 10, date: '2026-01-15' }),
@@ -398,5 +422,32 @@ test.group('ExpenseService | listExpenses', (group) => {
     assert.equal(febOnly.totalCount, 1)
     assert.equal(febOnly.draftCount, 1)
     assert.equal(febOnly.totalAmount, 0)
+  })
+
+  test('getSummary remains global when list search is active', async ({ assert }) => {
+    const confirmed = await service.createExpense(
+      makeInput({ amount: 10, category: 'Software', label: 'Cursor subscription' }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createExpense(
+      makeInput({ amount: 20, category: 'Travel', label: 'Train ticket' }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.confirmExpense(confirmed.id, TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    const filteredList = await service.listExpenses(
+      1,
+      10,
+      TEST_ACCOUNTING_ACCESS_CONTEXT,
+      undefined,
+      'cursor'
+    )
+    const summary = await service.getSummary(TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    assert.equal(filteredList.pagination.totalItems, 1)
+    assert.equal(summary.totalCount, 2)
+    assert.equal(summary.confirmedCount, 1)
+    assert.equal(summary.draftCount, 1)
+    assert.equal(summary.totalAmount, 10)
   })
 })

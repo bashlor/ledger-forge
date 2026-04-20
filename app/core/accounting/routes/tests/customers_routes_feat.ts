@@ -479,6 +479,44 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(invalidPerPage.items.length, 1)
   })
 
+  test('customer listing applies server-side search with coherent pagination', async ({
+    assert,
+  }) => {
+    await db.insert(customers).values([
+      {
+        address: '1 test street',
+        company: 'Cursor Labs',
+        email: 'cursor@example.com',
+        id: uuidv7(),
+        name: 'Cursor User',
+        organizationId: TEST_TENANT_ID,
+        phone: '+1 555 1000',
+      },
+      {
+        address: '2 test street',
+        company: 'Other Company',
+        email: 'other@example.com',
+        id: uuidv7(),
+        name: 'Other User',
+        organizationId: TEST_TENANT_ID,
+        phone: '+1 555 1001',
+      },
+    ])
+
+    const customerService = new CustomerService(db)
+    const result = await customerService.listCustomersPage(
+      1,
+      10,
+      TEST_ACCOUNTING_ACCESS_CONTEXT,
+      'cursor'
+    )
+
+    assert.equal(result.items.length, 1)
+    assert.equal(result.items[0].company, 'Cursor Labs')
+    assert.equal(result.pagination.totalItems, 1)
+    assert.equal(result.pagination.totalPages, 1)
+  })
+
   test('deleting a non-existent customer returns 404', async ({ assert, client }) => {
     const response = await withAuthCookie(client.delete('/customers/non-existent-id'))
       .header('accept', 'application/json')

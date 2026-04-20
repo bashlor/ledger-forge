@@ -8,6 +8,7 @@ interface DataTableProps {
   headerContent?: React.ReactNode
   isEmpty: boolean
   onPageChange?: (page: number) => void
+  onPerPageChange?: (perPage: number) => void
   pagination?: PaginationMetaDto
   title: string
 }
@@ -18,6 +19,7 @@ export function DataTable({
   headerContent,
   isEmpty,
   onPageChange,
+  onPerPageChange,
   pagination,
   title,
 }: DataTableProps) {
@@ -40,7 +42,11 @@ export function DataTable({
         <>
           <div className="overflow-x-auto">{children}</div>
           {pagination && onPageChange && (
-            <Pagination onPageChange={onPageChange} pagination={pagination} />
+            <Pagination
+              onPageChange={onPageChange}
+              onPerPageChange={onPerPageChange}
+              pagination={pagination}
+            />
           )}
         </>
       )}

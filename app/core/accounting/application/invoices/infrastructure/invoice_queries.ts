@@ -83,12 +83,16 @@ export async function getInvoiceForListScope(
 export async function getInvoiceSummary(
   db: DrizzleDb,
   input: {
+    customerId?: string
     filter?: DateFilter
     tenantId: string
     today: string
   }
 ): Promise<{ draftCount: number; issuedCount: number; overdueCount: number }> {
-  const where = applyInvoiceTenantScope(invoiceDateCondition(input.filter), input.tenantId)
+  const where = applyInvoiceTenantScope(
+    combineInvoiceFilters(input.filter, input.customerId),
+    input.tenantId
+  )
   const [row] = await db
     .select({
       draftCount:
@@ -151,19 +155,25 @@ export async function listInvoiceLinesForInvoiceIds(db: DrizzleDb, invoiceIds: s
 export async function listInvoicesByTenant(
   db: DrizzleDb,
   input: {
+    customerId?: string
     dateFilter?: DateFilter
     page: number
     perPage: number
+    search?: string
     tenantId: string
   }
 ): Promise<{ rows: InvoiceRow[]; totalCount: number }> {
-  const where = applyInvoiceTenantScope(invoiceDateCondition(input.dateFilter), input.tenantId)
-  const [{ totalCount }] = await db.select({ totalCount: count() }).from(invoices).where(where)
+  const where = combineInvoiceFilters(input.dateFilter, input.customerId, input.search)
+  const scopedWhere = applyInvoiceTenantScope(where, input.tenantId)
+  const [{ totalCount }] = await db
+    .select({ totalCount: count() })
+    .from(invoices)
+    .where(scopedWhere)
   const offset = (input.page - 1) * input.perPage
   const rows = await db
     .select()
     .from(invoices)
-    .where(where)
+    .where(scopedWhere)
     .orderBy(desc(invoices.issueDate), desc(invoices.invoiceNumber))
     .limit(input.perPage)
     .offset(offset)
@@ -227,4 +237,39 @@ export async function readCustomerSnapshot(
 
 function applyInvoiceTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
   return requireTenantScope(where, tenantId, invoices.organizationId)
+}
+
+function combineInvoiceFilters(
+  dateFilter?: DateFilter,
+  customerId?: string,
+  search?: string
+): SQL<unknown> | undefined {
+  let where = invoiceDateCondition(dateFilter)
+
+  if (customerId) {
+    where = where
+      ? and(where, eq(invoices.customerId, customerId))!
+      : eq(invoices.customerId, customerId)
+  }
+
+  const searchWhere = searchCondition(search)
+  if (searchWhere) {
+    where = where ? and(where, searchWhere)! : searchWhere
+  }
+
+  return where
+}
+
+function searchCondition(search?: string): SQL<unknown> | undefined {
+  const term = search?.trim().toLowerCase()
+  if (!term) {
+    return undefined
+  }
+
+  const pattern = `%${term}%`
+  return sql`(
+    lower(${invoices.invoiceNumber}) like ${pattern}
+    or lower(${invoices.customerCompanyName}) like ${pattern}
+    or lower(${invoices.customerPrimaryContactSnapshot}) like ${pattern}
+  )`
 }

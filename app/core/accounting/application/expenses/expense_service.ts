@@ -3,7 +3,10 @@ import type { AccountingServiceDependencies } from '#core/accounting/application
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
-import { clampInteger } from '#core/accounting/application/support/pagination'
+import {
+  clampInteger,
+  DEFAULT_LIST_PER_PAGE,
+} from '#core/accounting/application/support/pagination'
 import { DomainError } from '#core/common/errors/domain_error'
 
 import { insertAuditEvent } from '../audit/audit_writer.js'
@@ -19,6 +22,7 @@ import type {
   ExpenseSummary,
 } from './types.js'
 
+import { MAX_LIST_PER_PAGE, MIN_LIST_PER_PAGE } from '../support/pagination.js'
 import {
   confirmDraftExpense,
   deleteDraftExpense,
@@ -27,7 +31,6 @@ import {
 } from './commands.js'
 import { toExpenseDto } from './mappers.js'
 import { findExpenseById, getExpenseSummary, listExpenseRows } from './queries.js'
-import { MAX_PER_PAGE, MIN_PER_PAGE } from './types.js'
 import { normalizeExpenseInput } from './validation.js'
 
 export class ExpenseService {
@@ -181,18 +184,20 @@ export class ExpenseService {
 
   async listExpenses(
     page = 1,
-    perPage = 5,
+    perPage = DEFAULT_LIST_PER_PAGE,
     access: AccountingAccessContext,
-    dateFilter?: DateFilter
+    dateFilter?: DateFilter,
+    search?: string
   ): Promise<ExpenseListResult> {
-    const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
+    const safePerPage = clampInteger(perPage, MIN_LIST_PER_PAGE, MAX_LIST_PER_PAGE)
     const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
     const { pagination, rows } = await listExpenseRows(
       this.db,
       requestedPage,
       safePerPage,
       access.tenantId,
-      dateFilter
+      dateFilter,
+      search
     )
 
     return {

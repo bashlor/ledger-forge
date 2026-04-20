@@ -55,6 +55,3 @@ export interface NormalizedExpenseInput {
   date: string
   label: string
 }
-
-export const MAX_PER_PAGE = 100
-export const MIN_PER_PAGE = 1

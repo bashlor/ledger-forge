@@ -55,16 +55,12 @@ test.group('Invoices routes | GET /invoices', (group) => {
 
     const props = inertiaProps(response)
     assert.equal(props.invoices.pagination.page, 1)
-    assert.equal(props.invoices.pagination.perPage, 5)
+    assert.equal(props.invoices.pagination.perPage, 10)
     assert.equal(props.invoices.pagination.totalItems, 6)
-    assert.equal(props.invoices.pagination.totalPages, 2)
+    assert.equal(props.invoices.pagination.totalPages, 1)
     assert.deepEqual(
       props.invoices.items.map((item: any) => item.id),
-      [draftF.id, draftE.id, draftD.id, draftC.id, draftB.id]
-    )
-    assert.notInclude(
-      props.invoices.items.map((item: any) => item.id),
-      draftA.id
+      [draftF.id, draftE.id, draftD.id, draftC.id, draftB.id, draftA.id]
     )
   })
 
@@ -85,12 +81,31 @@ test.group('Invoices routes | GET /invoices', (group) => {
     response.assertStatus(200)
 
     const props = inertiaProps(response)
-    assert.equal(props.invoices.pagination.page, 2)
-    assert.equal(props.invoices.pagination.totalPages, 2)
-    assert.deepEqual(
+    assert.equal(props.invoices.pagination.page, 1)
+    assert.equal(props.invoices.pagination.totalPages, 1)
+    assert.lengthOf(props.invoices.items, 6)
+    assert.include(
       props.invoices.items.map((item: any) => item.id),
-      [draftA.id]
+      draftA.id
     )
+  })
+
+  test('GET /invoices accepts custom perPage and reflects it in pagination', async ({
+    assert,
+    client,
+  }) => {
+    const service = new InvoiceService(db)
+    for (let i = 1; i <= 6; i++) {
+      await createDraftViaService(service, { issueDate: `2026-04-0${i}` })
+    }
+
+    const response = await inertiaGet(client, '/invoices?perPage=3')
+
+    response.assertStatus(200)
+    const props = inertiaProps(response)
+    assert.equal(props.invoices.pagination.perPage, 3)
+    assert.equal(props.invoices.pagination.totalPages, 2)
+    assert.lengthOf(props.invoices.items, 3)
   })
 
   test('GET /invoices filters items by issueDate range', async ({ assert, client }) => {
@@ -120,6 +135,36 @@ test.group('Invoices routes | GET /invoices', (group) => {
     )
   })
 
+  test('GET /invoices filters items by search with coherent pagination', async ({
+    assert,
+    client,
+  }) => {
+    const service = new InvoiceService(db)
+    const matching = await createDraftViaService(service, {
+      customerId: TEST_CUSTOMER_ID,
+      issueDate: '2026-04-10',
+    })
+    await createDraftViaService(service, {
+      customerId: SECOND_CUSTOMER_ID,
+      issueDate: '2026-04-11',
+    })
+
+    const response = await inertiaGet(client, '/invoices?search=Test%20Company')
+
+    response.assertStatus(200)
+    const props = inertiaProps(response)
+    assert.include(
+      props.invoices.items.map((item: any) => item.id),
+      matching.id
+    )
+    assert.isTrue(
+      props.invoices.items.every((item: any) =>
+        item.customerCompanyName.toLowerCase().includes('test company')
+      )
+    )
+    assert.equal(props.invoices.pagination.totalItems, props.invoices.items.length)
+  })
+
   test('GET /invoices with customer sets initial customer and picks the latest invoice for that customer', async ({
     assert,
     client,
@@ -145,6 +190,7 @@ test.group('Invoices routes | GET /invoices', (group) => {
     const props = inertiaProps(response)
     assert.equal(props.initialCustomerId, TEST_CUSTOMER_ID)
     assert.equal(props.initialInvoiceId, latestForFirstCustomer.id)
+    assert.isTrue(props.invoices.items.every((item: any) => item.customerId === TEST_CUSTOMER_ID))
   })
 
   test('GET /invoices with explicit invoice injects the targeted invoice when it is outside the current page', async ({
@@ -166,7 +212,6 @@ test.group('Invoices routes | GET /invoices', (group) => {
     const props = inertiaProps(response)
     assert.equal(props.initialInvoiceId, target.id)
     assert.equal(props.invoices.pagination.page, 1)
-    assert.equal(props.invoices.items[0].id, target.id)
     assert.include(
       props.invoices.items.map((item: any) => item.id),
       target.id
@@ -174,7 +219,7 @@ test.group('Invoices routes | GET /invoices', (group) => {
     assert.equal(props.invoices.items.length, 6)
   })
 
-  test('GET /invoices with customer and date filter returns null initialInvoiceId when no invoice matches the scope', async ({
+  test('GET /invoices with customer and date filter returns null initialInvoiceId and empty list when no invoice matches the scope', async ({
     assert,
     client,
   }) => {
@@ -198,10 +243,7 @@ test.group('Invoices routes | GET /invoices', (group) => {
     const props = inertiaProps(response)
     assert.equal(props.initialCustomerId, TEST_CUSTOMER_ID)
     assert.isNull(props.initialInvoiceId)
-    assert.deepEqual(
-      props.invoices.items.map((item: any) => item.customerId),
-      [SECOND_CUSTOMER_ID]
-    )
+    assert.deepEqual(props.invoices.items, [])
   })
 
   test('GET /invoices does not inject an explicit invoice when it falls outside the current customer scope', async ({
@@ -236,7 +278,7 @@ test.group('Invoices routes | GET /invoices', (group) => {
     assert.equal(props.initialCustomerId, TEST_CUSTOMER_ID)
     assert.equal(props.initialInvoiceId, otherCustomerInvoice.id)
     assert.equal(props.invoices.pagination.page, 1)
-    assert.lengthOf(props.invoices.items, 5)
+    assert.lengthOf(props.invoices.items, 6)
     assert.equal(props.invoices.items[0].id, newestInPage.id)
     assert.notInclude(
       props.invoices.items.map((item: any) => item.id),

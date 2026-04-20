@@ -45,9 +45,6 @@ export interface CustomerListResult {
 
 export type CustomerRow = typeof customers.$inferSelect
 
-export const MAX_PER_PAGE = 100
-export const MIN_PER_PAGE = 1
-
 export interface NormalizedCustomerInput {
   address: string
   company: string

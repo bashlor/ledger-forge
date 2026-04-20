@@ -5,7 +5,7 @@ import { buildDateFilterCondition } from '#core/accounting/application/support/d
 import { computePaginationWindow } from '#core/accounting/application/support/pagination'
 import { expenses } from '#core/accounting/drizzle/schema'
 import { fromCents } from '#core/shared/money'
-import { count, desc, eq, sql, sum } from 'drizzle-orm'
+import { and, count, desc, eq, sql, sum } from 'drizzle-orm'
 
 import type { DateFilter, ExpenseListResult, ExpenseRow, ExpenseSummary } from './types.js'
 
@@ -60,9 +60,10 @@ export async function listExpenseRows(
   page: number,
   perPage: number,
   tenantId: string,
-  filter?: DateFilter
+  filter?: DateFilter,
+  search?: string
 ): Promise<{ pagination: ExpenseListResult['pagination']; rows: ExpenseRow[] }> {
-  const where = applyExpenseTenantScope(dateCondition(filter), tenantId)
+  const where = applyExpenseTenantScope(combineExpenseFilters(filter, search), tenantId)
   const [countRow] = await db.select({ total: count() }).from(expenses).where(where)
   const totalCount = countRow?.total ?? 0
   const paginationWindow = computePaginationWindow(totalCount, perPage, page)
@@ -96,4 +97,25 @@ export async function listExpenseRows(
 
 function applyExpenseTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
   return requireTenantScope(where, tenantId, expenses.organizationId)
+}
+
+function combineExpenseFilters(filter?: DateFilter, search?: string): SQL<unknown> | undefined {
+  const byDate = dateCondition(filter)
+  const bySearch = searchCondition(search)
+
+  if (byDate && bySearch) {
+    return and(byDate, bySearch)
+  }
+
+  return byDate ?? bySearch
+}
+
+function searchCondition(search?: string): SQL<unknown> | undefined {
+  const term = search?.trim().toLowerCase()
+  if (!term) {
+    return undefined
+  }
+
+  const pattern = `%${term}%`
+  return sql`(lower(${expenses.label}) like ${pattern} or lower(${expenses.category}) like ${pattern})`
 }

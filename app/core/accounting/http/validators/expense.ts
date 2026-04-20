@@ -25,6 +25,8 @@ export const expenseIndexValidator = vine.create(
         .optional()
         .requiredWhen((field: VineFieldContextLike) => hasFieldValue(field, 'startDate')),
       page: vine.number().min(1).optional(),
+      perPage: vine.number().min(1).max(100).optional(),
+      search: vine.string().trim().maxLength(255).optional(),
       startDate: vineDateString
         .clone()
         .optional()
