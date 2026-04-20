@@ -141,6 +141,13 @@
       "when": 1777000000000,
       "tag": "0019_organization_id_not_null",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1777060000000,
+      "tag": "0020_invoice_number_per_tenant",
+      "breakpoints": true
     }
   ]
 }

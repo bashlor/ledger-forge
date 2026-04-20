@@ -45,7 +45,7 @@ export const invoices = mainSchema.table(
     customerPrimaryContactSnapshot: text('customer_primary_contact_snapshot').notNull(),
     dueDate: date('due_date', { mode: 'string' }).notNull(),
     id: text('id').primaryKey(),
-    invoiceNumber: text('invoice_number').notNull().unique(),
+    invoiceNumber: text('invoice_number').notNull(),
     issueDate: date('issue_date', { mode: 'string' }).notNull(),
     issuedCompanyAddress: text('issued_company_address').notNull().default(''),
     issuedCompanyName: text('issued_company_name').notNull().default(''),
@@ -61,7 +61,10 @@ export const invoices = mainSchema.table(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [check('invoices_status_check', sql`${table.status} IN ('draft', 'issued', 'paid')`)]
+  (table) => [
+    check('invoices_status_check', sql`${table.status} IN ('draft', 'issued', 'paid')`),
+    unique('invoices_org_invoice_number_unique').on(table.organizationId, table.invoiceNumber),
+  ]
 )
 
 // ---------------------------------------------------------------------------
