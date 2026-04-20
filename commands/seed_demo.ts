@@ -2,6 +2,7 @@ import type { CommandOptions } from '@adonisjs/core/types/ace'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
+import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import {
   customers,
   expenses,
@@ -312,7 +313,7 @@ export default class SeedDemo extends BaseCommand {
     const keyMap = ['northwind', 'atelier', 'kestrel'] as const
 
     for (const [i, seed] of DEMO_CUSTOMERS.entries()) {
-      const created = await customerService.createCustomer(seed)
+      const created = await customerService.createCustomer(seed, SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
       createdCustomers[keyMap[i]] = created.id
     }
 
@@ -375,14 +376,17 @@ export default class SeedDemo extends BaseCommand {
     let confirmedCount = 0
 
     for (const seed of DEMO_EXPENSES) {
-      const created = await expenseService.createExpense({
-        amount: seed.amount,
-        category: seed.category,
-        date: seed.date,
-        label: seed.label,
-      })
+      const created = await expenseService.createExpense(
+        {
+          amount: seed.amount,
+          category: seed.category,
+          date: seed.date,
+          label: seed.label,
+        },
+        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      )
       if (seed.confirmed) {
-        await expenseService.confirmExpense(created.id)
+        await expenseService.confirmExpense(created.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
         confirmedCount++
       }
     }

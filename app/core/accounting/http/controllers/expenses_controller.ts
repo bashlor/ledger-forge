@@ -24,7 +24,7 @@ export default class ExpensesController {
 
     await flashAction(
       ctx,
-      () => expenseService.confirmExpense(params.id, undefined, access),
+      () => expenseService.confirmExpense(params.id, access),
       'Expense confirmed.'
     )
 
@@ -38,7 +38,7 @@ export default class ExpensesController {
 
     await flashAction(
       ctx,
-      () => expenseService.deleteExpense(params.id, undefined, access),
+      () => expenseService.deleteExpense(params.id, access),
       'Draft expense deleted.'
     )
 
@@ -56,9 +56,9 @@ export default class ExpensesController {
       'app/expenses' as never,
       {
         categories: EXPENSE_CATEGORIES,
-        expenses: await expenseService.listExpenses(page ?? 1, PER_PAGE, dateFilter, access),
+        expenses: await expenseService.listExpenses(page ?? 1, PER_PAGE, access, dateFilter),
         summary: ctx.inertia.defer(
-          () => expenseService.getSummary(dateFilter, access) as never,
+          () => expenseService.getSummary(access, dateFilter) as never,
           'summary'
         ),
       } as never

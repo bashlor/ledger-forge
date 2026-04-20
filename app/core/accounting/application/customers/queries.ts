@@ -1,8 +1,9 @@
+import type { SQL } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { computePaginationWindow } from '#core/accounting/application/support/pagination'
 import { customers, invoices } from '#core/accounting/drizzle/schema'
-import { count, eq, inArray, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, sql } from 'drizzle-orm'
 
 import type { CustomerAggregate, CustomerRow } from './types.js'
 
@@ -11,8 +12,10 @@ type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 
 export async function customerStateForDelete(
   tx: DrizzleTx,
-  id: string
+  id: string,
+  organizationId?: null | string
 ): Promise<undefined | { id: string; invoiceCount: number }> {
+  const where = applyCustomerTenantScope(eq(customers.id, id), organizationId)
   const [state] = await tx
     .select({
       id: customers.id,
@@ -20,16 +23,17 @@ export async function customerStateForDelete(
     })
     .from(customers)
     .leftJoin(invoices, eq(invoices.customerId, customers.id))
-    .where(eq(customers.id, id))
+    .where(where)
     .groupBy(customers.id)
   return state
 }
-
 export async function findCustomerById(
   db: DrizzleDb,
-  id: string
+  id: string,
+  tenantId?: null | string
 ): Promise<CustomerRow | undefined> {
-  const [existing] = await db.select().from(customers).where(eq(customers.id, id))
+  const where = applyCustomerTenantScope(eq(customers.id, id), tenantId)
+  const [existing] = await db.select().from(customers).where(where)
   return existing
 }
 
@@ -57,7 +61,8 @@ export async function invoiceAggregateForCustomer(
 export async function listCustomersWithAggregates(
   db: DrizzleDb,
   page: number,
-  perPage: number
+  perPage: number,
+  tenantId?: null | string
 ): Promise<{
   aggregatesByCustomerId: Map<string, CustomerAggregate>
   linkedCustomers: number
@@ -65,7 +70,11 @@ export async function listCustomersWithAggregates(
   rows: CustomerRow[]
   totalInvoicedCents: number
 }> {
-  const [{ totalCount }] = await db.select({ totalCount: count() }).from(customers)
+  const tenantWhere = applyCustomerTenantScope(undefined, tenantId)
+  const [{ totalCount }] = await db
+    .select({ totalCount: count() })
+    .from(customers)
+    .where(tenantWhere)
   const paginationWindow = computePaginationWindow(totalCount, perPage, page)
 
   const [{ linkedCustomers }] = await db
@@ -86,6 +95,7 @@ export async function listCustomersWithAggregates(
   const rows = await db
     .select()
     .from(customers)
+    .where(tenantWhere)
     .orderBy(customers.company)
     .limit(perPage)
     .offset(paginationWindow.offset)
@@ -136,4 +146,12 @@ export async function listCustomersWithAggregates(
     rows,
     totalInvoicedCents: Number(totalInvoicedCents ?? 0),
   }
+}
+
+function applyCustomerTenantScope(
+  where: SQL<unknown> | undefined,
+  tenantId: null | string | undefined
+): SQL<unknown> | undefined {
+  if (!tenantId) return where
+  return and(where, eq(customers.organizationId, tenantId))
 }

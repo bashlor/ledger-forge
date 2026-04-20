@@ -12,10 +12,12 @@ export const customers = mainSchema.table('customers', {
   address: text('address').notNull().default(''),
   company: text('company').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  createdBy: text('created_by'),
   email: text('email').notNull(),
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   note: text('note'),
+  organizationId: text('organization_id'),
   phone: text('phone').notNull(),
 })
 
@@ -27,6 +29,7 @@ export const invoices = mainSchema.table(
   'invoices',
   {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by'),
     // Canonical invoice snapshot model:
     // - customerCompanyName: current company display name while invoice is draft/listed
     // - customerCompanySnapshot/customerCompanyAddressSnapshot: frozen customer snapshot fields
@@ -46,6 +49,7 @@ export const invoices = mainSchema.table(
     issueDate: date('issue_date', { mode: 'string' }).notNull(),
     issuedCompanyAddress: text('issued_company_address').notNull().default(''),
     issuedCompanyName: text('issued_company_name').notNull().default(''),
+    organizationId: text('organization_id'),
     status: text('status', { enum: ['draft', 'issued', 'paid'] })
       .notNull()
       .default('draft'),
@@ -93,9 +97,11 @@ export const expenses = mainSchema.table(
     amountCents: integer('amount_cents').notNull(),
     category: text('category').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by'),
     date: date('date', { mode: 'string' }).notNull(),
     id: text('id').primaryKey(),
     label: text('label').notNull(),
+    organizationId: text('organization_id'),
     status: text('status', { enum: ['draft', 'confirmed'] })
       .notNull()
       .default('draft'),

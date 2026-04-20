@@ -36,7 +36,7 @@ export async function loadDraftUpdateContext(
 
   return {
     createdAt,
-    customer: await loadCustomerSnapshotOrThrow(tx, normalized.customerId),
+    customer: await loadCustomerSnapshotOrThrow(tx, normalized.customerId, requestContext.tenantId),
     existing,
     normalized,
   }

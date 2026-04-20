@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { InvoiceService } from '#core/accounting/application/invoices/index'
+import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { invoiceLines, invoices } from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
@@ -148,12 +149,16 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
 
     let didThrow = false
     try {
-      await service.updateDraft(draft.id, {
-        customerId: TEST_CUSTOMER_ID,
-        dueDate: dueDateBeforeCreation,
-        issueDate: '2020-01-01',
-        lines: [{ description: 'Updated line', quantity: 1, unitPrice: 100, vatRate: 20 }],
-      })
+      await service.updateDraft(
+        draft.id,
+        {
+          customerId: TEST_CUSTOMER_ID,
+          dueDate: dueDateBeforeCreation,
+          issueDate: '2020-01-01',
+          lines: [{ description: 'Updated line', quantity: 1, unitPrice: 100, vatRate: 20 }],
+        },
+        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      )
     } catch {
       didThrow = true
     }

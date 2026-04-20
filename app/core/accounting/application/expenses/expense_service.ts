@@ -2,10 +2,7 @@ import type { AccountingActivitySink } from '#core/accounting/application/suppor
 import type { AccountingServiceDependencies } from '#core/accounting/application/support/service_dependencies'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import {
-  type AccountingAccessContext,
-  SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
-} from '#core/accounting/application/support/access_context'
+import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import { clampInteger } from '#core/accounting/application/support/pagination'
 import { DomainError } from '#core/common/errors/domain_error'
 
@@ -43,20 +40,20 @@ export class ExpenseService {
 
   async confirmExpense(
     id: string,
-    hooks?: ExpenseConcurrencyHooks,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext,
+    hooks?: ExpenseConcurrencyHooks
   ): Promise<ExpenseDto> {
     const result = await this.db.transaction(async (tx) => {
-      const existing = await findExpenseById(tx, id)
+      const existing = await findExpenseById(tx, id, access.tenantId)
       if (!existing) {
         throw new DomainError('Expense not found.', 'not_found')
       }
       await hooks?.afterRead?.()
 
-      const updated = await confirmDraftExpense(tx, id)
+      const updated = await confirmDraftExpense(tx, id, access.tenantId)
 
       if (!updated) {
-        const again = await findExpenseById(tx, id)
+        const again = await findExpenseById(tx, id, access.tenantId)
         if (!again) {
           throw new DomainError('Expense not found.', 'not_found')
         }
@@ -88,10 +85,13 @@ export class ExpenseService {
 
   async createExpense(
     input: CreateExpenseInput,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext
   ): Promise<ExpenseDto> {
     const normalized = normalizeExpenseInput(input)
-    const row = await insertDraftExpense(this.db, normalized)
+    const row = await insertDraftExpense(this.db, normalized, {
+      createdBy: access.actorId ?? null,
+      organizationId: access.tenantId ?? null,
+    })
 
     await this.activitySink?.record({
       actorId: access.actorId,
@@ -108,20 +108,20 @@ export class ExpenseService {
 
   async deleteExpense(
     id: string,
-    hooks?: ExpenseConcurrencyHooks,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext,
+    hooks?: ExpenseConcurrencyHooks
   ): Promise<void> {
     await this.db.transaction(async (tx) => {
-      const existing = await findExpenseById(tx, id)
+      const existing = await findExpenseById(tx, id, access.tenantId)
       if (!existing) {
         throw new DomainError('Expense not found.', 'not_found')
       }
       await hooks?.afterRead?.()
 
-      const deleted = await deleteDraftExpense(tx, id)
+      const deleted = await deleteDraftExpense(tx, id, access.tenantId)
 
       if (!deleted) {
-        const again = await findExpenseById(tx, id)
+        const again = await findExpenseById(tx, id, access.tenantId)
         if (!again) {
           throw new DomainError('Expense not found.', 'not_found')
         }
@@ -141,17 +141,17 @@ export class ExpenseService {
   }
 
   async getSummary(
-    dateFilter?: DateFilter,
-    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext,
+    dateFilter?: DateFilter
   ): Promise<ExpenseSummary> {
-    return getExpenseSummary(this.db, dateFilter)
+    return getExpenseSummary(this.db, dateFilter, access.tenantId)
   }
 
   async listExpenses(
     page = 1,
     perPage = 5,
-    dateFilter?: DateFilter,
-    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext,
+    dateFilter?: DateFilter
   ): Promise<ExpenseListResult> {
     const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
     const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
@@ -159,7 +159,8 @@ export class ExpenseService {
       this.db,
       requestedPage,
       safePerPage,
-      dateFilter
+      dateFilter,
+      access.tenantId
     )
 
     return {

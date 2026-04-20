@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
+import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
@@ -260,13 +261,16 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     const customerService = new CustomerService(db)
 
     await expectRejects(assert, () =>
-      customerService.createCustomer({
-        address: '5 rue des Tests, Paris',
-        company: '   ',
-        email: '   ',
-        name: '   ',
-        phone: '   ',
-      })
+      customerService.createCustomer(
+        {
+          address: '5 rue des Tests, Paris',
+          company: '   ',
+          email: '   ',
+          name: '   ',
+          phone: '   ',
+        },
+        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      )
     )
 
     const rows = await db.select().from(customers)
@@ -289,13 +293,17 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     const customerService = new CustomerService(db)
 
     await expectRejects(assert, () =>
-      customerService.updateCustomer(id, {
-        address: '8 impasse du Port, Nantes',
-        company: 'Kestrel Analytics',
-        email: '   ',
-        name: 'Nina Rossi',
-        phone: '   ',
-      })
+      customerService.updateCustomer(
+        id,
+        {
+          address: '8 impasse du Port, Nantes',
+          company: 'Kestrel Analytics',
+          email: '   ',
+          name: 'Nina Rossi',
+          phone: '   ',
+        },
+        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      )
     )
 
     const [unchanged] = await db.select().from(customers).where(eq(customers.id, id))
@@ -380,7 +388,11 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     })
 
     const customerService = new CustomerService(db)
-    const { items } = await customerService.listCustomersPage(1, 10)
+    const { items } = await customerService.listCustomersPage(
+      1,
+      10,
+      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    )
     const linked = items.find((entry) => entry.id === linkedCustomerId)
     const free = items.find((entry) => entry.id === freeCustomerId)
 
@@ -420,17 +432,29 @@ test.group('Customers routes | create, update, delete rules', (group) => {
 
     const customerService = new CustomerService(db)
 
-    const negativePage = await customerService.listCustomersPage(-4, 2)
+    const negativePage = await customerService.listCustomersPage(
+      -4,
+      2,
+      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    )
     assert.equal(negativePage.pagination.page, 1)
     assert.equal(negativePage.pagination.perPage, 2)
     assert.equal(negativePage.items.length, 2)
 
-    const oversizedPage = await customerService.listCustomersPage(999, 2)
+    const oversizedPage = await customerService.listCustomersPage(
+      999,
+      2,
+      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    )
     assert.equal(oversizedPage.pagination.page, 2)
     assert.equal(oversizedPage.pagination.totalPages, 2)
     assert.equal(oversizedPage.items.length, 1)
 
-    const invalidPerPage = await customerService.listCustomersPage(1, 0)
+    const invalidPerPage = await customerService.listCustomersPage(
+      1,
+      0,
+      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    )
     assert.equal(invalidPerPage.pagination.perPage, 1)
     assert.equal(invalidPerPage.items.length, 1)
   })

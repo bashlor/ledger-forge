@@ -1,4 +1,5 @@
 import type { DateFilter } from '#core/accounting/application/expenses/index'
+import type { SQL } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { customers, invoiceLines, invoices } from '#core/accounting/drizzle/schema'
@@ -116,7 +117,8 @@ export function invoiceDateCondition(filter?: DateFilter) {
   return and(gte(invoices.issueDate, filter.startDate), lte(invoices.issueDate, filter.endDate))
 }
 
-export async function listCustomersForSelect(db: DrizzleDb) {
+export async function listCustomersForSelect(db: DrizzleDb, tenantId?: null | string) {
+  const where = tenantId ? eq(customers.organizationId, tenantId) : undefined
   return db
     .select({
       company: customers.company,
@@ -126,15 +128,11 @@ export async function listCustomersForSelect(db: DrizzleDb) {
       phone: customers.phone,
     })
     .from(customers)
+    .where(where)
     .orderBy(customers.company)
 }
 
-export async function listInvoiceLinesForInvoice(
-  db: InvoiceDbExecutor,
-  invoiceId: string,
-  tenantId?: null | string
-) {
-  void tenantId
+export async function listInvoiceLinesForInvoice(db: InvoiceDbExecutor, invoiceId: string) {
   return db
     .select()
     .from(invoiceLines)
@@ -142,12 +140,7 @@ export async function listInvoiceLinesForInvoice(
     .orderBy(invoiceLines.lineNumber)
 }
 
-export async function listInvoiceLinesForInvoiceIds(
-  db: DrizzleDb,
-  invoiceIds: string[],
-  tenantId?: null | string
-) {
-  void tenantId
+export async function listInvoiceLinesForInvoiceIds(db: DrizzleDb, invoiceIds: string[]) {
   return db
     .select()
     .from(invoiceLines)
@@ -207,7 +200,14 @@ export async function nextInvoiceNumber(db: InvoiceDbExecutor, issueDate: string
   return `INV-${year}-${String((lastSequence ?? 0) + 1).padStart(3, '0')}`
 }
 
-export async function readCustomerSnapshot(db: InvoiceDbExecutor, customerId: string) {
+export async function readCustomerSnapshot(
+  db: InvoiceDbExecutor,
+  customerId: string,
+  tenantId?: null | string
+) {
+  const where = tenantId
+    ? and(eq(customers.id, customerId), eq(customers.organizationId, tenantId))
+    : eq(customers.id, customerId)
   const [row] = await db
     .select({
       address: customers.address,
@@ -218,12 +218,14 @@ export async function readCustomerSnapshot(db: InvoiceDbExecutor, customerId: st
       phone: customers.phone,
     })
     .from(customers)
-    .where(eq(customers.id, customerId))
+    .where(where)
   return row
 }
 
-function applyInvoiceTenantScope<T>(where: T, tenantId: TenantScopedQueryInput['tenantId']): T {
-  // Placeholder until invoice rows carry tenant data and queries can enforce isolation in SQL.
-  void tenantId
-  return where
+function applyInvoiceTenantScope(
+  where: SQL<unknown> | undefined,
+  tenantId: TenantScopedQueryInput['tenantId']
+): SQL<unknown> | undefined {
+  if (!tenantId) return where
+  return and(where, eq(invoices.organizationId, tenantId))
 }

@@ -52,12 +52,12 @@ export default class InvoicesController {
     if (!initialInvoiceId && customer) {
       initialInvoiceId = await invoiceService.findFirstInvoiceIdForCustomer(
         customer,
-        dateFilter,
-        access
+        access,
+        dateFilter
       )
     }
 
-    const listResult = await invoiceService.listInvoices(page ?? 1, PER_PAGE, dateFilter, access)
+    const listResult = await invoiceService.listInvoices(page ?? 1, PER_PAGE, access, dateFilter)
 
     let { items, pagination } = listResult
     if (initialInvoiceId && !items.some((i) => i.id === initialInvoiceId)) {
@@ -77,7 +77,7 @@ export default class InvoicesController {
       initialInvoiceId,
       invoices: { items, pagination },
       invoiceSummary: inertia.defer(
-        () => invoiceService.getInvoiceSummary(dateFilter, access) as never,
+        () => invoiceService.getInvoiceSummary(access, dateFilter) as never,
         'invoiceSummary'
       ),
       mode: request.input('mode') === 'new' ? 'new' : 'view',
@@ -92,7 +92,7 @@ export default class InvoicesController {
 
     await flashAction(
       ctx,
-      () => invoiceService.issueInvoice(params.id, payload, undefined, access),
+      () => invoiceService.issueInvoice(params.id, payload, access),
       'Invoice issued.'
     )
 
@@ -106,7 +106,7 @@ export default class InvoicesController {
 
     await flashAction(
       ctx,
-      () => invoiceService.markInvoicePaid(params.id, undefined, access),
+      () => invoiceService.markInvoicePaid(params.id, access),
       'Invoice marked as paid.'
     )
 
@@ -142,7 +142,7 @@ export default class InvoicesController {
 
     await flashAction(
       ctx,
-      () => invoiceService.updateDraft(params.id, payload, undefined, access),
+      () => invoiceService.updateDraft(params.id, payload, access),
       'Draft invoice updated.'
     )
 
