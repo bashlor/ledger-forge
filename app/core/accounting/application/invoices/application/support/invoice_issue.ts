@@ -69,6 +69,7 @@ export async function persistInvoiceIssue(
     date: invoice.issueDate,
     invoiceId: id,
     label: `Invoice ${invoice.invoiceNumber}`,
+    organizationId: requestContext.tenantId,
   })
 
   return { invoice, invoiceId: id }

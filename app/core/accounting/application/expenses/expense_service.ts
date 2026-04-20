@@ -65,6 +65,7 @@ export class ExpenseService {
         date: updated.date,
         expenseId: updated.id,
         label: updated.label,
+        organizationId: access.tenantId,
       })
 
       return toExpenseDto(updated)
