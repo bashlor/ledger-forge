@@ -1,16 +1,27 @@
+import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { AccountingBusinessCalendar } from '#core/accounting/application/support/business_calendar'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { InvoiceService } from '#core/accounting/application/invoices/index'
-import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 
-import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
+import {
+  seedTestOrganization,
+  setupTestDatabaseForGroup,
+  TEST_TENANT_ID,
+} from '../../../../../tests/helpers/testcontainers_db.js'
 
 const TEST_CUSTOMER_ID = 'invoice-service-test-customer'
 const SECOND_CUSTOMER_ID = 'invoice-service-test-customer-2'
+
+const TEST_ACCOUNTING_ACCESS_CONTEXT: AccountingAccessContext = {
+  actorId: 'test_actor',
+  isAnonymous: false,
+  requestId: 'test',
+  tenantId: TEST_TENANT_ID,
+}
 
 test.group('Invoice service integration', (group) => {
   let cleanup: () => Promise<void>
@@ -20,6 +31,7 @@ test.group('Invoice service integration', (group) => {
     const ctx = await setupTestDatabaseForGroup()
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
   })
 
   group.each.setup(async () => {
@@ -35,6 +47,7 @@ test.group('Invoice service integration', (group) => {
         email: 'billing@testco.fr',
         id: TEST_CUSTOMER_ID,
         name: 'Alice Martin',
+        organizationId: TEST_TENANT_ID,
         phone: '+33 6 12 34 56 78',
       },
       {
@@ -43,6 +56,7 @@ test.group('Invoice service integration', (group) => {
         email: 'second@testco.fr',
         id: SECOND_CUSTOMER_ID,
         name: 'Bob Martin',
+        organizationId: TEST_TENANT_ID,
         phone: '+33 6 98 76 54 32',
       },
     ])
@@ -61,7 +75,7 @@ test.group('Invoice service integration', (group) => {
         issueDate: '2099-04-01',
         lines: [{ description: 'Consulting', quantity: 1, unitPrice: 100, vatRate: 20 }],
       },
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
 
     const scoped = await service.getInvoiceForListScope(
@@ -70,7 +84,7 @@ test.group('Invoice service integration', (group) => {
         customerId: TEST_CUSTOMER_ID,
         dateFilter: undefined,
       },
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
 
     assert.isNull(scoped)
@@ -87,7 +101,7 @@ test.group('Invoice service integration', (group) => {
         issueDate: '2099-04-01',
         lines: [{ description: 'Design', quantity: 1, unitPrice: 100, vatRate: 20 }],
       },
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
 
     const scoped = await service.getInvoiceForListScope(
@@ -96,7 +110,7 @@ test.group('Invoice service integration', (group) => {
         customerId: null,
         dateFilter: { endDate: '2099-04-30', startDate: '2099-04-15' },
       },
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
 
     assert.isNull(scoped)
@@ -125,7 +139,7 @@ test.group('Invoice service integration', (group) => {
             issueDate: '2099-04-01',
             lines: [{ description: 'Past due', quantity: 1, unitPrice: 100, vatRate: 20 }],
           },
-          SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+          TEST_ACCOUNTING_ACCESS_CONTEXT
         ),
       'Due date must be on or after the draft creation date.'
     )
@@ -137,7 +151,7 @@ test.group('Invoice service integration', (group) => {
         issueDate: '2099-04-01',
         lines: [{ description: 'On calendar date', quantity: 1, unitPrice: 100, vatRate: 20 }],
       },
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
 
     assert.equal(accepted.dueDate, '2099-04-10')

@@ -1,7 +1,7 @@
+import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { ExpenseService } from '#core/accounting/application/expenses/index'
-import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { expenses, journalEntries } from '#core/accounting/drizzle/schema'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
@@ -15,7 +15,11 @@ import { desc, eq } from 'drizzle-orm'
 
 import { runSimultaneously } from '../../../../../tests/helpers/concurrency_barrier.js'
 import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
-import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
+import {
+  seedTestOrganization,
+  setupTestDatabaseForGroup,
+  TEST_TENANT_ID,
+} from '../../../../../tests/helpers/testcontainers_db.js'
 
 const fakeUser: AuthProviderUser = {
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
@@ -30,12 +34,19 @@ const fakeUser: AuthProviderUser = {
 
 const fakeSession: AuthResult = {
   session: {
-    activeOrganizationId: null,
+    activeOrganizationId: TEST_TENANT_ID,
     expiresAt: new Date('2030-01-01T00:00:00.000Z'),
     token: 'test_session_token',
     userId: fakeUser.id,
   },
   user: fakeUser,
+}
+
+const TEST_ACCOUNTING_ACCESS_CONTEXT: AccountingAccessContext = {
+  actorId: fakeUser.id,
+  isAnonymous: false,
+  requestId: 'test',
+  tenantId: TEST_TENANT_ID,
 }
 
 class FakeAuth extends AuthenticationPort {
@@ -84,6 +95,7 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     const ctx = await setupTestDatabaseForGroup()
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
 
     const auth = new FakeAuth()
     app.container.bindValue(AuthenticationPort, auth)
@@ -169,11 +181,11 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     const service = new ExpenseService(db)
     const results = await runSimultaneously([
       (waitAtBarrier) =>
-        service.confirmExpense(draft.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT, {
+        service.confirmExpense(draft.id, TEST_ACCOUNTING_ACCESS_CONTEXT, {
           afterRead: waitAtBarrier,
         }),
       (waitAtBarrier) =>
-        service.confirmExpense(draft.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT, {
+        service.confirmExpense(draft.id, TEST_ACCOUNTING_ACCESS_CONTEXT, {
           afterRead: waitAtBarrier,
         }),
     ])
@@ -210,11 +222,11 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     const service = new ExpenseService(db)
     const results = await runSimultaneously([
       (waitAtBarrier) =>
-        service.deleteExpense(draft.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT, {
+        service.deleteExpense(draft.id, TEST_ACCOUNTING_ACCESS_CONTEXT, {
           afterRead: waitAtBarrier,
         }),
       (waitAtBarrier) =>
-        service.deleteExpense(draft.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT, {
+        service.deleteExpense(draft.id, TEST_ACCOUNTING_ACCESS_CONTEXT, {
           afterRead: waitAtBarrier,
         }),
     ])
@@ -267,7 +279,7 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
           date: '2026-04-20',
           label: 'Negative amount',
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        TEST_ACCOUNTING_ACCESS_CONTEXT
       )
     )
 
@@ -279,7 +291,7 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
           date: '2026-04-20',
           label: 'Category mismatch',
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        TEST_ACCOUNTING_ACCESS_CONTEXT
       )
     )
 
@@ -291,7 +303,7 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
           date: '2026-04-20',
           label: '   ',
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        TEST_ACCOUNTING_ACCESS_CONTEXT
       )
     )
 
@@ -451,6 +463,7 @@ test.group('Expenses service | getSummary and listExpenses', (group) => {
     const ctx = await setupTestDatabaseForGroup()
     cleanup = ctx.cleanup
     serviceDb = await app.container.make('drizzle')
+    await seedTestOrganization(serviceDb)
     service = new ExpenseService(serviceDb)
   })
 
@@ -469,16 +482,16 @@ test.group('Expenses service | getSummary and listExpenses', (group) => {
         date: '2026-04-01',
         label: 'A',
       },
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
     await service.createExpense(
       { amount: 200, category: 'Office', date: '2026-04-02', label: 'B' },
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
     const [draft] = await serviceDb.select().from(expenses).orderBy(desc(expenses.createdAt))
-    await service.confirmExpense(draft.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
+    await service.confirmExpense(draft.id, TEST_ACCOUNTING_ACCESS_CONTEXT)
 
-    const summary = await service.getSummary(SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
+    const summary = await service.getSummary(TEST_ACCOUNTING_ACCESS_CONTEXT)
     assert.equal(summary.totalCount, 2)
     assert.equal(summary.confirmedCount, 1)
     assert.equal(summary.draftCount, 1)
@@ -493,7 +506,7 @@ test.group('Expenses service | getSummary and listExpenses', (group) => {
         date: '2026-03-01',
         label: 'Outside range',
       },
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
     await service.createExpense(
       {
@@ -502,15 +515,15 @@ test.group('Expenses service | getSummary and listExpenses', (group) => {
         date: '2026-04-10',
         label: 'Inside range',
       },
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
     const [inside] = await serviceDb
       .select()
       .from(expenses)
       .where(eq(expenses.label, 'Inside range'))
-    await service.confirmExpense(inside.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
+    await service.confirmExpense(inside.id, TEST_ACCOUNTING_ACCESS_CONTEXT)
 
-    const summary = await service.getSummary(SYSTEM_ACCOUNTING_ACCESS_CONTEXT, {
+    const summary = await service.getSummary(TEST_ACCOUNTING_ACCESS_CONTEXT, {
       endDate: '2026-04-30',
       startDate: '2026-04-01',
     })
@@ -520,7 +533,7 @@ test.group('Expenses service | getSummary and listExpenses', (group) => {
   })
 
   test('listExpenses returns empty state with valid pagination', async ({ assert }) => {
-    const result = await service.listExpenses(1, 5, SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
+    const result = await service.listExpenses(1, 5, TEST_ACCOUNTING_ACCESS_CONTEXT)
     assert.equal(result.items.length, 0)
     assert.equal(result.pagination.totalItems, 0)
     assert.equal(result.pagination.totalPages, 1, 'totalPages must be at least 1')
@@ -536,12 +549,12 @@ test.group('Expenses service | getSummary and listExpenses', (group) => {
           date: '2026-04-01',
           label: `Expense ${i}`,
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        TEST_ACCOUNTING_ACCESS_CONTEXT
       )
     }
 
     // 3 items, perPage=2 → totalPages=2. Requesting page=99 should clamp to 2.
-    const result = await service.listExpenses(99, 2, SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
+    const result = await service.listExpenses(99, 2, TEST_ACCOUNTING_ACCESS_CONTEXT)
     assert.equal(result.pagination.totalPages, 2)
     assert.equal(result.pagination.page, 2)
     assert.equal(result.items.length, 1, 'page 2 of 3 items with perPage=2 has 1 item')
@@ -559,10 +572,10 @@ test.group('Expenses service | getSummary and listExpenses', (group) => {
         date: '2026-04-01',
         label: 'Re-confirm test',
       },
-      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      TEST_ACCOUNTING_ACCESS_CONTEXT
     )
     const [draft] = await serviceDb.select().from(expenses)
-    await service.confirmExpense(draft.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
+    await service.confirmExpense(draft.id, TEST_ACCOUNTING_ACCESS_CONTEXT)
 
     // Second confirm: should raise a domain error, not throw a 500
     const response = await client

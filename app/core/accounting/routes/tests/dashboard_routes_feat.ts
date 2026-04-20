@@ -2,9 +2,25 @@ import { type DashboardDto, DashboardService } from '#core/accounting/applicatio
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 
+import {
+  seedTestOrganization,
+  setupTestDatabaseForGroup,
+} from '../../../../../tests/helpers/testcontainers_db.js'
 import { authCookie, bindInvoiceAuth, inertiaHeaders } from './invoices_test_support.js'
 
 test.group('Dashboard routes', (group) => {
+  let cleanup: () => Promise<void>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+
+    const db = (await app.container.make('drizzle')) as any
+    await seedTestOrganization(db)
+  })
+
+  group.teardown(async () => cleanup())
+
   group.each.setup(() => {
     bindInvoiceAuth()
   })

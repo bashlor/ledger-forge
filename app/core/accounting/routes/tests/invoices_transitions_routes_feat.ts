@@ -1,7 +1,6 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
-import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
@@ -14,6 +13,8 @@ import {
   createDraftViaHttp,
   issuePayload,
   resetInvoiceFixtures,
+  seedTestOrganization,
+  TEST_ACCOUNTING_ACCESS_CONTEXT,
   TEST_CUSTOMER_ID,
 } from './invoices_test_support.js'
 
@@ -28,6 +29,7 @@ test.group(
       const ctx = await setupTestDatabaseForGroup()
       cleanup = ctx.cleanup
       db = await app.container.make('drizzle')
+      await seedTestOrganization(db)
       bindInvoiceAuth()
     })
 
@@ -205,7 +207,7 @@ test.group(
           name: 'Renamed Contact',
           phone: '+33 6 98 76 54 32',
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        TEST_ACCOUNTING_ACCESS_CONTEXT
       )
 
       const [issued] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
@@ -236,7 +238,7 @@ test.group(
           name: 'Draft Contact',
           phone: '+33 6 00 11 22 33',
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        TEST_ACCOUNTING_ACCESS_CONTEXT
       )
 
       const [updatedDraft] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
@@ -274,7 +276,7 @@ test.group(
           name: 'Updated Contact',
           phone: '+33 6 11 22 33 44',
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        TEST_ACCOUNTING_ACCESS_CONTEXT
       )
 
       await createDraftViaHttp(db, client)

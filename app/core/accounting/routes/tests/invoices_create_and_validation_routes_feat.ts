@@ -1,7 +1,6 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { InvoiceService } from '#core/accounting/application/invoices/index'
-import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { invoiceLines, invoices } from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
@@ -13,6 +12,8 @@ import {
   bindInvoiceAuth,
   createDraftViaHttp,
   resetInvoiceFixtures,
+  seedTestOrganization,
+  TEST_ACCOUNTING_ACCESS_CONTEXT,
   TEST_CUSTOMER_ID,
 } from './invoices_test_support.js'
 
@@ -25,6 +26,7 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
     const ctx = await setupTestDatabaseForGroup()
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
     bindInvoiceAuth()
   })
 
@@ -157,7 +159,7 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
           issueDate: '2020-01-01',
           lines: [{ description: 'Updated line', quantity: 1, unitPrice: 100, vatRate: 20 }],
         },
-        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        TEST_ACCOUNTING_ACCESS_CONTEXT
       )
     } catch {
       didThrow = true
