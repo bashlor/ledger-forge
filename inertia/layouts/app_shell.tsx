@@ -44,6 +44,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
     (user?.fullName && user.fullName.trim()) || (email ? email.split('@')[0] : '') || 'Account'
   const initials = user?.initials ?? getInitials(displayName || email || 'PL')
   const pageLabel = pageLabelForUrl(url)
+  const workspace = page.props.workspace
   const todayLine = formatTopbarDate(new Date().toISOString().slice(0, 10))
   const showDateScopeControls =
     url === '/dashboard' || url.startsWith('/expenses') || url.startsWith('/invoices')
@@ -146,9 +147,20 @@ function AppShellFrame({ children }: { children: ReactNode }) {
                 <p className="truncate font-headline text-sm font-semibold text-on-surface sm:text-base">
                   {pageLabel}
                 </p>
-                <p className="hidden truncate text-xs text-on-surface-variant sm:block">
-                  {pageDescriptions[pageLabel] ?? pageDescriptions.Overview}
-                </p>
+                {workspace ? (
+                  <p className="mt-0.5 truncate text-xs text-on-surface-variant">
+                    <span className="font-medium text-on-surface/90">{workspace.name}</span>
+                    {workspace.isAnonymousWorkspace ? (
+                      <span className="ml-2 inline-flex shrink-0 rounded-md border border-outline-variant/25 bg-surface-container-high/80 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">
+                        Anonymous
+                      </span>
+                    ) : null}
+                  </p>
+                ) : (
+                  <p className="hidden truncate text-xs text-on-surface-variant sm:block">
+                    {pageDescriptions[pageLabel] ?? pageDescriptions.Overview}
+                  </p>
+                )}
               </div>
             </div>
 

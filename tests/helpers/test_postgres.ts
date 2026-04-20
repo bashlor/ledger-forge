@@ -96,7 +96,7 @@ export async function createTestPostgresContext(): Promise<TestPostgresContext> 
     reset: async () => {
       await db.execute(
         drizzleSql.raw(
-          'TRUNCATE auth.session, auth.account, auth.verification, auth.user RESTART IDENTITY CASCADE'
+          'TRUNCATE auth.invitation, auth.member, auth.organization, auth.session, auth.account, auth.verification, auth.user RESTART IDENTITY CASCADE'
         )
       )
     },

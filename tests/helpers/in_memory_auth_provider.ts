@@ -197,6 +197,7 @@ export class InMemoryAuthProvider extends AuthenticationPort {
   private createSession(user: AuthProviderUser & { password: string }): AuthResult {
     const token = randomUUID()
     const session: AuthSession = {
+      activeOrganizationId: null,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       token,
       userId: user.id,

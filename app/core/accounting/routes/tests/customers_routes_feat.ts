@@ -28,6 +28,7 @@ const fakeUser: AuthProviderUser = {
 
 const fakeSession: AuthResult = {
   session: {
+    activeOrganizationId: null,
     expiresAt: new Date('2030-01-01T00:00:00.000Z'),
     token: 'test_session_token_customers',
     userId: fakeUser.id,

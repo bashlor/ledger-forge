@@ -1,4 +1,4 @@
-import { boolean, pgSchema, text, timestamp, varchar } from 'drizzle-orm/pg-core'
+import { boolean, pgSchema, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core'
 
 export const authSchema = pgSchema('auth')
 
@@ -24,11 +24,72 @@ export const user = authSchema.table('user', {
     .$onUpdate(() => new Date()),
 })
 
+// =============================================================================
+// Better Auth Organization plugin (tenant = organization)
+// =============================================================================
+
+/**
+ * organization — workspace / tenant root for the organization plugin.
+ */
+export const organization = authSchema.table('organization', {
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  id: text('id').primaryKey(),
+  logo: text('logo'),
+  metadata: text('metadata'),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+})
+
+/**
+ * member — user membership in an organization with a role (owner | admin | member).
+ */
+export const member = authSchema.table(
+  'member',
+  {
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (table) => ({
+    orgUserUnique: uniqueIndex('auth_member_organization_id_user_id_unique').on(
+      table.organizationId,
+      table.userId
+    ),
+  })
+)
+
+/**
+ * invitation — pending invites to join an organization.
+ */
+export const invitation = authSchema.table('invitation', {
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  email: text('email').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  id: text('id').primaryKey(),
+  inviterId: text('inviter_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organization.id, { onDelete: 'cascade' }),
+  role: text('role'),
+  status: text('status').notNull().default('pending'),
+})
+
 /**
  * session — Better Auth session table.
- * Stores active authentication sessions.
+ * Stores active authentication sessions and active organization (tenant) id.
  */
 export const session = authSchema.table('session', {
+  activeOrganizationId: text('active_organization_id').references(() => organization.id, {
+    onDelete: 'set null',
+  }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   id: text('id').primaryKey(),
@@ -87,10 +148,16 @@ export const verification = authSchema.table('verification', {
 // =============================================================================
 
 export type InsertAccount = typeof account.$inferInsert
+export type InsertInvitation = typeof invitation.$inferInsert
+export type InsertMember = typeof member.$inferInsert
+export type InsertOrganization = typeof organization.$inferInsert
 export type InsertSession = typeof session.$inferInsert
 export type InsertUser = typeof user.$inferInsert
 export type InsertVerification = typeof verification.$inferInsert
 export type SelectAccount = typeof account.$inferSelect
+export type SelectInvitation = typeof invitation.$inferSelect
+export type SelectMember = typeof member.$inferSelect
+export type SelectOrganization = typeof organization.$inferSelect
 export type SelectSession = typeof session.$inferSelect
 export type SelectUser = typeof user.$inferSelect
 export type SelectVerification = typeof verification.$inferSelect

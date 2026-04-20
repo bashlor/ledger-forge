@@ -4,6 +4,7 @@ import {
   InvalidCredentialsError,
   SessionExpiredError,
 } from '#core/user_management/domain/errors'
+import { mapBetterAuthError } from '#core/user_management/infra/auth/map_better_auth_error'
 import { test } from '@japa/runner'
 
 import { resolveBetterAuthPublicError, resolvePublicError } from './public_error.js'
@@ -92,6 +93,40 @@ test.group('resolvePublicError', () => {
       status: 401,
     })
 
+    assert.deepEqual(resolveBetterAuthPublicError('ORGANIZATION_NOT_FOUND'), {
+      code: 'auth.resource_not_found',
+      message: 'The organization could not be found.',
+      presentation: 'form',
+      status: 404,
+    })
+
+    assert.deepEqual(
+      resolveBetterAuthPublicError('YOU_ARE_NOT_ALLOWED_TO_ACCESS_THIS_ORGANIZATION'),
+      {
+        code: 'auth.forbidden',
+        message: 'You are not allowed to access this organization.',
+        presentation: 'form',
+        status: 403,
+      }
+    )
+
+    assert.deepEqual(resolveBetterAuthPublicError('FAILED_TO_RETRIEVE_INVITATION'), {
+      code: 'auth.invalid_payload',
+      message: 'The invitation could not be processed. Please try again.',
+      presentation: 'form',
+      status: 422,
+    })
+
+    assert.deepEqual(
+      resolveBetterAuthPublicError('YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER'),
+      {
+        code: 'domain.business_logic_error',
+        message: 'The requested action could not be completed.',
+        presentation: 'form',
+        status: 422,
+      }
+    )
+
     assert.deepEqual(resolveBetterAuthPublicError('SOME_UNKNOWN_CODE'), {
       code: 'auth.provider_failure',
       message: 'An unexpected error occurred. Please try again.',
@@ -171,6 +206,44 @@ test.group('resolvePublicError', () => {
         message: 'Session has expired or is invalid',
         presentation: 'form',
         status: 401,
+      }
+    )
+  })
+
+  test('keeps translated organization errors aligned with direct Better Auth mappings', ({
+    assert,
+  }) => {
+    assert.deepEqual(
+      resolvePublicError(
+        mapBetterAuthError({ code: 'YOU_ARE_NOT_ALLOWED_TO_ACCESS_THIS_ORGANIZATION' })
+      ),
+      {
+        code: 'auth.forbidden',
+        message: 'You are not allowed to access this organization.',
+        presentation: 'form',
+        status: 403,
+      }
+    )
+
+    assert.deepEqual(
+      resolvePublicError(
+        mapBetterAuthError({ code: 'INVITER_IS_NO_LONGER_A_MEMBER_OF_THE_ORGANIZATION' })
+      ),
+      {
+        code: 'auth.resource_not_found',
+        message: 'The inviter is no longer a member of this organization.',
+        presentation: 'form',
+        status: 404,
+      }
+    )
+
+    assert.deepEqual(
+      resolvePublicError(mapBetterAuthError({ code: 'ORGANIZATION_MEMBERSHIP_LIMIT_REACHED' })),
+      {
+        code: 'domain.business_logic_error',
+        message: 'The requested action could not be completed.',
+        presentation: 'form',
+        status: 422,
       }
     )
   })

@@ -75,6 +75,7 @@ class RouteAuthenticationStub extends AuthenticationPort {
   async signIn(_email: string, _password: string): Promise<AuthResult> {
     return {
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'session_token',
         userId: guestUser.id,
@@ -85,6 +86,7 @@ class RouteAuthenticationStub extends AuthenticationPort {
   async signInAnonymously(): Promise<AuthResult> {
     return {
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'anonymous_session_token',
         userId: anonymousUser.id,
@@ -96,6 +98,7 @@ class RouteAuthenticationStub extends AuthenticationPort {
   async signUp(_email: string, _password: string, _name?: string): Promise<AuthResult> {
     return {
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'session_token',
         userId: guestUser.id,
@@ -113,6 +116,7 @@ class RouteAuthenticationStub extends AuthenticationPort {
   async validateSession(_token: string): Promise<AuthResult> {
     return {
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'session_token',
         userId: guestUser.id,
@@ -174,6 +178,7 @@ test.group('Auth inertia routes', (group) => {
     const auth = new RouteAuthenticationStub()
     auth.signUp = async () => ({
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'signup_token',
         userId: guestUser.id,
@@ -317,6 +322,7 @@ test.group('Auth inertia routes', (group) => {
   }) => {
     const auth = new RouteAuthenticationStub({
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'anonymous_session_token',
         userId: anonymousUser.id,
@@ -347,6 +353,7 @@ test.group('Auth inertia routes', (group) => {
   }) => {
     const auth = new RouteAuthenticationStub({
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'session_token',
         userId: guestUser.id,
@@ -377,6 +384,7 @@ test.group('Auth inertia routes', (group) => {
   }) => {
     const auth = new RouteAuthenticationStub({
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'session_token',
         userId: guestUser.id,
@@ -402,6 +410,7 @@ test.group('Auth inertia routes', (group) => {
   }) => {
     const auth = new RouteAuthenticationStub({
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'session_token',
         userId: guestUser.id,
@@ -431,6 +440,7 @@ test.group('Auth inertia routes', (group) => {
   }) => {
     const auth = new RouteAuthenticationStub({
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'anonymous_session_token',
         userId: anonymousUser.id,
@@ -456,6 +466,7 @@ test.group('Auth inertia routes', (group) => {
   }) => {
     const auth = new RouteAuthenticationStub({
       session: {
+        activeOrganizationId: null,
         expiresAt: new Date('2030-01-01T00:00:00.000Z'),
         token: 'anonymous_session_token',
         userId: anonymousUser.id,
