@@ -52,17 +52,22 @@ export async function persistDraftUpdate(
   await hooks?.afterRead?.()
 
   const preparedLines = buildDraftInvoiceLinesMutation(context.normalized.lines)
-  const invoice = await updateInvoiceDraft(tx, id, {
-    ...buildDraftInvoiceMutation({
-      customer: context.customer,
-      customerId: context.normalized.customerId,
-      dueDate: context.normalized.dueDate,
-      issueDate: context.normalized.issueDate,
-      issuedCompanyAddress: context.existing.issuedCompanyAddress,
-      issuedCompanyName: context.existing.issuedCompanyName,
-      totals: preparedLines.totals,
-    }),
-  })
+  const invoice = await updateInvoiceDraft(
+    tx,
+    id,
+    {
+      ...buildDraftInvoiceMutation({
+        customer: context.customer,
+        customerId: context.normalized.customerId,
+        dueDate: context.normalized.dueDate,
+        issueDate: context.normalized.issueDate,
+        issuedCompanyAddress: context.existing.issuedCompanyAddress,
+        issuedCompanyName: context.existing.issuedCompanyName,
+        totals: preparedLines.totals,
+      }),
+    },
+    requestContext.tenantId
+  )
 
   if (!invoice || invoice.status !== 'draft') {
     const again = await loadInvoiceForMutationOrThrow(tx, id, requestContext)

@@ -31,7 +31,7 @@ export async function loadDraftCreationContext(
   return {
     customer: await loadCustomerSnapshotOrThrow(tx, normalized.customerId, requestContext.tenantId),
     invoiceId: uuidv7(),
-    invoiceNumber: await nextInvoiceNumber(tx, normalized.issueDate),
+    invoiceNumber: await nextInvoiceNumber(tx, normalized.issueDate, requestContext.tenantId),
     normalized,
   }
 }

@@ -39,7 +39,8 @@ export async function findCustomerById(
 
 export async function invoiceAggregateForCustomer(
   db: DrizzleDb,
-  customerId: string
+  customerId: string,
+  tenantId: string
 ): Promise<CustomerAggregate> {
   const [row] = await db
     .select({
@@ -50,7 +51,7 @@ export async function invoiceAggregateForCustomer(
         ),
     })
     .from(invoices)
-    .where(eq(invoices.customerId, customerId))
+    .where(and(eq(invoices.customerId, customerId), eq(invoices.organizationId, tenantId)))
 
   return {
     invoiceCount: row?.invoiceCount ?? 0,
@@ -77,11 +78,14 @@ export async function listCustomersWithAggregates(
     .where(tenantWhere)
   const paginationWindow = computePaginationWindow(totalCount, perPage, page)
 
+  const invoiceTenantWhere = eq(invoices.organizationId, tenantId)
+
   const [{ linkedCustomers }] = await db
     .select({
       linkedCustomers: sql<number>`count(distinct ${invoices.customerId})::int`.mapWith(Number),
     })
     .from(invoices)
+    .where(invoiceTenantWhere)
 
   const [{ totalInvoicedCents }] = await db
     .select({
@@ -91,6 +95,7 @@ export async function listCustomersWithAggregates(
         ),
     })
     .from(invoices)
+    .where(invoiceTenantWhere)
 
   const rows = await db
     .select()

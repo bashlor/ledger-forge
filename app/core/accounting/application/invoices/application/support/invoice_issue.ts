@@ -49,7 +49,7 @@ export async function persistInvoiceIssue(
 ) {
   await hooks?.afterRead?.()
 
-  const transitioned = await updateInvoiceStatus(tx, id, 'draft', 'issued')
+  const transitioned = await updateInvoiceStatus(tx, id, 'draft', 'issued', requestContext.tenantId)
   if (!transitioned) {
     const again = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
     assertInvoiceCanBeIssuedToday(again.status, again.dueDate, context.today)
