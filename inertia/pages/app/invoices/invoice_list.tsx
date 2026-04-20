@@ -11,7 +11,11 @@ interface Props {
   onCancelDelete: () => void
   onDeleteDraft: (invoice: InvoiceDto) => void
   onPageChange: (page: number) => void
+  onPerPageChange: (perPage: number) => void
+  onSearchChange: (value: string) => void
+  onSearchSubmit: () => void
   onSelectInvoice: (invoice: InvoiceDto) => void
+  searchQuery: string
   saving: boolean
   summary: InvoiceSummaryDto | null
 }
@@ -22,7 +26,11 @@ export function InvoiceList({
   onCancelDelete,
   onDeleteDraft,
   onPageChange,
+  onPerPageChange,
+  onSearchChange,
+  onSearchSubmit,
   onSelectInvoice,
+  searchQuery,
   saving,
   summary,
 }: Props) {
@@ -72,9 +80,33 @@ export function InvoiceList({
 
       <DataTable
         emptyMessage="No invoices fall within the selected period."
+        headerContent={
+          <form
+            className="flex w-full gap-2 sm:w-auto"
+            onSubmit={(event) => {
+              event.preventDefault()
+              onSearchSubmit()
+            }}
+          >
+            <input
+              className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="Search invoice, company, contact"
+              type="search"
+              value={searchQuery}
+            />
+            <button
+              className="rounded-lg border border-outline-variant/35 px-3 text-sm text-on-surface"
+              type="submit"
+            >
+              Search
+            </button>
+          </form>
+        }
         isEmpty={invoices.items.length === 0}
         onPageChange={onPageChange}
-        pagination={invoices.pagination.totalItems > 0 ? invoices.pagination : undefined}
+        onPerPageChange={onPerPageChange}
+        pagination={invoices.pagination}
         title="Invoice register"
       >
         <table className="w-full min-w-[640px] border-collapse text-left text-sm">
