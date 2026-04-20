@@ -7,6 +7,8 @@ import { and, count, desc, eq, gte, inArray, like, lte, sql } from 'drizzle-orm'
 
 import type { InvoiceListScopeInput, InvoiceRow } from '../types.js'
 
+import { requireTenantScope } from '../../support/tenant_scope.js'
+
 type DrizzleDb = PostgresJsDatabase<any>
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 type InvoiceDbExecutor = DrizzleDb | DrizzleTx
@@ -224,5 +226,5 @@ export async function readCustomerSnapshot(
 }
 
 function applyInvoiceTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
-  return and(where, eq(invoices.organizationId, tenantId))!
+  return requireTenantScope(where, tenantId, invoices.organizationId)
 }

@@ -7,6 +7,8 @@ import { and, count, eq, inArray, sql } from 'drizzle-orm'
 
 import type { CustomerAggregate, CustomerRow } from './types.js'
 
+import { requireTenantScope } from '../support/tenant_scope.js'
+
 type DrizzleDb = PostgresJsDatabase<any>
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 
@@ -131,7 +133,7 @@ export async function listCustomersWithAggregates(
         ),
     })
     .from(invoices)
-    .where(inArray(invoices.customerId, ids))
+    .where(and(inArray(invoices.customerId, ids), eq(invoices.organizationId, tenantId)))
     .groupBy(invoices.customerId)
 
   return {
@@ -154,5 +156,5 @@ export async function listCustomersWithAggregates(
 }
 
 function applyCustomerTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
-  return and(where, eq(customers.organizationId, tenantId))!
+  return requireTenantScope(where, tenantId, customers.organizationId)
 }

@@ -51,6 +51,10 @@ test.group('Accounting access context', () => {
     assert.equal(access.tenantId, 'org-tenant-1')
   })
 
+  test('throws when session is undefined', ({ assert }) => {
+    assert.throws(() => accountingAccessFromSession(undefined), 'Missing active organization')
+  })
+
   test('systemAccessContext builds context with explicit tenant id', ({ assert }) => {
     const access = systemAccessContext('my-org-id')
     assert.deepEqual(access, {
