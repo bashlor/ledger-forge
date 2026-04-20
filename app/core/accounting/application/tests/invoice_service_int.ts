@@ -2,6 +2,7 @@ import type { AccountingBusinessCalendar } from '#core/accounting/application/su
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { InvoiceService } from '#core/accounting/application/invoices/index'
+import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { customers, invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
@@ -53,17 +54,24 @@ test.group('Invoice service integration', (group) => {
     assert,
   }) => {
     const service = new InvoiceService(db)
-    const invoice = await service.createDraft({
-      customerId: SECOND_CUSTOMER_ID,
-      dueDate: '2099-05-01',
-      issueDate: '2099-04-01',
-      lines: [{ description: 'Consulting', quantity: 1, unitPrice: 100, vatRate: 20 }],
-    })
+    const invoice = await service.createDraft(
+      {
+        customerId: SECOND_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'Consulting', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    )
 
-    const scoped = await service.getInvoiceForListScope(invoice.id, {
-      customerId: TEST_CUSTOMER_ID,
-      dateFilter: undefined,
-    })
+    const scoped = await service.getInvoiceForListScope(
+      invoice.id,
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dateFilter: undefined,
+      },
+      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    )
 
     assert.isNull(scoped)
   })
@@ -72,17 +80,24 @@ test.group('Invoice service integration', (group) => {
     assert,
   }) => {
     const service = new InvoiceService(db)
-    const invoice = await service.createDraft({
-      customerId: TEST_CUSTOMER_ID,
-      dueDate: '2099-05-01',
-      issueDate: '2099-04-01',
-      lines: [{ description: 'Design', quantity: 1, unitPrice: 100, vatRate: 20 }],
-    })
+    const invoice = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'Design', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    )
 
-    const scoped = await service.getInvoiceForListScope(invoice.id, {
-      customerId: null,
-      dateFilter: { endDate: '2099-04-30', startDate: '2099-04-15' },
-    })
+    const scoped = await service.getInvoiceForListScope(
+      invoice.id,
+      {
+        customerId: null,
+        dateFilter: { endDate: '2099-04-30', startDate: '2099-04-15' },
+      },
+      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    )
 
     assert.isNull(scoped)
   })
@@ -103,21 +118,27 @@ test.group('Invoice service integration', (group) => {
 
     await assert.rejects(
       () =>
-        service.createDraft({
-          customerId: TEST_CUSTOMER_ID,
-          dueDate: '2099-04-09',
-          issueDate: '2099-04-01',
-          lines: [{ description: 'Past due', quantity: 1, unitPrice: 100, vatRate: 20 }],
-        }),
+        service.createDraft(
+          {
+            customerId: TEST_CUSTOMER_ID,
+            dueDate: '2099-04-09',
+            issueDate: '2099-04-01',
+            lines: [{ description: 'Past due', quantity: 1, unitPrice: 100, vatRate: 20 }],
+          },
+          SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+        ),
       'Due date must be on or after the draft creation date.'
     )
 
-    const accepted = await service.createDraft({
-      customerId: TEST_CUSTOMER_ID,
-      dueDate: '2099-04-10',
-      issueDate: '2099-04-01',
-      lines: [{ description: 'On calendar date', quantity: 1, unitPrice: 100, vatRate: 20 }],
-    })
+    const accepted = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-04-10',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'On calendar date', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    )
 
     assert.equal(accepted.dueDate, '2099-04-10')
   })

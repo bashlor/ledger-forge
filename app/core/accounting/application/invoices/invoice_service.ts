@@ -3,10 +3,7 @@ import type { AccountingActivitySink } from '#core/accounting/application/suppor
 import type { AccountingServiceDependencies } from '#core/accounting/application/support/service_dependencies'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import {
-  type AccountingAccessContext,
-  SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
-} from '#core/accounting/application/support/access_context'
+import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import {
   type AccountingBusinessCalendar,
   SystemAccountingBusinessCalendar,
@@ -59,22 +56,19 @@ export class InvoiceService {
 
   async createDraft(
     input: SaveInvoiceDraftInput,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext
   ): Promise<InvoiceDto> {
     return createInvoiceUseCase(this.dependencies(), input, toInvoiceRequestContext(access))
   }
 
-  async deleteDraft(
-    id: string,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
-  ): Promise<void> {
+  async deleteDraft(id: string, access: AccountingAccessContext): Promise<void> {
     await cancelInvoiceUseCase(this.dependencies(), id, toInvoiceRequestContext(access))
   }
 
   async findFirstInvoiceIdForCustomer(
     customerId: string,
-    dateFilter?: DateFilter,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext,
+    dateFilter?: DateFilter
   ): Promise<null | string> {
     return findFirstInvoiceIdForCustomer(this.db, {
       customerId,
@@ -83,14 +77,11 @@ export class InvoiceService {
     })
   }
 
-  async getInvoiceById(
-    id: string,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
-  ): Promise<InvoiceDto | null> {
+  async getInvoiceById(id: string, access: AccountingAccessContext): Promise<InvoiceDto | null> {
     const requestContext = toInvoiceRequestContext(access)
     const row = await getInvoiceById(this.db, { id, tenantId: requestContext.tenantId })
     if (!row) return null
-    const lines = await listInvoiceLinesForInvoice(this.db, id, requestContext.tenantId)
+    const lines = await listInvoiceLinesForInvoice(this.db, id)
     return toInvoiceDto(
       row,
       lines.map(toLineDto),
@@ -101,7 +92,7 @@ export class InvoiceService {
   async getInvoiceForListScope(
     id: string,
     scope: InvoiceListScopeInput,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext
   ): Promise<InvoiceDto | null> {
     const requestContext = toInvoiceRequestContext(access)
     const row = await getInvoiceForListScopeQuery(this.db, {
@@ -110,7 +101,7 @@ export class InvoiceService {
       tenantId: requestContext.tenantId,
     })
     if (!row) return null
-    const lines = await listInvoiceLinesForInvoice(this.db, id, requestContext.tenantId)
+    const lines = await listInvoiceLinesForInvoice(this.db, id)
     return toInvoiceDto(
       row,
       lines.map(toLineDto),
@@ -119,8 +110,8 @@ export class InvoiceService {
   }
 
   async getInvoiceSummary(
-    dateFilter?: DateFilter,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext,
+    dateFilter?: DateFilter
   ): Promise<InvoiceSummaryDto> {
     return getInvoiceSummaryQuery(this.db, {
       filter: dateFilter,
@@ -132,29 +123,27 @@ export class InvoiceService {
   async issueInvoice(
     id: string,
     input: IssueInvoiceInput,
-    hooks?: InvoiceConcurrencyHooks,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext,
+    hooks?: InvoiceConcurrencyHooks
   ): Promise<InvoiceDto> {
     return sendInvoiceUseCase(
       this.dependencies(),
       id,
       input,
-      hooks,
-      toInvoiceRequestContext(access)
+      toInvoiceRequestContext(access),
+      hooks
     )
   }
 
-  async listCustomersForSelect(
-    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
-  ): Promise<CustomerForSelectDto[]> {
-    return listCustomersForSelectQuery(this.db)
+  async listCustomersForSelect(access: AccountingAccessContext): Promise<CustomerForSelectDto[]> {
+    return listCustomersForSelectQuery(this.db, toInvoiceRequestContext(access).tenantId)
   }
 
   async listInvoices(
     page = 1,
     perPage = 5,
-    dateFilter?: DateFilter,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext,
+    dateFilter?: DateFilter
   ): Promise<InvoiceListResult> {
     const requestContext = toInvoiceRequestContext(access)
     const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
@@ -186,7 +175,7 @@ export class InvoiceService {
     }
 
     const ids = rows.map((row) => row.id)
-    const lineRows = await listInvoiceLinesForInvoiceIds(this.db, ids, requestContext.tenantId)
+    const lineRows = await listInvoiceLinesForInvoiceIds(this.db, ids)
     const items = rows.map((invoice) =>
       toInvoiceDto(
         invoice,
@@ -208,24 +197,24 @@ export class InvoiceService {
 
   async markInvoicePaid(
     id: string,
-    hooks?: InvoiceConcurrencyHooks,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext,
+    hooks?: InvoiceConcurrencyHooks
   ): Promise<InvoiceDto> {
-    return markInvoicePaidUseCase(this.dependencies(), id, hooks, toInvoiceRequestContext(access))
+    return markInvoicePaidUseCase(this.dependencies(), id, toInvoiceRequestContext(access), hooks)
   }
 
   async updateDraft(
     id: string,
     input: SaveInvoiceDraftInput,
-    hooks?: InvoiceConcurrencyHooks,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext,
+    hooks?: InvoiceConcurrencyHooks
   ): Promise<InvoiceDto> {
     return updateInvoiceDraftUseCase(
       this.dependencies(),
       id,
       input,
-      hooks,
-      toInvoiceRequestContext(access)
+      toInvoiceRequestContext(access),
+      hooks
     )
   }
 

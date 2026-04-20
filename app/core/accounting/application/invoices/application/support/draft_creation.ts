@@ -18,7 +18,8 @@ type DrizzleTx = Parameters<Parameters<InvoiceUseCaseDeps['db']['transaction']>[
 export async function loadDraftCreationContext(
   tx: DrizzleTx,
   deps: InvoiceUseCaseDeps,
-  input: SaveInvoiceDraftInput
+  input: SaveInvoiceDraftInput,
+  requestContext: InvoiceRequestContext
 ) {
   const normalized = normalizeSaveInvoiceDraftInput(input)
   assertDraftCanBeCreatedToday(
@@ -28,7 +29,7 @@ export async function loadDraftCreationContext(
   )
 
   return {
-    customer: await loadCustomerSnapshotOrThrow(tx, normalized.customerId),
+    customer: await loadCustomerSnapshotOrThrow(tx, normalized.customerId, requestContext.tenantId),
     invoiceId: uuidv7(),
     invoiceNumber: await nextInvoiceNumber(tx, normalized.issueDate),
     normalized,
@@ -38,12 +39,14 @@ export async function loadDraftCreationContext(
 export async function persistDraftCreation(
   tx: DrizzleTx,
   context: Awaited<ReturnType<typeof loadDraftCreationContext>>,
-  _requestContext: InvoiceRequestContext
+  requestContext: InvoiceRequestContext
 ) {
   const preparedLines = buildDraftInvoiceLinesMutation(context.normalized.lines)
   const invoice = await insertInvoice(tx, {
+    createdBy: requestContext.actorId ?? null,
     id: context.invoiceId,
     invoiceNumber: context.invoiceNumber,
+    organizationId: requestContext.tenantId ?? null,
     status: 'draft',
     ...buildDraftInvoiceMutation({
       customer: context.customer,

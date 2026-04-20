@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { InvoiceService } from '#core/accounting/application/invoices/index'
+import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
@@ -72,9 +73,13 @@ test.group('Invoices routes | concurrency', (group) => {
     const service = new InvoiceService(db)
     const results = await runSimultaneously([
       (waitAtBarrier) =>
-        service.issueInvoice(draft.id, issuePayload(), { afterRead: waitAtBarrier }),
+        service.issueInvoice(draft.id, issuePayload(), SYSTEM_ACCOUNTING_ACCESS_CONTEXT, {
+          afterRead: waitAtBarrier,
+        }),
       (waitAtBarrier) =>
-        service.issueInvoice(draft.id, issuePayload(), { afterRead: waitAtBarrier }),
+        service.issueInvoice(draft.id, issuePayload(), SYSTEM_ACCOUNTING_ACCESS_CONTEXT, {
+          afterRead: waitAtBarrier,
+        }),
     ])
 
     assert.equal(
@@ -100,10 +105,16 @@ test.group('Invoices routes | concurrency', (group) => {
     const draft = await createDraftViaHttp(db, client)
     const service = new InvoiceService(db)
 
-    await service.issueInvoice(draft.id, issuePayload())
+    await service.issueInvoice(draft.id, issuePayload(), SYSTEM_ACCOUNTING_ACCESS_CONTEXT)
     const results = await runSimultaneously([
-      (waitAtBarrier) => service.markInvoicePaid(draft.id, { afterRead: waitAtBarrier }),
-      (waitAtBarrier) => service.markInvoicePaid(draft.id, { afterRead: waitAtBarrier }),
+      (waitAtBarrier) =>
+        service.markInvoicePaid(draft.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT, {
+          afterRead: waitAtBarrier,
+        }),
+      (waitAtBarrier) =>
+        service.markInvoicePaid(draft.id, SYSTEM_ACCOUNTING_ACCESS_CONTEXT, {
+          afterRead: waitAtBarrier,
+        }),
     ])
     assert.equal(
       results.filter((result) => result.status === 'fulfilled').length,
@@ -162,6 +173,7 @@ test.group('Invoices routes | concurrency', (group) => {
               { description: 'Concurrent update A', quantity: 1, unitPrice: 200, vatRate: 20 },
             ],
           },
+          SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
           { afterRead: waitAtBarrier }
         ),
       (waitAtBarrier) =>
@@ -175,6 +187,7 @@ test.group('Invoices routes | concurrency', (group) => {
               { description: 'Concurrent update B', quantity: 3, unitPrice: 150, vatRate: 10 },
             ],
           },
+          SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
           { afterRead: waitAtBarrier }
         ),
     ])

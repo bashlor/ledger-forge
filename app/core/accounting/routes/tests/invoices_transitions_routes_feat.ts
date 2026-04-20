@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
+import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
@@ -195,13 +196,17 @@ test.group(
         .redirects(0)
         .form(issuePayload())
 
-      await customerService.updateCustomer(TEST_CUSTOMER_ID, {
-        address: '12 avenue de France, 75013 Paris',
-        company: 'Renamed Company SAS',
-        email: 'renamed@testco.fr',
-        name: 'Renamed Contact',
-        phone: '+33 6 98 76 54 32',
-      })
+      await customerService.updateCustomer(
+        TEST_CUSTOMER_ID,
+        {
+          address: '12 avenue de France, 75013 Paris',
+          company: 'Renamed Company SAS',
+          email: 'renamed@testco.fr',
+          name: 'Renamed Contact',
+          phone: '+33 6 98 76 54 32',
+        },
+        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      )
 
       const [issued] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
       assert.equal(issued.status, 'issued')
@@ -222,13 +227,17 @@ test.group(
       const customerService = new CustomerService(db)
       const draft = await createDraftViaHttp(db, client)
 
-      await customerService.updateCustomer(TEST_CUSTOMER_ID, {
-        address: '99 boulevard Voltaire, 75011 Paris',
-        company: 'Draft Sync Company',
-        email: 'draft-sync@testco.fr',
-        name: 'Draft Contact',
-        phone: '+33 6 00 11 22 33',
-      })
+      await customerService.updateCustomer(
+        TEST_CUSTOMER_ID,
+        {
+          address: '99 boulevard Voltaire, 75011 Paris',
+          company: 'Draft Sync Company',
+          email: 'draft-sync@testco.fr',
+          name: 'Draft Contact',
+          phone: '+33 6 00 11 22 33',
+        },
+        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      )
 
       const [updatedDraft] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
       assert.equal(updatedDraft.status, 'draft')
@@ -256,13 +265,17 @@ test.group(
         .redirects(0)
         .form(issuePayload())
 
-      await customerService.updateCustomer(TEST_CUSTOMER_ID, {
-        address: 'Updated Address, Paris',
-        company: 'Updated Company SAS',
-        email: 'updated@testco.fr',
-        name: 'Updated Contact',
-        phone: '+33 6 11 22 33 44',
-      })
+      await customerService.updateCustomer(
+        TEST_CUSTOMER_ID,
+        {
+          address: 'Updated Address, Paris',
+          company: 'Updated Company SAS',
+          email: 'updated@testco.fr',
+          name: 'Updated Contact',
+          phone: '+33 6 11 22 33 44',
+        },
+        SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+      )
 
       await createDraftViaHttp(db, client)
       const [issuedRow] = await db.select().from(invoices).where(eq(invoices.id, issuedDraft.id))

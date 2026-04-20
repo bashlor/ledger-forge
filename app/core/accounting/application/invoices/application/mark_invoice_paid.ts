@@ -1,5 +1,3 @@
-import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
-
 import type { InvoiceConcurrencyHooks, InvoiceDto, InvoiceRequestContext } from '../types.js'
 import type { InvoiceUseCaseDeps } from './support/invoice_use_case_deps.js'
 
@@ -10,8 +8,8 @@ import { recordInvoiceActivity } from './support/record_invoice_activity.js'
 export async function markInvoicePaidUseCase(
   deps: InvoiceUseCaseDeps,
   id: string,
-  hooks?: InvoiceConcurrencyHooks,
-  requestContext: InvoiceRequestContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  requestContext: InvoiceRequestContext,
+  hooks?: InvoiceConcurrencyHooks
 ): Promise<InvoiceDto> {
   const result = await deps.db.transaction(async (tx) => {
     await loadInvoicePaymentContext(tx, id, requestContext)

@@ -17,8 +17,12 @@ import {
 type DrizzleDb = PostgresJsDatabase<any>
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 
-export async function loadCustomerSnapshotOrThrow(db: DrizzleDb | DrizzleTx, customerId: string) {
-  const customer = await readCustomerSnapshot(db, customerId)
+export async function loadCustomerSnapshotOrThrow(
+  db: DrizzleDb | DrizzleTx,
+  customerId: string,
+  tenantId?: null | string
+) {
+  const customer = await readCustomerSnapshot(db, customerId, tenantId)
   if (!customer) throw new DomainError('Customer not found.', 'not_found')
   return customer
 }
@@ -40,7 +44,7 @@ export async function loadInvoiceDto(
 
   assertInvoiceBelongsToTenant(getInvoiceTenantId(invoice), requestContext.tenantId)
 
-  const lines = await listInvoiceLinesForInvoice(db, input.invoiceId, requestContext.tenantId)
+  const lines = await listInvoiceLinesForInvoice(db, input.invoiceId)
 
   return toInvoiceDto(
     invoice,
@@ -62,6 +66,5 @@ export async function loadInvoiceForMutationOrThrow(
 }
 
 function getInvoiceTenantId(invoice: InvoiceRow): null | string | undefined {
-  const candidate = invoice as InvoiceRow & { tenantId?: null | string }
-  return candidate.tenantId
+  return invoice.organizationId
 }

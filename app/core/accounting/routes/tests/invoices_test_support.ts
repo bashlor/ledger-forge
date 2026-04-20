@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { type InvoiceService } from '#core/accounting/application/invoices/index'
+import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
 import { customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
@@ -107,19 +108,22 @@ export async function createDraftViaService(
   }
 ) {
   const dueDate = options.dueDate ?? '2099-12-31'
-  return service.createDraft({
-    customerId: options.customerId ?? TEST_CUSTOMER_ID,
-    dueDate,
-    issueDate: options.issueDate,
-    lines: [
-      {
-        description: options.description ?? `Draft ${options.issueDate}`,
-        quantity: 1,
-        unitPrice: 100,
-        vatRate: 20,
-      },
-    ],
-  })
+  return service.createDraft(
+    {
+      customerId: options.customerId ?? TEST_CUSTOMER_ID,
+      dueDate,
+      issueDate: options.issueDate,
+      lines: [
+        {
+          description: options.description ?? `Draft ${options.issueDate}`,
+          quantity: 1,
+          unitPrice: 100,
+          vatRate: 20,
+        },
+      ],
+    },
+    SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  )
 }
 
 export function inertiaGet(client: any, url: string) {

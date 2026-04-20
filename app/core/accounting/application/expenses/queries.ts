@@ -1,3 +1,4 @@
+import type { SQL } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { computePaginationWindow } from '#core/accounting/application/support/pagination'
@@ -13,15 +14,22 @@ export function dateCondition(filter?: DateFilter) {
   return and(gte(expenses.date, filter.startDate), lte(expenses.date, filter.endDate))
 }
 
-export async function findExpenseById(db: DrizzleDb, id: string): Promise<ExpenseRow | undefined> {
-  const [existing] = await db.select().from(expenses).where(eq(expenses.id, id))
+export async function findExpenseById(
+  db: DrizzleDb,
+  id: string,
+  tenantId?: null | string
+): Promise<ExpenseRow | undefined> {
+  const where = applyExpenseTenantScope(eq(expenses.id, id), tenantId)
+  const [existing] = await db.select().from(expenses).where(where)
   return existing
 }
 
 export async function getExpenseSummary(
   db: DrizzleDb,
-  filter?: DateFilter
+  filter?: DateFilter,
+  tenantId?: null | string
 ): Promise<ExpenseSummary> {
+  const where = applyExpenseTenantScope(dateCondition(filter), tenantId)
   const [row] = await db
     .select({
       confirmedCount: sql<number>`count(*) filter (where ${expenses.status} = 'confirmed')`.mapWith(
@@ -34,7 +42,7 @@ export async function getExpenseSummary(
       totalCount: count(),
     })
     .from(expenses)
-    .where(dateCondition(filter))
+    .where(where)
 
   return {
     confirmedCount: row.confirmedCount,
@@ -48,9 +56,10 @@ export async function listExpenseRows(
   db: DrizzleDb,
   page: number,
   perPage: number,
-  filter?: DateFilter
+  filter?: DateFilter,
+  tenantId?: null | string
 ): Promise<{ pagination: ExpenseListResult['pagination']; rows: ExpenseRow[] }> {
-  const where = dateCondition(filter)
+  const where = applyExpenseTenantScope(dateCondition(filter), tenantId)
   const [countRow] = await db.select({ total: count() }).from(expenses).where(where)
   const totalCount = countRow?.total ?? 0
   const paginationWindow = computePaginationWindow(totalCount, perPage, page)
@@ -80,4 +89,12 @@ export async function listExpenseRows(
     },
     rows: rows as ExpenseRow[],
   }
+}
+
+function applyExpenseTenantScope(
+  where: SQL<unknown> | undefined,
+  tenantId: null | string | undefined
+): SQL<unknown> | undefined {
+  if (!tenantId) return where
+  return and(where, eq(expenses.organizationId, tenantId))
 }

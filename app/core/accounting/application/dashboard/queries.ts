@@ -1,13 +1,18 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { expenses, invoices } from '#core/accounting/drizzle/schema'
-import { desc, eq, inArray, sum } from 'drizzle-orm'
+import { and, desc, eq, inArray, sum } from 'drizzle-orm'
 
 import type { DashboardQueryData } from './types.js'
 
 type DrizzleDb = PostgresJsDatabase<any>
 
-export async function loadDashboardQueryData(db: DrizzleDb): Promise<DashboardQueryData> {
+export async function loadDashboardQueryData(
+  db: DrizzleDb,
+  tenantId?: null | string
+): Promise<DashboardQueryData> {
+  const orgWhere = tenantId ? eq(invoices.organizationId, tenantId) : undefined
+  const orgExpenseWhere = tenantId ? eq(expenses.organizationId, tenantId) : undefined
   const [recentInvoicesRows, revenueSumRow, collectedSumRow, expenseSumRow] = await Promise.all([
     db
       .select({
@@ -20,20 +25,21 @@ export async function loadDashboardQueryData(db: DrizzleDb): Promise<DashboardQu
         totalInclTaxCents: invoices.totalInclTaxCents,
       })
       .from(invoices)
+      .where(orgWhere)
       .orderBy(desc(invoices.issueDate))
       .limit(6),
     db
       .select({ total: sum(invoices.totalInclTaxCents) })
       .from(invoices)
-      .where(inArray(invoices.status, ['issued', 'paid'])),
+      .where(and(orgWhere, inArray(invoices.status, ['issued', 'paid']))),
     db
       .select({ total: sum(invoices.totalInclTaxCents) })
       .from(invoices)
-      .where(eq(invoices.status, 'paid')),
+      .where(and(orgWhere, eq(invoices.status, 'paid'))),
     db
       .select({ total: sum(expenses.amountCents) })
       .from(expenses)
-      .where(eq(expenses.status, 'confirmed')),
+      .where(and(orgExpenseWhere, eq(expenses.status, 'confirmed'))),
   ])
 
   return {

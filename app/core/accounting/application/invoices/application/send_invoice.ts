@@ -1,5 +1,3 @@
-import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
-
 import type {
   InvoiceConcurrencyHooks,
   InvoiceDto,
@@ -16,8 +14,8 @@ export async function sendInvoiceUseCase(
   deps: InvoiceUseCaseDeps,
   id: string,
   input: IssueInvoiceInput,
-  hooks?: InvoiceConcurrencyHooks,
-  requestContext: InvoiceRequestContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  requestContext: InvoiceRequestContext,
+  hooks?: InvoiceConcurrencyHooks
 ): Promise<InvoiceDto> {
   const result = await deps.db.transaction(async (tx) => {
     const context = await loadInvoiceIssueContext(tx, deps, id, input, requestContext)

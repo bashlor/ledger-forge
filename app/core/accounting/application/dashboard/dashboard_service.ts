@@ -2,10 +2,7 @@ import type { AccountingActivitySink } from '#core/accounting/application/suppor
 import type { AccountingServiceDependencies } from '#core/accounting/application/support/service_dependencies'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import {
-  type AccountingAccessContext,
-  SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
-} from '#core/accounting/application/support/access_context'
+import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
 
 import type { DashboardDto } from './types.js'
 
@@ -22,10 +19,8 @@ export class DashboardService {
     this.activitySink = dependencies.activitySink
   }
 
-  async getDashboard(
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
-  ): Promise<DashboardDto> {
-    const data = await loadDashboardQueryData(this.db)
+  async getDashboard(access: AccountingAccessContext): Promise<DashboardDto> {
+    const data = await loadDashboardQueryData(this.db, access.tenantId)
     const dto = toDashboardDto(data)
 
     await this.activitySink?.record({

@@ -1,5 +1,3 @@
-import { SYSTEM_ACCOUNTING_ACCESS_CONTEXT } from '#core/accounting/application/support/access_context'
-
 import type { InvoiceDto, InvoiceRequestContext, SaveInvoiceDraftInput } from '../types.js'
 import type { InvoiceUseCaseDeps } from './support/invoice_use_case_deps.js'
 
@@ -10,10 +8,10 @@ import { recordInvoiceActivity } from './support/record_invoice_activity.js'
 export async function createInvoiceUseCase(
   deps: InvoiceUseCaseDeps,
   input: SaveInvoiceDraftInput,
-  requestContext: InvoiceRequestContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+  requestContext: InvoiceRequestContext
 ): Promise<InvoiceDto> {
   const result = await deps.db.transaction(async (tx) => {
-    const context = await loadDraftCreationContext(tx, deps, input)
+    const context = await loadDraftCreationContext(tx, deps, input, requestContext)
     const created = await persistDraftCreation(tx, context, requestContext)
     return loadInvoiceDto(tx, deps.businessCalendar, created, requestContext)
   })

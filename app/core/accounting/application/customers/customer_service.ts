@@ -2,10 +2,7 @@ import type { AccountingActivitySink } from '#core/accounting/application/suppor
 import type { AccountingServiceDependencies } from '#core/accounting/application/support/service_dependencies'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import {
-  type AccountingAccessContext,
-  SYSTEM_ACCOUNTING_ACCESS_CONTEXT,
-} from '#core/accounting/application/support/access_context'
+import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import { clampInteger } from '#core/accounting/application/support/pagination'
 import { DomainError } from '#core/common/errors/domain_error'
 
@@ -39,10 +36,13 @@ export class CustomerService {
 
   async createCustomer(
     input: CreateCustomerInput,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext
   ): Promise<CustomerDto> {
     const normalized = normalizeCustomerInput(input)
-    const row = await insertCustomer(this.db, normalized)
+    const row = await insertCustomer(this.db, normalized, {
+      createdBy: access.actorId ?? null,
+      organizationId: access.tenantId ?? null,
+    })
 
     await this.activitySink?.record({
       actorId: access.actorId,
@@ -57,15 +57,12 @@ export class CustomerService {
     return toCustomerDto(row, { invoiceCount: 0, totalInvoicedCents: 0 })
   }
 
-  async deleteCustomer(
-    id: string,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
-  ): Promise<void> {
+  async deleteCustomer(id: string, access: AccountingAccessContext): Promise<void> {
     await this.db.transaction(async (tx) => {
-      const deleted = await deleteCustomerIfUnlinked(tx, id)
+      const deleted = await deleteCustomerIfUnlinked(tx, id, access.tenantId)
 
       if (!deleted) {
-        const state = await customerStateForDelete(tx, id)
+        const state = await customerStateForDelete(tx, id, access.tenantId)
 
         if (!state) {
           throw new DomainError('Customer not found.', 'not_found')
@@ -96,12 +93,12 @@ export class CustomerService {
   async listCustomersPage(
     page = 1,
     perPage = 5,
-    _access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext
   ): Promise<CustomerListResult> {
     const safePerPage = clampInteger(perPage, MIN_PER_PAGE, MAX_PER_PAGE)
     const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
     const { aggregatesByCustomerId, linkedCustomers, pagination, rows, totalInvoicedCents } =
-      await listCustomersWithAggregates(this.db, requestedPage, safePerPage)
+      await listCustomersWithAggregates(this.db, requestedPage, safePerPage, access.tenantId)
 
     if (rows.length === 0) {
       return {
@@ -134,9 +131,9 @@ export class CustomerService {
   async updateCustomer(
     id: string,
     input: CreateCustomerInput,
-    access: AccountingAccessContext = SYSTEM_ACCOUNTING_ACCESS_CONTEXT
+    access: AccountingAccessContext
   ): Promise<CustomerDto> {
-    const existing = await findCustomerById(this.db, id)
+    const existing = await findCustomerById(this.db, id, access.tenantId)
 
     if (!existing) {
       throw new DomainError('Customer not found.', 'not_found')
@@ -151,7 +148,7 @@ export class CustomerService {
       existing.phone !== normalized.phone
 
     const updatedRow = await this.db.transaction(async (tx) => {
-      const updated = await updateCustomerById(tx, id, normalized)
+      const updated = await updateCustomerById(tx, id, normalized, access.tenantId)
 
       if (!updated) {
         throw new DomainError('Customer not found.', 'not_found')
