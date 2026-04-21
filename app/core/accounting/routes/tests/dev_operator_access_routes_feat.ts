@@ -3,24 +3,198 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '#core/common/drizzle/index'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
+import {
+  AuthenticationPort,
+  type AuthProviderUser,
+  type AuthResult,
+} from '#core/user_management/domain/authentication'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
+import { v7 as uuidv7 } from 'uuid'
 
-import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
+import { setupIsolatedTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 import { inertiaHeaders } from './invoices_test_support.js'
+
+class DevOperatorAccessAuth extends AuthenticationPort {
+  constructor(private readonly db: PostgresJsDatabase<typeof schema>) {
+    super()
+  }
+
+  async changePassword(): Promise<void> {}
+  getOAuthUrl(): string {
+    return ''
+  }
+
+  async getSession(token: null | string): Promise<AuthResult | null> {
+    if (!token) {
+      return null
+    }
+
+    const [row] = await this.db
+      .select({
+        activeOrganizationId: schema.session.activeOrganizationId,
+        createdAt: schema.user.createdAt,
+        email: schema.user.email,
+        emailVerified: schema.user.emailVerified,
+        expiresAt: schema.session.expiresAt,
+        id: schema.user.id,
+        image: schema.user.image,
+        isAnonymous: schema.user.isAnonymous,
+        name: schema.user.name,
+        publicId: schema.user.publicId,
+        userId: schema.session.userId,
+      })
+      .from(schema.session)
+      .innerJoin(schema.user, eq(schema.session.userId, schema.user.id))
+      .where(eq(schema.session.token, token))
+      .limit(1)
+
+    if (!row) {
+      return null
+    }
+
+    return {
+      session: {
+        activeOrganizationId: row.activeOrganizationId,
+        expiresAt: row.expiresAt,
+        token,
+        userId: row.userId,
+      },
+      user: {
+        createdAt: row.createdAt,
+        email: row.email,
+        emailVerified: row.emailVerified,
+        id: row.id,
+        image: row.image,
+        isAnonymous: row.isAnonymous,
+        name: row.name,
+        publicId: row.publicId,
+      },
+    }
+  }
+
+  async getUserById(userId: string): Promise<AuthProviderUser | null> {
+    const [row] = await this.db
+      .select({
+        createdAt: schema.user.createdAt,
+        email: schema.user.email,
+        emailVerified: schema.user.emailVerified,
+        id: schema.user.id,
+        image: schema.user.image,
+        isAnonymous: schema.user.isAnonymous,
+        name: schema.user.name,
+        publicId: schema.user.publicId,
+      })
+      .from(schema.user)
+      .where(eq(schema.user.id, userId))
+      .limit(1)
+
+    return row ?? null
+  }
+
+  async requestPasswordReset(): Promise<void> {}
+  async resetPassword(): Promise<void> {}
+  async sendVerificationEmail(): Promise<void> {}
+
+  async signIn(email: string): Promise<AuthResult> {
+    return this.issueSession(email)
+  }
+
+  async signInAnonymously(): Promise<AuthResult> {
+    throw new Error('Anonymous sign-in is not used in dev operator access tests')
+  }
+
+  async signOut(): Promise<void> {}
+
+  async signUp(email: string, _password: string, name?: string): Promise<AuthResult> {
+    return this.issueSession(email, name ?? undefined)
+  }
+
+  async updateUser(): Promise<AuthProviderUser> {
+    throw new Error('updateUser is not used in dev operator access tests')
+  }
+
+  async validateSession(token: string): Promise<AuthResult> {
+    const session = await this.getSession(token)
+    if (!session) {
+      throw new Error('Session not found')
+    }
+    return session
+  }
+
+  async verifyEmail(): Promise<void> {}
+
+  private async issueSession(email: string, name?: string): Promise<AuthResult> {
+    const normalizedEmail = email.trim().toLowerCase()
+    const [existing] = await this.db
+      .select({
+        createdAt: schema.user.createdAt,
+        email: schema.user.email,
+        emailVerified: schema.user.emailVerified,
+        id: schema.user.id,
+        image: schema.user.image,
+        isAnonymous: schema.user.isAnonymous,
+        name: schema.user.name,
+        publicId: schema.user.publicId,
+      })
+      .from(schema.user)
+      .where(eq(schema.user.email, normalizedEmail))
+      .limit(1)
+
+    const user =
+      existing ??
+      (
+        await this.db
+          .insert(schema.user)
+          .values({
+            email: normalizedEmail,
+            id: uuidv7(),
+            name: name ?? normalizedEmail,
+            publicId: `pub_${uuidv7().replaceAll('-', '')}`,
+          })
+          .returning({
+            createdAt: schema.user.createdAt,
+            email: schema.user.email,
+            emailVerified: schema.user.emailVerified,
+            id: schema.user.id,
+            image: schema.user.image,
+            isAnonymous: schema.user.isAnonymous,
+            name: schema.user.name,
+            publicId: schema.user.publicId,
+          })
+      )[0]
+
+    return {
+      session: {
+        activeOrganizationId: null,
+        expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+        token: `dev-access-${uuidv7()}`,
+        userId: user.id,
+      },
+      user,
+    }
+  }
+}
 
 test.group('Dev operator access routes', (group) => {
   let cleanup: () => Promise<void>
   let db: PostgresJsDatabase<typeof schema>
 
   group.setup(async () => {
-    const ctx = await setupTestDatabaseForGroup()
+    const ctx = await setupIsolatedTestDatabaseForGroup()
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
   })
 
   group.each.setup(async () => {
+    app.container.restore(AuthenticationPort)
+    app.container.restore('authAdapter' as any)
+
+    const auth = new DevOperatorAccessAuth(db)
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+
     app.container.swap(AuthorizationService, async () => {
       return new AuthorizationService(db, [], true)
     })
@@ -37,6 +211,8 @@ test.group('Dev operator access routes', (group) => {
   })
 
   group.each.teardown(() => {
+    app.container.restore(AuthenticationPort)
+    app.container.restore('authAdapter' as any)
     app.container.restore(AuthorizationService)
     app.container.restore(DevToolsEnvironmentService)
   })
@@ -90,7 +266,11 @@ test.group('Dev operator access routes', (group) => {
 
     inspectorResponse.assertStatus(200)
     assert.equal(inspectorResponse.body().component, 'dev/inspector')
-    assert.equal(inspectorResponse.body().props.devTools.canAccess, true)
+    assert.equal(inspectorResponse.body().props.inspector.context.readOnlyBadge, 'Read-Only Access')
+    assert.equal(
+      inspectorResponse.body().props.inspector.context.userEmail,
+      'local-dev@example.local'
+    )
   })
 })
 

@@ -85,7 +85,31 @@ export async function setupTestDatabaseForGroup(): Promise<{
   cleanup: () => Promise<void>
   container: StartedPostgreSqlContainer
 }> {
-  const container = await acquireSharedContainer()
+  return setupDatabaseForGroup({ isolatedContainer: false })
+}
+
+/**
+ * Same contract as {@link setupTestDatabaseForGroup}, but starts a dedicated
+ * PostgreSQL container for the caller instead of reusing the shared singleton.
+ * Use this when a route/integration spec must not share auth/container state
+ * with the rest of the suite.
+ */
+export async function setupIsolatedTestDatabaseForGroup(): Promise<{
+  cleanup: () => Promise<void>
+  container: StartedPostgreSqlContainer
+}> {
+  return setupDatabaseForGroup({ isolatedContainer: true })
+}
+
+async function setupDatabaseForGroup(options: {
+  isolatedContainer: boolean
+}): Promise<{
+  cleanup: () => Promise<void>
+  container: StartedPostgreSqlContainer
+}> {
+  const container = options.isolatedContainer
+    ? await createStandaloneContainer()
+    : await acquireSharedContainer()
 
   const groupDbName = `test_db_${++dbCounter}_${Date.now()}`
 
@@ -120,9 +144,36 @@ export async function setupTestDatabaseForGroup(): Promise<{
   return {
     cleanup: async () => {
       await pgClient.end()
-      await releaseSharedContainer()
+      if (options.isolatedContainer) {
+        await container.stop()
+      } else {
+        await releaseSharedContainer()
+      }
     },
     container,
+  }
+}
+
+async function createStandaloneContainer(): Promise<StartedPostgreSqlContainer> {
+  prepareTestcontainersRuntime()
+  const postgresImage = env.get('POSTGRES_TEST_IMAGE')
+  if (!postgresImage) {
+    throw new Error('Missing POSTGRES_TEST_IMAGE in test environment configuration.')
+  }
+
+  try {
+    return await new PostgreSqlContainer(postgresImage)
+      .withDatabase(TEST_CONTAINER_DATABASE)
+      .withUsername(TEST_CONTAINER_USERNAME)
+      .withPassword(TEST_CONTAINER_PASSWORD)
+      .start()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      `Could not start PostgreSQL testcontainer (image: ${postgresImage}).\n` +
+        `Make sure a supported container runtime (Docker/Podman) is reachable and POSTGRES_TEST_IMAGE is configured in your test env.\n` +
+        `Original error: ${message}`
+    )
   }
 }
 

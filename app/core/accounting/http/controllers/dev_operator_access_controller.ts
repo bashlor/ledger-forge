@@ -50,9 +50,9 @@ export default class DevOperatorAccessController {
     devToolsEnvironment.ensureEnabled()
 
     const payload = await ctx.request.validateUsing(devOperatorBootstrapValidator)
-
-    try {
-      const authentication = await bootstrapService.bootstrap(payload, auth)
+    const finalizeBootstrap = (
+      authentication: Awaited<ReturnType<DevOperatorBootstrapService['bootstrap']>>
+    ) => {
       writeSessionToken(ctx, {
         expiresAt: authentication.session.expiresAt,
         token: authentication.session.token,
@@ -64,7 +64,22 @@ export default class DevOperatorAccessController {
       })
 
       return ctx.response.redirect('/_dev/inspector')
+    }
+
+    try {
+      const authentication = await bootstrapService.bootstrap(payload, auth)
+      return finalizeBootstrap(authentication)
     } catch (error) {
+      try {
+        // Better Auth sign-up can leave a usable account/session behind before a later
+        // local workspace grant step fails. Re-running the bootstrap is safe and lets
+        // the existing user complete the dev-operator provisioning path.
+        const recovered = await bootstrapService.bootstrap(payload, auth)
+        return finalizeBootstrap(recovered)
+      } catch {
+        // Fall through to the original public error below.
+      }
+
       return presentPublicError(ctx, error, { flashAll: true })
     }
   }
