@@ -9,6 +9,7 @@ import {
   type AuthProviderUser,
   type AuthResult,
 } from '#core/user_management/domain/authentication'
+import { member } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
@@ -16,7 +17,9 @@ import { v7 as uuidv7 } from 'uuid'
 
 import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
 import {
+  seedTestMember,
   seedTestOrganization,
+  seedTestUser,
   setupTestDatabaseForGroup,
   TEST_TENANT_ID,
 } from '../../../../../tests/helpers/testcontainers_db.js'
@@ -103,6 +106,18 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
     await seedTestOrganization(db)
+    await seedTestUser(db, {
+      email: fakeUser.email,
+      id: fakeUser.id,
+      name: fakeUser.name!,
+      publicId: fakeUser.publicId,
+    })
+    await seedTestMember(db, {
+      id: 'member_test_customers_actor',
+      organizationId: TEST_TENANT_ID,
+      role: 'member',
+      userId: fakeUser.id,
+    })
 
     const auth = new FakeAuth()
     app.container.bindValue(AuthenticationPort, auth)
@@ -151,6 +166,14 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     })
     postResponse.assertStatus(302)
     postResponse.assertHeader('location', '/signin')
+  })
+
+  test('GET /customers returns 403 for an inactive membership', async ({ client }) => {
+    await db.update(member).set({ isActive: false }).where(eq(member.userId, fakeUser.id))
+
+    const response = await inertiaHeaders(withAuthCookie(client.get('/customers'))).redirects(0)
+
+    response.assertStatus(403)
   })
 
   test('updates a customer via PUT /customers/:id', async ({ assert, client }) => {

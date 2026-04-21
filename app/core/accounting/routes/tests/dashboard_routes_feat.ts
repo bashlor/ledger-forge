@@ -1,11 +1,21 @@
 import { type DashboardDto, DashboardService } from '#core/accounting/application/dashboard/index'
+import { member } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
+import { eq } from 'drizzle-orm'
 
 import {
+  seedTestMember,
   seedTestOrganization,
+  seedTestUser,
   setupTestDatabaseForGroup,
+  TEST_TENANT_ID,
 } from '../../../../../tests/helpers/testcontainers_db.js'
+import {
+  TEST_ACCOUNTING_USER_EMAIL,
+  TEST_ACCOUNTING_USER_ID,
+  TEST_ACCOUNTING_USER_PUBLIC_ID,
+} from './accounting_test_support.js'
 import {
   authCookie,
   bindInvoiceAuth,
@@ -22,6 +32,18 @@ test.group('Dashboard routes', (group) => {
 
     const db = (await app.container.make('drizzle')) as any
     await seedTestOrganization(db)
+    await seedTestUser(db, {
+      email: TEST_ACCOUNTING_USER_EMAIL,
+      id: TEST_ACCOUNTING_USER_ID,
+      name: 'Test User',
+      publicId: TEST_ACCOUNTING_USER_PUBLIC_ID,
+    })
+    await seedTestMember(db, {
+      id: 'member_test_dashboard_actor',
+      organizationId: TEST_TENANT_ID,
+      role: 'member',
+      userId: TEST_ACCOUNTING_USER_ID,
+    })
   })
 
   group.teardown(async () => await cleanup())
@@ -114,5 +136,19 @@ test.group('Dashboard routes', (group) => {
     assert.equal(response.body().component, 'app/dashboard')
     assert.deepEqual(response.body().props.dashboard, dashboard)
     assert.equal(calls, 1)
+  })
+
+  test('GET /dashboard returns 403 for an inactive membership', async ({ client }) => {
+    const db = (await app.container.make('drizzle')) as any
+    await db
+      .update(member)
+      .set({ isActive: false })
+      .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+
+    const response = await inertiaHeaders(client.get('/dashboard'))
+      .header('cookie', authCookie())
+      .redirects(0)
+
+    response.assertStatus(403)
   })
 })

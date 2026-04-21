@@ -1,5 +1,8 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 
+import env from '#start/env'
+
+import { AuthorizationService } from '../application/authorization_service.js'
 import { MemberService } from '../application/member_service.js'
 import { AuthenticationPort } from '../domain/authentication.js'
 import { BetterAuthAdapter } from '../infra/auth/better_auth_adapter.js'
@@ -41,9 +44,21 @@ export default class AuthProvider {
       return this.app.container.make('authAdapter')
     })
 
+    this.app.container.bind(AuthorizationService, async (resolver) => {
+      const drizzle = await resolver.make('drizzle')
+      return new AuthorizationService(drizzle, readDevOperatorPublicIds())
+    })
+
     this.app.container.bind(MemberService, async (resolver) => {
       const drizzle = await resolver.make('drizzle')
       return new MemberService(drizzle)
     })
   }
+}
+
+function readDevOperatorPublicIds(): string[] {
+  return (env.get('DEV_OPERATOR_PUBLIC_IDS') ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
 }

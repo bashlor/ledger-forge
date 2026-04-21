@@ -2,6 +2,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { auditEvents, expenses, journalEntries } from '#core/accounting/drizzle/schema'
+import { member } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { desc, eq } from 'drizzle-orm'
@@ -9,14 +10,20 @@ import { desc, eq } from 'drizzle-orm'
 import { runSimultaneously } from '../../../../../tests/helpers/concurrency_barrier.js'
 import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
 import {
+  seedTestMember,
   seedTestOrganization,
+  seedTestUser,
   setupTestDatabaseForGroup,
+  TEST_TENANT_ID,
 } from '../../../../../tests/helpers/testcontainers_db.js'
 import {
   authCookie,
   bindAccountingAuth,
   resetAccountingAuthContext,
   TEST_ACCOUNTING_ACCESS_CONTEXT,
+  TEST_ACCOUNTING_USER_EMAIL,
+  TEST_ACCOUNTING_USER_ID,
+  TEST_ACCOUNTING_USER_PUBLIC_ID,
 } from './accounting_test_support.js'
 
 let db: PostgresJsDatabase<any>
@@ -29,6 +36,18 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
     await seedTestOrganization(db)
+    await seedTestUser(db, {
+      email: TEST_ACCOUNTING_USER_EMAIL,
+      id: TEST_ACCOUNTING_USER_ID,
+      name: 'Test User',
+      publicId: TEST_ACCOUNTING_USER_PUBLIC_ID,
+    })
+    await seedTestMember(db, {
+      id: 'member_test_expenses_actor',
+      organizationId: TEST_TENANT_ID,
+      role: 'member',
+      userId: TEST_ACCOUNTING_USER_ID,
+    })
   })
 
   group.each.setup(async () => {
@@ -241,6 +260,22 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
 
     const rows = await db.select().from(expenses)
     assert.equal(rows.length, 0)
+  })
+
+  test('GET /expenses returns 403 for an inactive membership', async ({ client }) => {
+    await db
+      .update(member)
+      .set({ isActive: false })
+      .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+
+    const response = await client
+      .get('/expenses')
+      .header('cookie', authCookie())
+      .header('x-inertia', 'true')
+      .header('x-inertia-version', '1')
+      .redirects(0)
+
+    response.assertStatus(403)
   })
 })
 
@@ -530,6 +565,20 @@ test.group('Expenses routes | date range validation', (group) => {
   group.setup(async () => {
     const ctx = await setupTestDatabaseForGroup()
     cleanup = ctx.cleanup
+    db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
+    await seedTestUser(db, {
+      email: TEST_ACCOUNTING_USER_EMAIL,
+      id: TEST_ACCOUNTING_USER_ID,
+      name: 'Test User',
+      publicId: TEST_ACCOUNTING_USER_PUBLIC_ID,
+    })
+    await seedTestMember(db, {
+      id: 'member_test_expenses_date_range_actor',
+      organizationId: TEST_TENANT_ID,
+      role: 'member',
+      userId: TEST_ACCOUNTING_USER_ID,
+    })
     resetAccountingAuthContext()
     bindAccountingAuth()
   })

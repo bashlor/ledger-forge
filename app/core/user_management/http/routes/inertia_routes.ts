@@ -46,5 +46,8 @@ router
     router
       .patch('account/organizations/members/:memberId', [MembershipController, 'toggleActive'])
       .as('members.toggle_active')
+    router
+      .patch('account/organizations/members/:memberId/role', [MembershipController, 'updateRole'])
+      .as('members.update_role')
   })
   .use([middleware.auth(), middleware.ensureActiveTenant()])

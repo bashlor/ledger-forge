@@ -2,9 +2,13 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { type InvoiceService } from '#core/accounting/application/invoices/index'
 import { auditEvents, customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
+import { member } from '#core/user_management/drizzle/schema'
+import { eq } from 'drizzle-orm'
 
 import {
+  seedTestMember,
   seedTestOrganization,
+  seedTestUser,
   TEST_TENANT_ID,
 } from '../../../../../tests/helpers/testcontainers_db.js'
 import {
@@ -158,6 +162,32 @@ export async function resetInvoiceFixtures(db: PostgresJsDatabase<any>) {
     organizationId: TEST_TENANT_ID,
     phone: '+33 6 98 76 54 32',
   })
+}
+
+export async function seedInvoiceActor(
+  db: PostgresJsDatabase<any>,
+  role: 'admin' | 'member' | 'owner' = 'admin'
+) {
+  await seedTestUser(db, {
+    email: TEST_INVOICE_USER_EMAIL,
+    id: TEST_INVOICE_USER_ID,
+    name: 'Test Invoice User',
+    publicId: TEST_INVOICE_USER_PUBLIC_ID,
+  })
+  await seedTestMember(db, {
+    id: 'member_test_invoice_actor',
+    organizationId: TEST_TENANT_ID,
+    role,
+    userId: TEST_INVOICE_USER_ID,
+  })
+}
+
+export async function setInvoiceActorRole(
+  db: PostgresJsDatabase<any>,
+  role: 'admin' | 'member' | 'owner',
+  isActive = true
+) {
+  await db.update(member).set({ isActive, role }).where(eq(member.userId, TEST_INVOICE_USER_ID))
 }
 
 export function setInvoiceAuthContext(overrides: Partial<InvoiceAuthContext> = {}) {

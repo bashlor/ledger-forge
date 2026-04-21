@@ -23,6 +23,7 @@ export default await Env.create(new URL('../../../../', import.meta.url), {
   DB_PASSWORD: Env.schema.string(),
   DB_PORT: Env.schema.number(),
   DB_USER: Env.schema.string(),
+  DEV_OPERATOR_PUBLIC_IDS: Env.schema.string.optional(),
   HOST: Env.schema.string({ format: 'host' }),
   LOG_LEVEL: Env.schema.string(),
   // Node

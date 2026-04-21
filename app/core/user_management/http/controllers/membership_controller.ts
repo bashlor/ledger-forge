@@ -1,10 +1,11 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
 import { flashAction } from '#core/accounting/http/helpers/flash_action'
+import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
 import { MemberService } from '../../application/member_service.js'
-import { toggleMemberStatusValidator } from '../validators/member.js'
+import { toggleMemberStatusValidator, updateMemberRoleValidator } from '../validators/member.js'
 
 export default class MembershipController {
   /**
@@ -13,11 +14,17 @@ export default class MembershipController {
    * Requires admin or owner role.
    */
   @inject()
-  async index(ctx: HttpContext, memberService: MemberService) {
+  async index(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    memberService: MemberService
+  ) {
     const tenantId = ctx.authSession!.session.activeOrganizationId!
-    const actorId = ctx.authSession!.user.id
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
-    const members = await memberService.listMembers(tenantId, actorId)
+    authorizationService.authorize(actor, 'membership.list')
+
+    const members = await memberService.listMembers(tenantId)
     return ctx.response.ok(members)
   }
 
@@ -27,16 +34,51 @@ export default class MembershipController {
    * Requires admin or owner role, with additional guards enforced by MemberService.
    */
   @inject()
-  async toggleActive(ctx: HttpContext, memberService: MemberService) {
+  async toggleActive(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    memberService: MemberService
+  ) {
     const memberId = ctx.params.memberId as string
     const tenantId = ctx.authSession!.session.activeOrganizationId!
     const actorId = ctx.authSession!.user.id
     const { isActive } = await ctx.request.validateUsing(toggleMemberStatusValidator)
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const target = await authorizationService.membershipSubject(tenantId, memberId)
 
     await flashAction(
       ctx,
-      () => memberService.toggleMemberActive(memberId, isActive, tenantId, actorId),
+      async () => {
+        authorizationService.authorize(actor, 'membership.toggleActive', target ?? undefined)
+
+        await memberService.toggleMemberActive(memberId, isActive, tenantId, actorId)
+      },
       isActive ? 'Member activated.' : 'Member deactivated.'
+    )
+
+    return ctx.response.redirect().toRoute('members.index')
+  }
+
+  @inject()
+  async updateRole(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    memberService: MemberService
+  ) {
+    const memberId = ctx.params.memberId as string
+    const tenantId = ctx.authSession!.session.activeOrganizationId!
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const { role } = await ctx.request.validateUsing(updateMemberRoleValidator)
+    const target = await authorizationService.membershipSubject(tenantId, memberId)
+
+    await flashAction(
+      ctx,
+      async () => {
+        authorizationService.authorize(actor, 'membership.changeRole', target ?? undefined)
+
+        await memberService.updateMemberRole(memberId, role, tenantId)
+      },
+      role === 'admin' ? 'Member promoted to admin.' : 'Admin demoted to member.'
     )
 
     return ctx.response.redirect().toRoute('members.index')

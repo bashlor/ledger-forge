@@ -6,6 +6,7 @@ import { accountingAccessFromSession } from '#core/accounting/application/suppor
 import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
+import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'
@@ -31,8 +32,15 @@ export default class CustomersController {
   }
 
   @inject()
-  async index(ctx: HttpContext, customerService: CustomerService) {
+  async index(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    customerService: CustomerService
+  ) {
     const { page, perPage, search } = await ctx.request.validateUsing(customerIndexValidator)
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    authorizationService.authorize(actor, 'accounting.read')
+
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
     const customers = await customerService.listCustomersPage(
       page ?? 1,

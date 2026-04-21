@@ -16,6 +16,7 @@ import {
   issuePayload,
   resetInvoiceAuthContext,
   resetInvoiceFixtures,
+  seedInvoiceActor,
   seedTestOrganization,
   TEST_ACCOUNTING_ACCESS_CONTEXT,
   TEST_CUSTOMER_ID,
@@ -31,6 +32,7 @@ test.group('Invoices routes | concurrency', (group) => {
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
     await seedTestOrganization(db)
+    await seedInvoiceActor(db)
   })
 
   group.each.setup(async () => {
