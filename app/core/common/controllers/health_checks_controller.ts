@@ -1,7 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
-import { AuditTrailHealthService } from '#core/accounting/application/audit/audit_trail_health_service'
-import app from '@adonisjs/core/services/app'
+import { getAccountingReadOnlyState } from '#core/accounting/application/audit/accounting_readonly_policy'
+import { healthChecks } from '#start/health'
 
 export default class HealthChecksController {
   /**
@@ -13,18 +13,29 @@ export default class HealthChecksController {
   }
 
   async ready({ response }: HttpContext) {
-    const healthService = await app.container.make(AuditTrailHealthService)
-    const auditTrail = await healthService.getStatus()
-    const status = auditTrail.healthy ? 'ok' : 'degraded'
+    const [readiness, auditTrail] = await Promise.all([
+      healthChecks.run(),
+      getAccountingReadOnlyState(),
+    ])
+    const [databaseCheck] = readiness.checks
 
-    return response.status(auditTrail.healthy ? 200 : 503).json({
+    return response.status(readiness.isHealthy ? 200 : 503).json({
       checks: {
+        database: databaseCheck
+          ? {
+              message: databaseCheck.message,
+              status: databaseCheck.status,
+            }
+          : null,
+      },
+      signals: {
         auditTrail: {
+          affects: auditTrail.enabled ? 'accounting_writes' : 'none',
           message: auditTrail.message,
-          status,
+          status: auditTrail.signalStatus,
         },
       },
-      status,
+      status: readiness.status,
     })
   }
 }

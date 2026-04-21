@@ -31,6 +31,10 @@ test.group('Dashboard routes', (group) => {
     bindInvoiceAuth()
   })
 
+  group.each.teardown(() => {
+    app.container.restore(DashboardService)
+  })
+
   test('GET /dashboard initial Inertia visit lists dashboard as deferred (no sync prop)', async ({
     assert,
     client,
@@ -53,7 +57,7 @@ test.group('Dashboard routes', (group) => {
       },
     } as unknown as DashboardService
 
-    app.container.bindValue(DashboardService, dashboardService)
+    app.container.swap(DashboardService, async () => dashboardService)
 
     const response = await inertiaHeaders(client.get('/dashboard')).header('cookie', authCookie())
 
@@ -96,7 +100,7 @@ test.group('Dashboard routes', (group) => {
       },
     } as unknown as DashboardService
 
-    app.container.bindValue(DashboardService, dashboardService)
+    app.container.swap(DashboardService, async () => dashboardService)
 
     const response = await client
       .get('/dashboard')

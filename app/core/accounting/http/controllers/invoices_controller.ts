@@ -1,10 +1,7 @@
 import type { DateFilter } from '#core/accounting/application/expenses/index'
 import type { HttpContext } from '@adonisjs/core/http'
 
-import {
-  ACCOUNTING_READ_ONLY_MESSAGE,
-  AuditTrailHealthService,
-} from '#core/accounting/application/audit/audit_trail_health_service'
+import { getAccountingReadOnlyState } from '#core/accounting/application/audit/accounting_readonly_policy'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
 import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
@@ -105,12 +102,14 @@ export default class InvoicesController {
       }
     }
 
-    const canViewAuditHistory = await this.canViewAuditHistory(ctx)
-    const accountingReadOnly = await this.isAccountingReadOnly()
+    const [canViewAuditHistory, readOnlyState] = await Promise.all([
+      this.canViewAuditHistory(ctx),
+      getAccountingReadOnlyState(),
+    ])
 
     return renderInertiaPage(inertia, 'app/invoices', {
-      accountingReadOnly,
-      accountingReadOnlyMessage: ACCOUNTING_READ_ONLY_MESSAGE,
+      accountingReadOnly: readOnlyState.enabled,
+      accountingReadOnlyMessage: readOnlyState.message,
       canViewAuditHistory,
       customers: await invoiceService.listCustomersForSelect(access),
       filters: { search: search ?? '' },
@@ -209,11 +208,6 @@ export default class InvoicesController {
       }
       throw error
     }
-  }
-
-  private async isAccountingReadOnly(): Promise<boolean> {
-    const healthService = await app.container.make(AuditTrailHealthService)
-    return !(await healthService.isHealthy())
   }
 
   private redirectToInvoices(

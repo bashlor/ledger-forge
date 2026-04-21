@@ -13,7 +13,7 @@ export default class AccountingProvider {
   constructor(protected app: ApplicationService) {}
 
   register() {
-    this.app.container.singleton(AuditTrailHealthService, async () => {
+    this.app.container.bind(AuditTrailHealthService, async () => {
       const db = await this.app.container.make('drizzle')
       return new AuditTrailHealthService(db)
     })

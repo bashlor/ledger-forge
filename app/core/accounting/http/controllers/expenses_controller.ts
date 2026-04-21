@@ -1,16 +1,12 @@
 import type { DateFilter } from '#core/accounting/application/expenses/index'
 import type { HttpContext } from '@adonisjs/core/http'
 
-import {
-  ACCOUNTING_READ_ONLY_MESSAGE,
-  AuditTrailHealthService,
-} from '#core/accounting/application/audit/audit_trail_health_service'
+import { getAccountingReadOnlyState } from '#core/accounting/application/audit/accounting_readonly_policy'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
 import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
 import { inject } from '@adonisjs/core'
-import app from '@adonisjs/core/services/app'
 
 import { flashAction } from '../helpers/flash_action.js'
 import {
@@ -56,13 +52,13 @@ export default class ExpensesController {
     const dateFilter: DateFilter | undefined =
       startDate && endDate ? { endDate, startDate } : undefined
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const accountingReadOnly = await this.isAccountingReadOnly()
+    const readOnlyState = await getAccountingReadOnlyState()
 
     return ctx.inertia.render(
       'app/expenses' as never,
       {
-        accountingReadOnly,
-        accountingReadOnlyMessage: ACCOUNTING_READ_ONLY_MESSAGE,
+        accountingReadOnly: readOnlyState.enabled,
+        accountingReadOnlyMessage: readOnlyState.message,
         categories: EXPENSE_CATEGORIES,
         expenses: await expenseService.listExpenses(
           page ?? 1,
@@ -93,12 +89,6 @@ export default class ExpensesController {
 
     return this.redirectToExpenses(ctx)
   }
-
-  private async isAccountingReadOnly(): Promise<boolean> {
-    const healthService = await app.container.make(AuditTrailHealthService)
-    return !(await healthService.isHealthy())
-  }
-
   private redirectToExpenses(ctx: HttpContext) {
     const page = Number(ctx.request.input('page'))
     const perPage = Number(ctx.request.input('perPage'))
