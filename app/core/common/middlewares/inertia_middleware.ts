@@ -1,6 +1,10 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 
+import {
+  isConfiguredDevOperator,
+  isDevelopmentEnvironment,
+} from '#core/user_management/support/dev_operator'
 import BaseInertiaMiddleware from '@adonisjs/inertia/inertia_middleware'
 
 import '../../user_management/http/types/auth_session_context.js'
@@ -34,6 +38,8 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
      */
     const authUser = ctx.authSession?.user
     const workspace = ctx.workspaceShare
+    const canAccessDevTools =
+      isDevelopmentEnvironment() && isConfiguredDevOperator(authUser?.publicId)
     /**
      * Inertia / http-transformers refuse top-level `null` for serialized props
      * (`Cannot serialize an item with null value`). Use `undefined` when there
@@ -50,6 +56,10 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
           }
 
     return {
+      devTools: ctx.inertia.always({
+        canAccess: canAccessDevTools,
+        enabled: isDevelopmentEnvironment(),
+      }),
       errors: ctx.inertia.always({
         ...this.getValidationErrors(ctx),
         ...inputErrorsBag,

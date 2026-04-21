@@ -1,13 +1,13 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 
-import env from '#start/env'
-
 import { AuthorizationService } from '../application/authorization_service.js'
+import { DevToolsEnvironmentService } from '../application/dev_tools_environment_service.js'
 import { MemberService } from '../application/member_service.js'
 import { AuthenticationPort } from '../domain/authentication.js'
 import { BetterAuthAdapter } from '../infra/auth/better_auth_adapter.js'
 import { type BetterAuthInstance, createBetterAuth } from '../infra/auth/better_auth_drizzle.js'
 import { StructuredUserManagementActivitySink } from '../support/activity_log.js'
+import { parseDevOperatorPublicIds } from '../support/dev_operator.js'
 
 declare module '@adonisjs/core/types' {
   interface ContainerBindings {
@@ -46,7 +46,11 @@ export default class AuthProvider {
 
     this.app.container.bind(AuthorizationService, async (resolver) => {
       const drizzle = await resolver.make('drizzle')
-      return new AuthorizationService(drizzle, readDevOperatorPublicIds())
+      return new AuthorizationService(drizzle, parseDevOperatorPublicIds())
+    })
+
+    this.app.container.bind(DevToolsEnvironmentService, async () => {
+      return new DevToolsEnvironmentService()
     })
 
     this.app.container.bind(MemberService, async (resolver) => {
@@ -54,11 +58,4 @@ export default class AuthProvider {
       return new MemberService(drizzle)
     })
   }
-}
-
-function readDevOperatorPublicIds(): string[] {
-  return (env.get('DEV_OPERATOR_PUBLIC_IDS') ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0)
 }

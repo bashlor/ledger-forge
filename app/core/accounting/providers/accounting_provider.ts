@@ -3,6 +3,10 @@ import type { ApplicationService } from '@adonisjs/core/types'
 import { AuditTrailHealthService } from '#core/accounting/application/audit/audit_trail_health_service'
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { DashboardService } from '#core/accounting/application/dashboard/index'
+import {
+  DemoDatasetService,
+  DevOperatorConsoleService,
+} from '#core/accounting/application/dev_operator_console_service'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { StructuredAccountingActivitySink } from '#core/accounting/application/support/activity_log'
@@ -53,6 +57,16 @@ export default class AccountingProvider {
           adapter: 'service',
         }),
       })
+    })
+
+    this.app.container.bind(DevOperatorConsoleService, async (resolver) => {
+      const db = await resolver.make('drizzle')
+      return new DevOperatorConsoleService(db)
+    })
+
+    this.app.container.bind(DemoDatasetService, async (resolver) => {
+      const db = await resolver.make('drizzle')
+      return new DemoDatasetService(db)
     })
   }
 }
