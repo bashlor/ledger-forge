@@ -7,6 +7,11 @@ import { v7 as uuidv7 } from 'uuid'
 
 export type WorkspaceKind = 'anonymous' | 'personal'
 
+export interface WorkspaceProvisioningResult {
+  organizationId: null | string
+  wasProvisioned: boolean
+}
+
 export interface WorkspaceShareProps {
   id: string
   isAnonymousWorkspace: boolean
@@ -125,14 +130,14 @@ export async function provisionPersonalWorkspace(
     sessionToken: string
     userId: string
   }
-): Promise<void> {
+): Promise<WorkspaceProvisioningResult> {
   const { metadata, name } = buildWorkspaceLabel({
     displayName: input.displayName,
     email: input.email,
     isAnonymous: input.isAnonymous,
   })
 
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.sessionToken}))`)
 
     const sessionRow = await tx.query.session.findFirst({
@@ -140,11 +145,14 @@ export async function provisionPersonalWorkspace(
     })
 
     if (!sessionRow || sessionRow.userId !== input.userId) {
-      return
+      return { organizationId: null, wasProvisioned: false }
     }
 
     if (sessionRow.activeOrganizationId) {
-      return
+      return {
+        organizationId: sessionRow.activeOrganizationId,
+        wasProvisioned: false,
+      }
     }
 
     let slug = newSlugCandidate()
@@ -187,6 +195,8 @@ export async function provisionPersonalWorkspace(
       .update(schema.session)
       .set({ activeOrganizationId: organizationId })
       .where(eq(schema.session.token, input.sessionToken))
+
+    return { organizationId, wasProvisioned: true }
   })
 }
 

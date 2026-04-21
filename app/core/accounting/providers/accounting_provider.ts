@@ -3,10 +3,8 @@ import type { ApplicationService } from '@adonisjs/core/types'
 import { AuditTrailHealthService } from '#core/accounting/application/audit/audit_trail_health_service'
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { DashboardService } from '#core/accounting/application/dashboard/index'
-import {
-  DemoDatasetService,
-  DevOperatorConsoleService,
-} from '#core/accounting/application/dev_operator_console_service'
+import { DemoDatasetService } from '#core/accounting/application/demo/demo_dataset_service'
+import { DevOperatorConsoleService } from '#core/accounting/application/dev_operator_console_service'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { StructuredAccountingActivitySink } from '#core/accounting/application/support/activity_log'

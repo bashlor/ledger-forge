@@ -3,6 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { seedProvisionedWorkspaceDemoData } from '#core/user_management/application/demo_workspace_bootstrap'
 import {
   clearActiveOrganizationForSession,
   ensureSingleTenantMembership,
@@ -60,13 +61,14 @@ export default class WorkspaceShareMiddleware {
       }
     } else if (!ctx.authSession.session.activeOrganizationId && token) {
       try {
-        await this.provisionPersonalWorkspace(db, {
+        const provisioning = await this.provisionPersonalWorkspace(db, {
           displayName: ctx.authSession.user.name ?? undefined,
           email: ctx.authSession.user.email,
           isAnonymous: ctx.authSession.user.isAnonymous,
           sessionToken: token,
           userId: ctx.authSession.user.id,
         })
+        await seedProvisionedWorkspaceDemoData(db, provisioning)
 
         const refreshed = await auth.getSession(token)
         if (refreshed) {
@@ -157,8 +159,8 @@ export default class WorkspaceShareMiddleware {
       sessionToken: string
       userId: string
     }
-  ): Promise<void> {
-    await provisionPersonalWorkspace(db, input)
+  ) {
+    return provisionPersonalWorkspace(db, input)
   }
 
   private async attachWorkspaceShare(ctx: HttpContext): Promise<void> {

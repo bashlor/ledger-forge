@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import * as schema from '#core/common/drizzle/index'
 import { presentPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
+import { seedProvisionedWorkspaceDemoData } from '#core/user_management/application/demo_workspace_bootstrap'
 import { provisionPersonalWorkspace } from '#core/user_management/application/workspace_provisioning'
 import { inject } from '@adonisjs/core'
 import app from '@adonisjs/core/services/app'
@@ -32,11 +33,12 @@ export default class AnonymousSigninController {
 
       try {
         const db = (await app.container.make('drizzle')) as PostgresJsDatabase<typeof schema>
-        await provisionPersonalWorkspace(db, {
+        const provisioning = await provisionPersonalWorkspace(db, {
           isAnonymous: true,
           sessionToken: authentication.session.token,
           userId: authentication.user.id,
         })
+        await seedProvisionedWorkspaceDemoData(db, provisioning)
       } catch (error) {
         ctx.logger.warn({ err: error }, 'workspace_provision_on_anonymous_signin_failed')
       }

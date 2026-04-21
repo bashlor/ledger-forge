@@ -1,12 +1,24 @@
+import { DemoDatasetService } from '#core/accounting/application/demo/demo_dataset_service'
+import {
+  DEMO_CONFIRMED_EXPENSE_COUNT,
+  DEMO_CUSTOMER_COUNT,
+  DEMO_EXPENSE_COUNT,
+  DEMO_INVOICE_COUNT,
+  DEMO_ISSUED_INVOICE_COUNT,
+  DEMO_PAID_INVOICE_COUNT,
+} from '#core/accounting/application/demo/demo_dataset_service'
+import { systemAccessContext } from '#core/accounting/application/support/access_context'
 import * as schema from '#core/common/drizzle/index'
 import env from '#start/env'
 import { test } from '@japa/runner'
-import { eq } from 'drizzle-orm'
+import { count, eq } from 'drizzle-orm'
 
 import {
   bindTestServices,
   createTestPostgresContext,
 } from '../../../../tests/helpers/test_postgres.js'
+import { DemoModeService } from './demo_mode_service.js'
+import { seedProvisionedWorkspaceDemoData } from './demo_workspace_bootstrap.js'
 import {
   ensureSingleTenantMembership,
   provisionPersonalWorkspace,
@@ -80,12 +92,16 @@ test.group('Workspace provisioning (integration)', (group) => {
     assert.isNotNull(sessionBefore)
     assert.isNull(sessionBefore!.activeOrganizationId)
 
-    await provisionPersonalWorkspace(context.db, {
+    const provisioning = await provisionPersonalWorkspace(context.db, {
       displayName: 'Pat User',
       email: 'provision@example.com',
       isAnonymous: false,
       sessionToken: sessionBefore!.token,
       userId,
+    })
+    assert.deepEqual(provisioning, {
+      organizationId: provisioning.organizationId,
+      wasProvisioned: true,
     })
 
     const sessionAfter = await context.db.query.session.findFirst({
@@ -116,10 +132,14 @@ test.group('Workspace provisioning (integration)', (group) => {
     const body = await assertOkJson<{ token: string; user: { id: string } }>(anonRes)
     const userId = body.user.id
 
-    await provisionPersonalWorkspace(context.db, {
+    const provisioning = await provisionPersonalWorkspace(context.db, {
       isAnonymous: true,
       sessionToken: body.token,
       userId,
+    })
+    assert.deepEqual(provisioning, {
+      organizationId: provisioning.organizationId,
+      wasProvisioned: true,
     })
 
     const sessionRow = await context.db.query.session.findFirst({
@@ -158,7 +178,7 @@ test.group('Workspace provisioning (integration)', (group) => {
     })
     assert.isNotNull(sessionRow)
 
-    await provisionPersonalWorkspace(context.db, {
+    const firstProvisioning = await provisionPersonalWorkspace(context.db, {
       displayName: 'Once',
       email: 'idempotent@example.com',
       isAnonymous: false,
@@ -170,7 +190,7 @@ test.group('Workspace provisioning (integration)', (group) => {
     })
     const orgIdFirst = afterFirst!.activeOrganizationId
 
-    await provisionPersonalWorkspace(context.db, {
+    const secondProvisioning = await provisionPersonalWorkspace(context.db, {
       displayName: 'Twice',
       email: 'idempotent@example.com',
       isAnonymous: false,
@@ -181,6 +201,9 @@ test.group('Workspace provisioning (integration)', (group) => {
       where: (s, { eq: e }) => e(s.userId, userId),
     })
     assert.equal(afterSecond!.activeOrganizationId, orgIdFirst)
+    assert.isTrue(firstProvisioning.wasProvisioned)
+    assert.isFalse(secondProvisioning.wasProvisioned)
+    assert.equal(secondProvisioning.organizationId, orgIdFirst)
 
     const memberships = await context.db.query.member.findMany({
       where: (m, { eq: e }) => e(m.userId, userId),
@@ -304,5 +327,182 @@ test.group('Workspace provisioning (integration)', (group) => {
     assert.equal(memberships[1]!.role, 'member')
     assert.equal(memberships[0]!.userId, first.user.id)
     assert.equal(memberships[1]!.userId, second.user.id)
+  })
+
+  test('demo mode does not change single-tenant owner assignment for later users', async ({
+    assert,
+  }) => {
+    const firstRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'demo-single-first@example.com',
+      name: 'Demo Single First',
+      password: 'SecureP@ss123',
+    })
+    const secondRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'demo-single-second@example.com',
+      name: 'Demo Single Second',
+      password: 'SecureP@ss123',
+    })
+    const first = await assertOkJson<{ user: { id: string } }>(firstRes)
+    const second = await assertOkJson<{ user: { id: string } }>(secondRes)
+
+    await ensureSingleTenantMembership(context.db, first.user.id, 'org-single-demo')
+    await ensureSingleTenantMembership(context.db, second.user.id, 'org-single-demo')
+
+    const memberships = await context.db.query.member.findMany({
+      orderBy: (memberRow, { asc }) => [asc(memberRow.createdAt)],
+      where: (memberRow, { eq: equal }) => equal(memberRow.organizationId, 'org-single-demo'),
+    })
+
+    assert.lengthOf(memberships, 2)
+    assert.equal(memberships[0]!.role, 'owner')
+    assert.equal(memberships[1]!.role, 'member')
+
+    const seeded = await seedProvisionedWorkspaceDemoData(
+      context.db,
+      { organizationId: 'org-single-demo', wasProvisioned: true },
+      new DemoModeService(true)
+    )
+
+    assert.isTrue(seeded)
+
+    const membershipsAfterSeed = await context.db.query.member.findMany({
+      orderBy: (memberRow, { asc }) => [asc(memberRow.createdAt)],
+      where: (memberRow, { eq: equal }) => equal(memberRow.organizationId, 'org-single-demo'),
+    })
+
+    assert.lengthOf(membershipsAfterSeed, 2)
+    assert.equal(membershipsAfterSeed[0]!.role, 'owner')
+    assert.equal(membershipsAfterSeed[1]!.role, 'member')
+  })
+
+  test('demo workspace bootstrap seeds newly provisioned workspaces only once', async ({
+    assert,
+  }) => {
+    const signUpRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'demo-bootstrap@example.com',
+      name: 'Demo Bootstrap',
+      password: 'SecureP@ss123',
+    })
+    const signedUp = await assertOkJson<{ user: { id: string } }>(signUpRes)
+    const sessionRow = await context.db.query.session.findFirst({
+      where: (s, { eq: e }) => e(s.userId, signedUp.user.id),
+    })
+    assert.isNotNull(sessionRow)
+
+    const provisioning = await provisionPersonalWorkspace(context.db, {
+      displayName: 'Demo Bootstrap',
+      email: 'demo-bootstrap@example.com',
+      isAnonymous: false,
+      sessionToken: sessionRow!.token,
+      userId: signedUp.user.id,
+    })
+
+    const seeded = await seedProvisionedWorkspaceDemoData(
+      context.db,
+      provisioning,
+      new DemoModeService(true)
+    )
+    const seededAgain = await seedProvisionedWorkspaceDemoData(
+      context.db,
+      { ...provisioning, wasProvisioned: true },
+      new DemoModeService(true)
+    )
+
+    const [customerCount] = await context.db
+      .select({ value: count() })
+      .from(schema.customers)
+      .where(eq(schema.customers.organizationId, provisioning.organizationId!))
+    const [invoiceCount] = await context.db
+      .select({ value: count() })
+      .from(schema.invoices)
+      .where(eq(schema.invoices.organizationId, provisioning.organizationId!))
+    const [expenseCount] = await context.db
+      .select({ value: count() })
+      .from(schema.expenses)
+      .where(eq(schema.expenses.organizationId, provisioning.organizationId!))
+    const [journalCount] = await context.db
+      .select({ value: count() })
+      .from(schema.journalEntries)
+      .where(eq(schema.journalEntries.organizationId, provisioning.organizationId!))
+    const [customerAuditCount] = await context.db
+      .select({ value: count() })
+      .from(schema.auditEvents)
+      .where(eq(schema.auditEvents.organizationId, provisioning.organizationId!))
+    const auditRows = await context.db
+      .select({ entityType: schema.auditEvents.entityType, value: count() })
+      .from(schema.auditEvents)
+      .where(eq(schema.auditEvents.organizationId, provisioning.organizationId!))
+      .groupBy(schema.auditEvents.entityType)
+    const auditCounts = Object.fromEntries(
+      auditRows.map((row) => [row.entityType, Number(row.value ?? 0)])
+    )
+
+    assert.isTrue(seeded)
+    assert.isFalse(seededAgain)
+    assert.equal(Number(customerCount?.value ?? 0), DEMO_CUSTOMER_COUNT)
+    assert.equal(Number(invoiceCount?.value ?? 0), DEMO_INVOICE_COUNT)
+    assert.equal(Number(expenseCount?.value ?? 0), DEMO_EXPENSE_COUNT)
+    assert.equal(
+      Number(journalCount?.value ?? 0),
+      DEMO_CONFIRMED_EXPENSE_COUNT + DEMO_ISSUED_INVOICE_COUNT + DEMO_PAID_INVOICE_COUNT
+    )
+    assert.equal(auditCounts.customer, DEMO_CUSTOMER_COUNT)
+    assert.equal(auditCounts.expense, DEMO_EXPENSE_COUNT + DEMO_CONFIRMED_EXPENSE_COUNT)
+    assert.equal(
+      auditCounts.invoice,
+      DEMO_INVOICE_COUNT + DEMO_ISSUED_INVOICE_COUNT + DEMO_PAID_INVOICE_COUNT * 2
+    )
+    assert.equal(
+      Number(customerAuditCount?.value ?? 0),
+      DEMO_CUSTOMER_COUNT +
+        (DEMO_EXPENSE_COUNT + DEMO_CONFIRMED_EXPENSE_COUNT) +
+        (DEMO_INVOICE_COUNT + DEMO_ISSUED_INVOICE_COUNT + DEMO_PAID_INVOICE_COUNT * 2)
+    )
+  })
+
+  test('demo dataset reset replaces existing tenant records with the shared dataset', async ({
+    assert,
+  }) => {
+    const signUpRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'demo-reset@example.com',
+      name: 'Demo Reset',
+      password: 'SecureP@ss123',
+    })
+    const signedUp = await assertOkJson<{ user: { id: string } }>(signUpRes)
+    const sessionRow = await context.db.query.session.findFirst({
+      where: (s, { eq: e }) => e(s.userId, signedUp.user.id),
+    })
+    assert.isNotNull(sessionRow)
+
+    const provisioning = await provisionPersonalWorkspace(context.db, {
+      displayName: 'Demo Reset',
+      email: 'demo-reset@example.com',
+      isAnonymous: false,
+      sessionToken: sessionRow!.token,
+      userId: signedUp.user.id,
+    })
+    const tenantId = provisioning.organizationId!
+    const dataset = new DemoDatasetService(context.db)
+    const access = systemAccessContext(tenantId, 'demo-reset-test')
+
+    await dataset.seedTenant(access)
+    await dataset.resetTenant(access)
+
+    const [customerCount] = await context.db
+      .select({ value: count() })
+      .from(schema.customers)
+      .where(eq(schema.customers.organizationId, tenantId))
+    const [invoiceCount] = await context.db
+      .select({ value: count() })
+      .from(schema.invoices)
+      .where(eq(schema.invoices.organizationId, tenantId))
+    const [expenseCount] = await context.db
+      .select({ value: count() })
+      .from(schema.expenses)
+      .where(eq(schema.expenses.organizationId, tenantId))
+
+    assert.equal(Number(customerCount?.value ?? 0), DEMO_CUSTOMER_COUNT)
+    assert.equal(Number(invoiceCount?.value ?? 0), DEMO_INVOICE_COUNT)
+    assert.equal(Number(expenseCount?.value ?? 0), DEMO_EXPENSE_COUNT)
   })
 })
