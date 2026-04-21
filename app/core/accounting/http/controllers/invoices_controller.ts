@@ -4,9 +4,13 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
 import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
+import { DomainError } from '#core/common/errors/domain_error'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
+import { MemberService } from '#core/user_management/application/member_service'
+import { InsufficientMemberRoleError } from '#core/user_management/application/member_service'
 import { inject } from '@adonisjs/core'
+import app from '@adonisjs/core/services/app'
 
 import { flashAction } from '../helpers/flash_action.js'
 import {
@@ -29,6 +33,24 @@ export default class InvoicesController {
     )
 
     return this.redirectToInvoices(ctx)
+  }
+
+  @inject()
+  async history(ctx: HttpContext, invoiceService: InvoiceService) {
+    const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
+    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const memberService = await app.container.make(MemberService)
+
+    await memberService.requireAdminOrOwner(access.tenantId, ctx.authSession!.user.id)
+
+    const invoice = await invoiceService.getInvoiceById(params.id, access)
+    if (!invoice) {
+      throw new DomainError('Invoice not found.', 'not_found')
+    }
+
+    return ctx.response.ok({
+      events: await invoiceService.listAuditEventsForInvoice(params.id, access),
+    })
   }
 
   @inject()
@@ -79,7 +101,10 @@ export default class InvoicesController {
       }
     }
 
+    const canViewAuditHistory = await this.canViewAuditHistory(ctx)
+
     return renderInertiaPage(inertia, 'app/invoices', {
+      canViewAuditHistory,
       customers: await invoiceService.listCustomersForSelect(access),
       filters: { search: search ?? '' },
       initialCustomerId: customer ?? null,
@@ -156,6 +181,27 @@ export default class InvoicesController {
     )
 
     return this.redirectToInvoices(ctx, { invoice: params.id })
+  }
+
+  private async canViewAuditHistory(ctx: HttpContext): Promise<boolean> {
+    const tenantId = ctx.authSession?.session.activeOrganizationId
+    const actorId = ctx.authSession?.user.id
+
+    if (!tenantId || !actorId) {
+      return false
+    }
+
+    const memberService = await app.container.make(MemberService)
+
+    try {
+      await memberService.requireAdminOrOwner(tenantId, actorId)
+      return true
+    } catch (error) {
+      if (error instanceof InsufficientMemberRoleError) {
+        return false
+      }
+      throw error
+    }
   }
 
   private redirectToInvoices(

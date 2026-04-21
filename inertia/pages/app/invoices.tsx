@@ -5,6 +5,7 @@ import type {
   CreateInvoiceInput,
   CustomerSelectDto,
   DateScope,
+  InvoiceAuditEventDto,
   InvoiceDto,
   InvoiceLineInput,
   InvoiceSummaryDto,
@@ -12,6 +13,7 @@ import type {
   PaginationMetaDto,
 } from '~/lib/types'
 
+import { AppIcon } from '~/components/app_icon'
 import { useDateScope } from '~/components/date_scope_provider'
 import { DateScopeSummary } from '~/components/date_scope_summary'
 import { PageHeader } from '~/components/page_header'
@@ -29,11 +31,30 @@ import type { InertiaProps } from '../../types'
 import type { EditableInvoiceLine } from './invoices/invoice_draft_editor'
 
 import { InvoiceDraftEditor } from './invoices/invoice_draft_editor'
+import { InvoiceHistoryDrawer } from './invoices/invoice_history_drawer'
 import { InvoiceList } from './invoices/invoice_list'
 import { InvoiceView } from './invoices/invoice_view'
 import { IssueInvoiceDialog } from './invoices/issue_invoice_dialog'
 
+interface InvoiceHistoryState {
+  errorMessage: null | string
+  events: InvoiceAuditEventDto[]
+  loading: boolean
+  open: boolean
+}
+
 interface InvoicesPageProps {
+  canViewAuditHistory: boolean
+  customers: CustomerSelectDto[]
+  filters?: { search?: string }
+  initialCustomerId: null | string
+  initialInvoiceId: null | string
+  invoices: PaginatedList<InvoiceDto>
+  invoiceSummary?: InvoiceSummaryDto
+  mode: 'new' | 'view'
+}
+interface InvoicesPageProps {
+  canViewAuditHistory: boolean
   customers: CustomerSelectDto[]
   filters?: { search?: string }
   initialCustomerId: null | string
@@ -43,8 +64,15 @@ interface InvoicesPageProps {
   mode: 'new' | 'view'
 }
 
+const INITIAL_HISTORY_STATE: InvoiceHistoryState = {
+  errorMessage: null,
+  events: [],
+  loading: false,
+  open: false,
+}
+
 export default function InvoicesPage(props: InertiaProps<InvoicesPageProps>) {
-  const resetKey = `${props.mode}|${props.initialInvoiceId}|${props.initialCustomerId}|${props.filters?.search ?? ''}|${props.invoices.items.map((i) => i.id).join(':')}|${props.invoices.pagination.page}|${props.invoices.pagination.perPage}`
+  const resetKey = `${props.mode}|${props.initialInvoiceId}|${props.initialCustomerId}|${props.canViewAuditHistory ? '1' : '0'}|${props.filters?.search ?? ''}|${props.invoices.items.map((i) => i.id).join(':')}|${props.invoices.pagination.page}|${props.invoices.pagination.perPage}`
   return <InvoicesContent key={resetKey} {...props} />
 }
 
@@ -144,6 +172,7 @@ function createInitialState(
 }
 
 function InvoicesContent({
+  canViewAuditHistory,
   customers,
   filters,
   initialCustomerId,
@@ -175,6 +204,8 @@ function InvoicesContent({
   const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<null | string>(null)
   const [issueForm, setIssueForm] = useState(createInitialIssueForm())
+  const [historyState, setHistoryState] = useState(INITIAL_HISTORY_STATE)
+  const historyAbortRef = useRef<AbortController | null>(null)
   const appliedSearch = filters?.search?.trim() ?? ''
 
   useEffect(() => {
@@ -220,9 +251,15 @@ function InvoicesContent({
   )
   const summary = cachedInvoiceSummary.current
 
+  useEffect(() => {
+    return () => historyAbortRef.current?.abort()
+  }, [])
+
   // --- Navigation ---
 
   function handleCreateDraft() {
+    historyAbortRef.current?.abort()
+    setHistoryState(INITIAL_HISTORY_STATE)
     setIsCreating(true)
     setSelectedInvoiceId(null)
     setForm(createInitialForm(customers[0]?.id ?? ''))
@@ -243,6 +280,8 @@ function InvoicesContent({
   }
 
   function handleBackToInvoices() {
+    historyAbortRef.current?.abort()
+    setHistoryState(INITIAL_HISTORY_STATE)
     router.get(
       '/invoices',
       {
@@ -259,6 +298,8 @@ function InvoicesContent({
   }
 
   function handleSelectInvoice(invoice: InvoiceDto) {
+    historyAbortRef.current?.abort()
+    setHistoryState(INITIAL_HISTORY_STATE)
     router.get(
       '/invoices',
       {
@@ -274,6 +315,71 @@ function InvoicesContent({
       },
       { preserveScroll: true }
     )
+  }
+
+  function handleCloseHistory() {
+    historyAbortRef.current?.abort()
+    setHistoryState((current) => ({ ...current, loading: false, open: false }))
+  }
+
+  async function handleOpenHistory() {
+    if (!selectedInvoice || !canViewAuditHistory) return
+
+    const invoiceId = selectedInvoice.id
+    historyAbortRef.current?.abort()
+    const controller = new AbortController()
+    historyAbortRef.current = controller
+
+    setHistoryState({
+      errorMessage: null,
+      events: [],
+      loading: true,
+      open: true,
+    })
+
+    try {
+      const response = await fetch(`/invoices/${invoiceId}/history`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('You do not have access to this audit history.')
+        }
+        if (response.status === 404) {
+          throw new Error('This invoice history is no longer available.')
+        }
+        throw new Error('The audit history subsystem is temporarily degraded.')
+      }
+
+      const payload = (await response.json()) as { events: InvoiceAuditEventDto[] }
+      if (controller.signal.aborted) {
+        return
+      }
+
+      setHistoryState({
+        errorMessage: null,
+        events: payload.events,
+        loading: false,
+        open: true,
+      })
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+
+      setHistoryState({
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : 'The audit history subsystem is temporarily degraded.',
+        events: [],
+        loading: false,
+        open: true,
+      })
+    }
   }
 
   function handlePageChange(page: number) {
@@ -521,28 +627,43 @@ function InvoicesContent({
 
       <div className="space-y-8">
         {isFocusMode ? (
-          <header className="flex flex-col gap-2">
-            <nav
-              aria-label="Invoice navigation"
-              className="flex flex-wrap items-center gap-2 text-sm font-semibold text-on-surface"
-            >
-              <button
-                className="text-primary transition-colors hover:text-primary-dim"
-                onClick={handleBackToInvoices}
-                type="button"
-              >
-                ← Invoices
-              </button>
-              <span className="text-on-surface-variant">/</span>
-              <h1 className="font-headline text-xl font-extrabold tracking-tight text-on-surface sm:text-2xl">
-                {focusPageTitle}
-              </h1>
-            </nav>
-            {focusPageDescription ? (
-              <p className="max-w-2xl text-sm leading-6 text-on-surface-variant">
-                {focusPageDescription}
-              </p>
-            ) : null}
+          <header className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="space-y-2">
+                <nav
+                  aria-label="Invoice navigation"
+                  className="flex flex-wrap items-center gap-2 text-sm font-semibold text-on-surface"
+                >
+                  <button
+                    className="text-primary transition-colors hover:text-primary-dim"
+                    onClick={handleBackToInvoices}
+                    type="button"
+                  >
+                    ← Invoices
+                  </button>
+                  <span className="text-on-surface-variant">/</span>
+                  <h1 className="font-headline text-xl font-extrabold tracking-tight text-on-surface sm:text-2xl">
+                    {focusPageTitle}
+                  </h1>
+                </nav>
+                {focusPageDescription ? (
+                  <p className="max-w-2xl text-sm leading-6 text-on-surface-variant">
+                    {focusPageDescription}
+                  </p>
+                ) : null}
+              </div>
+
+              {selectedInvoice && canViewAuditHistory ? (
+                <button
+                  className="inline-flex items-center gap-2 self-start rounded-lg border border-outline-variant/35 bg-white px-4 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                  onClick={handleOpenHistory}
+                  type="button"
+                >
+                  <AppIcon name="receipt_long" size={16} />
+                  {historyState.loading && historyState.open ? 'Refreshing history…' : 'History'}
+                </button>
+              ) : null}
+            </div>
           </header>
         ) : (
           <PageHeader
@@ -616,6 +737,15 @@ function InvoicesContent({
         onConfirm={handleConfirmIssueInvoice}
         onFieldChange={handleIssueFormFieldChange}
         saving={saving}
+      />
+
+      <InvoiceHistoryDrawer
+        errorMessage={historyState.errorMessage}
+        events={historyState.events}
+        invoice={selectedInvoice}
+        loading={historyState.loading && historyState.open}
+        onClose={handleCloseHistory}
+        open={historyState.open}
       />
     </>
   )
