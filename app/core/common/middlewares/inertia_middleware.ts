@@ -2,9 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
-import {
-  isDevelopmentEnvironment,
-} from '#core/user_management/support/dev_operator'
+import { isDevelopmentEnvironment } from '#core/user_management/support/dev_operator'
 import app from '@adonisjs/core/services/app'
 import BaseInertiaMiddleware from '@adonisjs/inertia/inertia_middleware'
 
