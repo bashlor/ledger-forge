@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { DatabaseCriticalAuditTrail } from '#core/accounting/application/audit/critical_audit_trail'
 import { CustomerService } from '#core/accounting/application/customers/index'
+import { DemoDatasetService } from '#core/accounting/application/demo/demo_dataset_service'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
@@ -109,108 +110,6 @@ const ACTION_NAMES: readonly ActionName[] = [
   'switch-tenant',
 ]
 
-export class DemoDatasetService {
-  constructor(private readonly db: PostgresJsDatabase<typeof schema>) {}
-
-  async clearTenantData(tenantId: string): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      await tx.delete(schema.auditEvents).where(eq(schema.auditEvents.organizationId, tenantId))
-      await tx
-        .delete(schema.journalEntries)
-        .where(eq(schema.journalEntries.organizationId, tenantId))
-      await tx.delete(schema.invoices).where(eq(schema.invoices.organizationId, tenantId))
-      await tx.delete(schema.expenses).where(eq(schema.expenses.organizationId, tenantId))
-      await tx.delete(schema.customers).where(eq(schema.customers.organizationId, tenantId))
-    })
-  }
-
-  async resetLocalDataset(access: AccountingAccessContext): Promise<void> {
-    await this.clearTenantData(access.tenantId)
-    await this.seedTenant(access)
-  }
-
-  async seedTenant(access: AccountingAccessContext): Promise<void> {
-    const customerService = new CustomerService(this.db)
-    const invoiceService = new InvoiceService(this.db)
-    const expenseService = new ExpenseService(this.db)
-    const token = shortToken()
-    const today = dateOnlyUtc(new Date())
-    const plus14 = addDays(today, 14)
-    const plus21 = addDays(today, 21)
-
-    const customerA = await customerService.createCustomer(
-      {
-        address: '12 rue des Cerisiers, 75011 Paris',
-        company: `Northwind Studio ${token}`,
-        email: `northwind-${token}@example.local`,
-        name: 'Sarah Chen',
-        note: 'Seeded from dev inspector',
-        phone: '+33 6 11 22 33 44',
-      },
-      access
-    )
-
-    const customerB = await customerService.createCustomer(
-      {
-        address: '8 avenue Victor Hugo, 69002 Lyon',
-        company: `Atelier Horizon ${token}`,
-        email: `atelier-${token}@example.local`,
-        name: 'Marc Dubois',
-        note: 'Seeded from dev inspector',
-        phone: '+33 6 55 66 77 88',
-      },
-      access
-    )
-
-    const draftInvoice = await invoiceService.createDraft(
-      {
-        customerId: customerA.id,
-        dueDate: plus14,
-        issueDate: today,
-        lines: [
-          { description: 'Monthly bookkeeping', quantity: 1, unitPrice: 1600, vatRate: 20 },
-          { description: 'VAT advisory', quantity: 1, unitPrice: 400, vatRate: 20 },
-        ],
-      },
-      access
-    )
-
-    const issuedInvoice = await invoiceService.createDraft(
-      {
-        customerId: customerB.id,
-        dueDate: plus21,
-        issueDate: today,
-        lines: [
-          { description: 'Quarter-end close', quantity: 1, unitPrice: 1200, vatRate: 20 },
-          { description: 'Cash flow review', quantity: 2, unitPrice: 150, vatRate: 20 },
-        ],
-      },
-      access
-    )
-
-    await invoiceService.issueInvoice(
-      issuedInvoice.id,
-      {
-        issuedCompanyAddress: '15 rue de la Paix, 75001 Paris',
-        issuedCompanyName: 'Precision Ledger Dev',
-      },
-      access
-    )
-
-    await expenseService.createExpense(
-      { amount: 18, category: 'Software', date: today, label: `Figma ${token}` },
-      access
-    )
-    const confirmableExpense = await expenseService.createExpense(
-      { amount: 146, category: 'Infrastructure', date: today, label: `AWS ${token}` },
-      access
-    )
-    await expenseService.confirmExpense(confirmableExpense.id, access)
-
-    void draftInvoice
-  }
-}
-
 export class DevOperatorConsoleService {
   private readonly auditTrail = new DatabaseCriticalAuditTrail()
 
@@ -300,7 +199,7 @@ export class DevOperatorConsoleService {
         return 'Demo data generated for the active tenant.'
       case 'reset-local-dataset':
         authorizationService.authorize(actor, 'invoice.markPaid')
-        await new DemoDatasetService(this.db).resetLocalDataset(access)
+        await new DemoDatasetService(this.db).resetTenant(access)
         return 'Local accounting dataset reset and re-seeded for the active tenant.'
       case 'switch-tenant':
         throw new DomainError(
