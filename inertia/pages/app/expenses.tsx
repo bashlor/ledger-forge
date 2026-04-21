@@ -5,6 +5,7 @@ import type { CreateExpenseInput, ExpenseDto, ExpenseSummaryDto, PaginatedList }
 
 import { DataTable } from '~/components/data_table'
 import { useDateScope } from '~/components/date_scope_provider'
+import { ErrorBanner } from '~/components/error_banner'
 import { Modal } from '~/components/modal'
 import { PageHeader } from '~/components/page_header'
 import { DEFAULT_PAGE_SIZE } from '~/lib/pagination'
@@ -23,13 +24,22 @@ interface ExpenseSearchFormProps {
 type PendingAction = { id: string; kind: 'confirm' | 'delete'; label: string }
 
 type Props = InertiaProps<{
+  accountingReadOnly: boolean
+  accountingReadOnlyMessage: string
   categories: string[]
   expenses: PaginatedList<ExpenseDto>
   filters?: { search?: string }
   summary?: ExpenseSummaryDto
 }>
 
-export default function ExpensesPage({ categories, expenses, filters, summary }: Props) {
+export default function ExpensesPage({
+  accountingReadOnly,
+  accountingReadOnlyMessage,
+  categories,
+  expenses,
+  filters,
+  summary,
+}: Props) {
   const { scope } = useDateScope()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedExpense, setSelectedExpense] = useState<ExpenseDto | null>(null)
@@ -91,6 +101,7 @@ export default function ExpensesPage({ categories, expenses, filters, summary }:
   }
 
   function handleCreate(input: CreateExpenseInput) {
+    if (accountingReadOnly) return
     router.post('/expenses', { ...input, ...listQs() } as never, {
       onFinish: () => setProcessing(false),
       onStart: () => setProcessing(true),
@@ -100,6 +111,7 @@ export default function ExpensesPage({ categories, expenses, filters, summary }:
   }
 
   function openCreateDrawer() {
+    if (accountingReadOnly) return
     setSelectedExpense(null)
     setDrawerOpen(true)
   }
@@ -115,17 +127,19 @@ export default function ExpensesPage({ categories, expenses, filters, summary }:
   }
 
   function requestConfirm(id: string) {
+    if (accountingReadOnly) return
     const expense = expenses.items.find((e) => e.id === id)
     setPendingAction({ id, kind: 'confirm', label: expense?.label ?? 'this expense' })
   }
 
   function requestDelete(id: string) {
+    if (accountingReadOnly) return
     const expense = expenses.items.find((e) => e.id === id)
     setPendingAction({ id, kind: 'delete', label: expense?.label ?? 'this expense' })
   }
 
   function executeAction() {
-    if (!pendingAction) return
+    if (!pendingAction || accountingReadOnly) return
     const { id, kind } = pendingAction
     setPendingAction(null)
 
@@ -150,10 +164,13 @@ export default function ExpensesPage({ categories, expenses, filters, summary }:
       <Head title="Expenses" />
 
       <div className="space-y-8">
+        {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
+
         <PageHeader
           actions={
             <button
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.99] sm:w-auto sm:justify-start"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:justify-start"
+              disabled={accountingReadOnly}
               onClick={openCreateDrawer}
               type="button"
             >
@@ -172,6 +189,8 @@ export default function ExpensesPage({ categories, expenses, filters, summary }:
         )}
 
         <CreateDrawer
+          accountingReadOnly={accountingReadOnly}
+          accountingReadOnlyMessage={accountingReadOnlyMessage}
           categories={categories}
           expense={selectedExpense}
           onClose={closeDrawer}
@@ -209,6 +228,7 @@ export default function ExpensesPage({ categories, expenses, filters, summary }:
           title="Expense register"
         >
           <ExpenseTable
+            accountingReadOnly={accountingReadOnly}
             items={expenses.items}
             onConfirm={requestConfirm}
             onDelete={requestDelete}
@@ -239,6 +259,7 @@ export default function ExpensesPage({ categories, expenses, filters, summary }:
                   ? 'bg-error text-on-error hover:bg-error/90'
                   : 'text-on-primary milled-steel-gradient hover:opacity-95'
               }`}
+              disabled={accountingReadOnly}
               onClick={executeAction}
               type="button"
             >

@@ -6,6 +6,7 @@ import { StatusBadge } from '~/components/status_badge'
 import { formatShortDate, formatSignedCurrency } from '~/lib/format'
 
 interface ExpenseTableProps {
+  accountingReadOnly: boolean
   items: ExpenseDto[]
   onConfirm: (id: string) => void
   onDelete: (id: string) => void
@@ -14,6 +15,7 @@ interface ExpenseTableProps {
 }
 
 export function ExpenseTable({
+  accountingReadOnly,
   items,
   onConfirm,
   onDelete,
@@ -65,7 +67,7 @@ export function ExpenseTable({
                   {expense.canConfirm ? (
                     <button
                       className="rounded-lg border border-primary/20 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={rowBusy}
+                      disabled={accountingReadOnly || rowBusy}
                       onClick={(event) => {
                         event.stopPropagation()
                         onConfirm(expense.id)
@@ -78,7 +80,7 @@ export function ExpenseTable({
                   {expense.canDelete ? (
                     <button
                       className="rounded-lg border border-error/20 px-3 py-1.5 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-error/35 disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={rowBusy}
+                      disabled={accountingReadOnly || rowBusy}
                       onClick={(event) => {
                         event.stopPropagation()
                         onDelete(expense.id)

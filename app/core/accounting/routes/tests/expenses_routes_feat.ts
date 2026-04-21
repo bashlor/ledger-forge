@@ -1,14 +1,7 @@
-import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { auditEvents, expenses, journalEntries } from '#core/accounting/drizzle/schema'
-import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
-import {
-  AuthenticationPort,
-  type AuthProviderUser,
-  type AuthResult,
-} from '#core/user_management/domain/authentication'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { desc, eq } from 'drizzle-orm'
@@ -18,75 +11,15 @@ import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
 import {
   seedTestOrganization,
   setupTestDatabaseForGroup,
-  TEST_TENANT_ID,
 } from '../../../../../tests/helpers/testcontainers_db.js'
-
-const fakeUser: AuthProviderUser = {
-  createdAt: new Date('2024-01-01T00:00:00.000Z'),
-  email: 'test@example.com',
-  emailVerified: true,
-  id: 'user_test',
-  image: null,
-  isAnonymous: false,
-  name: 'Test User',
-  publicId: 'pub_user_test',
-}
-
-const fakeSession: AuthResult = {
-  session: {
-    activeOrganizationId: TEST_TENANT_ID,
-    expiresAt: new Date('2030-01-01T00:00:00.000Z'),
-    token: 'test_session_token',
-    userId: fakeUser.id,
-  },
-  user: fakeUser,
-}
-
-const TEST_ACCOUNTING_ACCESS_CONTEXT: AccountingAccessContext = {
-  actorId: fakeUser.id,
-  isAnonymous: false,
-  requestId: 'test',
-  tenantId: TEST_TENANT_ID,
-}
-
-class FakeAuth extends AuthenticationPort {
-  async changePassword(): Promise<void> {}
-  getOAuthUrl(): string {
-    return ''
-  }
-  async getSession(token: null | string): Promise<AuthResult | null> {
-    return token === fakeSession.session.token ? fakeSession : null
-  }
-  async getUserById(): Promise<AuthProviderUser | null> {
-    return fakeUser
-  }
-  async requestPasswordReset(): Promise<void> {}
-  async resetPassword(): Promise<void> {}
-  async sendVerificationEmail(): Promise<void> {}
-  async signIn(): Promise<AuthResult> {
-    return fakeSession
-  }
-  async signInAnonymously(): Promise<AuthResult> {
-    return fakeSession
-  }
-  async signOut(): Promise<void> {}
-  async signUp(): Promise<AuthResult> {
-    return fakeSession
-  }
-  async updateUser(): Promise<AuthProviderUser> {
-    return fakeUser
-  }
-  async validateSession(): Promise<AuthResult> {
-    return fakeSession
-  }
-  async verifyEmail(): Promise<void> {}
-}
+import {
+  authCookie,
+  bindAccountingAuth,
+  resetAccountingAuthContext,
+  TEST_ACCOUNTING_ACCESS_CONTEXT,
+} from './accounting_test_support.js'
 
 let db: PostgresJsDatabase<any>
-
-function authCookie() {
-  return `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${fakeSession.session.token}`
-}
 
 test.group('Expenses routes | create → confirm → journal', (group) => {
   let cleanup: () => Promise<void>
@@ -96,13 +29,11 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
     await seedTestOrganization(db)
-
-    const auth = new FakeAuth()
-    app.container.bindValue(AuthenticationPort, auth)
-    app.container.bindValue('authAdapter', auth)
   })
 
   group.each.setup(async () => {
+    resetAccountingAuthContext()
+    bindAccountingAuth()
     await db.delete(auditEvents)
     await db.delete(journalEntries)
     await db.delete(expenses)
@@ -323,10 +254,8 @@ test.group('Expenses routes | authorization', (group) => {
   group.setup(async () => {
     const ctx = await setupTestDatabaseForGroup()
     cleanup = ctx.cleanup
-
-    const auth = new FakeAuth()
-    app.container.bindValue(AuthenticationPort, auth)
-    app.container.bindValue('authAdapter', auth)
+    resetAccountingAuthContext()
+    bindAccountingAuth()
   })
 
   group.teardown(async () => cleanup())
@@ -370,13 +299,11 @@ test.group('Expenses routes | validation', (group) => {
     const ctx = await setupTestDatabaseForGroup()
     cleanup = ctx.cleanup
     validationDb = await app.container.make('drizzle')
-
-    const auth = new FakeAuth()
-    app.container.bindValue(AuthenticationPort, auth)
-    app.container.bindValue('authAdapter', auth)
   })
 
   group.each.setup(async () => {
+    resetAccountingAuthContext()
+    bindAccountingAuth()
     await validationDb.delete(auditEvents)
     await validationDb.delete(journalEntries)
     await validationDb.delete(expenses)
@@ -564,10 +491,6 @@ test.group('Expenses service | getSummary and listExpenses', (group) => {
   })
 
   test('cannot confirm an already-confirmed expense', async ({ assert, client }) => {
-    const auth = new FakeAuth()
-    app.container.bindValue(AuthenticationPort, auth)
-    app.container.bindValue('authAdapter', auth)
-
     await service.createExpense(
       {
         amount: 40,
@@ -607,10 +530,8 @@ test.group('Expenses routes | date range validation', (group) => {
   group.setup(async () => {
     const ctx = await setupTestDatabaseForGroup()
     cleanup = ctx.cleanup
-
-    const auth = new FakeAuth()
-    app.container.bindValue(AuthenticationPort, auth)
-    app.container.bindValue('authAdapter', auth)
+    resetAccountingAuthContext()
+    bindAccountingAuth()
   })
 
   group.teardown(async () => cleanup())

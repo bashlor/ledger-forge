@@ -10,6 +10,7 @@ import type {
 import type { FormErrors } from '~/types'
 
 import { DataTable } from '~/components/data_table'
+import { ErrorBanner } from '~/components/error_banner'
 import { PageHeader } from '~/components/page_header'
 import { DEFAULT_PAGE_SIZE } from '~/lib/pagination'
 
@@ -25,11 +26,18 @@ interface CustomerSearchFormProps {
 }
 
 interface CustomersPageProps {
+  accountingReadOnly: boolean
+  accountingReadOnlyMessage: string
   customers: CustomerListDto
   filters?: { search?: string }
 }
 
-export default function CustomersPage({ customers, filters }: InertiaProps<CustomersPageProps>) {
+export default function CustomersPage({
+  accountingReadOnly,
+  accountingReadOnlyMessage,
+  customers,
+  filters,
+}: InertiaProps<CustomersPageProps>) {
   const { errors } =
     usePage<InertiaProps<{ customers: CustomerListDto; errors?: FormErrors }>>().props
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -86,12 +94,14 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
   }, [hasCustomerErrors])
 
   function openCreate() {
+    if (accountingReadOnly) return
     setEditTarget(null)
     setDrawerKey((k) => k + 1)
     setDrawerOpen(true)
   }
 
   function openEdit(customer: CustomerListItemDto) {
+    if (accountingReadOnly) return
     setEditTarget(customer)
     setDrawerKey((k) => k + 1)
     setDrawerOpen(true)
@@ -103,6 +113,7 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
   }
 
   function handleSubmit(form: CreateCustomerInput, editingId: null | string) {
+    if (accountingReadOnly) return
     const normalized = {
       ...form,
       email: form.email?.trim() || undefined,
@@ -125,6 +136,7 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
   }
 
   function handleDelete(customer: CustomerListItemDto) {
+    if (accountingReadOnly) return
     if (customer.canDelete === false) return
     if (!window.confirm(`Delete customer "${customer.company}"?`)) return
 
@@ -153,10 +165,13 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
       <Head title="Customers" />
 
       <div className="space-y-4 lg:space-y-5">
+        {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
+
         <PageHeader
           actions={
             <button
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95"
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={accountingReadOnly}
               onClick={openCreate}
               type="button"
             >
@@ -178,6 +193,8 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
           onSubmit={handleSubmit}
           open={drawerOpen}
           processing={processing}
+          readOnly={accountingReadOnly}
+          readOnlyMessage={accountingReadOnlyMessage}
           target={editTarget}
         />
 
@@ -247,6 +264,7 @@ export default function CustomersPage({ customers, filters }: InertiaProps<Custo
               onDelete={handleDelete}
               onEdit={openEdit}
               processing={processing}
+              readOnly={accountingReadOnly}
             />
           )}
         </DataTable>

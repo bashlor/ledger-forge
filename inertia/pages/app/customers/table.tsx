@@ -7,9 +7,16 @@ interface CustomerTableProps {
   onDelete: (customer: CustomerListItemDto) => void
   onEdit: (customer: CustomerListItemDto) => void
   processing: boolean
+  readOnly: boolean
 }
 
-export function CustomerTable({ items, onDelete, onEdit, processing }: CustomerTableProps) {
+export function CustomerTable({
+  items,
+  onDelete,
+  onEdit,
+  processing,
+  readOnly,
+}: CustomerTableProps) {
   return (
     <table className="w-full min-w-[860px] border-collapse text-left text-sm">
       <thead>
@@ -60,7 +67,7 @@ export function CustomerTable({ items, onDelete, onEdit, processing }: CustomerT
               >
                 <button
                   className="rounded border border-error/20 px-3 py-1.5 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={processing || customer.canDelete === false}
+                  disabled={processing || readOnly || customer.canDelete === false}
                   onClick={() => onDelete(customer)}
                   title={customer.deleteBlockReason}
                   type="button"

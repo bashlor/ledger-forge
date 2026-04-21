@@ -8,6 +8,7 @@ import { formatCurrency, formatShortDate } from '~/lib/format'
 import { canDeleteInvoice } from '~/lib/invoices'
 
 interface Props {
+  accountingReadOnly: boolean
   appliedSearch: string
   deleteConfirmId: null | string
   invoices: PaginatedList<InvoiceDto>
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function InvoiceList({
+  accountingReadOnly,
   appliedSearch,
   deleteConfirmId,
   invoices,
@@ -166,7 +168,7 @@ export function InvoiceList({
                         <button
                           aria-label={`Confirm delete draft ${invoice.invoiceNumber}`}
                           className="rounded border border-error px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/40 disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={saving}
+                          disabled={accountingReadOnly || saving}
                           onClick={() => onDeleteDraft(invoice)}
                           type="button"
                         >
@@ -185,7 +187,7 @@ export function InvoiceList({
                       <button
                         aria-label={`Delete draft ${invoice.invoiceNumber}`}
                         className="rounded border border-error/20 px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={saving}
+                        disabled={accountingReadOnly || saving}
                         onClick={() => onDeleteDraft(invoice)}
                         type="button"
                       >

@@ -1,120 +1,32 @@
-import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { type InvoiceService } from '#core/accounting/application/invoices/index'
 import { auditEvents, customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
-import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
-import {
-  AuthenticationPort,
-  type AuthProviderUser,
-  type AuthResult,
-} from '#core/user_management/domain/authentication'
-import app from '@adonisjs/core/services/app'
 
 import {
   seedTestOrganization,
   TEST_TENANT_ID,
 } from '../../../../../tests/helpers/testcontainers_db.js'
+import {
+  authCookie,
+  bindAccountingAuth,
+  resetAccountingAuthContext,
+  setAccountingAuthContext,
+  TEST_ACCOUNTING_ACCESS_CONTEXT,
+  TEST_ACCOUNTING_USER_EMAIL,
+  TEST_ACCOUNTING_USER_ID,
+  TEST_ACCOUNTING_USER_PUBLIC_ID,
+} from './accounting_test_support.js'
 
 export const TEST_CUSTOMER_ID = 'test-customer-for-invoices'
 export const SECOND_CUSTOMER_ID = 'test-customer-for-invoices-2'
-export const TEST_INVOICE_USER_ID = 'user_test_invoices'
-export const TEST_INVOICE_USER_PUBLIC_ID = 'pub_user_test_invoices'
-export const TEST_INVOICE_USER_EMAIL = 'test@example.com'
+type InvoiceAuthContext = Parameters<typeof setAccountingAuthContext>[0]
 
-type InvoiceAuthContext = {
-  email: string
-  organizationId: string
-  token: string
-  userId: string
-  userPublicId: string
-}
-
-let authContext: InvoiceAuthContext = {
-  email: TEST_INVOICE_USER_EMAIL,
-  organizationId: TEST_TENANT_ID,
-  token: 'test_session_token_invoices',
-  userId: TEST_INVOICE_USER_ID,
-  userPublicId: TEST_INVOICE_USER_PUBLIC_ID,
-}
-const defaultAuthContext: InvoiceAuthContext = { ...authContext }
-
-function fakeSessionFromContext(context: InvoiceAuthContext): AuthResult {
-  const user = fakeUserFromContext(context)
-  return {
-    session: {
-      activeOrganizationId: context.organizationId,
-      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
-      token: context.token,
-      userId: user.id,
-    },
-    user,
-  }
-}
-
-function fakeUserFromContext(context: InvoiceAuthContext): AuthProviderUser {
-  return {
-    createdAt: new Date('2024-01-01T00:00:00.000Z'),
-    email: context.email,
-    emailVerified: true,
-    id: context.userId,
-    image: null,
-    isAnonymous: false,
-    name: 'Test User',
-    publicId: context.userPublicId,
-  }
-}
-
-export const TEST_ACCOUNTING_ACCESS_CONTEXT: AccountingAccessContext = {
-  actorId: TEST_INVOICE_USER_ID,
-  isAnonymous: false,
-  requestId: 'test',
-  tenantId: TEST_TENANT_ID,
-}
+export const TEST_INVOICE_USER_ID = TEST_ACCOUNTING_USER_ID
+export const TEST_INVOICE_USER_PUBLIC_ID = TEST_ACCOUNTING_USER_PUBLIC_ID
+export const TEST_INVOICE_USER_EMAIL = TEST_ACCOUNTING_USER_EMAIL
 
 export { seedTestOrganization }
-
-class FakeAuth extends AuthenticationPort {
-  private readonly session: AuthResult
-  private readonly user: AuthProviderUser
-
-  constructor(session: AuthResult) {
-    super()
-    this.session = session
-    this.user = session.user
-  }
-
-  async changePassword(): Promise<void> {}
-  getOAuthUrl(): string {
-    return ''
-  }
-  async getSession(token: null | string): Promise<AuthResult | null> {
-    return token === this.session.session.token ? this.session : null
-  }
-  async getUserById(): Promise<AuthProviderUser | null> {
-    return this.user
-  }
-  async requestPasswordReset(): Promise<void> {}
-  async resetPassword(): Promise<void> {}
-  async sendVerificationEmail(): Promise<void> {}
-  async signIn(): Promise<AuthResult> {
-    return this.session
-  }
-  async signInAnonymously(): Promise<AuthResult> {
-    return this.session
-  }
-  async signOut(): Promise<void> {}
-  async signUp(): Promise<AuthResult> {
-    return this.session
-  }
-  async updateUser(): Promise<AuthProviderUser> {
-    return this.user
-  }
-  async validateSession(): Promise<AuthResult> {
-    return this.session
-  }
-  async verifyEmail(): Promise<void> {}
-}
 
 export function addDaysDateOnlyUtc(value: string, days: number): string {
   const [year, month, day] = value.split('-').map(Number)
@@ -122,14 +34,10 @@ export function addDaysDateOnlyUtc(value: string, days: number): string {
   return dateOnlyUtcFromDate(date)
 }
 
-export function authCookie() {
-  return `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${authContext.token}`
-}
+export { authCookie, TEST_ACCOUNTING_ACCESS_CONTEXT }
 
 export function bindInvoiceAuth() {
-  const auth = new FakeAuth(fakeSessionFromContext(authContext))
-  app.container.bindValue(AuthenticationPort, auth)
-  app.container.bindValue('authAdapter', auth)
+  bindAccountingAuth()
 }
 
 export async function createDraftViaHttp(db: PostgresJsDatabase<any>, client: any) {
@@ -222,7 +130,7 @@ export function issuePayload() {
 }
 
 export function resetInvoiceAuthContext() {
-  authContext = { ...defaultAuthContext }
+  resetAccountingAuthContext()
 }
 
 export async function resetInvoiceFixtures(db: PostgresJsDatabase<any>) {
@@ -253,8 +161,5 @@ export async function resetInvoiceFixtures(db: PostgresJsDatabase<any>) {
 }
 
 export function setInvoiceAuthContext(overrides: Partial<InvoiceAuthContext> = {}) {
-  authContext = {
-    ...authContext,
-    ...overrides,
-  }
+  setAccountingAuthContext(overrides)
 }

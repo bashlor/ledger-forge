@@ -16,6 +16,7 @@ import type {
 import { AppIcon } from '~/components/app_icon'
 import { useDateScope } from '~/components/date_scope_provider'
 import { DateScopeSummary } from '~/components/date_scope_summary'
+import { ErrorBanner } from '~/components/error_banner'
 import { PageHeader } from '~/components/page_header'
 import { addDaysDateOnlyUtc, todayDateOnlyUtc } from '~/lib/date'
 import { formatCurrency } from '~/lib/format'
@@ -44,16 +45,8 @@ interface InvoiceHistoryState {
 }
 
 interface InvoicesPageProps {
-  canViewAuditHistory: boolean
-  customers: CustomerSelectDto[]
-  filters?: { search?: string }
-  initialCustomerId: null | string
-  initialInvoiceId: null | string
-  invoices: PaginatedList<InvoiceDto>
-  invoiceSummary?: InvoiceSummaryDto
-  mode: 'new' | 'view'
-}
-interface InvoicesPageProps {
+  accountingReadOnly: boolean
+  accountingReadOnlyMessage: string
   canViewAuditHistory: boolean
   customers: CustomerSelectDto[]
   filters?: { search?: string }
@@ -172,6 +165,8 @@ function createInitialState(
 }
 
 function InvoicesContent({
+  accountingReadOnly,
+  accountingReadOnlyMessage,
   canViewAuditHistory,
   customers,
   filters,
@@ -255,11 +250,16 @@ function InvoicesContent({
     return () => historyAbortRef.current?.abort()
   }, [])
 
+  function resetHistoryState() {
+    historyAbortRef.current?.abort()
+    setHistoryState(INITIAL_HISTORY_STATE)
+  }
+
   // --- Navigation ---
 
   function handleCreateDraft() {
-    historyAbortRef.current?.abort()
-    setHistoryState(INITIAL_HISTORY_STATE)
+    if (accountingReadOnly) return
+    resetHistoryState()
     setIsCreating(true)
     setSelectedInvoiceId(null)
     setForm(createInitialForm(customers[0]?.id ?? ''))
@@ -280,8 +280,7 @@ function InvoicesContent({
   }
 
   function handleBackToInvoices() {
-    historyAbortRef.current?.abort()
-    setHistoryState(INITIAL_HISTORY_STATE)
+    resetHistoryState()
     router.get(
       '/invoices',
       {
@@ -298,8 +297,7 @@ function InvoicesContent({
   }
 
   function handleSelectInvoice(invoice: InvoiceDto) {
-    historyAbortRef.current?.abort()
-    setHistoryState(INITIAL_HISTORY_STATE)
+    resetHistoryState()
     router.get(
       '/invoices',
       {
@@ -479,6 +477,8 @@ function InvoicesContent({
   // --- Mutations ---
 
   function handleSaveDraft() {
+    if (accountingReadOnly) return
+    resetHistoryState()
     const payload = buildPayload({ ...form, customerId: effectiveCustomerId })
     const path =
       selectedInvoice && editingInvoice ? `/invoices/${selectedInvoice.id}/draft` : '/invoices'
@@ -501,7 +501,7 @@ function InvoicesContent({
   }
 
   function handleIssueInvoice() {
-    if (!selectedInvoice) return
+    if (!selectedInvoice || accountingReadOnly) return
     setIssueForm(createInitialIssueForm(selectedInvoice))
     setIsIssueDialogOpen(true)
   }
@@ -514,7 +514,8 @@ function InvoicesContent({
   }
 
   function handleConfirmIssueInvoice() {
-    if (!selectedInvoice) return
+    if (!selectedInvoice || accountingReadOnly) return
+    resetHistoryState()
     router.post(
       invoicesUrl(
         `/invoices/${selectedInvoice.id}/issue`,
@@ -537,7 +538,8 @@ function InvoicesContent({
   }
 
   function handleMarkAsPaid() {
-    if (!selectedInvoice) return
+    if (!selectedInvoice || accountingReadOnly) return
+    resetHistoryState()
     router.post(
       invoicesUrl(
         `/invoices/${selectedInvoice.id}/mark-paid`,
@@ -556,10 +558,12 @@ function InvoicesContent({
   }
 
   function handleDeleteDraftFromList(invoice: InvoiceDto) {
+    if (accountingReadOnly) return
     if (deleteConfirmId !== invoice.id) {
       setDeleteConfirmId(invoice.id)
       return
     }
+    resetHistoryState()
     setDeleteConfirmId(null)
     router.delete(
       invoicesUrl(
@@ -578,7 +582,8 @@ function InvoicesContent({
   }
 
   function handleDeleteDraft() {
-    if (!selectedInvoice) return
+    if (!selectedInvoice || accountingReadOnly) return
+    resetHistoryState()
     router.delete(
       invoicesUrl(
         `/invoices/${selectedInvoice.id}`,
@@ -626,6 +631,8 @@ function InvoicesContent({
       <Head title="Invoices" />
 
       <div className="space-y-8">
+        {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
+
         {isFocusMode ? (
           <header className="flex flex-col gap-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -669,7 +676,8 @@ function InvoicesContent({
           <PageHeader
             actions={
               <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95"
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={accountingReadOnly}
                 onClick={handleCreateDraft}
                 type="button"
               >
@@ -686,6 +694,7 @@ function InvoicesContent({
 
         {!isFocusMode ? (
           <InvoiceList
+            accountingReadOnly={accountingReadOnly}
             appliedSearch={appliedSearch}
             deleteConfirmId={deleteConfirmId}
             invoices={invoices}
@@ -702,6 +711,8 @@ function InvoicesContent({
           <section className="overflow-hidden rounded-xl bg-surface-container-lowest shadow-ambient-tight">
             {isCreating || editingInvoice ? (
               <InvoiceDraftEditor
+                accountingReadOnly={accountingReadOnly}
+                accountingReadOnlyMessage={accountingReadOnlyMessage}
                 customers={customers}
                 effectiveCustomerId={effectiveCustomerId}
                 form={form}
@@ -721,6 +732,8 @@ function InvoicesContent({
               />
             ) : selectedInvoice ? (
               <InvoiceView
+                accountingReadOnly={accountingReadOnly}
+                accountingReadOnlyMessage={accountingReadOnlyMessage}
                 invoice={selectedInvoice}
                 onMarkAsPaid={handleMarkAsPaid}
                 saving={saving}
@@ -736,6 +749,7 @@ function InvoicesContent({
         onCancel={() => setIsIssueDialogOpen(false)}
         onConfirm={handleConfirmIssueInvoice}
         onFieldChange={handleIssueFormFieldChange}
+        readOnly={accountingReadOnly}
         saving={saving}
       />
 

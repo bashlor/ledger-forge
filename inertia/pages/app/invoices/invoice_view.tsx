@@ -1,18 +1,27 @@
 import type { InvoiceDto } from '~/lib/types'
 
 import { AppIcon } from '~/components/app_icon'
+import { ErrorBanner } from '~/components/error_banner'
 import { InvoiceTotals } from '~/components/invoice_totals'
 import { StatusBadge } from '~/components/status_badge'
 import { formatCurrency, formatShortDate } from '~/lib/format'
 import { canMarkInvoicePaid } from '~/lib/invoices'
 
 interface Props {
+  accountingReadOnly: boolean
+  accountingReadOnlyMessage: string
   invoice: InvoiceDto
   onMarkAsPaid: () => void
   saving: boolean
 }
 
-export function InvoiceView({ invoice, onMarkAsPaid, saving }: Props) {
+export function InvoiceView({
+  accountingReadOnly,
+  accountingReadOnlyMessage,
+  invoice,
+  onMarkAsPaid,
+  saving,
+}: Props) {
   return (
     <div>
       <div className="border-b border-outline-variant/10 px-5 py-4 sm:px-6">
@@ -28,7 +37,7 @@ export function InvoiceView({ invoice, onMarkAsPaid, saving }: Props) {
             {canMarkInvoicePaid(invoice) ? (
               <button
                 className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
-                disabled={saving}
+                disabled={accountingReadOnly || saving}
                 onClick={onMarkAsPaid}
                 type="button"
               >
@@ -53,6 +62,8 @@ export function InvoiceView({ invoice, onMarkAsPaid, saving }: Props) {
       </div>
 
       <div className="space-y-6 px-5 py-6 sm:px-6">
+        {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
+
         <div className="grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-on-surface-variant">
