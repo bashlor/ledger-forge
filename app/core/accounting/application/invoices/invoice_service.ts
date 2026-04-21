@@ -3,6 +3,11 @@ import type { AccountingActivitySink } from '#core/accounting/application/suppor
 import type { AccountingServiceDependencies } from '#core/accounting/application/support/service_dependencies'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { listAuditEventsForEntity } from '#core/accounting/application/audit/audit_queries'
+import {
+  type CriticalAuditTrail,
+  DatabaseCriticalAuditTrail,
+} from '#core/accounting/application/audit/critical_audit_trail'
 import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import {
   type AccountingBusinessCalendar,
@@ -16,6 +21,7 @@ import {
 } from '#core/accounting/application/support/pagination'
 
 import type {
+  AuditEventDto,
   CustomerForSelectDto,
   InvoiceConcurrencyHooks,
   InvoiceDto,
@@ -46,6 +52,7 @@ import {
 
 export class InvoiceService {
   private readonly activitySink?: AccountingActivitySink
+  private readonly auditTrail: CriticalAuditTrail
   private readonly businessCalendar: AccountingBusinessCalendar
 
   constructor(
@@ -53,6 +60,7 @@ export class InvoiceService {
     dependencies: AccountingServiceDependencies = {}
   ) {
     this.activitySink = dependencies.activitySink
+    this.auditTrail = dependencies.auditTrail ?? new DatabaseCriticalAuditTrail()
     this.businessCalendar = dependencies.businessCalendar ?? new SystemAccountingBusinessCalendar()
   }
 
@@ -137,6 +145,18 @@ export class InvoiceService {
       toInvoiceRequestContext(access),
       hooks
     )
+  }
+
+  async listAuditEventsForInvoice(
+    id: string,
+    access: AccountingAccessContext
+  ): Promise<AuditEventDto[]> {
+    const requestContext = toInvoiceRequestContext(access)
+    return listAuditEventsForEntity(this.db, {
+      entityId: id,
+      entityType: 'invoice',
+      tenantId: requestContext.tenantId,
+    })
   }
 
   async listCustomersForSelect(access: AccountingAccessContext): Promise<CustomerForSelectDto[]> {
@@ -231,6 +251,7 @@ export class InvoiceService {
   private dependencies() {
     return {
       activitySink: this.activitySink,
+      auditTrail: this.auditTrail,
       businessCalendar: this.businessCalendar,
       db: this.db,
     }

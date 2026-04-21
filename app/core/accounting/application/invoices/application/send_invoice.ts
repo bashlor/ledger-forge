@@ -19,7 +19,7 @@ export async function sendInvoiceUseCase(
 ): Promise<InvoiceDto> {
   const result = await deps.db.transaction(async (tx) => {
     const context = await loadInvoiceIssueContext(tx, deps, id, input, requestContext)
-    const issued = await persistInvoiceIssue(tx, id, context, requestContext, hooks)
+    const issued = await persistInvoiceIssue(tx, deps, id, context, requestContext, hooks)
     return loadInvoiceDto(tx, deps.businessCalendar, issued, requestContext)
   })
 

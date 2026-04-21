@@ -2,14 +2,16 @@ import type { AccountingActivitySink } from '#core/accounting/application/suppor
 import type { AccountingServiceDependencies } from '#core/accounting/application/support/service_dependencies'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import {
+  type CriticalAuditTrail,
+  DatabaseCriticalAuditTrail,
+} from '#core/accounting/application/audit/critical_audit_trail'
 import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import {
   clampInteger,
   DEFAULT_LIST_PER_PAGE,
 } from '#core/accounting/application/support/pagination'
 import { DomainError } from '#core/common/errors/domain_error'
-
-import { insertAuditEvent } from '../audit/audit_writer.js'
 
 export { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
 export type { ExpenseCategory } from '#core/accounting/expense_categories'
@@ -35,12 +37,14 @@ import { normalizeExpenseInput } from './validation.js'
 
 export class ExpenseService {
   private readonly activitySink?: AccountingActivitySink
+  private readonly auditTrail: CriticalAuditTrail
 
   constructor(
     private readonly db: PostgresJsDatabase<any>,
     dependencies: AccountingServiceDependencies = {}
   ) {
     this.activitySink = dependencies.activitySink
+    this.auditTrail = dependencies.auditTrail ?? new DatabaseCriticalAuditTrail()
   }
 
   async confirmExpense(
@@ -73,7 +77,7 @@ export class ExpenseService {
         organizationId: access.tenantId,
       })
 
-      await insertAuditEvent(tx, {
+      await this.auditTrail.record(tx, {
         action: 'confirm',
         actorId: access.actorId,
         changes: { after: { status: 'confirmed' }, before: { status: existing.status } },
@@ -109,7 +113,7 @@ export class ExpenseService {
         organizationId: access.tenantId,
       })
 
-      await insertAuditEvent(tx, {
+      await this.auditTrail.record(tx, {
         action: 'create',
         actorId: access.actorId,
         entityId: created.id,
@@ -155,7 +159,7 @@ export class ExpenseService {
         throw new DomainError('Only draft expenses can be deleted.', 'business_logic_error')
       }
 
-      await insertAuditEvent(tx, {
+      await this.auditTrail.record(tx, {
         action: 'delete',
         actorId: access.actorId,
         entityId: id,

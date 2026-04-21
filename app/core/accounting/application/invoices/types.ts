@@ -1,8 +1,10 @@
+import type { AuditEventDto } from '#core/accounting/application/audit/types'
 import type { DateFilter } from '#core/accounting/application/expenses/index'
 import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 
 import type { InvoiceStatus } from './domain/invoice_status.js'
 export type { InvoiceStatus } from './domain/invoice_status.js'
+export type { AuditEventDto }
 
 export interface CustomerForSelectDto {
   company: string

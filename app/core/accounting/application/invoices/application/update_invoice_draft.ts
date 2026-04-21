@@ -19,7 +19,7 @@ export async function updateInvoiceDraftUseCase(
 ): Promise<InvoiceDto> {
   const result = await deps.db.transaction(async (tx) => {
     const context = await loadDraftUpdateContext(tx, deps, id, input, requestContext)
-    const updated = await persistDraftUpdate(tx, id, context, requestContext, hooks)
+    const updated = await persistDraftUpdate(tx, deps, id, context, requestContext, hooks)
     return loadInvoiceDto(tx, deps.businessCalendar, updated, requestContext)
   })
 

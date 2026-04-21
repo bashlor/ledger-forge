@@ -1,17 +1,19 @@
 import type {
   InvoiceConcurrencyHooks,
+  InvoiceLineDto,
   InvoiceRequestContext,
   SaveInvoiceDraftInput,
 } from '../../types.js'
 import type { InvoiceUseCaseDeps } from './invoice_use_case_deps.js'
 
-import { insertAuditEvent } from '../../../audit/audit_writer.js'
 import {
   buildDraftInvoiceLinesMutation,
   buildDraftInvoiceMutation,
 } from '../../domain/invoice_mutations.js'
 import { assertDraftCanBeUpdated } from '../../domain/invoice_rules.js'
 import { replaceInvoiceLines, updateInvoiceDraft } from '../../infrastructure/invoice_commands.js'
+import { toLineDto } from '../../infrastructure/invoice_mappers.js'
+import { listInvoiceLinesForInvoice } from '../../infrastructure/invoice_queries.js'
 import { normalizeSaveInvoiceDraftInput } from '../validators/save_invoice_draft_input.js'
 import { loadCustomerSnapshotOrThrow, loadInvoiceForMutationOrThrow } from './invoice_snapshot.js'
 
@@ -26,6 +28,7 @@ export async function loadDraftUpdateContext(
 ) {
   const normalized = normalizeSaveInvoiceDraftInput(input)
   const existing = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
+  const existingLineRows = await listInvoiceLinesForInvoice(tx, id)
   const createdAt = deps.businessCalendar.dateFromTimestamp(existing.createdAt)
 
   assertDraftCanBeUpdated({
@@ -39,12 +42,14 @@ export async function loadDraftUpdateContext(
     createdAt,
     customer: await loadCustomerSnapshotOrThrow(tx, normalized.customerId, requestContext.tenantId),
     existing,
+    existingLines: existingLineRows.map(toLineDto),
     normalized,
   }
 }
 
 export async function persistDraftUpdate(
   tx: DrizzleTx,
+  deps: InvoiceUseCaseDeps,
   id: string,
   context: Awaited<ReturnType<typeof loadDraftUpdateContext>>,
   requestContext: InvoiceRequestContext,
@@ -82,7 +87,7 @@ export async function persistDraftUpdate(
 
   await replaceInvoiceLines(tx, id, preparedLines.lineValues)
 
-  await insertAuditEvent(tx, {
+  await deps.auditTrail.record(tx, {
     action: 'update_draft',
     actorId: requestContext.actorId,
     changes: {
@@ -90,11 +95,13 @@ export async function persistDraftUpdate(
         customerId: context.normalized.customerId,
         dueDate: context.normalized.dueDate,
         issueDate: context.normalized.issueDate,
+        lines: summarizeDraftLines(preparedLines.lineValues),
       },
       before: {
         customerId: context.existing.customerId,
         dueDate: context.existing.dueDate,
         issueDate: context.existing.issueDate,
+        lines: summarizeExistingLines(context.existingLines),
       },
     },
     entityId: id,
@@ -103,4 +110,41 @@ export async function persistDraftUpdate(
   })
 
   return { invoice: invoice!, invoiceId: id }
+}
+
+function summarizeDraftLines(
+  lines: Array<{
+    description: string
+    lineNumber: number
+    lineTotalExclTaxCents: number
+    lineTotalInclTaxCents: number
+    lineTotalVatCents: number
+    quantityCents: number
+    unitPriceCents: number
+    vatRateCents: number
+  }>
+) {
+  return lines.map((line) => ({
+    description: line.description,
+    lineNumber: line.lineNumber,
+    lineTotalExclTax: line.lineTotalExclTaxCents / 100,
+    lineTotalInclTax: line.lineTotalInclTaxCents / 100,
+    lineVatAmount: line.lineTotalVatCents / 100,
+    quantity: line.quantityCents / 100,
+    unitPrice: line.unitPriceCents / 100,
+    vatRate: line.vatRateCents / 100,
+  }))
+}
+
+function summarizeExistingLines(lines: InvoiceLineDto[]) {
+  return lines.map((line, index) => ({
+    description: line.description,
+    lineNumber: index + 1,
+    lineTotalExclTax: line.lineTotalExclTax,
+    lineTotalInclTax: line.lineTotalInclTax,
+    lineVatAmount: line.lineVatAmount,
+    quantity: line.quantity,
+    unitPrice: line.unitPrice,
+    vatRate: line.vatRate,
+  }))
 }

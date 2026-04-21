@@ -1,7 +1,6 @@
 import type { InvoiceConcurrencyHooks, InvoiceRequestContext } from '../../types.js'
 import type { InvoiceUseCaseDeps } from './invoice_use_case_deps.js'
 
-import { insertAuditEvent } from '../../../audit/audit_writer.js'
 import { assertInvoiceCanBeMarkedPaidNow } from '../../domain/invoice_rules.js'
 import { updateInvoiceStatus } from '../../infrastructure/invoice_commands.js'
 import { loadInvoiceForMutationOrThrow } from './invoice_snapshot.js'
@@ -20,6 +19,7 @@ export async function loadInvoicePaymentContext(
 
 export async function persistInvoicePayment(
   tx: DrizzleTx,
+  deps: InvoiceUseCaseDeps,
   id: string,
   requestContext: InvoiceRequestContext,
   hooks?: InvoiceConcurrencyHooks
@@ -32,7 +32,7 @@ export async function persistInvoicePayment(
     assertInvoiceCanBeMarkedPaidNow(again.status)
   }
 
-  await insertAuditEvent(tx, {
+  await deps.auditTrail.record(tx, {
     action: 'mark_paid',
     actorId: requestContext.actorId,
     changes: { after: { status: 'paid' }, before: { status: 'issued' } },
