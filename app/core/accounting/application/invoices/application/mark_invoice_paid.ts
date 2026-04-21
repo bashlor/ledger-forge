@@ -13,7 +13,7 @@ export async function markInvoicePaidUseCase(
 ): Promise<InvoiceDto> {
   const result = await deps.db.transaction(async (tx) => {
     await loadInvoicePaymentContext(tx, id, requestContext)
-    const paid = await persistInvoicePayment(tx, id, requestContext, hooks)
+    const paid = await persistInvoicePayment(tx, deps, id, requestContext, hooks)
     return loadInvoiceDto(tx, deps.businessCalendar, paid, requestContext)
   })
 

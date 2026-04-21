@@ -1,3 +1,8 @@
+import type {
+  AuditDbExecutor,
+  CriticalAuditTrail,
+} from '#core/accounting/application/audit/critical_audit_trail'
+import type { AuditEventInput } from '#core/accounting/application/audit/types'
 import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
@@ -15,6 +20,7 @@ import {
 } from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
+import { eq } from 'drizzle-orm'
 
 import {
   seedTestOrganization,
@@ -29,6 +35,12 @@ const ACCESS: AccountingAccessContext = {
   isAnonymous: false,
   requestId: 'audit-test',
   tenantId: TEST_TENANT_ID,
+}
+
+class FailingAuditTrail implements CriticalAuditTrail {
+  async record(_tx: AuditDbExecutor, _input: AuditEventInput): Promise<void> {
+    throw new Error('audit write failed')
+  }
 }
 
 test.group('Audit trail | invoice lifecycle', (group) => {
@@ -91,7 +103,18 @@ test.group('Audit trail | invoice lifecycle', (group) => {
     const service = new InvoiceService(db)
     const invoice = await service.createDraft(draftInput, ACCESS)
 
-    await service.updateDraft(invoice.id, { ...draftInput, dueDate: '2099-06-01' }, ACCESS)
+    await service.updateDraft(
+      invoice.id,
+      {
+        ...draftInput,
+        dueDate: '2099-06-01',
+        lines: [
+          { description: 'Consulting retainer', quantity: 2, unitPrice: 120, vatRate: 20 },
+          { description: 'Support', quantity: 1, unitPrice: 80, vatRate: 10 },
+        ],
+      },
+      ACCESS
+    )
 
     const events = await listAuditEventsForEntity(db, {
       entityId: invoice.id,
@@ -109,6 +132,51 @@ test.group('Audit trail | invoice lifecycle', (group) => {
     }
     assert.equal(changes.before.dueDate, '2099-05-01')
     assert.equal(changes.after.dueDate, '2099-06-01')
+    assert.deepEqual(changes.before.lines, [
+      {
+        description: 'Consulting',
+        lineNumber: 1,
+        lineTotalExclTax: 100,
+        lineTotalInclTax: 120,
+        lineVatAmount: 20,
+        quantity: 1,
+        unitPrice: 100,
+        vatRate: 20,
+      },
+    ])
+    assert.deepEqual(changes.after.lines, [
+      {
+        description: 'Consulting retainer',
+        lineNumber: 1,
+        lineTotalExclTax: 240,
+        lineTotalInclTax: 288,
+        lineVatAmount: 48,
+        quantity: 2,
+        unitPrice: 120,
+        vatRate: 20,
+      },
+      {
+        description: 'Support',
+        lineNumber: 2,
+        lineTotalExclTax: 80,
+        lineTotalInclTax: 88,
+        lineVatAmount: 8,
+        quantity: 1,
+        unitPrice: 80,
+        vatRate: 10,
+      },
+    ])
+  })
+
+  test('create_draft rolls back when audit insert fails', async ({ assert }) => {
+    const service = new InvoiceService(db, { auditTrail: new FailingAuditTrail() })
+
+    await assert.rejects(() => service.createDraft(draftInput, ACCESS), 'audit write failed')
+
+    const persistedInvoices = await db.select().from(invoices)
+    const persistedEvents = await db.select().from(auditEvents)
+    assert.lengthOf(persistedInvoices, 0)
+    assert.lengthOf(persistedEvents, 0)
   })
 
   test('issue records an audit event with status transition', async ({ assert }) => {
@@ -162,6 +230,123 @@ test.group('Audit trail | invoice lifecycle', (group) => {
     }
     assert.equal(changes.before.status, 'issued')
     assert.equal(changes.after.status, 'paid')
+  })
+
+  test('issue rolls back when audit insert fails', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    const invoice = await service.createDraft(draftInput, ACCESS)
+    const failingService = new InvoiceService(db, { auditTrail: new FailingAuditTrail() })
+
+    await assert.rejects(
+      () =>
+        failingService.issueInvoice(
+          invoice.id,
+          { issuedCompanyAddress: '1 rue Test', issuedCompanyName: 'Test Inc.' },
+          ACCESS
+        ),
+      'audit write failed'
+    )
+
+    const [persistedInvoice] = await db
+      .select({ status: invoices.status })
+      .from(invoices)
+      .where(eq(invoices.id, invoice.id))
+    const persistedEvents = await listAuditEventsForEntity(db, {
+      entityId: invoice.id,
+      entityType: 'invoice',
+      tenantId: TEST_TENANT_ID,
+    })
+    const persistedJournalEntries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.invoiceId, invoice.id))
+
+    assert.equal(persistedInvoice.status, 'draft')
+    assert.deepEqual(
+      persistedEvents.map((event) => event.action),
+      ['create_draft']
+    )
+    assert.lengthOf(persistedJournalEntries, 0)
+  })
+
+  test('mark_paid rolls back when audit insert fails', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    const invoice = await service.createDraft(draftInput, ACCESS)
+    await service.issueInvoice(
+      invoice.id,
+      { issuedCompanyAddress: '1 rue Test', issuedCompanyName: 'Test Inc.' },
+      ACCESS
+    )
+    const failingService = new InvoiceService(db, { auditTrail: new FailingAuditTrail() })
+
+    await assert.rejects(
+      () => failingService.markInvoicePaid(invoice.id, ACCESS),
+      'audit write failed'
+    )
+
+    const [persistedInvoice] = await db
+      .select({ status: invoices.status })
+      .from(invoices)
+      .where(eq(invoices.id, invoice.id))
+    const persistedEvents = await listAuditEventsForEntity(db, {
+      entityId: invoice.id,
+      entityType: 'invoice',
+      tenantId: TEST_TENANT_ID,
+    })
+
+    assert.equal(persistedInvoice.status, 'issued')
+    assert.deepEqual(
+      persistedEvents.map((event) => event.action),
+      ['issue', 'create_draft']
+    )
+  })
+
+  test('update_draft rolls back when audit insert fails', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    const invoice = await service.createDraft(draftInput, ACCESS)
+    const failingService = new InvoiceService(db, { auditTrail: new FailingAuditTrail() })
+
+    await assert.rejects(
+      () =>
+        failingService.updateDraft(
+          invoice.id,
+          {
+            ...draftInput,
+            dueDate: '2099-06-15',
+            lines: [
+              {
+                description: 'Consulting updated',
+                quantity: 3,
+                unitPrice: 110,
+                vatRate: 20,
+              },
+            ],
+          },
+          ACCESS
+        ),
+      'audit write failed'
+    )
+
+    const [persistedInvoice] = await db
+      .select({ dueDate: invoices.dueDate })
+      .from(invoices)
+      .where(eq(invoices.id, invoice.id))
+    const persistedLines = await db
+      .select()
+      .from(invoiceLines)
+      .where(eq(invoiceLines.invoiceId, invoice.id))
+    const persistedEvents = await listAuditEventsForEntity(db, {
+      entityId: invoice.id,
+      entityType: 'invoice',
+      tenantId: TEST_TENANT_ID,
+    })
+
+    assert.equal(persistedInvoice.dueDate, draftInput.dueDate)
+    assert.lengthOf(persistedLines, 1)
+    assert.deepEqual(
+      persistedEvents.map((event) => event.action),
+      ['create_draft']
+    )
   })
 
   test('delete_draft records an audit event', async ({ assert }) => {
@@ -265,6 +450,38 @@ test.group('Audit trail | expense lifecycle', (group) => {
     }
     assert.equal(changes.before.status, 'draft')
     assert.equal(changes.after.status, 'confirmed')
+  })
+
+  test('confirm rolls back when audit insert fails', async ({ assert }) => {
+    const service = new ExpenseService(db)
+    const expense = await service.createExpense(expenseInput, ACCESS)
+    const failingService = new ExpenseService(db, { auditTrail: new FailingAuditTrail() })
+
+    await assert.rejects(
+      () => failingService.confirmExpense(expense.id, ACCESS),
+      'audit write failed'
+    )
+
+    const [persistedExpense] = await db
+      .select({ status: expenses.status })
+      .from(expenses)
+      .where(eq(expenses.id, expense.id))
+    const persistedEvents = await listAuditEventsForEntity(db, {
+      entityId: expense.id,
+      entityType: 'expense',
+      tenantId: TEST_TENANT_ID,
+    })
+    const persistedJournalEntries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.expenseId, expense.id))
+
+    assert.equal(persistedExpense.status, 'draft')
+    assert.deepEqual(
+      persistedEvents.map((event) => event.action),
+      ['create']
+    )
+    assert.lengthOf(persistedJournalEntries, 0)
   })
 
   test('delete records an audit event', async ({ assert }) => {

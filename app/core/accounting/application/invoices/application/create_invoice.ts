@@ -12,7 +12,7 @@ export async function createInvoiceUseCase(
 ): Promise<InvoiceDto> {
   const result = await deps.db.transaction(async (tx) => {
     const context = await loadDraftCreationContext(tx, deps, input, requestContext)
-    const created = await persistDraftCreation(tx, context, requestContext)
+    const created = await persistDraftCreation(tx, deps, context, requestContext)
     return loadInvoiceDto(tx, deps.businessCalendar, created, requestContext)
   })
 

@@ -6,7 +6,12 @@ import {
   seedTestOrganization,
   setupTestDatabaseForGroup,
 } from '../../../../../tests/helpers/testcontainers_db.js'
-import { authCookie, bindInvoiceAuth, inertiaHeaders } from './invoices_test_support.js'
+import {
+  authCookie,
+  bindInvoiceAuth,
+  inertiaHeaders,
+  resetInvoiceAuthContext,
+} from './invoices_test_support.js'
 
 test.group('Dashboard routes', (group) => {
   let cleanup: () => Promise<void>
@@ -22,6 +27,7 @@ test.group('Dashboard routes', (group) => {
   group.teardown(async () => await cleanup())
 
   group.each.setup(() => {
+    resetInvoiceAuthContext()
     bindInvoiceAuth()
   })
 

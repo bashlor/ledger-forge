@@ -14,7 +14,7 @@ export async function cancelInvoiceUseCase(
 ): Promise<void> {
   await deps.db.transaction(async (tx) => {
     await loadInvoiceCancellationContext(tx, id, requestContext)
-    await persistInvoiceCancellation(tx, id, requestContext)
+    await persistInvoiceCancellation(tx, deps, id, requestContext)
   })
 
   await recordInvoiceActivity(deps.activitySink, requestContext, 'delete_invoice_draft', id)

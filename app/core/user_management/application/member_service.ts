@@ -103,6 +103,37 @@ export class MemberService {
   }
 
   /**
+   * Fetch the actor's member row and assert they are admin or owner.
+   * Returns the row for further use (e.g. role checks).
+   */
+  async requireAdminOrOwner(
+    tenantId: string,
+    actorId: string
+  ): Promise<{ id: string; role: string; userId: string }> {
+    const [actorRow] = await this.db
+      .select({
+        id: schema.member.id,
+        role: schema.member.role,
+        userId: schema.member.userId,
+      })
+      .from(schema.member)
+      .where(
+        and(
+          eq(schema.member.userId, actorId),
+          eq(schema.member.organizationId, tenantId),
+          eq(schema.member.isActive, true)
+        )
+      )
+      .limit(1)
+
+    if (!actorRow || (actorRow.role !== 'admin' && actorRow.role !== 'owner')) {
+      throw new InsufficientMemberRoleError()
+    }
+
+    return actorRow
+  }
+
+  /**
    * Activate or deactivate a membership.
    *
    * Guards (in order):
@@ -150,36 +181,5 @@ export class MemberService {
       .update(schema.member)
       .set({ isActive })
       .where(and(eq(schema.member.id, memberId), eq(schema.member.organizationId, tenantId)))
-  }
-
-  /**
-   * Fetch the actor's member row and assert they are admin or owner.
-   * Returns the row for further use (e.g. role checks).
-   */
-  private async requireAdminOrOwner(
-    tenantId: string,
-    actorId: string
-  ): Promise<{ id: string; role: string; userId: string }> {
-    const [actorRow] = await this.db
-      .select({
-        id: schema.member.id,
-        role: schema.member.role,
-        userId: schema.member.userId,
-      })
-      .from(schema.member)
-      .where(
-        and(
-          eq(schema.member.userId, actorId),
-          eq(schema.member.organizationId, tenantId),
-          eq(schema.member.isActive, true)
-        )
-      )
-      .limit(1)
-
-    if (!actorRow || (actorRow.role !== 'admin' && actorRow.role !== 'owner')) {
-      throw new InsufficientMemberRoleError()
-    }
-
-    return actorRow
   }
 }

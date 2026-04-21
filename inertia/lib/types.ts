@@ -107,6 +107,18 @@ export interface ExpenseSummaryDto {
   totalCount: number
 }
 
+export interface InvoiceAuditEventDto {
+  action: string
+  actorId: null | string
+  changes: unknown
+  createdAt: string
+  entityId: string
+  entityType: string
+  id: string
+  metadata: unknown
+  organizationId: string
+}
+
 export interface InvoiceDto {
   createdAt: string
   customerCompanyAddressSnapshot: string

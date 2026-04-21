@@ -3,7 +3,6 @@ import { v7 as uuidv7 } from 'uuid'
 import type { InvoiceRequestContext, SaveInvoiceDraftInput } from '../../types.js'
 import type { InvoiceUseCaseDeps } from './invoice_use_case_deps.js'
 
-import { insertAuditEvent } from '../../../audit/audit_writer.js'
 import {
   buildDraftInvoiceLinesMutation,
   buildDraftInvoiceMutation,
@@ -39,6 +38,7 @@ export async function loadDraftCreationContext(
 
 export async function persistDraftCreation(
   tx: DrizzleTx,
+  deps: InvoiceUseCaseDeps,
   context: Awaited<ReturnType<typeof loadDraftCreationContext>>,
   requestContext: InvoiceRequestContext
 ) {
@@ -69,7 +69,7 @@ export async function persistDraftCreation(
     }))
   )
 
-  await insertAuditEvent(tx, {
+  await deps.auditTrail.record(tx, {
     action: 'create_draft',
     actorId: requestContext.actorId,
     entityId: context.invoiceId,

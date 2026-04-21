@@ -2,6 +2,10 @@ import type { AccountingActivitySink } from '#core/accounting/application/suppor
 import type { AccountingServiceDependencies } from '#core/accounting/application/support/service_dependencies'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import {
+  type CriticalAuditTrail,
+  DatabaseCriticalAuditTrail,
+} from '#core/accounting/application/audit/critical_audit_trail'
 import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import {
   clampInteger,
@@ -14,7 +18,6 @@ import { fromCents } from '#core/shared/money'
 
 import type { CreateCustomerInput, CustomerDto, CustomerListResult } from './types.js'
 
-import { insertAuditEvent } from '../audit/audit_writer.js'
 import {
   deleteCustomerIfUnlinked,
   insertCustomer,
@@ -32,12 +35,14 @@ import { normalizeCustomerInput } from './validation.js'
 
 export class CustomerService {
   private readonly activitySink?: AccountingActivitySink
+  private readonly auditTrail: CriticalAuditTrail
 
   constructor(
     private readonly db: PostgresJsDatabase<any>,
     dependencies: AccountingServiceDependencies = {}
   ) {
     this.activitySink = dependencies.activitySink
+    this.auditTrail = dependencies.auditTrail ?? new DatabaseCriticalAuditTrail()
   }
 
   async createCustomer(
@@ -51,7 +56,7 @@ export class CustomerService {
         organizationId: access.tenantId,
       })
 
-      await insertAuditEvent(tx, {
+      await this.auditTrail.record(tx, {
         action: 'create',
         actorId: access.actorId,
         entityId: created.id,
@@ -96,7 +101,7 @@ export class CustomerService {
         throw new DomainError('Customer not found.', 'not_found')
       }
 
-      await insertAuditEvent(tx, {
+      await this.auditTrail.record(tx, {
         action: 'delete',
         actorId: access.actorId,
         entityId: id,
@@ -191,7 +196,7 @@ export class CustomerService {
         await syncDraftInvoiceCustomerSnapshots(tx, id, normalized, access.tenantId)
       }
 
-      await insertAuditEvent(tx, {
+      await this.auditTrail.record(tx, {
         action: 'update',
         actorId: access.actorId,
         changes: {

@@ -11,6 +11,7 @@ import {
   createDraftViaService,
   inertiaGet,
   inertiaProps,
+  resetInvoiceAuthContext,
   resetInvoiceFixtures,
   SECOND_CUSTOMER_ID,
   seedTestOrganization,
@@ -27,10 +28,11 @@ test.group('Invoices routes | GET /invoices', (group) => {
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
     await seedTestOrganization(db)
-    bindInvoiceAuth()
   })
 
   group.each.setup(async () => {
+    resetInvoiceAuthContext()
+    bindInvoiceAuth()
     await resetInvoiceFixtures(db)
   })
 

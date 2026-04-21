@@ -12,6 +12,7 @@ import {
   bindInvoiceAuth,
   createDraftViaHttp,
   issuePayload,
+  resetInvoiceAuthContext,
   resetInvoiceFixtures,
   seedTestOrganization,
   TEST_ACCOUNTING_ACCESS_CONTEXT,
@@ -30,10 +31,11 @@ test.group(
       cleanup = ctx.cleanup
       db = await app.container.make('drizzle')
       await seedTestOrganization(db)
-      bindInvoiceAuth()
     })
 
     group.each.setup(async () => {
+      resetInvoiceAuthContext()
+      bindInvoiceAuth()
       await resetInvoiceFixtures(db)
     })
 

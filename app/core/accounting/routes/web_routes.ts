@@ -28,6 +28,7 @@ router
 
     router.get('/invoices', [InvoicesController, 'index']).as('invoices.page')
     router.post('/invoices', [InvoicesController, 'store']).as('invoices.store')
+    router.get('/invoices/:id/history', [InvoicesController, 'history']).as('invoices.history')
     router
       .put('/invoices/:id/draft', [InvoicesController, 'updateDraft'])
       .as('invoices.update_draft')

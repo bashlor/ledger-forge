@@ -7,7 +7,6 @@ import type {
 } from '../../types.js'
 import type { InvoiceUseCaseDeps } from './invoice_use_case_deps.js'
 
-import { insertAuditEvent } from '../../../audit/audit_writer.js'
 import { buildInvoiceIssueMutation } from '../../domain/invoice_mutations.js'
 import { assertInvoiceCanBeIssuedToday } from '../../domain/invoice_rules.js'
 import {
@@ -43,6 +42,7 @@ export async function loadInvoiceIssueContext(
 
 export async function persistInvoiceIssue(
   tx: DrizzleTx,
+  deps: InvoiceUseCaseDeps,
   id: string,
   context: Awaited<ReturnType<typeof loadInvoiceIssueContext>>,
   requestContext: InvoiceRequestContext,
@@ -73,7 +73,7 @@ export async function persistInvoiceIssue(
     organizationId: requestContext.tenantId,
   })
 
-  await insertAuditEvent(tx, {
+  await deps.auditTrail.record(tx, {
     action: 'issue',
     actorId: requestContext.actorId,
     changes: { after: { status: 'issued' }, before: { status: 'draft' } },
