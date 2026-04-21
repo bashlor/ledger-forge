@@ -8,9 +8,13 @@ import { eq } from 'drizzle-orm'
 
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 import {
+  addDaysDateOnlyUtc,
   authCookie,
   bindInvoiceAuth,
   createDraftViaHttp,
+  dateOffsetFromTodayUtc,
+  dateOnlyUtcFromDate,
+  resetInvoiceAuthContext,
   resetInvoiceFixtures,
   seedTestOrganization,
   TEST_ACCOUNTING_ACCESS_CONTEXT,
@@ -27,10 +31,11 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
     await seedTestOrganization(db)
-    bindInvoiceAuth()
   })
 
   group.each.setup(async () => {
+    resetInvoiceAuthContext()
+    bindInvoiceAuth()
     await resetInvoiceFixtures(db)
   })
 
@@ -72,11 +77,8 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
     assert,
     client,
   }) => {
-    const base = new Date()
-    const dueDate = new Date(base)
-    dueDate.setDate(base.getDate() + 5)
-    const issueDate = new Date(base)
-    issueDate.setDate(base.getDate() + 15)
+    const dueDate = dateOffsetFromTodayUtc(5)
+    const issueDate = dateOffsetFromTodayUtc(15)
 
     const response = await client
       .post('/invoices')
@@ -84,8 +86,8 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
       .redirects(0)
       .form({
         customerId: TEST_CUSTOMER_ID,
-        dueDate: dueDate.toISOString().slice(0, 10),
-        issueDate: issueDate.toISOString().slice(0, 10),
+        dueDate,
+        issueDate,
         'lines[0][description]': 'Invalid dates',
         'lines[0][quantity]': 1,
         'lines[0][unitPrice]': 100,
@@ -102,7 +104,7 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
     assert,
     client,
   }) => {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = dateOffsetFromTodayUtc(0)
     const issueDate = '2020-01-01'
 
     const response = await client
@@ -144,10 +146,8 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
     const draft = await createDraftViaHttp(db, client)
     const service = new InvoiceService(db)
 
-    const createdAtDate = draft.createdAt.toISOString().slice(0, 10)
-    const previousDay = new Date(draft.createdAt)
-    previousDay.setDate(previousDay.getDate() - 1)
-    const dueDateBeforeCreation = previousDay.toISOString().slice(0, 10)
+    const createdAtDate = dateOnlyUtcFromDate(draft.createdAt)
+    const dueDateBeforeCreation = addDaysDateOnlyUtc(createdAtDate, -1)
 
     let didThrow = false
     try {

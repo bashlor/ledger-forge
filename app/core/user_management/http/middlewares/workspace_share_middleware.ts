@@ -12,7 +12,6 @@ import {
 } from '#core/user_management/application/workspace_provisioning'
 import { userIsMemberOfOrganization } from '#core/user_management/support/tenant_membership'
 import { getSingleTenantOrgId, isSingleTenantMode } from '#core/user_management/support/tenant_mode'
-import { inject } from '@adonisjs/core'
 import app from '@adonisjs/core/services/app'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
@@ -24,12 +23,12 @@ import '../types/workspace_context.js'
  * for signed-in users on every surface except the guest auth pages (sign-in /
  * sign-up flows).
  */
-@inject()
 export default class WorkspaceShareMiddleware {
-  constructor(protected auth: AuthenticationPort) {}
+  constructor(private readonly authOverride: AuthenticationPort | null = null) {}
 
   async handle(ctx: HttpContext, next: NextFn) {
     const pathname = this.normalizePathname(ctx)
+    const auth = this.authOverride ?? (await app.container.make(AuthenticationPort))
 
     if (!ctx.authSession) {
       ctx.workspaceShare = undefined
@@ -69,7 +68,7 @@ export default class WorkspaceShareMiddleware {
           userId: ctx.authSession.user.id,
         })
 
-        const refreshed = await this.auth.getSession(token)
+        const refreshed = await auth.getSession(token)
         if (refreshed) {
           ctx.authSession = refreshed
         }
@@ -97,7 +96,7 @@ export default class WorkspaceShareMiddleware {
 
         await clearActiveOrganizationForSession(db, token)
 
-        const refreshed = await this.auth.getSession(token)
+        const refreshed = await auth.getSession(token)
         if (refreshed) {
           ctx.authSession = refreshed
         } else if (ctx.authSession) {

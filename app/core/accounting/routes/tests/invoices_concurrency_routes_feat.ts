@@ -12,7 +12,9 @@ import {
   authCookie,
   bindInvoiceAuth,
   createDraftViaHttp,
+  dateOffsetFromDateUtc,
   issuePayload,
+  resetInvoiceAuthContext,
   resetInvoiceFixtures,
   seedTestOrganization,
   TEST_ACCOUNTING_ACCESS_CONTEXT,
@@ -29,10 +31,11 @@ test.group('Invoices routes | concurrency', (group) => {
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
     await seedTestOrganization(db)
-    bindInvoiceAuth()
   })
 
   group.each.setup(async () => {
+    resetInvoiceAuthContext()
+    bindInvoiceAuth()
     await resetInvoiceFixtures(db)
   })
 
@@ -149,19 +152,10 @@ test.group('Invoices routes | concurrency', (group) => {
   }) => {
     const draft = await createDraftViaHttp(db, client)
     const service = new InvoiceService(db)
-    const baseDate = new Date(draft.createdAt)
-    const issueDateA = new Date(baseDate)
-    issueDateA.setDate(issueDateA.getDate() + 1)
-    const dueDateA = new Date(baseDate)
-    dueDateA.setDate(dueDateA.getDate() + 20)
-    const issueDateB = new Date(baseDate)
-    issueDateB.setDate(issueDateB.getDate() + 2)
-    const dueDateB = new Date(baseDate)
-    dueDateB.setDate(dueDateB.getDate() + 25)
-    const issueDateAStr = issueDateA.toISOString().slice(0, 10)
-    const dueDateAStr = dueDateA.toISOString().slice(0, 10)
-    const issueDateBStr = issueDateB.toISOString().slice(0, 10)
-    const dueDateBStr = dueDateB.toISOString().slice(0, 10)
+    const issueDateAStr = dateOffsetFromDateUtc(draft.createdAt, 1)
+    const dueDateAStr = dateOffsetFromDateUtc(draft.createdAt, 20)
+    const issueDateBStr = dateOffsetFromDateUtc(draft.createdAt, 2)
+    const dueDateBStr = dateOffsetFromDateUtc(draft.createdAt, 25)
 
     const results = await runSimultaneously([
       (waitAtBarrier) =>
