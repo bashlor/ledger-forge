@@ -6,6 +6,7 @@ import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
 import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
+import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
 import { flashAction } from '../helpers/flash_action.js'
@@ -46,9 +47,16 @@ export default class ExpensesController {
   }
 
   @inject()
-  async index(ctx: HttpContext, expenseService: ExpenseService) {
+  async index(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    expenseService: ExpenseService
+  ) {
     const { endDate, page, perPage, search, startDate } =
       await ctx.request.validateUsing(expenseIndexValidator)
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    authorizationService.authorize(actor, 'accounting.read')
+
     const dateFilter: DateFilter | undefined =
       startDate && endDate ? { endDate, startDate } : undefined
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))

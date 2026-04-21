@@ -108,6 +108,17 @@ export const session = authSchema.table('session', {
 })
 
 /**
+ * dev_operator_access — local development grant for internal dev tools.
+ * Only used in development workflows.
+ */
+export const devOperatorAccess = authSchema.table('dev_operator_access', {
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+})
+
+/**
  * account — Better Auth account table.
  * Links authentication providers (credential, google, github, etc.) to users.
  */
@@ -150,6 +161,7 @@ export const verification = authSchema.table('verification', {
 // =============================================================================
 
 export type InsertAccount = typeof account.$inferInsert
+export type InsertDevOperatorAccess = typeof devOperatorAccess.$inferInsert
 export type InsertInvitation = typeof invitation.$inferInsert
 export type InsertMember = typeof member.$inferInsert
 export type InsertOrganization = typeof organization.$inferInsert
@@ -157,6 +169,7 @@ export type InsertSession = typeof session.$inferInsert
 export type InsertUser = typeof user.$inferInsert
 export type InsertVerification = typeof verification.$inferInsert
 export type SelectAccount = typeof account.$inferSelect
+export type SelectDevOperatorAccess = typeof devOperatorAccess.$inferSelect
 export type SelectInvitation = typeof invitation.$inferSelect
 export type SelectMember = typeof member.$inferSelect
 export type SelectOrganization = typeof organization.$inferSelect

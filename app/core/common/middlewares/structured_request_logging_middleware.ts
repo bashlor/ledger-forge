@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 
+import { resolveHttpErrorStatus } from '#core/common/errors/domain_error_status'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
 import {
   runWithRequestStructuredLogContext,
@@ -89,7 +90,7 @@ export default class StructuredRequestLoggingMiddleware {
               method: ctx.request.method().toUpperCase(),
               path: ctx.request.url(),
               requestId,
-              status: (error as { status?: number })?.status ?? 500,
+              status: resolveHttpErrorStatus(error),
               tenantId: resolveTenantIdFromAuthSession(ctx),
               timestamp: toIsoTimestamp(),
               userId,

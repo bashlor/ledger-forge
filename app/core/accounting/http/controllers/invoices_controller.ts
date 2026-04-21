@@ -8,10 +8,8 @@ import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagi
 import { DomainError } from '#core/common/errors/domain_error'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
-import { MemberService } from '#core/user_management/application/member_service'
-import { InsufficientMemberRoleError } from '#core/user_management/application/member_service'
+import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
-import app from '@adonisjs/core/services/app'
 
 import { flashAction } from '../helpers/flash_action.js'
 import {
@@ -23,13 +21,21 @@ import {
 
 export default class InvoicesController {
   @inject()
-  async destroy(ctx: HttpContext, invoiceService: InvoiceService) {
+  async destroy(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    invoiceService: InvoiceService
+  ) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => invoiceService.deleteDraft(params.id, access),
+      async () => {
+        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        await invoiceService.deleteDraft(params.id, access)
+      },
       'Draft invoice deleted.'
     )
 
@@ -37,12 +43,16 @@ export default class InvoicesController {
   }
 
   @inject()
-  async history(ctx: HttpContext, invoiceService: InvoiceService) {
+  async history(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    invoiceService: InvoiceService
+  ) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const memberService = await app.container.make(MemberService)
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
-    await memberService.requireAdminOrOwner(access.tenantId, ctx.authSession!.user.id)
+    authorizationService.authorize(actor, 'auditTrail.view')
 
     const invoice = await invoiceService.getInvoiceById(params.id, access)
     if (!invoice) {
@@ -55,9 +65,15 @@ export default class InvoicesController {
   }
 
   @inject()
-  async index(ctx: HttpContext, invoiceService: InvoiceService) {
+  async index(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    invoiceService: InvoiceService
+  ) {
     const { inertia, request } = ctx
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    authorizationService.authorize(actor, 'accounting.read')
 
     const {
       customer,
@@ -102,15 +118,12 @@ export default class InvoicesController {
       }
     }
 
-    const [canViewAuditHistory, readOnlyState] = await Promise.all([
-      this.canViewAuditHistory(ctx),
-      getAccountingReadOnlyState(),
-    ])
+    const [readOnlyState] = await Promise.all([getAccountingReadOnlyState()])
 
     return renderInertiaPage(inertia, 'app/invoices', {
       accountingReadOnly: readOnlyState.enabled,
       accountingReadOnlyMessage: readOnlyState.message,
-      canViewAuditHistory,
+      canViewAuditHistory: authorizationService.allows(actor, 'auditTrail.view'),
       customers: await invoiceService.listCustomersForSelect(access),
       filters: { search: search ?? '' },
       initialCustomerId: customer ?? null,
@@ -125,14 +138,22 @@ export default class InvoicesController {
   }
 
   @inject()
-  async issue(ctx: HttpContext, invoiceService: InvoiceService) {
+  async issue(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    invoiceService: InvoiceService
+  ) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const payload = await ctx.request.validateUsing(issueInvoiceValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => invoiceService.issueInvoice(params.id, payload, access),
+      async () => {
+        authorizationService.authorize(actor, 'invoice.issue')
+        await invoiceService.issueInvoice(params.id, payload, access)
+      },
       'Invoice issued.'
     )
 
@@ -140,13 +161,21 @@ export default class InvoicesController {
   }
 
   @inject()
-  async markPaid(ctx: HttpContext, invoiceService: InvoiceService) {
+  async markPaid(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    invoiceService: InvoiceService
+  ) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => invoiceService.markInvoicePaid(params.id, access),
+      async () => {
+        authorizationService.authorize(actor, 'invoice.markPaid')
+        await invoiceService.markInvoicePaid(params.id, access)
+      },
       'Invoice marked as paid.'
     )
 
@@ -154,15 +183,21 @@ export default class InvoicesController {
   }
 
   @inject()
-  async store(ctx: HttpContext, invoiceService: InvoiceService) {
+  async store(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    invoiceService: InvoiceService
+  ) {
     const payload = await ctx.request.validateUsing(saveInvoiceDraftValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     let createdId: string | undefined
 
     await flashAction(
       ctx,
       async () => {
+        authorizationService.authorize(actor, 'accounting.writeDrafts')
         const created = await invoiceService.createDraft(payload, access)
         createdId = created.id
       },
@@ -175,41 +210,27 @@ export default class InvoicesController {
   }
 
   @inject()
-  async updateDraft(ctx: HttpContext, invoiceService: InvoiceService) {
+  async updateDraft(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    invoiceService: InvoiceService
+  ) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const payload = await ctx.request.validateUsing(saveInvoiceDraftValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => invoiceService.updateDraft(params.id, payload, access),
+      async () => {
+        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        await invoiceService.updateDraft(params.id, payload, access)
+      },
       'Draft invoice updated.'
     )
 
     return this.redirectToInvoices(ctx, { invoice: params.id })
   }
-
-  private async canViewAuditHistory(ctx: HttpContext): Promise<boolean> {
-    const tenantId = ctx.authSession?.session.activeOrganizationId
-    const actorId = ctx.authSession?.user.id
-
-    if (!tenantId || !actorId) {
-      return false
-    }
-
-    const memberService = await app.container.make(MemberService)
-
-    try {
-      await memberService.requireAdminOrOwner(tenantId, actorId)
-      return true
-    } catch (error) {
-      if (error instanceof InsufficientMemberRoleError) {
-        return false
-      }
-      throw error
-    }
-  }
-
   private redirectToInvoices(
     ctx: HttpContext,
     extras: { customer?: string; invoice?: string; mode?: 'new' } = {}

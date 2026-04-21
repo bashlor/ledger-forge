@@ -29,6 +29,19 @@ export class AdminCannotModifyAdminError extends DomainError {
 }
 
 /**
+ * Raised when assigning the owner role through the role-management flow.
+ */
+export class CannotAssignOwnerRoleError extends DomainError {
+  constructor() {
+    super(
+      'The owner role cannot be assigned through this action.',
+      'business_logic_error',
+      'CannotAssignOwnerRoleError'
+    )
+  }
+}
+
+/**
  * Raised when an actor attempts to deactivate their own membership.
  */
 export class CannotDeactivateSelfError extends DomainError {
@@ -47,19 +60,6 @@ export class CannotModifyOwnerError extends DomainError {
 }
 
 /**
- * Raised when the actor is not an admin or owner of the organization.
- */
-export class InsufficientMemberRoleError extends DomainError {
-  constructor() {
-    super(
-      'You must be an admin or owner of this organization to manage members.',
-      'forbidden',
-      'InsufficientMemberRoleError'
-    )
-  }
-}
-
-/**
  * Raised when the target member is not found in the organization.
  */
 export class MemberNotFoundError extends DomainError {
@@ -73,11 +73,9 @@ export class MemberService {
 
   /**
    * List all members of the given organization.
-   * Requires the actor to be an admin or owner of the organization.
+   * Authorization is enforced before the service is called.
    */
-  async listMembers(tenantId: string, actorId: string): Promise<MemberDto[]> {
-    await this.requireAdminOrOwner(tenantId, actorId)
-
+  async listMembers(tenantId: string): Promise<MemberDto[]> {
     const rows = await this.db
       .select({
         email: schema.user.email,
@@ -103,45 +101,12 @@ export class MemberService {
   }
 
   /**
-   * Fetch the actor's member row and assert they are admin or owner.
-   * Returns the row for further use (e.g. role checks).
-   */
-  async requireAdminOrOwner(
-    tenantId: string,
-    actorId: string
-  ): Promise<{ id: string; role: string; userId: string }> {
-    const [actorRow] = await this.db
-      .select({
-        id: schema.member.id,
-        role: schema.member.role,
-        userId: schema.member.userId,
-      })
-      .from(schema.member)
-      .where(
-        and(
-          eq(schema.member.userId, actorId),
-          eq(schema.member.organizationId, tenantId),
-          eq(schema.member.isActive, true)
-        )
-      )
-      .limit(1)
-
-    if (!actorRow || (actorRow.role !== 'admin' && actorRow.role !== 'owner')) {
-      throw new InsufficientMemberRoleError()
-    }
-
-    return actorRow
-  }
-
-  /**
    * Activate or deactivate a membership.
    *
    * Guards (in order):
-   * 1. Actor must be admin or owner.
-   * 2. Target must exist in the organization.
-   * 3. Target role is owner → forbidden.
-   * 4. Actor === target → cannot deactivate self.
-   * 5. Target is admin and actor is not owner → forbidden.
+   * 1. Target must exist in the organization.
+   * 2. Target role is owner → forbidden.
+   * 3. Actor === target → cannot deactivate self.
    */
   async toggleMemberActive(
     memberId: string,
@@ -149,8 +114,6 @@ export class MemberService {
     tenantId: string,
     actorId: string
   ): Promise<void> {
-    const actorRow = await this.requireAdminOrOwner(tenantId, actorId)
-
     const [targetRow] = await this.db
       .select({
         id: schema.member.id,
@@ -173,13 +136,37 @@ export class MemberService {
       throw new CannotDeactivateSelfError()
     }
 
-    if (targetRow.role === 'admin' && actorRow.role !== 'owner') {
-      throw new AdminCannotModifyAdminError()
+    await this.db
+      .update(schema.member)
+      .set({ isActive })
+      .where(and(eq(schema.member.id, memberId), eq(schema.member.organizationId, tenantId)))
+  }
+
+  async updateMemberRole(memberId: string, role: MemberRole, tenantId: string): Promise<void> {
+    if (role === 'owner') {
+      throw new CannotAssignOwnerRoleError()
+    }
+
+    const [targetRow] = await this.db
+      .select({
+        id: schema.member.id,
+        role: schema.member.role,
+      })
+      .from(schema.member)
+      .where(and(eq(schema.member.id, memberId), eq(schema.member.organizationId, tenantId)))
+      .limit(1)
+
+    if (!targetRow) {
+      throw new MemberNotFoundError()
+    }
+
+    if (targetRow.role === 'owner') {
+      throw new CannotModifyOwnerError()
     }
 
     await this.db
       .update(schema.member)
-      .set({ isActive })
+      .set({ role })
       .where(and(eq(schema.member.id, memberId), eq(schema.member.organizationId, tenantId)))
   }
 }

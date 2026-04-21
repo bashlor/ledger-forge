@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { customers } from '#core/accounting/drizzle/schema'
+import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { member, organization } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
@@ -65,6 +66,10 @@ test.group('Invoices routes | GET /invoices/:id/history', (group) => {
       .where(eq(member.userId, TEST_USER_ID))
   })
 
+  group.each.teardown(() => {
+    app.container.restore(AuthorizationService)
+  })
+
   group.teardown(async () => cleanup())
 
   test('admin receives invoice history ordered by most recent event first', async ({
@@ -103,6 +108,26 @@ test.group('Invoices routes | GET /invoices/:id/history', (group) => {
 
   test('regular member is forbidden from reading invoice history', async ({ client }) => {
     await db.update(member).set({ role: 'member' }).where(eq(member.userId, TEST_USER_ID))
+    const service = new InvoiceService(db)
+    const invoice = await createDraftViaService(service, { issueDate: dateOffsetFromTodayUtc(10) })
+
+    const response = await client
+      .get(`/invoices/${invoice.id}/history`)
+      .header('accept', 'application/json')
+      .header('cookie', authCookie())
+      .redirects(0)
+
+    response.assertStatus(403)
+  })
+
+  test('dev operator does not bypass audit history outside development mode', async ({
+    client,
+  }) => {
+    await db.update(member).set({ role: 'member' }).where(eq(member.userId, TEST_USER_ID))
+    app.container.swap(AuthorizationService, async () => {
+      const drizzle = await app.container.make('drizzle')
+      return new AuthorizationService(drizzle, [TEST_INVOICE_USER_PUBLIC_ID])
+    })
     const service = new InvoiceService(db)
     const invoice = await createDraftViaService(service, { issueDate: dateOffsetFromTodayUtc(10) })
 

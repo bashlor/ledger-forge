@@ -1,3 +1,4 @@
+import { DomainError } from '#core/common/errors/domain_error'
 import { test } from '@japa/runner'
 
 import StructuredRequestLoggingMiddleware from './structured_request_logging_middleware.js'
@@ -129,6 +130,21 @@ test.group('StructuredRequestLoggingMiddleware', () => {
       status: 500,
       tenantId: null,
       userId: 'user-1',
+    })
+  })
+
+  test('logs mapped HTTP status for domain errors', async ({ assert }) => {
+    const { calls, logger } = createLogger()
+    const middleware = new StructuredRequestLoggingMiddleware()
+    const ctx = createContext(logger)
+    const error = new DomainError('You are not allowed to perform this action.', 'forbidden')
+
+    await assert.rejects(() => middleware.handle(ctx as never, async () => Promise.reject(error)))
+
+    assert.lengthOf(calls, 2)
+    assert.deepInclude(calls[1]!.bindings, {
+      errorName: 'DomainError',
+      status: 403,
     })
   })
 })

@@ -67,6 +67,9 @@ require_cmd pnpm
 resolve_compose_cmd
 
 APP_URL_FIXED='http://localhost:3333'
+DEV_OPERATOR_DEFAULT_NAME='Dev Operator'
+DEV_OPERATOR_DEFAULT_EMAIL='dev-operator@example.local'
+DEV_OPERATOR_DEFAULT_PASSWORD='DevOperator123!'
 
 echo '==> pnpm install'
 pnpm install
@@ -85,12 +88,18 @@ set_env_value 'BETTER_AUTH_SECRET' "$(openssl rand -hex 32)" "$REPO_ROOT/.env"
 set_env_value 'APP_URL' "$APP_URL_FIXED" "$REPO_ROOT/.env"
 set_env_value 'TENANT_MODE' 'single' "$REPO_ROOT/.env"
 ensure_env_value 'SINGLE_TENANT_ORG_ID' "$(openssl rand -hex 16)" "$REPO_ROOT/.env"
+ensure_env_value 'DEV_OPERATOR_DEFAULT_NAME' "$DEV_OPERATOR_DEFAULT_NAME" "$REPO_ROOT/.env"
+ensure_env_value 'DEV_OPERATOR_DEFAULT_EMAIL' "$DEV_OPERATOR_DEFAULT_EMAIL" "$REPO_ROOT/.env"
+ensure_env_value 'DEV_OPERATOR_DEFAULT_PASSWORD' "$DEV_OPERATOR_DEFAULT_PASSWORD" "$REPO_ROOT/.env"
 
 echo '==> Create .env.test from .env.test.example'
 cp "$REPO_ROOT/.env.test.example" "$REPO_ROOT/.env.test"
 set_env_value 'APP_KEY' "$(openssl rand -hex 32)" "$REPO_ROOT/.env.test"
 set_env_value 'BETTER_AUTH_SECRET' "$(openssl rand -hex 32)" "$REPO_ROOT/.env.test"
 set_env_value 'APP_URL' "$APP_URL_FIXED" "$REPO_ROOT/.env.test"
+ensure_env_value 'DEV_OPERATOR_DEFAULT_NAME' "$DEV_OPERATOR_DEFAULT_NAME" "$REPO_ROOT/.env.test"
+ensure_env_value 'DEV_OPERATOR_DEFAULT_EMAIL' "$DEV_OPERATOR_DEFAULT_EMAIL" "$REPO_ROOT/.env.test"
+ensure_env_value 'DEV_OPERATOR_DEFAULT_PASSWORD' "$DEV_OPERATOR_DEFAULT_PASSWORD" "$REPO_ROOT/.env.test"
 
 echo '==> Write secret files from .env'
 bash "$REPO_ROOT/docker/write-docker-secrets.sh" "$REPO_ROOT/.env" "$REPO_ROOT/tmp/docker-secrets/dev" DB_PASSWORD=db_password REDIS_PASSWORD=redis_password
@@ -134,6 +143,11 @@ echo ''
 echo 'PostgreSQL and Redis are stopped. To work on the app:'
 echo '  1. pnpm services:up'
 echo '  2. pnpm dev'
+echo '  3. Open http://localhost:3333/_dev/access to provision or sign in the local dev operator'
+echo ''
+echo 'Default local dev operator credentials:'
+echo "  email:    $DEV_OPERATOR_DEFAULT_EMAIL"
+echo "  password: $DEV_OPERATOR_DEFAULT_PASSWORD"
 echo ''
 echo 'For backend tests with testcontainers:'
 echo '  1. systemctl --user enable --now podman.socket   # Podman rootless only'

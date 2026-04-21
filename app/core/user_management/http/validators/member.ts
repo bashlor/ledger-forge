@@ -8,3 +8,9 @@ export const toggleMemberStatusValidator = vine.compile(
     isActive: vine.boolean(),
   })
 )
+
+export const updateMemberRoleValidator = vine.compile(
+  vine.object({
+    role: vine.enum(['admin', 'member'] as const),
+  })
+)

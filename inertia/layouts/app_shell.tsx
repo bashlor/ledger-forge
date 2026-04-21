@@ -21,6 +21,8 @@ const mainNavLinks = [
 
 const pageDescriptions: Record<string, string> = {
   Customers: 'Billable contacts available for invoicing.',
+  'Dev Inspector': 'Internal operator console for tenant and audit checks.',
+  'Dev Tools': 'Local bootstrap page for dev-only operator access.',
   Expenses: 'Recorded expenses that feed into profit.',
   Invoices: 'Create, issue, and settle customer invoices.',
   Overview: 'Summary of revenue, expenses, and recent invoices.',
@@ -46,6 +48,8 @@ function AppShellFrame({ children }: { children: ReactNode }) {
   const initials = user?.initials ?? getInitials(displayName || email || 'PL')
   const pageLabel = pageLabelForUrl(url)
   const workspace = page.props.workspace
+  const devToolsEnabled = page.props.devTools?.enabled ?? false
+  const devToolsHref = page.props.devTools?.accessHref ?? '/_dev/access'
   const todayLine = formatTopbarDate(todayDateOnlyUtc())
   const showDateScopeControls =
     url === '/dashboard' || url.startsWith('/expenses') || url.startsWith('/invoices')
@@ -108,6 +112,28 @@ function AppShellFrame({ children }: { children: ReactNode }) {
               </Link>
             )
           })}
+          {devToolsEnabled ? (
+            <Link
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-300 ${
+                isActive(url, '/_dev/access') || isActive(url, '/_dev/inspector')
+                  ? 'border-l-2 border-primary bg-surface-container-lowest font-bold text-on-surface shadow-ambient-tight'
+                  : 'border-l-2 border-transparent text-on-surface-variant hover:bg-surface-container-lowest/35 hover:text-on-surface'
+              }`}
+              href={devToolsHref}
+            >
+              <AppIcon
+                className={
+                  isActive(url, '/_dev/access') || isActive(url, '/_dev/inspector')
+                    ? 'text-primary'
+                    : 'text-on-surface-variant'
+                }
+                filled={isActive(url, '/_dev/access') || isActive(url, '/_dev/inspector')}
+                name="tune"
+                size={22}
+              />
+              <span>Dev Tools</span>
+            </Link>
+          ) : null}
         </nav>
 
         <div className="mt-auto shrink-0 border-t border-outline-variant/10 pt-6">
@@ -279,6 +305,14 @@ function isActive(currentUrl: string, href: string) {
 }
 
 function pageLabelForUrl(url: string) {
+  if (url.startsWith('/_dev/access')) {
+    return 'Dev Tools'
+  }
+
+  if (url.startsWith('/_dev/inspector')) {
+    return 'Dev Inspector'
+  }
+
   if (url.startsWith('/account')) {
     return 'Settings'
   }

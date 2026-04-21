@@ -18,6 +18,12 @@ function createContext(method: string, acceptedType: string) {
 }
 
 test.group('shouldPresentDomainErrorAsFormRedirect', () => {
+  test('exposes mapped HTTP status on domain errors', ({ assert }) => {
+    const error = new DomainError('You are not allowed to perform this action.', 'forbidden')
+
+    assert.equal(error.status, 403)
+  })
+
   test('routes explicit form presentations for non-GET HTML requests', ({ assert }) => {
     const ctx = createContext('POST', 'html')
     const error = new DomainError(

@@ -1,8 +1,10 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { InvoiceService } from '#core/accounting/application/invoices/index'
+import { member } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
+import { eq } from 'drizzle-orm'
 
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 import {
@@ -14,8 +16,11 @@ import {
   resetInvoiceAuthContext,
   resetInvoiceFixtures,
   SECOND_CUSTOMER_ID,
+  seedInvoiceActor,
   seedTestOrganization,
+  setInvoiceActorRole,
   TEST_CUSTOMER_ID,
+  TEST_INVOICE_USER_ID,
 } from './invoices_test_support.js'
 
 let db: PostgresJsDatabase<any>
@@ -28,12 +33,14 @@ test.group('Invoices routes | GET /invoices', (group) => {
     cleanup = ctx.cleanup
     db = await app.container.make('drizzle')
     await seedTestOrganization(db)
+    await seedInvoiceActor(db)
   })
 
   group.each.setup(async () => {
     resetInvoiceAuthContext()
     bindInvoiceAuth()
     await resetInvoiceFixtures(db)
+    await setInvoiceActorRole(db, 'admin')
   })
 
   group.teardown(async () => cleanup())
@@ -246,6 +253,14 @@ test.group('Invoices routes | GET /invoices', (group) => {
     assert.equal(props.initialCustomerId, TEST_CUSTOMER_ID)
     assert.isNull(props.initialInvoiceId)
     assert.deepEqual(props.invoices.items, [])
+  })
+
+  test('GET /invoices returns 403 for an inactive membership', async ({ client }) => {
+    await db.update(member).set({ isActive: false }).where(eq(member.userId, TEST_INVOICE_USER_ID))
+
+    const response = await inertiaGet(client, '/invoices').redirects(0)
+
+    response.assertStatus(403)
   })
 
   test('GET /invoices does not inject an explicit invoice when it falls outside the current customer scope', async ({

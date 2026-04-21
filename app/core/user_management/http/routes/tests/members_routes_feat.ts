@@ -406,6 +406,17 @@ test.group('Members routes | PATCH toggle active', (group) => {
     assert.isTrue(row.isActive)
   })
 
+  test('missing target member returns 404 before authorization checks', async ({ client }) => {
+    const response = await withCookie(
+      client.patch('/account/organizations/members/nonexistent_id'),
+      regularMemberSession
+    )
+      .redirects(0)
+      .form({ isActive: 'false' })
+
+    response.assertStatus(404)
+  })
+
   test('unknown memberId returns 404 (not_found re-throws)', async ({ client }) => {
     const response = await withCookie(
       client.patch('/account/organizations/members/nonexistent_id'),
@@ -448,5 +459,116 @@ test.group('Members routes | PATCH toggle active', (group) => {
 
     response.assertStatus(302)
     response.assertHeader('location', '/signin')
+  })
+})
+
+test.group('Members routes | PATCH update role', (group) => {
+  let cleanup: () => Promise<void>
+  let db: PostgresJsDatabase<any>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+    db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
+    await seedAllUsersAndMembers(db)
+
+    const auth = new MultiUserAuth(
+      adminSession,
+      ownerSession,
+      regularMemberSession,
+      anotherAdminSession
+    )
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+  })
+
+  group.each.setup(async () => {
+    await db.update(member).set({ isActive: true })
+    await db.update(member).set({ role: 'owner' }).where(eq(member.id, MEMBER_IDS.owner))
+    await db.update(member).set({ role: 'admin' }).where(eq(member.id, MEMBER_IDS.admin))
+    await db.update(member).set({ role: 'admin' }).where(eq(member.id, MEMBER_IDS.anotherAdmin))
+    await db.update(member).set({ role: 'member' }).where(eq(member.id, MEMBER_IDS.regular))
+  })
+
+  group.teardown(async () => cleanup())
+
+  test('owner can promote a member to admin', async ({ assert, client }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}/role`),
+      ownerSession
+    )
+      .redirects(0)
+      .form({ role: 'admin' })
+
+    response.assertStatus(302)
+
+    const [row] = await db
+      .select({ role: member.role })
+      .from(member)
+      .where(eq(member.id, MEMBER_IDS.regular))
+    assert.equal(row.role, 'admin')
+  })
+
+  test('owner can demote an admin to member', async ({ assert, client }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.admin}/role`),
+      ownerSession
+    )
+      .redirects(0)
+      .form({ role: 'member' })
+
+    response.assertStatus(302)
+
+    const [row] = await db
+      .select({ role: member.role })
+      .from(member)
+      .where(eq(member.id, MEMBER_IDS.admin))
+    assert.equal(row.role, 'member')
+  })
+
+  test('admin cannot change member roles', async ({ assert, client }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}/role`),
+      adminSession
+    )
+      .redirects(0)
+      .form({ role: 'admin' })
+
+    response.assertStatus(302)
+
+    const [row] = await db
+      .select({ role: member.role })
+      .from(member)
+      .where(eq(member.id, MEMBER_IDS.regular))
+    assert.equal(row.role, 'member')
+  })
+
+  test('owner cannot promote a member to owner', async ({ assert, client }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}/role`),
+      ownerSession
+    )
+      .redirects(0)
+      .form({ role: 'owner' })
+
+    response.assertStatus(302)
+
+    const [row] = await db
+      .select({ role: member.role })
+      .from(member)
+      .where(eq(member.id, MEMBER_IDS.regular))
+    assert.equal(row.role, 'member')
+  })
+
+  test('missing target member returns 404 before role authorization checks', async ({ client }) => {
+    const response = await withCookie(
+      client.patch('/account/organizations/members/nonexistent_id/role'),
+      adminSession
+    )
+      .redirects(0)
+      .form({ role: 'admin' })
+
+    response.assertStatus(404)
   })
 })

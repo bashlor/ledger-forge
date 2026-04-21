@@ -1,3 +1,5 @@
+import { domainErrorToHttpStatus } from './domain_error_status.js'
+
 export type DomainErrorTag =
   | 'already_exists'
   | 'business_logic_error'
@@ -9,8 +11,11 @@ export type DomainErrorTag =
   | 'unspecified_internal_error'
 
 export class DomainError extends Error {
+  static readonly tagToHttpStatus = domainErrorToHttpStatus
   cause?: unknown
   exposeCause: boolean
+  status: number
+
   type: DomainErrorTag
 
   constructor(
@@ -25,6 +30,7 @@ export class DomainError extends Error {
     this.cause = cause
     this.type = tag
     this.exposeCause = exposeCause
+    this.status = domainErrorToHttpStatus(tag)
     Object.setPrototypeOf(this, new.target.prototype)
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, new.target.prototype.constructor)

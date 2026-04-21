@@ -1,4 +1,4 @@
-export type AuditEntityType = 'customer' | 'expense' | 'invoice'
+export type AuditEntityType = 'customer' | 'expense' | 'invoice' | 'member'
 
 export interface AuditEventDto {
   action: string
