@@ -43,6 +43,16 @@ type Props = InertiaProps<{
       readOnlyBadge: string
       selectedMemberId: string
       selectedMemberName: string
+      selectedMemberPermissions: {
+        accountingRead: boolean
+        accountingWriteDrafts: boolean
+        auditTrailView: boolean
+        invoiceIssue: boolean
+        invoiceMarkPaid: boolean
+        membershipChangeRole: boolean
+        membershipList: boolean
+        membershipToggleActive: boolean
+      }
       selectedMemberRole: 'admin' | 'member' | 'owner' | null
       selectedTenantId: string
       selectedTenantName: string
@@ -289,6 +299,49 @@ export default function DevInspectorPage({ inspector }: Props) {
               <Link className={buttonClass('secondary')} href="/dashboard">
                 Open current workspace
               </Link>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-outline-variant/15 bg-surface-container-low px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-on-surface">Selected actor permissions</p>
+                <span className="text-xs text-on-surface-variant">
+                  Visible even when actions are expected to fail
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <PermissionChip
+                  active={context.selectedMemberPermissions.accountingRead}
+                  label="Accounting read"
+                />
+                <PermissionChip
+                  active={context.selectedMemberPermissions.accountingWriteDrafts}
+                  label="Draft writes"
+                />
+                <PermissionChip
+                  active={context.selectedMemberPermissions.invoiceIssue}
+                  label="Issue invoice"
+                />
+                <PermissionChip
+                  active={context.selectedMemberPermissions.invoiceMarkPaid}
+                  label="Mark paid"
+                />
+                <PermissionChip
+                  active={context.selectedMemberPermissions.membershipList}
+                  label="List members"
+                />
+                <PermissionChip
+                  active={context.selectedMemberPermissions.membershipToggleActive}
+                  label="Toggle active"
+                />
+                <PermissionChip
+                  active={context.selectedMemberPermissions.membershipChangeRole}
+                  label="Change role"
+                />
+                <PermissionChip
+                  active={context.selectedMemberPermissions.auditTrailView}
+                  label="Audit trail"
+                />
+              </div>
             </div>
           </Card>
 
@@ -841,5 +894,19 @@ function Metric({ label, value }: { label: string; value: number }) {
       </p>
       <p className="mt-1 text-xl font-semibold tabular-nums text-on-surface">{value}</p>
     </div>
+  )
+}
+
+function PermissionChip({ active, label }: { active: boolean; label: string }) {
+  return (
+    <span
+      className={
+        active
+          ? 'inline-flex rounded-md border border-emerald-600/25 bg-emerald-600/10 px-2 py-1 text-[11px] font-medium text-emerald-700'
+          : 'inline-flex rounded-md border border-outline-variant/20 bg-surface-container-high px-2 py-1 text-[11px] font-medium text-on-surface-variant'
+      }
+    >
+      {label}
+    </span>
   )
 }

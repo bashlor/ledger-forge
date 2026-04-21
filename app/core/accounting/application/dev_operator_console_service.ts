@@ -129,6 +129,16 @@ export interface DevInspectorPageDto {
     readOnlyBadge: string
     selectedMemberId: string
     selectedMemberName: string
+    selectedMemberPermissions: {
+      accountingRead: boolean
+      accountingWriteDrafts: boolean
+      auditTrailView: boolean
+      invoiceIssue: boolean
+      invoiceMarkPaid: boolean
+      membershipChangeRole: boolean
+      membershipList: boolean
+      membershipToggleActive: boolean
+    }
     selectedMemberRole: 'admin' | 'member' | 'owner' | null
     selectedTenantId: string
     selectedTenantName: string
@@ -242,6 +252,13 @@ export class DevOperatorConsoleService {
       members.find((member) => member.userId === authSession.user.id) ??
       members[0] ??
       null
+    const selectedMemberActor = {
+      activeTenantId: selectedTenantId,
+      isDevOperator: false,
+      membershipIsActive: selectedMember?.isActive ?? false,
+      membershipRole: selectedMember?.role ?? null,
+      userId: selectedMember?.userId ?? null,
+    }
 
     return {
       audit: await this.listAuditTrail({
@@ -267,6 +284,25 @@ export class DevOperatorConsoleService {
         readOnlyBadge: 'Read-Only Access',
         selectedMemberId: selectedMember?.id ?? '',
         selectedMemberName: selectedMember?.name ?? selectedMember?.email ?? 'No member selected',
+        selectedMemberPermissions: {
+          accountingRead: authorizationService.allows(selectedMemberActor, 'accounting.read'),
+          accountingWriteDrafts: authorizationService.allows(
+            selectedMemberActor,
+            'accounting.writeDrafts'
+          ),
+          auditTrailView: authorizationService.allows(selectedMemberActor, 'auditTrail.view'),
+          invoiceIssue: authorizationService.allows(selectedMemberActor, 'invoice.issue'),
+          invoiceMarkPaid: authorizationService.allows(selectedMemberActor, 'invoice.markPaid'),
+          membershipChangeRole: authorizationService.allows(
+            selectedMemberActor,
+            'membership.changeRole'
+          ),
+          membershipList: authorizationService.allows(selectedMemberActor, 'membership.list'),
+          membershipToggleActive: authorizationService.allows(
+            selectedMemberActor,
+            'membership.toggleActive'
+          ),
+        },
         selectedMemberRole: selectedMember?.role ?? null,
         selectedTenantId,
         selectedTenantName: selectedTenant?.organizationName ?? activeTenant.name,

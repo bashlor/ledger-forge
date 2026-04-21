@@ -12,6 +12,15 @@ import { DateScopeProvider } from '~/components/date_scope_provider'
 import { todayDateOnlyUtc } from '~/lib/date'
 import { formatTopbarDate, getInitials } from '~/lib/format'
 
+interface ReadOnlyPageProps extends Data.SharedProps {
+  accountingReadOnly?: boolean
+  inspector?: {
+    context?: {
+      readOnlyBadge?: string
+    }
+  }
+}
+
 const mainNavLinks = [
   { href: '/dashboard', icon: 'dashboard', label: 'Overview' },
   { href: '/customers', icon: 'business', label: 'Customers' },
@@ -40,6 +49,7 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
 function AppShellFrame({ children }: { children: ReactNode }) {
   const page = usePage<Data.SharedProps>()
   const url = page.url.split('?')[0]
+  const readOnlyBadge = resolveReadOnlyBadge(page.props as ReadOnlyPageProps, url)
   const user = page.props.user
   const notification = page.props.flash?.notification
   const email = user?.email ?? ''
@@ -171,9 +181,16 @@ function AppShellFrame({ children }: { children: ReactNode }) {
                 <AppIcon className="text-on-primary" filled name="account_balance" size={18} />
               </Link>
               <div className="min-w-0">
-                <p className="truncate font-headline text-sm font-semibold text-on-surface sm:text-base">
-                  {pageLabel}
-                </p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate font-headline text-sm font-semibold text-on-surface sm:text-base">
+                    {pageLabel}
+                  </p>
+                  {readOnlyBadge ? (
+                    <span className="inline-flex shrink-0 rounded-md border border-amber-500/30 bg-amber-500/12 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                      {readOnlyBadge}
+                    </span>
+                  ) : null}
+                </div>
                 {workspace ? (
                   <p className="mt-0.5 truncate text-xs text-on-surface-variant">
                     <span className="font-medium text-on-surface/90">{workspace.name}</span>
@@ -319,6 +336,14 @@ function pageLabelForUrl(url: string) {
 
   const match = mainNavLinks.find((link) => isActive(url, link.href))
   return match?.label ?? 'Overview'
+}
+
+function resolveReadOnlyBadge(props: ReadOnlyPageProps, url: string): null | string {
+  if (url.startsWith('/_dev/inspector')) {
+    return props.inspector?.context?.readOnlyBadge ?? 'Read-Only Access'
+  }
+
+  return props.accountingReadOnly ? 'Read-Only' : null
 }
 
 function useCloseOnOutsideAndEscape(
