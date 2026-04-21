@@ -88,30 +88,34 @@ export class DevOperatorBootstrapService {
       userById && !matchingUserById
         ? `pub_${uuidv7().replaceAll('-', '')}`
         : authentication.user.publicId || `pub_${uuidv7().replaceAll('-', '')}`
-    const persistedUser =
-      userByEmail ??
-      matchingUserById ??
-      (
-        await this.db
-          .insert(schema.user)
-          .values({
-            email: input.email,
-            emailVerified: authentication.user.emailVerified,
-            id: insertUserId,
-            image: authentication.user.image,
-            isAnonymous: authentication.user.isAnonymous,
-            name: input.fullName ?? authentication.user.name ?? input.email,
-            publicId: insertPublicId,
-          })
-          .returning({
-            email: schema.user.email,
-            id: schema.user.id,
-            image: schema.user.image,
-            isAnonymous: schema.user.isAnonymous,
-            name: schema.user.name,
-            publicId: schema.user.publicId,
-          })
-      )[0]
+    const insertedUsers =
+      userByEmail || matchingUserById
+        ? null
+        : await this.db
+            .insert(schema.user)
+            .values({
+              email: input.email,
+              emailVerified: authentication.user.emailVerified,
+              id: insertUserId,
+              image: authentication.user.image,
+              isAnonymous: authentication.user.isAnonymous,
+              name: input.fullName ?? authentication.user.name ?? input.email,
+              publicId: insertPublicId,
+            })
+            .returning({
+              email: schema.user.email,
+              id: schema.user.id,
+              image: schema.user.image,
+              isAnonymous: schema.user.isAnonymous,
+              name: schema.user.name,
+              publicId: schema.user.publicId,
+            })
+
+    const persistedUser = userByEmail ?? matchingUserById ?? insertedUsers?.[0]
+
+    if (!persistedUser) {
+      throw new Error('Could not persist dev operator bootstrap user')
+    }
 
     const [sessionRow] = await this.db
       .select({
@@ -177,7 +181,9 @@ export class DevOperatorBootstrapService {
       .select({ organizationId: schema.member.organizationId })
       .from(schema.member)
       .innerJoin(schema.organization, eq(schema.member.organizationId, schema.organization.id))
-      .where(and(eq(schema.member.userId, userId), eq(schema.member.organizationId, organizationId)))
+      .where(
+        and(eq(schema.member.userId, userId), eq(schema.member.organizationId, organizationId))
+      )
       .limit(1)
 
     return Boolean(membership)

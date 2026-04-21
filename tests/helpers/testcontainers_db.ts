@@ -75,6 +75,19 @@ let sharedContainerPromise: null | Promise<StartedPostgreSqlContainer> = null
 let dbCounter = 0
 
 /**
+ * Same contract as {@link setupTestDatabaseForGroup}, but starts a dedicated
+ * PostgreSQL container for the caller instead of reusing the shared singleton.
+ * Use this when a route/integration spec must not share auth/container state
+ * with the rest of the suite.
+ */
+export async function setupIsolatedTestDatabaseForGroup(): Promise<{
+  cleanup: () => Promise<void>
+  container: StartedPostgreSqlContainer
+}> {
+  return setupDatabaseForGroup({ isolatedContainer: true })
+}
+
+/**
  * Acquire a database from the shared PostgreSQL container, run all Drizzle
  * migrations, and bind the resulting `drizzle` instance into the AdonisJS
  * IoC container.
@@ -88,22 +101,77 @@ export async function setupTestDatabaseForGroup(): Promise<{
   return setupDatabaseForGroup({ isolatedContainer: false })
 }
 
-/**
- * Same contract as {@link setupTestDatabaseForGroup}, but starts a dedicated
- * PostgreSQL container for the caller instead of reusing the shared singleton.
- * Use this when a route/integration spec must not share auth/container state
- * with the rest of the suite.
- */
-export async function setupIsolatedTestDatabaseForGroup(): Promise<{
-  cleanup: () => Promise<void>
-  container: StartedPostgreSqlContainer
-}> {
-  return setupDatabaseForGroup({ isolatedContainer: true })
+async function acquireSharedContainer(): Promise<StartedPostgreSqlContainer> {
+  if (sharedContainerPromise) {
+    sharedContainerRefCount++
+    return sharedContainerPromise
+  }
+
+  prepareTestcontainersRuntime()
+  const postgresImage = env.get('POSTGRES_TEST_IMAGE')
+  if (!postgresImage) {
+    throw new Error('Missing POSTGRES_TEST_IMAGE in test environment configuration.')
+  }
+
+  sharedContainerRefCount++
+  sharedContainerPromise = new PostgreSqlContainer(postgresImage)
+    .withDatabase(TEST_CONTAINER_DATABASE)
+    .withUsername(TEST_CONTAINER_USERNAME)
+    .withPassword(TEST_CONTAINER_PASSWORD)
+    .start()
+    .then((container) => {
+      sharedContainer = container
+      return container
+    })
+    .catch((error) => {
+      sharedContainerPromise = null
+      sharedContainerRefCount--
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(
+        `Could not start PostgreSQL testcontainer (image: ${postgresImage}).\n` +
+          `Make sure a supported container runtime (Docker/Podman) is reachable and POSTGRES_TEST_IMAGE is configured in your test env.\n` +
+          `Original error: ${message}`
+      )
+    })
+
+  return sharedContainerPromise
 }
 
-async function setupDatabaseForGroup(options: {
-  isolatedContainer: boolean
-}): Promise<{
+async function createStandaloneContainer(): Promise<StartedPostgreSqlContainer> {
+  prepareTestcontainersRuntime()
+  const postgresImage = env.get('POSTGRES_TEST_IMAGE')
+  if (!postgresImage) {
+    throw new Error('Missing POSTGRES_TEST_IMAGE in test environment configuration.')
+  }
+
+  try {
+    return await new PostgreSqlContainer(postgresImage)
+      .withDatabase(TEST_CONTAINER_DATABASE)
+      .withUsername(TEST_CONTAINER_USERNAME)
+      .withPassword(TEST_CONTAINER_PASSWORD)
+      .start()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      `Could not start PostgreSQL testcontainer (image: ${postgresImage}).\n` +
+        `Make sure a supported container runtime (Docker/Podman) is reachable and POSTGRES_TEST_IMAGE is configured in your test env.\n` +
+        `Original error: ${message}`
+    )
+  }
+}
+
+async function releaseSharedContainer(): Promise<void> {
+  sharedContainerRefCount--
+  if (sharedContainerRefCount <= 0 && sharedContainer) {
+    const container = sharedContainer
+    sharedContainer = null
+    sharedContainerPromise = null
+    sharedContainerRefCount = 0
+    await container.stop()
+  }
+}
+
+async function setupDatabaseForGroup(options: { isolatedContainer: boolean }): Promise<{
   cleanup: () => Promise<void>
   container: StartedPostgreSqlContainer
 }> {
@@ -151,75 +219,5 @@ async function setupDatabaseForGroup(options: {
       }
     },
     container,
-  }
-}
-
-async function createStandaloneContainer(): Promise<StartedPostgreSqlContainer> {
-  prepareTestcontainersRuntime()
-  const postgresImage = env.get('POSTGRES_TEST_IMAGE')
-  if (!postgresImage) {
-    throw new Error('Missing POSTGRES_TEST_IMAGE in test environment configuration.')
-  }
-
-  try {
-    return await new PostgreSqlContainer(postgresImage)
-      .withDatabase(TEST_CONTAINER_DATABASE)
-      .withUsername(TEST_CONTAINER_USERNAME)
-      .withPassword(TEST_CONTAINER_PASSWORD)
-      .start()
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    throw new Error(
-      `Could not start PostgreSQL testcontainer (image: ${postgresImage}).\n` +
-        `Make sure a supported container runtime (Docker/Podman) is reachable and POSTGRES_TEST_IMAGE is configured in your test env.\n` +
-        `Original error: ${message}`
-    )
-  }
-}
-
-async function acquireSharedContainer(): Promise<StartedPostgreSqlContainer> {
-  if (sharedContainerPromise) {
-    sharedContainerRefCount++
-    return sharedContainerPromise
-  }
-
-  prepareTestcontainersRuntime()
-  const postgresImage = env.get('POSTGRES_TEST_IMAGE')
-  if (!postgresImage) {
-    throw new Error('Missing POSTGRES_TEST_IMAGE in test environment configuration.')
-  }
-
-  sharedContainerRefCount++
-  sharedContainerPromise = new PostgreSqlContainer(postgresImage)
-    .withDatabase(TEST_CONTAINER_DATABASE)
-    .withUsername(TEST_CONTAINER_USERNAME)
-    .withPassword(TEST_CONTAINER_PASSWORD)
-    .start()
-    .then((container) => {
-      sharedContainer = container
-      return container
-    })
-    .catch((error) => {
-      sharedContainerPromise = null
-      sharedContainerRefCount--
-      const message = error instanceof Error ? error.message : String(error)
-      throw new Error(
-        `Could not start PostgreSQL testcontainer (image: ${postgresImage}).\n` +
-          `Make sure a supported container runtime (Docker/Podman) is reachable and POSTGRES_TEST_IMAGE is configured in your test env.\n` +
-          `Original error: ${message}`
-      )
-    })
-
-  return sharedContainerPromise
-}
-
-async function releaseSharedContainer(): Promise<void> {
-  sharedContainerRefCount--
-  if (sharedContainerRefCount <= 0 && sharedContainer) {
-    const container = sharedContainer
-    sharedContainer = null
-    sharedContainerPromise = null
-    sharedContainerRefCount = 0
-    await container.stop()
   }
 }

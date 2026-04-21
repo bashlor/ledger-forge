@@ -360,6 +360,18 @@ export default function DevInspectorPage({ inspector }: Props) {
           <Card title="Quick Scenarios">
             <div className="grid gap-2 md:grid-cols-2">
               <ActionButton
+                action="create-tenant-scenario"
+                label="Create full tenant"
+                onRun={runAction}
+                processingAction={processingAction}
+              />
+              <ActionButton
+                action="create-tenant-scenario-seeded"
+                label="Create seeded tenant"
+                onRun={runAction}
+                processingAction={processingAction}
+              />
+              <ActionButton
                 action="create-customer-batch"
                 label="Create customer batch"
                 onRun={runAction}

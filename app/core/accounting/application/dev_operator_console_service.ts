@@ -16,6 +16,7 @@ import {
 import { MemberService } from '#core/user_management/application/member_service'
 import { setActiveOrganizationForSession } from '#core/user_management/application/workspace_provisioning'
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
+import { v7 as uuidv7 } from 'uuid'
 
 export interface DevInspectorAuditEventDto {
   action: string
@@ -170,6 +171,8 @@ type ActionName =
   | 'create-customer-batch'
   | 'create-expense-test'
   | 'create-invoice-test'
+  | 'create-tenant-scenario'
+  | 'create-tenant-scenario-seeded'
   | 'delete-expense'
   | 'delete-invoice'
   | 'generate-demo-data'
@@ -186,6 +189,8 @@ const ACTION_NAMES: readonly ActionName[] = [
   'create-customer-batch',
   'create-expense-test',
   'create-invoice-test',
+  'create-tenant-scenario',
+  'create-tenant-scenario-seeded',
   'delete-expense',
   'delete-invoice',
   'generate-demo-data',
@@ -350,6 +355,10 @@ export class DevOperatorConsoleService {
       case 'create-invoice-test':
         authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
         return this.createInvoiceBatch(scenario.access)
+      case 'create-tenant-scenario':
+        return this.createTenantScenario(authSession.user.id, false)
+      case 'create-tenant-scenario-seeded':
+        return this.createTenantScenario(authSession.user.id, true)
       case 'delete-expense':
         return this.deleteExpense(scenario, authorizationService, input.expenseId)
       case 'delete-invoice':
@@ -601,6 +610,84 @@ export class DevOperatorConsoleService {
     return `${batchSize} draft invoices created.`
   }
 
+  private async createTenantScenario(operatorUserId: string, seedData: boolean): Promise<string> {
+    const suffix = shortToken()
+    const tenantId = uuidv7()
+    const tenantName = `Dev Scenario ${suffix}`
+    const tenantSlug = `dev-scenario-${suffix}-${shortToken()}`
+    const actorIds = {
+      activeMember: uuidv7(),
+      admin: uuidv7(),
+      inactiveMember: uuidv7(),
+      owner: uuidv7(),
+    }
+
+    await this.db.transaction(async (tx) => {
+      await tx.insert(schema.organization).values({
+        createdAt: new Date(),
+        id: tenantId,
+        logo: null,
+        metadata: JSON.stringify({ devInspectorScenario: true }),
+        name: tenantName,
+        slug: tenantSlug,
+      })
+
+      await tx.insert(schema.member).values({
+        createdAt: new Date(),
+        id: uuidv7(),
+        isActive: true,
+        organizationId: tenantId,
+        role: 'member',
+        userId: operatorUserId,
+      })
+
+      await this.insertScenarioUser(tx, {
+        email: `dev-owner-${suffix}@example.local`,
+        memberId: uuidv7(),
+        name: `Dev Owner ${suffix}`,
+        organizationId: tenantId,
+        role: 'owner',
+        userId: actorIds.owner,
+      })
+      await this.insertScenarioUser(tx, {
+        email: `dev-admin-${suffix}@example.local`,
+        memberId: uuidv7(),
+        name: `Dev Admin ${suffix}`,
+        organizationId: tenantId,
+        role: 'admin',
+        userId: actorIds.admin,
+      })
+      await this.insertScenarioUser(tx, {
+        email: `dev-member-active-${suffix}@example.local`,
+        memberId: uuidv7(),
+        name: `Dev Member Active ${suffix}`,
+        organizationId: tenantId,
+        role: 'member',
+        userId: actorIds.activeMember,
+      })
+      await this.insertScenarioUser(tx, {
+        email: `dev-member-inactive-${suffix}@example.local`,
+        isActive: false,
+        memberId: uuidv7(),
+        name: `Dev Member Inactive ${suffix}`,
+        organizationId: tenantId,
+        role: 'member',
+        userId: actorIds.inactiveMember,
+      })
+    })
+
+    if (seedData) {
+      await new DemoDatasetService(this.db).seedTenant({
+        actorId: actorIds.owner,
+        isAnonymous: false,
+        requestId: 'dev-operator-console',
+        tenantId,
+      })
+    }
+
+    return `${tenantName} created with owner/admin/member scenarios${seedData ? ' and demo data' : ''}.`
+  }
+
   private async deleteExpense(
     scenario: ScenarioContext,
     authorizationService: AuthorizationService,
@@ -809,6 +896,38 @@ export class DevOperatorConsoleService {
           role: row.role as 'admin' | 'member' | 'owner',
         }
       : null
+  }
+
+  private async insertScenarioUser(
+    tx: Parameters<Parameters<PostgresJsDatabase<typeof schema>['transaction']>[0]>[0],
+    input: {
+      email: string
+      isActive?: boolean
+      memberId: string
+      name: string
+      organizationId: string
+      role: 'admin' | 'member' | 'owner'
+      userId: string
+    }
+  ): Promise<void> {
+    await tx.insert(schema.user).values({
+      createdAt: new Date(),
+      email: input.email,
+      emailVerified: false,
+      id: input.userId,
+      isAnonymous: false,
+      name: input.name,
+      publicId: `pub_${uuidv7().replaceAll('-', '')}`,
+    })
+
+    await tx.insert(schema.member).values({
+      createdAt: new Date(),
+      id: input.memberId,
+      isActive: input.isActive ?? true,
+      organizationId: input.organizationId,
+      role: input.role,
+      userId: input.userId,
+    })
   }
 
   private async listAccessibleTenantIds(userId: string): Promise<string[]> {

@@ -142,10 +142,9 @@ class DevOperatorAccessAuth extends AuthenticationPort {
       .where(eq(schema.user.email, normalizedEmail))
       .limit(1)
 
-    const user =
-      existing ??
-      (
-        await this.db
+    const insertedUsers = existing
+      ? null
+      : await this.db
           .insert(schema.user)
           .values({
             email: normalizedEmail,
@@ -163,7 +162,12 @@ class DevOperatorAccessAuth extends AuthenticationPort {
             name: schema.user.name,
             publicId: schema.user.publicId,
           })
-      )[0]
+
+    const user = existing ?? insertedUsers?.[0]
+
+    if (!user) {
+      throw new Error('Could not persist dev operator access test user')
+    }
 
     return {
       session: {
