@@ -1,10 +1,11 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 
+import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import {
-  isConfiguredDevOperator,
   isDevelopmentEnvironment,
 } from '#core/user_management/support/dev_operator'
+import app from '@adonisjs/core/services/app'
 import BaseInertiaMiddleware from '@adonisjs/inertia/inertia_middleware'
 
 import '../../user_management/http/types/auth_session_context.js'
@@ -20,7 +21,7 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
     return output
   }
 
-  share(ctx: HttpContext) {
+  async share(ctx: HttpContext) {
     /**
      * The share method is called every time an Inertia page is rendered.
      * In some cases (e.g., 404), middleware may not have run yet, so
@@ -38,8 +39,8 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
      */
     const authUser = ctx.authSession?.user
     const workspace = ctx.workspaceShare
-    const canAccessDevTools =
-      isDevelopmentEnvironment() && isConfiguredDevOperator(authUser?.publicId)
+    const devToolsEnabled = isDevelopmentEnvironment()
+    const canAccessDevTools = await this.resolveDevToolsAccess(ctx, devToolsEnabled)
     /**
      * Inertia / http-transformers refuse top-level `null` for serialized props
      * (`Cannot serialize an item with null value`). Use `undefined` when there
@@ -59,7 +60,7 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
       devTools: ctx.inertia.always({
         accessHref: '/_dev/access',
         canAccess: canAccessDevTools,
-        enabled: isDevelopmentEnvironment(),
+        enabled: devToolsEnabled,
       }),
       errors: ctx.inertia.always({
         ...this.getValidationErrors(ctx),
@@ -104,6 +105,19 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
         (entry): entry is [string, string] => typeof entry[1] === 'string'
       )
     )
+  }
+
+  private async resolveDevToolsAccess(
+    ctx: HttpContext,
+    devToolsEnabled: boolean
+  ): Promise<boolean> {
+    if (!devToolsEnabled || !ctx.authSession) {
+      return false
+    }
+
+    const authorizationService = await app.container.make(AuthorizationService)
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    return authorizationService.allows(actor, 'devTools.access')
   }
 }
 

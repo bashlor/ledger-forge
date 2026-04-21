@@ -90,6 +90,7 @@ test.group('Dev operator access routes', (group) => {
 
     inspectorResponse.assertStatus(200)
     assert.equal(inspectorResponse.body().component, 'dev/inspector')
+    assert.equal(inspectorResponse.body().props.devTools.canAccess, true)
   })
 })
 
