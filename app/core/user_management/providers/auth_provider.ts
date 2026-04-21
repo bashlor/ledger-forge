@@ -1,6 +1,7 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 
 import { AuthorizationService } from '../application/authorization_service.js'
+import { DevOperatorBootstrapService } from '../application/dev_operator_bootstrap_service.js'
 import { DevToolsEnvironmentService } from '../application/dev_tools_environment_service.js'
 import { MemberService } from '../application/member_service.js'
 import { AuthenticationPort } from '../domain/authentication.js'
@@ -51,6 +52,11 @@ export default class AuthProvider {
 
     this.app.container.bind(DevToolsEnvironmentService, async () => {
       return new DevToolsEnvironmentService()
+    })
+
+    this.app.container.bind(DevOperatorBootstrapService, async (resolver) => {
+      const drizzle = await resolver.make('drizzle')
+      return new DevOperatorBootstrapService(drizzle)
     })
 
     this.app.container.bind(MemberService, async (resolver) => {

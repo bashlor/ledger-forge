@@ -69,3 +69,16 @@ export const changePasswordValidator = vine.compile(
     }),
   })
 )
+
+/**
+ * Validator for local dev-operator bootstrap.
+ */
+export const devOperatorBootstrapValidator = vine.compile(
+  vine.object({
+    email: email(),
+    fullName: vine.string().maxLength(255).trim().nullable(),
+    password: password().confirmed({
+      confirmationField: 'passwordConfirmation',
+    }),
+  })
+)

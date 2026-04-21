@@ -22,17 +22,19 @@ export class AuthorizationDeniedError extends DomainError {
 export class AuthorizationService {
   constructor(
     private readonly db: PostgresJsDatabase<typeof schema>,
-    private readonly devOperatorPublicIds: readonly string[] = []
+    private readonly devOperatorPublicIds: readonly string[] = [],
+    private readonly devToolsEnabled: boolean = env.get('NODE_ENV') === 'development'
   ) {}
 
   async actorFromSession(authSession?: AuthResult | null): Promise<AuthorizationActor> {
     const activeTenantId = authSession?.session.activeOrganizationId ?? null
     const userId = authSession?.user.id ?? null
+    const isDevOperator = await this.isDevOperator(authSession)
 
     if (!activeTenantId || !userId) {
       return {
         activeTenantId,
-        isDevOperator: this.isDevOperator(authSession),
+        isDevOperator,
         membershipIsActive: false,
         membershipRole: null,
         userId,
@@ -52,7 +54,7 @@ export class AuthorizationService {
 
     return {
       activeTenantId,
-      isDevOperator: this.isDevOperator(authSession),
+      isDevOperator,
       membershipIsActive: membership?.isActive ?? false,
       membershipRole: (membership?.role as AuthorizationActor['membershipRole']) ?? null,
       userId,
@@ -106,16 +108,27 @@ export class AuthorizationService {
     }
   }
 
-  private isDevOperator(authSession?: AuthResult | null): boolean {
-    if (env.get('NODE_ENV') !== 'development') {
+  private async isDevOperator(authSession?: AuthResult | null): Promise<boolean> {
+    if (!this.devToolsEnabled) {
       return false
     }
 
     const publicId = authSession?.user.publicId?.trim()
-    if (!publicId) {
+    if (publicId && this.devOperatorPublicIds.includes(publicId)) {
+      return true
+    }
+
+    const userId = authSession?.user.id?.trim()
+    if (!userId) {
       return false
     }
 
-    return this.devOperatorPublicIds.includes(publicId)
+    const [row] = await this.db
+      .select({ userId: schema.devOperatorAccess.userId })
+      .from(schema.devOperatorAccess)
+      .where(eq(schema.devOperatorAccess.userId, userId))
+      .limit(1)
+
+    return Boolean(row)
   }
 }

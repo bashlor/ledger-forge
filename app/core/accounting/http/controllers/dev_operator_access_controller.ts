@@ -1,0 +1,71 @@
+import type { HttpContext } from '@adonisjs/core/http'
+
+import { DevOperatorBootstrapService } from '#core/user_management/application/dev_operator_bootstrap_service'
+import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
+import { AuthorizationService } from '#core/user_management/application/authorization_service'
+import { AuthenticationPort } from '#core/user_management/domain/authentication'
+import { presentPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
+import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
+import { writeSessionToken } from '#core/user_management/http/session/session_token'
+import { devOperatorBootstrapValidator } from '#core/user_management/http/validators/user'
+import { inject } from '@adonisjs/core'
+
+export default class DevOperatorAccessController {
+  @inject()
+  async show(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    bootstrapService: DevOperatorBootstrapService,
+    devToolsEnvironment: DevToolsEnvironmentService
+  ) {
+    devToolsEnvironment.ensureEnabled()
+
+    if (ctx.authSession) {
+      const actor = await authorizationService.actorFromSession(ctx.authSession)
+      if (authorizationService.allows(actor, 'devTools.access')) {
+        return ctx.response.redirect('/_dev/inspector')
+      }
+    }
+
+    return renderInertiaPage(ctx.inertia, 'dev/access', {
+      bootstrap: {
+        defaults: bootstrapService.defaults(),
+        currentUser: ctx.authSession
+          ? {
+              email: ctx.authSession.user.email,
+              fullName: ctx.authSession.user.name,
+            }
+          : null,
+      },
+    })
+  }
+
+  @inject()
+  async store(
+    ctx: HttpContext,
+    auth: AuthenticationPort,
+    bootstrapService: DevOperatorBootstrapService,
+    devToolsEnvironment: DevToolsEnvironmentService
+  ) {
+    devToolsEnvironment.ensureEnabled()
+
+    const payload = await ctx.request.validateUsing(devOperatorBootstrapValidator)
+
+    try {
+      const authentication = await bootstrapService.bootstrap(payload, auth)
+      writeSessionToken(ctx, {
+        expiresAt: authentication.session.expiresAt,
+        token: authentication.session.token,
+      })
+
+      ctx.session.flash('notification', {
+        message: 'Local dev operator is ready.',
+        type: 'success',
+      })
+
+      return ctx.response.redirect('/_dev/inspector')
+    } catch (error) {
+      return presentPublicError(ctx, error, { flashAll: true })
+    }
+  }
+}

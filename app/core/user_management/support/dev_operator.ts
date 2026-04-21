@@ -1,5 +1,11 @@
 import env from '#start/env'
 
+export interface DevOperatorBootstrapDefaults {
+  email: string
+  fullName: string
+  password: string
+}
+
 export function isConfiguredDevOperator(
   publicId: null | string | undefined,
   devOperatorPublicIds = parseDevOperatorPublicIds()
@@ -23,4 +29,12 @@ export function parseDevOperatorPublicIds(
     .split(',')
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0)
+}
+
+export function readDevOperatorBootstrapDefaults(): DevOperatorBootstrapDefaults {
+  return {
+    email: (env.get('DEV_OPERATOR_DEFAULT_EMAIL') ?? 'dev-operator@example.local').trim(),
+    fullName: (env.get('DEV_OPERATOR_DEFAULT_NAME') ?? 'Dev Operator').trim(),
+    password: env.get('DEV_OPERATOR_DEFAULT_PASSWORD') ?? 'DevOperator123!',
+  }
 }
