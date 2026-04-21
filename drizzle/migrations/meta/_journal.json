@@ -169,6 +169,13 @@
       "when": 1777280000000,
       "tag": "0023_dev_operator_access",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1777340000000,
+      "tag": "0024_audit_events_member_entity",
+      "breakpoints": true
     }
   ]
 }

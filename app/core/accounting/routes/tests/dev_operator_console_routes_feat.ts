@@ -38,6 +38,7 @@ import { inertiaHeaders } from './invoices_test_support.js'
 
 const TENANT_B = 'dev-console-tenant-b'
 const SESSION_TOKEN = 'dev_console_session_token'
+const SECOND_USER_ID = 'dev-console-second-user'
 
 class DevOperatorAuthorizationService extends AuthorizationService {
   override async actorFromSession(authSession?: AuthResult | null) {
@@ -62,6 +63,12 @@ test.group('Dev operator console routes', (group) => {
       name: 'Dev Operator',
       publicId: TEST_ACCOUNTING_USER_PUBLIC_ID,
     })
+    await seedTestUser(db, {
+      email: 'member-two@example.local',
+      id: SECOND_USER_ID,
+      name: 'Second Member',
+      publicId: 'pub_dev_console_second_user',
+    })
     await db.insert(session).values({
       activeOrganizationId: TEST_TENANT_ID,
       expiresAt: new Date('2030-01-01T00:00:00.000Z'),
@@ -85,6 +92,12 @@ test.group('Dev operator console routes', (group) => {
       organizationId: TENANT_B,
       role: 'member',
       userId: TEST_ACCOUNTING_USER_ID,
+    })
+    await seedTestMember(db, {
+      id: 'dev-console-member-c',
+      organizationId: TEST_TENANT_ID,
+      role: 'member',
+      userId: SECOND_USER_ID,
     })
   })
 
@@ -204,6 +217,90 @@ test.group('Dev operator console routes', (group) => {
     assert.isAbove(Number(auditCount?.value ?? 0), 0)
   })
 
+  test('POST /_dev/inspector/actions/clear-tenant-data is blocked for member role', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+    await seedDraftInvoice()
+    await db
+      .update(member)
+      .set({ role: 'member' })
+      .where(
+        and(eq(member.userId, TEST_ACCOUNTING_USER_ID), eq(member.organizationId, TEST_TENANT_ID))
+      )
+
+    const response = await client
+      .post('/_dev/inspector/actions/clear-tenant-data')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+
+    const [invoiceCount] = await db
+      .select({ value: count() })
+      .from(invoices)
+      .where(eq(invoices.organizationId, TEST_TENANT_ID))
+
+    assert.isAbove(Number(invoiceCount?.value ?? 0), 0)
+  })
+
+  test('POST /_dev/inspector/actions/reset-local-dataset keeps other tenants untouched', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+    await seedDraftInvoice()
+    const customerService = await app.container.make(CustomerService)
+    await customerService.createCustomer(
+      {
+        address: '12 other tenant street',
+        company: 'Tenant B Customer',
+        email: 'tenant-b@example.local',
+        name: 'Tenant B Customer',
+        note: 'Should remain after reset',
+        phone: '+33 6 88 88 88 88',
+      },
+      systemAccessContext(TENANT_B, 'dev-console-other-tenant')
+    )
+
+    const response = await client
+      .post('/_dev/inspector/actions/reset-local-dataset')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+
+    const [tenantACustomers] = await db
+      .select({ value: count() })
+      .from(customers)
+      .where(eq(customers.organizationId, TEST_TENANT_ID))
+    const [tenantBCustomers] = await db
+      .select({ value: count() })
+      .from(customers)
+      .where(eq(customers.organizationId, TENANT_B))
+
+    assert.isAbove(Number(tenantACustomers?.value ?? 0), 0)
+    assert.equal(Number(tenantBCustomers?.value ?? 0), 1)
+  })
+
+  test('POST /_dev/inspector/actions/unknown redirects back with validation flow', async ({
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+
+    const response = await client
+      .post('/_dev/inspector/actions/not-a-real-action')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+    response.assertHeader('location', '/_dev/inspector')
+  })
+
   test('POST /_dev/inspector/actions/attempt-forbidden-access records a denied audit event', async ({
     assert,
     client,
@@ -241,6 +338,40 @@ test.group('Dev operator console routes', (group) => {
 
     assert.equal(deniedAudit?.action, 'dev_denied_mark_paid')
     assert.equal((deniedAudit?.metadata as any)?.result, 'denied')
+  })
+
+  test('POST /_dev/inspector/actions/change-member-role stores member audit entity type', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+    await db
+      .update(member)
+      .set({ role: 'owner' })
+      .where(
+        and(eq(member.userId, TEST_ACCOUNTING_USER_ID), eq(member.organizationId, TEST_TENANT_ID))
+      )
+
+    const response = await client
+      .post('/_dev/inspector/actions/change-member-role')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+
+    const [roleAudit] = await db
+      .select({ action: auditEvents.action, entityType: auditEvents.entityType })
+      .from(auditEvents)
+      .where(
+        and(
+          eq(auditEvents.organizationId, TEST_TENANT_ID),
+          eq(auditEvents.action, 'dev_change_member_role')
+        )
+      )
+      .limit(1)
+
+    assert.equal(roleAudit?.entityType, 'member')
   })
 })
 

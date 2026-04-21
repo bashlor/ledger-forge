@@ -189,7 +189,7 @@ export const auditEvents = mainSchema.table(
   (table) => [
     check(
       'audit_events_entity_type_check',
-      sql`${table.entityType} IN ('invoice', 'expense', 'customer')`
+      sql`${table.entityType} IN ('invoice', 'expense', 'customer', 'member')`
     ),
     index('audit_events_entity_history_idx').on(
       table.entityType,

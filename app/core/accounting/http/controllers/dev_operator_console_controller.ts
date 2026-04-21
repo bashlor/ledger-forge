@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
 import { DevOperatorConsoleService } from '#core/accounting/application/dev_operator_console_service'
+import { isDevOperatorActionName } from '#core/accounting/application/dev_operator_console_service'
 import { DomainError } from '#core/common/errors/domain_error'
 import { resolvePublicError } from '#core/common/errors/public_error'
 import { flashResolvedPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
@@ -44,7 +45,11 @@ export default class DevOperatorConsoleController {
     const actor = await authorizationService.actorFromSession(ctx.authSession)
     authorizationService.authorize(actor, 'devTools.access')
 
-    const action = ctx.params.action as Parameters<DevOperatorConsoleService['runAction']>[1]
+    const action = String(ctx.params.action ?? '').trim()
+    if (!isDevOperatorActionName(action)) {
+      throw new DomainError('Unknown dev console action.', 'invalid_data')
+    }
+
     await runConsoleAction(ctx, async () => {
       const message = await consoleService.runAction(ctx.authSession!, action, authorizationService)
       ctx.session.flash('notification', { message, type: 'success' })

@@ -97,6 +97,18 @@ type ActionName =
   | 'reset-local-dataset'
   | 'switch-tenant'
 
+const ACTION_NAMES: readonly ActionName[] = [
+  'attempt-forbidden-access',
+  'change-invoice-status',
+  'change-member-role',
+  'clear-tenant-data',
+  'create-expense-test',
+  'create-invoice-test',
+  'generate-demo-data',
+  'reset-local-dataset',
+  'switch-tenant',
+]
+
 export class DemoDatasetService {
   constructor(private readonly db: PostgresJsDatabase<typeof schema>) {}
 
@@ -113,14 +125,7 @@ export class DemoDatasetService {
   }
 
   async resetLocalDataset(access: AccountingAccessContext): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      await tx.delete(schema.auditEvents)
-      await tx.delete(schema.journalEntries)
-      await tx.delete(schema.invoices)
-      await tx.delete(schema.expenses)
-      await tx.delete(schema.customers)
-    })
-
+    await this.clearTenantData(access.tenantId)
     await this.seedTenant(access)
   }
 
@@ -280,7 +285,7 @@ export class DevOperatorConsoleService {
         authorizationService.authorize(actor, 'membership.list')
         return this.changeMemberRole(authSession, authorizationService, actor)
       case 'clear-tenant-data':
-        authorizationService.authorize(actor, 'accounting.read')
+        authorizationService.authorize(actor, 'invoice.markPaid')
         await new DemoDatasetService(this.db).clearTenantData(access.tenantId)
         return 'Active tenant dataset cleared.'
       case 'create-expense-test':
@@ -290,11 +295,11 @@ export class DevOperatorConsoleService {
         authorizationService.authorize(actor, 'accounting.writeDrafts')
         return this.createInvoiceTest(access)
       case 'generate-demo-data':
-        authorizationService.authorize(actor, 'accounting.read')
+        authorizationService.authorize(actor, 'invoice.markPaid')
         await new DemoDatasetService(this.db).seedTenant(access)
         return 'Demo data generated for the active tenant.'
       case 'reset-local-dataset':
-        authorizationService.authorize(actor, 'accounting.read')
+        authorizationService.authorize(actor, 'invoice.markPaid')
         await new DemoDatasetService(this.db).resetLocalDataset(access)
         return 'Local accounting dataset reset and re-seeded for the active tenant.'
       case 'switch-tenant':
@@ -302,6 +307,8 @@ export class DevOperatorConsoleService {
           'Use the active tenant switch endpoint for this action.',
           'invalid_data'
         )
+      default:
+        throw new DomainError('Unknown dev console action.', 'invalid_data')
     }
   }
 
@@ -463,7 +470,7 @@ export class DevOperatorConsoleService {
         before: { role: target.role },
       },
       entityId: target.id,
-      entityType: 'customer',
+      entityType: 'member',
       metadata: {
         memberUserId: target.userId,
         memberUserLabel: membershipLabel,
@@ -767,6 +774,10 @@ export class DevOperatorConsoleService {
 
     return row?.name || row?.email || userId
   }
+}
+
+export function isDevOperatorActionName(value: string): value is ActionName {
+  return ACTION_NAMES.includes(value as ActionName)
 }
 
 function addDays(value: string, days: number): string {
