@@ -1,19 +1,14 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 
-import {
-  ACCOUNTING_READ_ONLY_MESSAGE,
-  AuditTrailHealthService,
-} from '#core/accounting/application/audit/audit_trail_health_service'
+import { getAccountingReadOnlyState } from '#core/accounting/application/audit/accounting_readonly_policy'
 import { HttpProblem } from '#core/common/resources/http_problem'
-import app from '@adonisjs/core/services/app'
 
 export default class AuditTrailReadonlyMiddleware {
   async handle(ctx: HttpContext, next: NextFn) {
-    const healthService = await app.container.make(AuditTrailHealthService)
-    const status = await healthService.getStatus()
+    const state = await getAccountingReadOnlyState()
 
-    if (status.healthy) {
+    if (!state.enabled) {
       return next()
     }
 
@@ -21,7 +16,7 @@ export default class AuditTrailReadonlyMiddleware {
       new HttpProblem(
         503,
         'Service Unavailable',
-        ACCOUNTING_READ_ONLY_MESSAGE,
+        state.message,
         'urn:accounting-app:error:audit-trail-degraded',
         undefined,
         { code: 'accounting.audit_trail_degraded' }
@@ -30,7 +25,7 @@ export default class AuditTrailReadonlyMiddleware {
     }
 
     ctx.session.flash('notification', {
-      message: ACCOUNTING_READ_ONLY_MESSAGE,
+      message: state.message,
       type: 'error',
     })
 

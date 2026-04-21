@@ -42,17 +42,19 @@ import {
 } from './invoices_test_support.js'
 
 function bindAuditTrailHealth(healthy: boolean) {
-  app.container.bindValue(AuditTrailHealthService, {
-    async getStatus() {
-      return {
-        healthy,
-        message: healthy ? 'Audit trail storage is available.' : ACCOUNTING_READ_ONLY_MESSAGE,
-      }
-    },
-    async isHealthy() {
-      return healthy
-    },
-  } as AuditTrailHealthService)
+  app.container.swap(AuditTrailHealthService, async () => {
+    return {
+      async getStatus() {
+        return {
+          healthy,
+          message: healthy ? 'Audit trail storage is available.' : ACCOUNTING_READ_ONLY_MESSAGE,
+        }
+      },
+      async isHealthy() {
+        return healthy
+      },
+    } as AuditTrailHealthService
+  })
 }
 
 test.group('Accounting routes | degraded audit trail mode', (group) => {
@@ -90,6 +92,10 @@ test.group('Accounting routes | degraded audit trail mode', (group) => {
       .update(member)
       .set({ isActive: true, role: 'admin' })
       .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+  })
+
+  group.each.teardown(() => {
+    app.container.restore(AuditTrailHealthService)
   })
 
   group.teardown(async () => cleanup())
@@ -195,7 +201,7 @@ test.group('Accounting routes | degraded audit trail mode', (group) => {
       .redirects(0)
       .form({
         amount: '20',
-        category: 'office_supplies',
+        category: 'Office',
         date: '2026-05-01',
         label: 'Blocked expense',
       })
@@ -204,6 +210,48 @@ test.group('Accounting routes | degraded audit trail mode', (group) => {
     response.assertHeader('location', '/expenses')
     assert.lengthOf(await db.select().from(expenses), 0)
     assert.lengthOf(await db.select().from(auditEvents), 0)
+  })
+
+  test('writes are allowed again after restoring a healthy audit trail state', async ({
+    assert,
+    client,
+  }) => {
+    bindAuditTrailHealth(false)
+
+    const blockedResponse = await client
+      .post('/expenses')
+      .header('cookie', authCookie())
+      .header('referer', '/expenses')
+      .redirects(0)
+      .form({
+        amount: '20',
+        category: 'Office',
+        date: '2026-05-01',
+        label: 'Initially blocked expense',
+      })
+
+    blockedResponse.assertStatus(302)
+    assert.lengthOf(await db.select().from(expenses), 0)
+
+    bindAuditTrailHealth(true)
+
+    const healthyResponse = await client
+      .post('/expenses')
+      .header('cookie', authCookie())
+      .header('referer', '/expenses')
+      .redirects(0)
+      .form({
+        amount: '20',
+        category: 'Office',
+        date: '2026-05-01',
+        label: 'Allowed expense',
+      })
+
+    healthyResponse.assertStatus(302)
+
+    const rows = await db.select().from(expenses)
+    assert.lengthOf(rows, 1)
+    assert.equal(rows[0].label, 'Allowed expense')
   })
 
   test('POST /customers is blocked and leaves persisted data unchanged when degraded', async ({
