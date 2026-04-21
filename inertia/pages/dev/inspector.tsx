@@ -446,6 +446,13 @@ export default function DevInspectorPage({ inspector }: Props) {
                 tone="secondary"
               />
               <ActionButton
+                action="delete-confirmed-expense"
+                label="Delete latest confirmed expense"
+                onRun={runAction}
+                processingAction={processingAction}
+                tone="danger"
+              />
+              <ActionButton
                 action="attempt-forbidden-access"
                 label="Attempt forbidden invoice action"
                 onRun={runAction}

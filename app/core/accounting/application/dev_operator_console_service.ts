@@ -173,6 +173,7 @@ type ActionName =
   | 'create-invoice-test'
   | 'create-tenant-scenario'
   | 'create-tenant-scenario-seeded'
+  | 'delete-confirmed-expense'
   | 'delete-expense'
   | 'delete-invoice'
   | 'generate-demo-data'
@@ -191,6 +192,7 @@ const ACTION_NAMES: readonly ActionName[] = [
   'create-invoice-test',
   'create-tenant-scenario',
   'create-tenant-scenario-seeded',
+  'delete-confirmed-expense',
   'delete-expense',
   'delete-invoice',
   'generate-demo-data',
@@ -359,6 +361,8 @@ export class DevOperatorConsoleService {
         return this.createTenantScenario(authSession.user.id, false)
       case 'create-tenant-scenario-seeded':
         return this.createTenantScenario(authSession.user.id, true)
+      case 'delete-confirmed-expense':
+        return this.deleteConfirmedExpense(scenario, authorizationService, input.expenseId)
       case 'delete-expense':
         return this.deleteExpense(scenario, authorizationService, input.expenseId)
       case 'delete-invoice':
@@ -688,6 +692,28 @@ export class DevOperatorConsoleService {
     return `${tenantName} created with owner/admin/member scenarios${seedData ? ' and demo data' : ''}.`
   }
 
+  private async deleteConfirmedExpense(
+    scenario: ScenarioContext,
+    authorizationService: AuthorizationService,
+    requestedExpenseId?: string
+  ): Promise<string> {
+    authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
+
+    const targetExpense = await this.findConfirmedExpenseForDeletion(
+      scenario.tenantId,
+      requestedExpenseId
+    )
+    if (!targetExpense) {
+      throw new DomainError(
+        'No confirmed expense is available in the selected tenant.',
+        'business_logic_error'
+      )
+    }
+
+    await new ExpenseService(this.db).deleteExpense(targetExpense.id, scenario.access)
+    return `Expense ${targetExpense.label} deleted.`
+  }
+
   private async deleteExpense(
     scenario: ScenarioContext,
     authorizationService: AuthorizationService,
@@ -745,6 +771,29 @@ export class DevOperatorConsoleService {
           : eq(schema.invoices.organizationId, tenantId)
       )
       .orderBy(desc(schema.invoices.createdAt))
+      .limit(1)
+
+    return row ?? null
+  }
+
+  private async findConfirmedExpenseForDeletion(
+    tenantId: string,
+    requestedExpenseId?: string
+  ): Promise<null | { id: string; label: string }> {
+    const [row] = await this.db
+      .select({
+        id: schema.expenses.id,
+        label: schema.expenses.label,
+      })
+      .from(schema.expenses)
+      .where(
+        and(
+          eq(schema.expenses.organizationId, tenantId),
+          eq(schema.expenses.status, 'confirmed'),
+          requestedExpenseId ? eq(schema.expenses.id, requestedExpenseId) : sql`true`
+        )
+      )
+      .orderBy(desc(schema.expenses.createdAt))
       .limit(1)
 
     return row ?? null
