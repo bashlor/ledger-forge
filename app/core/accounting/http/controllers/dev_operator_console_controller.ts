@@ -5,6 +5,7 @@ import { isDevOperatorActionName } from '#core/accounting/application/dev_operat
 import { DomainError } from '#core/common/errors/domain_error'
 import { resolvePublicError } from '#core/common/errors/public_error'
 import { flashResolvedPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
+import { presentPublicMessage } from '#core/common/http/presenters/inertia_public_error_presenter'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
@@ -28,6 +29,9 @@ export default class DevOperatorConsoleController {
       inspector: await consoleService.getPageData(ctx.authSession!, authorizationService, {
         action: stringInput(ctx, 'action'),
         actorId: stringInput(ctx, 'actorId'),
+        expenseId: stringInput(ctx, 'expenseId'),
+        invoiceId: stringInput(ctx, 'invoiceId'),
+        memberId: stringInput(ctx, 'memberId'),
         tenantId: stringInput(ctx, 'tenantId'),
       }),
     })
@@ -47,11 +51,23 @@ export default class DevOperatorConsoleController {
 
     const action = String(ctx.params.action ?? '').trim()
     if (!isDevOperatorActionName(action)) {
-      throw new DomainError('Unknown dev console action.', 'invalid_data')
+      presentPublicMessage(ctx, 'Unknown dev console action.')
+      return redirectBackToInspector(ctx)
     }
 
     await runConsoleAction(ctx, async () => {
-      const message = await consoleService.runAction(ctx.authSession!, action, authorizationService)
+      const message = await consoleService.runAction(
+        ctx.authSession!,
+        action,
+        authorizationService,
+        {
+          customerId: stringInput(ctx, 'customerId'),
+          expenseId: stringInput(ctx, 'expenseId'),
+          invoiceId: stringInput(ctx, 'invoiceId'),
+          memberId: stringInput(ctx, 'memberId'),
+          tenantId: stringInput(ctx, 'tenantId'),
+        }
+      )
       ctx.session.flash('notification', { message, type: 'success' })
     })
 
@@ -93,10 +109,16 @@ function redirectBackToInspector(ctx: HttpContext) {
   const query: Record<string, string> = {}
   const action = stringInput(ctx, 'action')
   const actorId = stringInput(ctx, 'actorId')
+  const expenseId = stringInput(ctx, 'expenseId')
+  const invoiceId = stringInput(ctx, 'invoiceId')
+  const memberId = stringInput(ctx, 'memberId')
   const tenantId = stringInput(ctx, 'tenantId')
 
   if (action) query.action = action
   if (actorId) query.actorId = actorId
+  if (expenseId) query.expenseId = expenseId
+  if (invoiceId) query.invoiceId = invoiceId
+  if (memberId) query.memberId = memberId
   if (tenantId) query.tenantId = tenantId
 
   return ctx.response

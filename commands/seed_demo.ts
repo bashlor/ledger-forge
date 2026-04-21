@@ -45,10 +45,9 @@ export default class SeedDemo extends BaseCommand {
     }
 
     if (await dataset.hasAnyTenantData(tenantId)) {
-      throw new DomainError(
-        `Organization ${tenantId} already contains data. Re-run with --force to replace it.`,
-        'business_logic_error'
-      )
+      const message = `Organization ${tenantId} already contains data. Re-run with --force to replace it.`
+      this.logger.error(message)
+      throw new DomainError(message, 'business_logic_error')
     }
 
     await dataset.seedTenant(access)

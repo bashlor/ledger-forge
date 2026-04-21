@@ -37,6 +37,7 @@ import {
 import { inertiaHeaders } from './invoices_test_support.js'
 
 const TENANT_B = 'dev-console-tenant-b'
+const TENANT_C = 'dev-console-tenant-c'
 const SESSION_TOKEN = 'dev_console_session_token'
 const SECOND_USER_ID = 'dev-console-second-user'
 
@@ -80,6 +81,11 @@ test.group('Dev operator console routes', (group) => {
       id: TENANT_B,
       name: 'Tenant B',
       slug: 'tenant-b',
+    })
+    await db.insert(organization).values({
+      id: TENANT_C,
+      name: 'Tenant C',
+      slug: 'tenant-c',
     })
     await seedTestMember(db, {
       id: 'dev-console-member-a',
@@ -215,6 +221,83 @@ test.group('Dev operator console routes', (group) => {
     assert.isAbove(Number(invoiceCount?.value ?? 0), 0)
     assert.isAbove(Number(expenseCount?.value ?? 0), 0)
     assert.isAbove(Number(auditCount?.value ?? 0), 0)
+  })
+
+  test('POST /_dev/inspector/actions/create-tenant-scenario creates a full scenario tenant', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+
+    const organizationsBefore = await db.select({ id: organization.id }).from(organization)
+
+    const response = await client
+      .post('/_dev/inspector/actions/create-tenant-scenario')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+
+    const organizationIdsBefore = new Set(organizationsBefore.map((row) => row.id))
+    const organizationsAfter = await db
+      .select({ id: organization.id, name: organization.name })
+      .from(organization)
+    const createdOrganization = organizationsAfter.find((row) => !organizationIdsBefore.has(row.id))
+
+    assert.exists(createdOrganization)
+    assert.include(createdOrganization!.name, 'Dev Scenario')
+
+    const membersForCreatedOrganization = await db
+      .select({ isActive: member.isActive, role: member.role, userId: member.userId })
+      .from(member)
+      .where(eq(member.organizationId, createdOrganization!.id))
+
+    assert.lengthOf(membersForCreatedOrganization, 5)
+    assert.equal(membersForCreatedOrganization.filter((row) => row.role === 'owner').length, 1)
+    assert.equal(membersForCreatedOrganization.filter((row) => row.role === 'admin').length, 1)
+    assert.equal(membersForCreatedOrganization.filter((row) => row.role === 'member').length, 3)
+    assert.equal(membersForCreatedOrganization.filter((row) => row.isActive === false).length, 1)
+  })
+
+  test('POST /_dev/inspector/actions/create-tenant-scenario-seeded seeds the created tenant', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+
+    const organizationsBefore = await db.select({ id: organization.id }).from(organization)
+
+    const response = await client
+      .post('/_dev/inspector/actions/create-tenant-scenario-seeded')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+
+    const organizationIdsBefore = new Set(organizationsBefore.map((row) => row.id))
+    const organizationsAfter = await db.select({ id: organization.id }).from(organization)
+    const createdOrganization = organizationsAfter.find((row) => !organizationIdsBefore.has(row.id))
+
+    assert.exists(createdOrganization)
+
+    const [customerCount] = await db
+      .select({ value: count() })
+      .from(customers)
+      .where(eq(customers.organizationId, createdOrganization!.id))
+    const [expenseCount] = await db
+      .select({ value: count() })
+      .from(expenses)
+      .where(eq(expenses.organizationId, createdOrganization!.id))
+    const [invoiceCount] = await db
+      .select({ value: count() })
+      .from(invoices)
+      .where(eq(invoices.organizationId, createdOrganization!.id))
+
+    assert.isAbove(Number(customerCount?.value ?? 0), 0)
+    assert.isAbove(Number(expenseCount?.value ?? 0), 0)
+    assert.isAbove(Number(invoiceCount?.value ?? 0), 0)
   })
 
   test('POST /_dev/inspector/actions/clear-tenant-data is blocked for member role', async ({
@@ -372,6 +455,62 @@ test.group('Dev operator console routes', (group) => {
       .limit(1)
 
     assert.equal(roleAudit?.entityType, 'member')
+  })
+
+  test('POST /_dev/inspector/actions rejects a forged tenant outside operator memberships', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+
+    const response = await client
+      .post('/_dev/inspector/actions/generate-demo-data')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({ tenantId: TENANT_C })
+
+    response.assertStatus(302)
+
+    const [customerCount] = await db
+      .select({ value: count() })
+      .from(customers)
+      .where(eq(customers.organizationId, TENANT_C))
+
+    assert.equal(Number(customerCount?.value ?? 0), 0)
+  })
+
+  test('POST /_dev/inspector/actions rejects a forged member outside the selected tenant', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+    await db
+      .update(member)
+      .set({ role: 'owner' })
+      .where(
+        and(eq(member.userId, TEST_ACCOUNTING_USER_ID), eq(member.organizationId, TEST_TENANT_ID))
+      )
+
+    const response = await client
+      .post('/_dev/inspector/actions/change-member-role')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({ memberId: 'dev-console-member-b', tenantId: TEST_TENANT_ID })
+
+    response.assertStatus(302)
+
+    const [roleAudit] = await db
+      .select({ id: auditEvents.id })
+      .from(auditEvents)
+      .where(
+        and(
+          eq(auditEvents.organizationId, TEST_TENANT_ID),
+          eq(auditEvents.action, 'dev_change_member_role')
+        )
+      )
+      .limit(1)
+
+    assert.isUndefined(roleAudit)
   })
 })
 
