@@ -1,11 +1,11 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
-import { DevOperatorBootstrapService } from '#core/user_management/application/dev_operator_bootstrap_service'
-import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
-import { AuthorizationService } from '#core/user_management/application/authorization_service'
-import { AuthenticationPort } from '#core/user_management/domain/authentication'
 import { presentPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
+import { AuthorizationService } from '#core/user_management/application/authorization_service'
+import { DevOperatorBootstrapService } from '#core/user_management/application/dev_operator_bootstrap_service'
+import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
+import { AuthenticationPort } from '#core/user_management/domain/authentication'
 import { writeSessionToken } from '#core/user_management/http/session/session_token'
 import { devOperatorBootstrapValidator } from '#core/user_management/http/validators/user'
 import { inject } from '@adonisjs/core'
@@ -29,13 +29,13 @@ export default class DevOperatorAccessController {
 
     return renderInertiaPage(ctx.inertia, 'dev/access', {
       bootstrap: {
-        defaults: bootstrapService.defaults(),
         currentUser: ctx.authSession
           ? {
               email: ctx.authSession.user.email,
               fullName: ctx.authSession.user.name,
             }
           : null,
+        defaults: bootstrapService.defaults(),
       },
     })
   }

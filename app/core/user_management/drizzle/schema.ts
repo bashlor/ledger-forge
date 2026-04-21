@@ -161,11 +161,11 @@ export const verification = authSchema.table('verification', {
 // =============================================================================
 
 export type InsertAccount = typeof account.$inferInsert
+export type InsertDevOperatorAccess = typeof devOperatorAccess.$inferInsert
 export type InsertInvitation = typeof invitation.$inferInsert
 export type InsertMember = typeof member.$inferInsert
 export type InsertOrganization = typeof organization.$inferInsert
 export type InsertSession = typeof session.$inferInsert
-export type InsertDevOperatorAccess = typeof devOperatorAccess.$inferInsert
 export type InsertUser = typeof user.$inferInsert
 export type InsertVerification = typeof verification.$inferInsert
 export type SelectAccount = typeof account.$inferSelect

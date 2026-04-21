@@ -1,4 +1,4 @@
-import type { AuthResult, AuthenticationPort } from '#core/user_management/domain/authentication'
+import type { AuthenticationPort, AuthResult } from '#core/user_management/domain/authentication'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import * as schema from '#core/common/drizzle/index'
@@ -15,14 +15,7 @@ export interface DevOperatorBootstrapInput {
 export class DevOperatorBootstrapService {
   constructor(private readonly db: PostgresJsDatabase<typeof schema>) {}
 
-  defaults() {
-    return readDevOperatorBootstrapDefaults()
-  }
-
-  async bootstrap(
-    input: DevOperatorBootstrapInput,
-    auth: AuthenticationPort
-  ): Promise<AuthResult> {
+  async bootstrap(input: DevOperatorBootstrapInput, auth: AuthenticationPort): Promise<AuthResult> {
     const email = input.email.trim().toLowerCase()
     const fullName = input.fullName?.trim() || undefined
 
@@ -50,5 +43,9 @@ export class DevOperatorBootstrapService {
     })
 
     return authentication
+  }
+
+  defaults() {
+    return readDevOperatorBootstrapDefaults()
   }
 }
