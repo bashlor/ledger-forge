@@ -1,6 +1,7 @@
 import type { StatusPageRange, StatusPageRenderer } from '@adonisjs/core/types/http'
 
 import { DomainError } from '#core/common/errors/domain_error'
+import { resolveHttpErrorStatus } from '#core/common/errors/domain_error_status'
 import { type ResolvedPublicError, resolvePublicError } from '#core/common/errors/public_error'
 import { presentPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
 import { ExceptionHandler, type HttpContext } from '@adonisjs/core/http'
@@ -65,7 +66,7 @@ export default class HttpExceptionHandler extends ExceptionHandler {
 
     // ----- Generic unhandled error + JSON consumer → Problem Details -----
     if (wantsJson(ctx)) {
-      const status = (error as { status?: number })?.status ?? 500
+      const status = resolveHttpErrorStatus(error)
       HttpProblem.fromError(error, {
         exposeInternalMessage: !app.inProduction,
         statusOverride: status,

@@ -1,36 +1,15 @@
 import type { ResolvedPublicError } from './public_error_contract.js'
 
-type DomainErrorTag =
-  | 'already_exists'
-  | 'business_logic_error'
-  | 'forbidden'
-  | 'invalid_data'
-  | 'not_found'
-  | 'unauthorized_user_operation'
-  | 'unknown'
-  | 'unspecified_internal_error'
+import { domainErrorToHttpStatus } from './domain_error_status.js'
 
 const GENERIC_BUSINESS_ERROR_MESSAGE = 'The requested action could not be completed.'
 const GENERIC_ERROR_MESSAGE = 'An unexpected error occurred.'
-
-const DOMAIN_TAG_TO_HTTP: Record<DomainErrorTag, number> = {
-  already_exists: 409,
-  business_logic_error: 422,
-  forbidden: 403,
-  invalid_data: 422,
-  not_found: 404,
-  unauthorized_user_operation: 401,
-  unknown: 500,
-  unspecified_internal_error: 500,
-}
 
 export function domainErrorPresentation(tag: string): ResolvedPublicError['presentation'] {
   return tag === 'not_found' ? 'status_page' : 'notification'
 }
 
-export function domainErrorToHttpStatus(tag: string): number {
-  return DOMAIN_TAG_TO_HTTP[tag as DomainErrorTag] ?? 500
-}
+export { domainErrorToHttpStatus }
 
 export function genericDomainMessage(tag: string): string {
   switch (tag) {
