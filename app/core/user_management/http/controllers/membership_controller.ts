@@ -4,7 +4,7 @@ import { flashAction } from '#core/accounting/http/helpers/flash_action'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
-import { MemberService } from '../../application/member_service.js'
+import { MemberNotFoundError, MemberService } from '../../application/member_service.js'
 import { toggleMemberStatusValidator, updateMemberRoleValidator } from '../validators/member.js'
 
 export default class MembershipController {
@@ -46,10 +46,14 @@ export default class MembershipController {
     const actor = await authorizationService.actorFromSession(ctx.authSession)
     const target = await authorizationService.membershipSubject(tenantId, memberId)
 
+    if (!target) {
+      throw new MemberNotFoundError()
+    }
+
     await flashAction(
       ctx,
       async () => {
-        authorizationService.authorize(actor, 'membership.toggleActive', target ?? undefined)
+        authorizationService.authorize(actor, 'membership.toggleActive', target)
 
         await memberService.toggleMemberActive(memberId, isActive, tenantId, actorId)
       },
@@ -71,10 +75,14 @@ export default class MembershipController {
     const { role } = await ctx.request.validateUsing(updateMemberRoleValidator)
     const target = await authorizationService.membershipSubject(tenantId, memberId)
 
+    if (!target) {
+      throw new MemberNotFoundError()
+    }
+
     await flashAction(
       ctx,
       async () => {
-        authorizationService.authorize(actor, 'membership.changeRole', target ?? undefined)
+        authorizationService.authorize(actor, 'membership.changeRole', target)
 
         await memberService.updateMemberRole(memberId, role, tenantId)
       },

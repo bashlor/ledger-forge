@@ -406,9 +406,7 @@ test.group('Members routes | PATCH toggle active', (group) => {
     assert.isTrue(row.isActive)
   })
 
-  test('regular member gets the same redirect flow for a missing target member', async ({
-    client,
-  }) => {
+  test('missing target member returns 404 before authorization checks', async ({ client }) => {
     const response = await withCookie(
       client.patch('/account/organizations/members/nonexistent_id'),
       regularMemberSession
@@ -416,7 +414,7 @@ test.group('Members routes | PATCH toggle active', (group) => {
       .redirects(0)
       .form({ isActive: 'false' })
 
-    response.assertStatus(302)
+    response.assertStatus(404)
   })
 
   test('unknown memberId returns 404 (not_found re-throws)', async ({ client }) => {
@@ -561,5 +559,16 @@ test.group('Members routes | PATCH update role', (group) => {
       .from(member)
       .where(eq(member.id, MEMBER_IDS.regular))
     assert.equal(row.role, 'member')
+  })
+
+  test('missing target member returns 404 before role authorization checks', async ({ client }) => {
+    const response = await withCookie(
+      client.patch('/account/organizations/members/nonexistent_id/role'),
+      adminSession
+    )
+      .redirects(0)
+      .form({ role: 'admin' })
+
+    response.assertStatus(404)
   })
 })
