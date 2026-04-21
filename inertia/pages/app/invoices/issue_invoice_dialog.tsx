@@ -4,6 +4,7 @@ export function IssueInvoiceDialog({
   onCancel,
   onConfirm,
   onFieldChange,
+  readOnly,
   saving,
 }: {
   isOpen: boolean
@@ -11,6 +12,7 @@ export function IssueInvoiceDialog({
   onCancel: () => void
   onConfirm: () => void
   onFieldChange: (field: 'issuedCompanyAddress' | 'issuedCompanyName', value: string) => void
+  readOnly: boolean
   saving: boolean
 }) {
   if (!isOpen) return null
@@ -27,6 +29,7 @@ export function IssueInvoiceDialog({
             <span className="text-sm font-medium text-on-surface">Company name</span>
             <input
               className="mt-1 w-full rounded-lg border border-outline-variant/35 px-3 py-2 text-sm"
+              disabled={readOnly}
               onChange={(event) => onFieldChange('issuedCompanyName', event.target.value)}
               required
               value={issueForm.issuedCompanyName}
@@ -36,6 +39,7 @@ export function IssueInvoiceDialog({
             <span className="text-sm font-medium text-on-surface">Company address</span>
             <textarea
               className="mt-1 min-h-28 w-full rounded-lg border border-outline-variant/35 px-3 py-2 text-sm"
+              disabled={readOnly}
               onChange={(event) => onFieldChange('issuedCompanyAddress', event.target.value)}
               required
               value={issueForm.issuedCompanyAddress}
@@ -53,6 +57,7 @@ export function IssueInvoiceDialog({
           <button
             className="rounded-lg px-4 py-2 text-sm font-medium text-on-primary milled-steel-gradient disabled:opacity-60"
             disabled={
+              readOnly ||
               saving ||
               !issueForm.issuedCompanyName.trim() ||
               !issueForm.issuedCompanyAddress.trim()

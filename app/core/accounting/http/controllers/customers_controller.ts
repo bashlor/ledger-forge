@@ -1,11 +1,16 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import {
+  ACCOUNTING_READ_ONLY_MESSAGE,
+  AuditTrailHealthService,
+} from '#core/accounting/application/audit/audit_trail_health_service'
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
 import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
 import { inject } from '@adonisjs/core'
+import app from '@adonisjs/core/services/app'
 
 import { flashAction } from '../helpers/flash_action.js'
 import {
@@ -39,8 +44,11 @@ export default class CustomersController {
       access,
       search
     )
+    const accountingReadOnly = await this.isAccountingReadOnly()
 
     return renderInertiaPage(ctx.inertia, 'app/customers', {
+      accountingReadOnly,
+      accountingReadOnlyMessage: ACCOUNTING_READ_ONLY_MESSAGE,
       customers,
       filters: { search: search ?? '' },
     })
@@ -73,6 +81,11 @@ export default class CustomersController {
     )
 
     return this.redirectToCustomers(ctx)
+  }
+
+  private async isAccountingReadOnly(): Promise<boolean> {
+    const healthService = await app.container.make(AuditTrailHealthService)
+    return !(await healthService.isHealthy())
   }
 
   private redirectToCustomers(ctx: HttpContext) {

@@ -3,9 +3,12 @@ import { useState } from 'react'
 import type { CreateExpenseInput, ExpenseDto } from '~/lib/types'
 
 import { DrawerPanel } from '~/components/drawer_panel'
+import { ErrorBanner } from '~/components/error_banner'
 import { todayDateOnlyUtc } from '~/lib/date'
 
 interface CreateDrawerProps {
+  accountingReadOnly: boolean
+  accountingReadOnlyMessage: string
   categories: string[]
   expense?: ExpenseDto | null
   onClose: () => void
@@ -15,6 +18,8 @@ interface CreateDrawerProps {
 }
 
 export function CreateDrawer({
+  accountingReadOnly,
+  accountingReadOnlyMessage,
   categories,
   expense = null,
   onClose,
@@ -25,7 +30,7 @@ export function CreateDrawer({
   const [createForm, setCreateForm] = useState<CreateExpenseInput>(() => freshForm(categories))
   const detailsMode = Boolean(expense)
   const confirmedExpense = expense?.status === 'confirmed'
-  const fieldDisabled = detailsMode
+  const fieldDisabled = detailsMode || accountingReadOnly
   const form = detailsMode && expense ? toFormInput(expense) : createForm
 
   function handleClose() {
@@ -35,7 +40,7 @@ export function CreateDrawer({
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (detailsMode) return
+    if (detailsMode || accountingReadOnly) return
     onSubmit(form)
   }
 
@@ -65,7 +70,7 @@ export function CreateDrawer({
           {detailsMode ? null : (
             <button
               className="rounded-lg px-4 py-3 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
-              disabled={processing}
+              disabled={accountingReadOnly || processing}
               form="expense-form"
               type="submit"
             >
@@ -79,6 +84,8 @@ export function CreateDrawer({
       open={open}
       title={detailsMode ? 'Expense details' : 'Create expense'}
     >
+      {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
+
       <form className="space-y-4" id="expense-form" onSubmit={handleSubmit}>
         <div>
           <label

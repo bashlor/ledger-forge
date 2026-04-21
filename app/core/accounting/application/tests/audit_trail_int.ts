@@ -430,6 +430,17 @@ test.group('Audit trail | expense lifecycle', (group) => {
     assert.equal(events[0].actorId, ACCESS.actorId)
   })
 
+  test('create rolls back when audit insert fails', async ({ assert }) => {
+    const service = new ExpenseService(db, { auditTrail: new FailingAuditTrail() })
+
+    await assert.rejects(() => service.createExpense(expenseInput, ACCESS), 'audit write failed')
+
+    const persistedExpenses = await db.select().from(expenses)
+    const persistedEvents = await db.select().from(auditEvents)
+    assert.lengthOf(persistedExpenses, 0)
+    assert.lengthOf(persistedEvents, 0)
+  })
+
   test('confirm records an audit event with status transition', async ({ assert }) => {
     const service = new ExpenseService(db)
     const expense = await service.createExpense(expenseInput, ACCESS)
@@ -499,6 +510,34 @@ test.group('Audit trail | expense lifecycle', (group) => {
     assert.lengthOf(events, 2)
     assert.equal(events[0].action, 'delete')
     assert.equal(events[1].action, 'create')
+  })
+
+  test('delete rolls back when audit insert fails', async ({ assert }) => {
+    const service = new ExpenseService(db)
+    const expense = await service.createExpense(expenseInput, ACCESS)
+    const failingService = new ExpenseService(db, { auditTrail: new FailingAuditTrail() })
+
+    await assert.rejects(
+      () => failingService.deleteExpense(expense.id, ACCESS),
+      'audit write failed'
+    )
+
+    const [persistedExpense] = await db
+      .select({ id: expenses.id, status: expenses.status })
+      .from(expenses)
+      .where(eq(expenses.id, expense.id))
+    const persistedEvents = await listAuditEventsForEntity(db, {
+      entityId: expense.id,
+      entityType: 'expense',
+      tenantId: TEST_TENANT_ID,
+    })
+
+    assert.equal(persistedExpense.id, expense.id)
+    assert.equal(persistedExpense.status, 'draft')
+    assert.deepEqual(
+      persistedEvents.map((event) => event.action),
+      ['create']
+    )
   })
 })
 

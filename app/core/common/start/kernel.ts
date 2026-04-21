@@ -50,6 +50,8 @@ router.use([
  * the routes or the routes group.
  */
 export const middleware = router.named({
+  auditTrailWritable: () =>
+    import('../../accounting/http/middlewares/audit_trail_readonly_middleware.js'),
   auth: () => import('../../user_management/http/middlewares/auth_middleware.js'),
   ensureActiveTenant: () =>
     import('../../user_management/http/middlewares/ensure_active_tenant_middleware.js'),

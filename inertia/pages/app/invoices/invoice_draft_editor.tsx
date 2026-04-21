@@ -1,6 +1,7 @@
 import type { CustomerSelectDto, InvoiceDto, InvoiceLineInput } from '~/lib/types'
 
 import { AppIcon } from '~/components/app_icon'
+import { ErrorBanner } from '~/components/error_banner'
 import { InvoiceTotals } from '~/components/invoice_totals'
 import { StatusBadge } from '~/components/status_badge'
 import { formatCurrency } from '~/lib/format'
@@ -11,6 +12,8 @@ export type EditableInvoiceLine = InvoiceLineInput & { key: string }
 const VAT_OPTIONS = [0, 5.5, 10, 20]
 
 interface Props {
+  accountingReadOnly: boolean
+  accountingReadOnlyMessage: string
   customers: CustomerSelectDto[]
   effectiveCustomerId: string
   form: { customerId: string; dueDate: string; issueDate: string; lines: EditableInvoiceLine[] }
@@ -36,6 +39,8 @@ interface TotalsValues {
 }
 
 export function InvoiceDraftEditor({
+  accountingReadOnly,
+  accountingReadOnlyMessage,
   customers,
   effectiveCustomerId,
   form,
@@ -86,6 +91,8 @@ export function InvoiceDraftEditor({
         </div>
       ) : (
         <div className="space-y-6 px-5 py-6 sm:px-6">
+          {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
+
           <div className="grid gap-4 md:grid-cols-3">
             <div className="md:col-span-1">
               <label
@@ -96,6 +103,7 @@ export function InvoiceDraftEditor({
               </label>
               <select
                 className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                disabled={accountingReadOnly}
                 id="invoice-client"
                 onChange={(event) => onFormChange('customerId', event.target.value)}
                 value={effectiveCustomerId}
@@ -116,6 +124,7 @@ export function InvoiceDraftEditor({
               </label>
               <input
                 className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                disabled={accountingReadOnly}
                 id="invoice-issue-date"
                 onChange={(event) => onFormChange('issueDate', event.target.value)}
                 type="date"
@@ -131,6 +140,7 @@ export function InvoiceDraftEditor({
               </label>
               <input
                 className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                disabled={accountingReadOnly}
                 id="invoice-due-date"
                 min={minDueDate}
                 onChange={(event) => onFormChange('dueDate', event.target.value)}
@@ -155,6 +165,7 @@ export function InvoiceDraftEditor({
               </div>
               <button
                 className="inline-flex items-center gap-2 rounded-xl border border-outline-variant/35 bg-white px-3 py-2 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-lowest"
+                disabled={accountingReadOnly}
                 onClick={onLineAdd}
                 type="button"
               >
@@ -184,6 +195,7 @@ export function InvoiceDraftEditor({
                           <input
                             aria-label="Line description"
                             className="w-full rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            disabled={accountingReadOnly}
                             onChange={(event) =>
                               onLineUpdate(line.key, 'description', event.target.value)
                             }
@@ -196,6 +208,7 @@ export function InvoiceDraftEditor({
                           <input
                             aria-label="Quantity"
                             className="w-24 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            disabled={accountingReadOnly}
                             min="0"
                             onChange={(event) =>
                               onLineUpdate(line.key, 'quantity', event.target.value)
@@ -209,6 +222,7 @@ export function InvoiceDraftEditor({
                           <input
                             aria-label="Unit price"
                             className="w-32 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            disabled={accountingReadOnly}
                             min="0"
                             onChange={(event) =>
                               onLineUpdate(line.key, 'unitPrice', event.target.value)
@@ -222,6 +236,7 @@ export function InvoiceDraftEditor({
                           <select
                             aria-label="VAT rate"
                             className="w-28 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            disabled={accountingReadOnly}
                             onChange={(event) =>
                               onLineUpdate(line.key, 'vatRate', event.target.value)
                             }
@@ -240,7 +255,7 @@ export function InvoiceDraftEditor({
                         <td className="px-4 py-3 text-right">
                           <button
                             className="rounded-xl px-3 py-2 text-sm font-semibold text-error transition-colors hover:bg-error-container/40 disabled:cursor-not-allowed disabled:text-on-surface-variant"
-                            disabled={form.lines.length === 1}
+                            disabled={accountingReadOnly || form.lines.length === 1}
                             onClick={() => onLineRemove(line.key)}
                             type="button"
                           >
@@ -281,7 +296,7 @@ export function InvoiceDraftEditor({
               {!isCreating && selectedInvoice && canDeleteInvoice(selectedInvoice) ? (
                 <button
                   className="rounded-xl border border-error/18 px-4 py-2.5 text-sm font-semibold text-error transition-colors hover:bg-error-container/35 disabled:opacity-60"
-                  disabled={saving}
+                  disabled={accountingReadOnly || saving}
                   onClick={onDeleteDraft}
                   type="button"
                 >
@@ -290,7 +305,7 @@ export function InvoiceDraftEditor({
               ) : null}
               <button
                 className="rounded-xl border border-outline-variant/35 bg-white px-4 py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-lowest disabled:opacity-60"
-                disabled={saving || customers.length === 0 || !formIsValid}
+                disabled={accountingReadOnly || saving || customers.length === 0 || !formIsValid}
                 onClick={onSaveDraft}
                 type="button"
               >
@@ -299,7 +314,7 @@ export function InvoiceDraftEditor({
               {!isCreating && selectedInvoice && canIssueInvoice(selectedInvoice) ? (
                 <button
                   className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
-                  disabled={saving}
+                  disabled={accountingReadOnly || saving}
                   onClick={onIssueInvoice}
                   type="button"
                 >

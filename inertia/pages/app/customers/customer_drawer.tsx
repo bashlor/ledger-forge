@@ -4,6 +4,7 @@ import type { CreateCustomerInput, CustomerDto } from '~/lib/types'
 import type { FormErrors } from '~/types'
 
 import { DrawerPanel } from '~/components/drawer_panel'
+import { ErrorBanner } from '~/components/error_banner'
 
 const EMPTY_FORM: CreateCustomerInput = {
   address: '',
@@ -20,6 +21,8 @@ interface CustomerDrawerProps {
   onSubmit: (form: CreateCustomerInput, editingId: null | string) => void
   open: boolean
   processing: boolean
+  readOnly: boolean
+  readOnlyMessage: string
   target: CustomerDto | null
 }
 
@@ -29,6 +32,8 @@ export function CustomerDrawer({
   onSubmit,
   open,
   processing,
+  readOnly,
+  readOnlyMessage,
   target,
 }: CustomerDrawerProps) {
   const isEdit = target !== null
@@ -40,6 +45,7 @@ export function CustomerDrawer({
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (readOnly) return
     onSubmit(form, target?.id ?? null)
   }
 
@@ -61,7 +67,7 @@ export function CustomerDrawer({
           </button>
           <button
             className="rounded-lg px-4 py-3 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
-            disabled={processing}
+            disabled={processing || readOnly}
             form="customer-form"
             type="submit"
           >
@@ -74,6 +80,8 @@ export function CustomerDrawer({
       open={open}
       title={target ? `Edit ${target.company}` : 'Create customer'}
     >
+      {readOnly ? <ErrorBanner message={readOnlyMessage} /> : null}
+
       <form className="grid gap-4 sm:grid-cols-2" id="customer-form" onSubmit={handleSubmit}>
         <div className="sm:col-span-2">
           <label
@@ -84,6 +92,7 @@ export function CustomerDrawer({
           </label>
           <input
             className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+            disabled={readOnly}
             id="customer-company"
             onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
             required
@@ -104,6 +113,7 @@ export function CustomerDrawer({
           </label>
           <textarea
             className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+            disabled={readOnly}
             id="customer-address"
             onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
             required
@@ -124,6 +134,7 @@ export function CustomerDrawer({
           </label>
           <input
             className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+            disabled={readOnly}
             id="customer-name"
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             required
@@ -144,6 +155,7 @@ export function CustomerDrawer({
           </label>
           <input
             className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+            disabled={readOnly}
             id="customer-phone"
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
             type="tel"
@@ -163,6 +175,7 @@ export function CustomerDrawer({
           </label>
           <input
             className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+            disabled={readOnly}
             id="customer-email"
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             type="email"
@@ -182,6 +195,7 @@ export function CustomerDrawer({
           </label>
           <textarea
             className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+            disabled={readOnly}
             id="customer-note"
             onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
             rows={3}
