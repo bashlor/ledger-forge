@@ -53,7 +53,9 @@ export default function DevAccessPage({ bootstrap }: Props) {
                         name="fullName"
                         placeholder="Dev Operator"
                       />
-                      {errors.fullName ? <p className="text-sm text-error">{errors.fullName}</p> : null}
+                      {errors.fullName ? (
+                        <p className="text-sm text-error">{errors.fullName}</p>
+                      ) : null}
                     </label>
 
                     <label className="block space-y-2">
@@ -84,7 +86,9 @@ export default function DevAccessPage({ bootstrap }: Props) {
                         required
                         type="password"
                       />
-                      {errors.password ? <p className="text-sm text-error">{errors.password}</p> : null}
+                      {errors.password ? (
+                        <p className="text-sm text-error">{errors.password}</p>
+                      ) : null}
                     </label>
 
                     <label className="block space-y-2">
@@ -127,7 +131,10 @@ export default function DevAccessPage({ bootstrap }: Props) {
               {bootstrap.currentUser ? (
                 <div className="mt-4 space-y-2 text-sm text-on-surface-variant">
                   <p>
-                    Signed in as <span className="font-semibold text-on-surface">{bootstrap.currentUser.fullName ?? bootstrap.currentUser.email}</span>
+                    Signed in as{' '}
+                    <span className="font-semibold text-on-surface">
+                      {bootstrap.currentUser.fullName ?? bootstrap.currentUser.email}
+                    </span>
                   </p>
                   <p>{bootstrap.currentUser.email}</p>
                 </div>
@@ -143,8 +150,13 @@ export default function DevAccessPage({ bootstrap }: Props) {
               <h2 className="text-base font-semibold text-on-surface">How it works</h2>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-on-surface-variant">
                 <li>The page is available only when development tools are enabled.</li>
-                <li>The account is created if the email does not exist yet, otherwise it is signed in.</li>
-                <li>The database stores a local dev operator grant so the Dev Inspector can be reopened later.</li>
+                <li>
+                  The account is created if the email does not exist yet, otherwise it is signed in.
+                </li>
+                <li>
+                  The database stores a local dev operator grant so the Dev Inspector can be
+                  reopened later.
+                </li>
               </ul>
             </section>
           </div>
