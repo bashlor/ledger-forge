@@ -164,6 +164,38 @@ test.group('Dev operator console routes', (group) => {
     assert.equal(response.body().props.inspector.memberships.length, 2)
   })
 
+  test('GET /_dev/inspector applies auditSearch to audit events', async ({ assert, client }) => {
+    await enableDevOperatorMode(db)
+    await db.insert(auditEvents).values([
+      {
+        action: 'dev_search_target',
+        actorId: TEST_ACCOUNTING_USER_ID,
+        entityId: 'expense-search-hit',
+        entityType: 'expense',
+        id: 'audit-search-hit',
+        organizationId: TEST_TENANT_ID,
+      },
+      {
+        action: 'dev_other_event',
+        actorId: TEST_ACCOUNTING_USER_ID,
+        entityId: 'expense-search-miss',
+        entityType: 'expense',
+        id: 'audit-search-miss',
+        organizationId: TEST_TENANT_ID,
+      },
+    ])
+
+    const response = await inertiaHeaders(client.get('/_dev/inspector'))
+      .qs({ auditSearch: 'search_target', tab: 'audit-trail' })
+      .header('cookie', authCookie())
+      .redirects(0)
+
+    response.assertStatus(200)
+    assert.equal(response.body().props.inspector.audit.events.length, 1)
+    assert.equal(response.body().props.inspector.audit.events[0].id, 'audit-search-hit')
+    assert.equal(response.body().props.inspector.audit.filters.search, 'search_target')
+  })
+
   test('POST /_dev/inspector/active-tenant updates the stored active organization', async ({
     assert,
     client,

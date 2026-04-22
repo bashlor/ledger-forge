@@ -1,7 +1,9 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import * as schema from '#core/common/drizzle/index'
+import { DomainError } from '#core/common/errors/domain_error'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
+import { DevOperatorBootstrapService } from '#core/user_management/application/dev_operator_bootstrap_service'
 import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
@@ -195,6 +197,7 @@ test.group('Dev operator access routes', (group) => {
   group.each.setup(async () => {
     app.container.restore(AuthenticationPort)
     app.container.restore('authAdapter' as any)
+    app.container.restore(DevOperatorBootstrapService)
 
     const auth = new DevOperatorAccessAuth(db)
     app.container.bindValue(AuthenticationPort, auth)
@@ -219,6 +222,7 @@ test.group('Dev operator access routes', (group) => {
     app.container.restore(AuthenticationPort)
     app.container.restore('authAdapter' as any)
     app.container.restore(AuthorizationService)
+    app.container.restore(DevOperatorBootstrapService)
     app.container.restore(DevToolsEnvironmentService)
   })
 
@@ -310,6 +314,36 @@ test.group('Dev operator access routes', (group) => {
       inspectorResponse.body().props.inspector.context.userEmail,
       'local-dev@example.local'
     )
+  })
+
+  test('POST /_dev/access does not retry bootstrap after a failure', async ({ assert, client }) => {
+    let bootstrapCalls = 0
+
+    app.container.swap(DevOperatorBootstrapService, async () => {
+      const bootstrapService = new DevOperatorBootstrapService(db)
+      bootstrapService.bootstrap = async () => {
+        bootstrapCalls += 1
+        throw new DomainError('Bootstrap failed.', 'business_logic_error')
+      }
+      bootstrapService.defaults = () => ({
+        email: 'dev-operator@example.local',
+        fullName: 'Dev Operator',
+        password: 'password',
+      })
+
+      return bootstrapService
+    })
+
+    const response = await client.post('/_dev/access').redirects(0).form({
+      email: 'local-dev@example.local',
+      fullName: 'Local Dev Operator',
+      password: 'SecureP@ss123',
+      passwordConfirmation: 'SecureP@ss123',
+    })
+
+    response.assertStatus(302)
+    response.assertHeader('location', '/_dev/access')
+    assert.equal(bootstrapCalls, 1)
   })
 })
 

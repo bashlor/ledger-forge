@@ -81,6 +81,7 @@ export default defineConfig({
   preloads: [
     () => import('#core/accounting/routes/api_routes'),
     () => import('#core/accounting/routes/web_routes'),
+    () => import('#core/dev_tools/routes/web_routes'),
     () => import('#core/user_management/http/routes/api_routes'),
     () => import('#core/user_management/http/routes/inertia_routes'),
     () => import('#start/kernel'),
@@ -110,6 +111,7 @@ export default defineConfig({
     () => import('@adonisjs/static/static_provider'),
     () => import('#core/common/providers/drizzle_provider'),
     () => import('#core/accounting/providers/accounting_provider'),
+    () => import('#core/dev_tools/providers/dev_tools_provider'),
     () => import('#core/user_management/providers/auth_provider'),
     () => import('@adonisjs/cors/cors_provider'),
     () => import('@adonisjs/inertia/inertia_provider'),
