@@ -48,7 +48,7 @@ export default class WorkspaceShareMiddleware {
     if (singleTenantMode) {
       try {
         const orgId = this.getSingleTenantOrgId()
-        const provisioning = await this.ensureSingleTenantMembership(db, {
+        await this.ensureSingleTenantMembership(db, {
           displayName: ctx.authSession.user.name ?? undefined,
           email: ctx.authSession.user.email,
           isAnonymous: ctx.authSession.user.isAnonymous,
@@ -61,10 +61,16 @@ export default class WorkspaceShareMiddleware {
         }
 
         this.setActiveOrganizationId(ctx, orgId)
-        await this.seedWorkspaceDemoData(db, provisioning)
       } catch (error) {
         this.setActiveOrganizationId(ctx, null)
         this.logSingleTenantResolutionFailure(ctx, pathname, error)
+      }
+
+      if (ctx.authSession?.session.activeOrganizationId) {
+        await this.seedWorkspaceDemoDataBestEffort(ctx, db, pathname, 'single', {
+          organizationId: ctx.authSession.session.activeOrganizationId,
+          wasProvisioned: true,
+        })
       }
     } else if (!ctx.authSession.session.activeOrganizationId && token) {
       try {
@@ -75,14 +81,15 @@ export default class WorkspaceShareMiddleware {
           sessionToken: token,
           userId: ctx.authSession.user.id,
         })
-        await seedProvisionedWorkspaceDemoData(db, provisioning)
 
         const refreshed = await auth.getSession(token)
         if (refreshed) {
           ctx.authSession = refreshed
         }
+
+        await this.seedWorkspaceDemoDataBestEffort(ctx, db, pathname, 'personal', provisioning)
       } catch (error) {
-        ctx.logger.debug({ err: error }, 'workspace_provision_failed')
+        this.logPersonalWorkspaceProvisionFailure(ctx, pathname, error)
       }
     }
 
@@ -226,6 +233,56 @@ export default class WorkspaceShareMiddleware {
     }
 
     ctx.logger.warn(bindings, 'single_tenant_provision_failed')
+  }
+
+  private logSeedFailure(
+    ctx: HttpContext,
+    pathname: string,
+    error: unknown,
+    mode: 'personal' | 'single',
+    organizationId: null | string
+  ): void {
+    ctx.logger.warn(
+      {
+        err: error,
+        mode,
+        orgId: organizationId,
+        path: pathname,
+        userId: ctx.authSession?.user.id,
+      },
+      `${mode}_workspace_demo_seed_failed`
+    )
+  }
+
+  private logPersonalWorkspaceProvisionFailure(
+    ctx: HttpContext,
+    pathname: string,
+    error: unknown
+  ): void {
+    ctx.logger.debug(
+      {
+        err: error,
+        mode: 'personal',
+        orgId: ctx.authSession?.session.activeOrganizationId,
+        path: pathname,
+        userId: ctx.authSession?.user.id,
+      },
+      'personal_workspace_provision_failed'
+    )
+  }
+
+  private async seedWorkspaceDemoDataBestEffort(
+    ctx: HttpContext,
+    db: PostgresJsDatabase<typeof schema>,
+    pathname: string,
+    mode: 'personal' | 'single',
+    provisioning: { organizationId: null | string; wasProvisioned: boolean }
+  ): Promise<void> {
+    try {
+      await this.seedWorkspaceDemoData(db, provisioning)
+    } catch (error) {
+      this.logSeedFailure(ctx, pathname, error, mode, provisioning.organizationId)
+    }
   }
 
   private normalizePathname(ctx: HttpContext): string {

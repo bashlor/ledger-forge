@@ -106,9 +106,9 @@ export class DevOperatorTenantFactoryService {
       await this.deleteBootstrapSessionSafely(authentication.session.token)
       await this.cleanupBootstrapUserSafely(authentication.user.id)
       throw error
-    } finally {
-      await this.deleteBootstrapSessionSafely(authentication.session.token)
     }
+
+    await this.deleteBootstrapSessionSafely(authentication.session.token)
 
     return {
       ownerUserId: authentication.user.id,

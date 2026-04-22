@@ -491,6 +491,11 @@ test.group('Dev operator console routes', (group) => {
 
     assert.exists(createdOrganization)
 
+    const membersForCreatedOrganization = await db
+      .select({ isActive: member.isActive, role: member.role, userId: member.userId })
+      .from(member)
+      .where(eq(member.organizationId, createdOrganization!.id))
+
     const [customerCount] = await db
       .select({ value: count() })
       .from(customers)
@@ -504,9 +509,21 @@ test.group('Dev operator console routes', (group) => {
       .from(invoices)
       .where(eq(invoices.organizationId, createdOrganization!.id))
 
+    assert.lengthOf(membersForCreatedOrganization, 1)
+    assert.equal(membersForCreatedOrganization[0]?.role, 'owner')
+    assert.isTrue(membersForCreatedOrganization[0]?.isActive ?? false)
+    assert.notEqual(membersForCreatedOrganization[0]?.userId, TEST_ACCOUNTING_USER_ID)
     assert.isAbove(Number(customerCount?.value ?? 0), 0)
     assert.isAbove(Number(expenseCount?.value ?? 0), 0)
     assert.isAbove(Number(invoiceCount?.value ?? 0), 0)
+
+    const [ownerSession] = await db
+      .select({ token: session.token })
+      .from(session)
+      .where(ne(session.userId, TEST_ACCOUNTING_USER_ID))
+      .limit(1)
+
+    assert.isUndefined(ownerSession)
   })
 
   test('POST /_dev/inspector/actions/create-tenant rolls back the bootstrap user when seeding fails', async ({

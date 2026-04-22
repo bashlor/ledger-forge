@@ -30,13 +30,17 @@ export async function clearActiveOrganizationForSession(
 }
 
 /**
- * Ensures a single-tenant organization exists and that the given user is a member.
+ * Ensures the shared single-tenant organization exists and that the given user
+ * is an active owner within it.
  *
- * - Upserts the organization row (no-op when already present).
- * - If the user is already a member, returns immediately.
- * - First member of the org receives the `owner` role; subsequent users get `member`.
+ * - Upserts the organization row when missing.
+ * - Updates the workspace label/metadata when a generic or anonymous bootstrap
+ *   should be replaced by the current user-facing workspace label.
+ * - Creates the membership when missing or upgrades an existing membership to an
+ *   active `owner` role.
  *
- * Idempotent: safe to call on every request.
+ * Returns the shared organization id plus whether any provisioning change was
+ * applied. Idempotent: safe to call on every request.
  */
 export async function ensureSingleTenantMembership(
   db: PostgresJsDatabase<typeof schema>,
