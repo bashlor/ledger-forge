@@ -30,6 +30,7 @@ export default function render(page: any) {
 }
 
 function wrapPage(name: string, page: ReactElement<Data.SharedProps>) {
-  const usesShell = name.startsWith('app/') || name.startsWith('account/')
+  const usesShell =
+    name.startsWith('app/') || name.startsWith('account/') || name.startsWith('dev/')
   return usesShell ? <AppShellLayout>{page}</AppShellLayout> : <PublicLayout>{page}</PublicLayout>
 }
