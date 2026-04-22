@@ -17,7 +17,7 @@ import {
   selectedTenantOptions,
 } from '#core/dev_tools/application/dev_operator_console_utils'
 import { type AuthorizationService } from '#core/user_management/application/authorization_service'
-import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 
 export class DevOperatorConsoleQueryService {
   constructor(private readonly db: PostgresJsDatabase<typeof schema>) {}
@@ -250,6 +250,7 @@ export class DevOperatorConsoleQueryService {
     filters: { action: string; actorId: string; search: string; tenantId: string }
     tenants: { id: string; label: string }[]
   }> {
+    const searchPattern = input.filters.search ? `%${input.filters.search}%` : null
     const selectedTenantIds =
       input.filters.tenantId === 'all'
         ? input.accessibleTenantIds
@@ -261,6 +262,21 @@ export class DevOperatorConsoleQueryService {
     }
     if (input.filters.actorId) {
       whereClauses.push(eq(schema.auditEvents.actorId, input.filters.actorId))
+    }
+    if (searchPattern) {
+      const searchClause = or(
+        ilike(schema.auditEvents.action, searchPattern),
+        ilike(schema.auditEvents.entityType, searchPattern),
+        ilike(schema.auditEvents.entityId, searchPattern),
+        ilike(schema.organization.name, searchPattern),
+        sql`coalesce(${schema.user.name}, '') ilike ${searchPattern}`,
+        sql`coalesce(${schema.user.email}, '') ilike ${searchPattern}`,
+        sql`coalesce(${schema.auditEvents.metadata}->>'errorCode', '') ilike ${searchPattern}`
+      )
+
+      if (searchClause) {
+        whereClauses.push(searchClause)
+      }
     }
 
     const rows = await this.db
