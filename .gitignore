@@ -34,6 +34,7 @@ yarn-error.log
 
 # Personal / Internal Tools
 .tmp
+.codex
 private_docs
 private_scripts
 
