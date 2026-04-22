@@ -345,6 +345,46 @@ test.group('Dev operator access routes', (group) => {
     response.assertHeader('location', '/_dev/access')
     assert.equal(bootstrapCalls, 1)
   })
+
+  test('dev operator direct accounting access stays forbidden even with an owner membership', async ({
+    client,
+  }) => {
+    const userId = uuidv7()
+    const organizationId = uuidv7()
+    const sessionToken = `dev-access-${uuidv7()}`
+
+    await db.insert(schema.user).values({
+      email: 'dev-owner@example.local',
+      id: userId,
+      name: 'Dev Owner',
+      publicId: `pub_${uuidv7().replaceAll('-', '')}`,
+    })
+    await db.insert(schema.organization).values({
+      id: organizationId,
+      name: 'Dev Owner Tenant',
+      slug: `dev-owner-${uuidv7().slice(0, 8)}`,
+    })
+    await db.insert(schema.member).values({
+      id: uuidv7(),
+      organizationId,
+      role: 'owner',
+      userId,
+    })
+    await db.insert(schema.devOperatorAccess).values({ userId })
+    await db.insert(schema.session).values({
+      activeOrganizationId: organizationId,
+      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+      id: uuidv7(),
+      token: sessionToken,
+      userId,
+    })
+
+    const response = await inertiaHeaders(client.get('/dashboard'))
+      .cookie(AUTH_SESSION_TOKEN_COOKIE_NAME, sessionToken)
+      .redirects(0)
+
+    response.assertStatus(403)
+  })
 })
 
 function cookieHeaderFromRouteResponse(value: null | string | string[] | undefined): string {

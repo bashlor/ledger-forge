@@ -77,12 +77,13 @@ test.group('authorization/authorizer', () => {
   test('dev operators can only access dev tools', ({ assert }) => {
     const currentActor = actor({
       isDevOperator: true,
-      membershipIsActive: false,
-      membershipRole: null,
+      membershipIsActive: true,
+      membershipRole: 'owner',
     })
 
     assert.isTrue(can(currentActor, 'devTools.access'))
     assert.isFalse(can(currentActor, 'invoice.issue'))
+    assert.isFalse(can(currentActor, 'accounting.read'))
     assert.isFalse(can(currentActor, 'auditTrail.view'))
     assert.isFalse(can(currentActor, 'membership.changeRole', subject()))
   })

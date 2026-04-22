@@ -73,7 +73,7 @@ export class DevOperatorTenantFactoryService {
 
     const tenantId = uuidv7()
     const tenantSlug = await this.allocateReadableSlug()
-
+    let bootstrapSessionDeleted = false
     try {
       await this.db.transaction(async (tx) => {
         await tx.insert(schema.organization).values({
@@ -96,15 +96,22 @@ export class DevOperatorTenantFactoryService {
           role: 'owner',
           userId: authentication.user.id,
         })
+        if (input.seedMode === 'seeded') {
+          await this.demoDatasetService.seedTenantInTransaction(
+            tx,
+            systemAccessContext(tenantId, 'dev-tenant-factory')
+          )
+        }
       })
-
-      if (input.seedMode === 'seeded') {
-        await this.demoDatasetService.seedTenant(
-          systemAccessContext(tenantId, 'dev-tenant-factory')
-        )
-      }
-    } finally {
+    } catch (error) {
       await this.deleteBootstrapSession(authentication.session.token)
+      bootstrapSessionDeleted = true
+      await this.cleanupBootstrapUser(authentication.user.id)
+      throw error
+    } finally {
+      if (!bootstrapSessionDeleted) {
+        await this.deleteBootstrapSession(authentication.session.token)
+      }
     }
 
     return {
@@ -137,6 +144,32 @@ export class DevOperatorTenantFactoryService {
 
   private async deleteBootstrapSession(sessionToken: string): Promise<void> {
     await this.db.delete(schema.session).where(eq(schema.session.token, sessionToken))
+  }
+
+  private async cleanupBootstrapUser(userId: string): Promise<void> {
+    const [remainingMember] = await this.db
+      .select({ id: schema.member.id })
+      .from(schema.member)
+      .where(eq(schema.member.userId, userId))
+      .limit(1)
+
+    const [remainingSession] = await this.db
+      .select({ id: schema.session.id })
+      .from(schema.session)
+      .where(eq(schema.session.userId, userId))
+      .limit(1)
+
+    const [remainingGrant] = await this.db
+      .select({ userId: schema.devOperatorAccess.userId })
+      .from(schema.devOperatorAccess)
+      .where(eq(schema.devOperatorAccess.userId, userId))
+      .limit(1)
+
+    if (remainingMember || remainingSession || remainingGrant) {
+      return
+    }
+
+    await this.db.delete(schema.user).where(eq(schema.user.id, userId))
   }
 }
 
