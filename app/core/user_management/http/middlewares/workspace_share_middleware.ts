@@ -48,13 +48,20 @@ export default class WorkspaceShareMiddleware {
     if (singleTenantMode) {
       try {
         const orgId = this.getSingleTenantOrgId()
-        await this.ensureSingleTenantMembership(db, ctx.authSession.user.id, orgId)
+        const provisioning = await this.ensureSingleTenantMembership(db, {
+          displayName: ctx.authSession.user.name ?? undefined,
+          email: ctx.authSession.user.email,
+          isAnonymous: ctx.authSession.user.isAnonymous,
+          orgId,
+          userId: ctx.authSession.user.id,
+        })
 
         if (token && ctx.authSession.session.activeOrganizationId !== orgId) {
           await setActiveOrganizationForSession(db, token, orgId)
         }
 
         this.setActiveOrganizationId(ctx, orgId)
+        await this.seedWorkspaceDemoData(db, provisioning)
       } catch (error) {
         this.setActiveOrganizationId(ctx, null)
         this.logSingleTenantResolutionFailure(ctx, pathname, error)
@@ -128,10 +135,15 @@ export default class WorkspaceShareMiddleware {
 
   protected async ensureSingleTenantMembership(
     db: PostgresJsDatabase<typeof schema>,
-    userId: string,
-    organizationId: string
-  ): Promise<void> {
-    await ensureSingleTenantMembership(db, userId, organizationId)
+    input: {
+      displayName?: string
+      email?: string
+      isAnonymous: boolean
+      orgId: string
+      userId: string
+    }
+  ) {
+    return ensureSingleTenantMembership(db, input)
   }
 
   protected getSingleTenantOrgId(): string {
@@ -161,6 +173,13 @@ export default class WorkspaceShareMiddleware {
     }
   ) {
     return provisionPersonalWorkspace(db, input)
+  }
+
+  protected async seedWorkspaceDemoData(
+    db: PostgresJsDatabase<typeof schema>,
+    provisioning: { organizationId: null | string; wasProvisioned: boolean }
+  ): Promise<boolean> {
+    return seedProvisionedWorkspaceDemoData(db, provisioning)
   }
 
   private async attachWorkspaceShare(ctx: HttpContext): Promise<void> {
