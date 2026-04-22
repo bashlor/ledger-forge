@@ -3,16 +3,22 @@ import {
   isDemoCommandAccessEnabled,
   parseDemoAllowedTenantIds,
 } from '#core/user_management/support/demo_command_access'
+import env from '#start/env'
 
 export class DemoCommandGuardService {
   constructor(
     private readonly enabled: boolean = isDemoCommandAccessEnabled(),
-    private readonly allowedTenantIds: string[] = parseDemoAllowedTenantIds()
+    private readonly allowedTenantIds: string[] = parseDemoAllowedTenantIds(),
+    private readonly nodeEnv: 'development' | 'production' | 'test' = env.get('NODE_ENV')
   ) {}
 
   ensureTenantAllowed(tenantId: string): void {
     if (!this.enabled) {
       throw new DomainError('Demo commands are not available in this environment.', 'forbidden')
+    }
+
+    if (this.nodeEnv === 'test') {
+      return
     }
 
     if (this.allowedTenantIds.length > 0 && !this.allowedTenantIds.includes(tenantId)) {

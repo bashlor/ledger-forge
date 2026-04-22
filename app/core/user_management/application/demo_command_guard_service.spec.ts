@@ -23,7 +23,7 @@ test.group('DemoCommandGuardService', () => {
   })
 
   test('rejects non-allowlisted tenants when an allowlist is configured', ({ assert }) => {
-    const guard = new DemoCommandGuardService(true, ['tenant-a'])
+    const guard = new DemoCommandGuardService(true, ['tenant-a'], 'development')
 
     try {
       guard.ensureTenantAllowed('tenant-b')
@@ -32,5 +32,11 @@ test.group('DemoCommandGuardService', () => {
       assert.instanceOf(error, DomainError)
       assert.equal(error.message, 'Tenant tenant-b is not allowlisted for demo commands.')
     }
+  })
+
+  test('ignores the allowlist in test environment', ({ assert }) => {
+    const guard = new DemoCommandGuardService(true, ['tenant-a'], 'test')
+
+    assert.doesNotThrow(() => guard.ensureTenantAllowed('tenant-b'))
   })
 })

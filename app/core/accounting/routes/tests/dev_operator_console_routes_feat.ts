@@ -2,6 +2,7 @@ import type { AuthResult } from '#core/user_management/domain/authentication'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
+import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { systemAccessContext } from '#core/accounting/application/support/access_context'
 import {
@@ -423,6 +424,84 @@ test.group('Dev operator console routes', (group) => {
     assert.equal((deniedAudit?.metadata as any)?.result, 'denied')
   })
 
+  test('POST /_dev/inspector/actions/delete-confirmed-expense leaves confirmed expenses untouched', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+
+    const expenseService = await app.container.make(ExpenseService)
+    const access = systemAccessContext(TEST_TENANT_ID, 'dev-console-confirmed-expense')
+    const createdExpense = await expenseService.createExpense(
+      {
+        amount: 25,
+        category: 'Travel',
+        date: '2026-04-21',
+        label: 'Confirmed deletion probe',
+      },
+      access
+    )
+    await expenseService.confirmExpense(createdExpense.id, access)
+    await expenseService.createExpense(
+      {
+        amount: 12,
+        category: 'Software',
+        date: '2026-04-21',
+        label: 'Draft fallback expense',
+      },
+      access
+    )
+
+    const response = await client
+      .post('/_dev/inspector/actions/delete-confirmed-expense')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+
+    const expenseRows = await db
+      .select({ id: expenses.id, status: expenses.status })
+      .from(expenses)
+      .where(eq(expenses.organizationId, TEST_TENANT_ID))
+
+    assert.lengthOf(expenseRows, 2)
+    assert.isTrue(
+      expenseRows.some((row) => row.id === createdExpense.id && row.status === 'confirmed')
+    )
+    assert.equal(expenseRows.filter((row) => row.status === 'draft').length, 1)
+  })
+
+  test('POST /_dev/inspector/actions/toggle-member-active updates a non-owner member', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+    await db
+      .update(member)
+      .set({ role: 'owner' })
+      .where(
+        and(eq(member.userId, TEST_ACCOUNTING_USER_ID), eq(member.organizationId, TEST_TENANT_ID))
+      )
+
+    const response = await client
+      .post('/_dev/inspector/actions/toggle-member-active')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+
+    const [toggledMember] = await db
+      .select({ isActive: member.isActive, role: member.role })
+      .from(member)
+      .where(eq(member.id, 'dev-console-member-c'))
+      .limit(1)
+
+    assert.equal(toggledMember?.role, 'member')
+    assert.isFalse(toggledMember?.isActive ?? true)
+  })
+
   test('POST /_dev/inspector/actions/change-member-role stores member audit entity type', async ({
     assert,
     client,
@@ -454,7 +533,49 @@ test.group('Dev operator console routes', (group) => {
       )
       .limit(1)
 
+    const [updatedMember] = await db
+      .select({ role: member.role })
+      .from(member)
+      .where(eq(member.id, 'dev-console-member-c'))
+      .limit(1)
+
     assert.equal(roleAudit?.entityType, 'member')
+    assert.equal(updatedMember?.role, 'admin')
+  })
+
+  test('POST /_dev/inspector/actions/change-member-role does not demote the owner', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+    await db.update(member).set({ role: 'owner' }).where(eq(member.id, 'dev-console-member-a'))
+
+    const response = await client
+      .post('/_dev/inspector/actions/change-member-role')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({ memberId: 'dev-console-member-a' })
+
+    response.assertStatus(302)
+
+    const [ownerMember] = await db
+      .select({ role: member.role })
+      .from(member)
+      .where(eq(member.id, 'dev-console-member-a'))
+      .limit(1)
+    const [roleAudit] = await db
+      .select({ id: auditEvents.id })
+      .from(auditEvents)
+      .where(
+        and(
+          eq(auditEvents.organizationId, TEST_TENANT_ID),
+          eq(auditEvents.action, 'dev_change_member_role')
+        )
+      )
+      .limit(1)
+
+    assert.equal(ownerMember?.role, 'owner')
+    assert.isUndefined(roleAudit)
   })
 
   test('POST /_dev/inspector/actions rejects a forged tenant outside operator memberships', async ({
