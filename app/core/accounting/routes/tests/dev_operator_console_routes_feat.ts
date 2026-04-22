@@ -2,7 +2,7 @@ import type { AuthResult } from '#core/user_management/domain/authentication'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
-import { DemoDatasetService } from '#core/accounting/application/demo/demo_dataset_service'
+import { type DemoDatasetService } from '#core/accounting/application/demo/demo_dataset_service'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { systemAccessContext } from '#core/accounting/application/support/access_context'

@@ -142,10 +142,6 @@ export class DevOperatorTenantFactoryService {
     return `dev-${uuidv7().slice(0, 8)}`
   }
 
-  private async deleteBootstrapSession(sessionToken: string): Promise<void> {
-    await this.db.delete(schema.session).where(eq(schema.session.token, sessionToken))
-  }
-
   private async cleanupBootstrapUser(userId: string): Promise<void> {
     const [remainingMember] = await this.db
       .select({ id: schema.member.id })
@@ -170,6 +166,10 @@ export class DevOperatorTenantFactoryService {
     }
 
     await this.db.delete(schema.user).where(eq(schema.user.id, userId))
+  }
+
+  private async deleteBootstrapSession(sessionToken: string): Promise<void> {
+    await this.db.delete(schema.session).where(eq(schema.session.token, sessionToken))
   }
 }
 

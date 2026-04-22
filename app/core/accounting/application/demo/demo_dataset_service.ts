@@ -93,13 +93,6 @@ export class DemoDatasetService {
     })
   }
 
-  async seedTenantInTransaction(
-    tx: PostgresJsDatabase<typeof schema>,
-    access: AccountingAccessContext
-  ): Promise<void> {
-    await this.seedTenantInTx(tx, access)
-  }
-
   async seedTenantIfEmpty(access: AccountingAccessContext): Promise<boolean> {
     return this.runLockedTransaction(access.tenantId, async (tx) => {
       const [{ existingCustomers }] = await tx
@@ -129,6 +122,13 @@ export class DemoDatasetService {
 
       return true
     })
+  }
+
+  async seedTenantInTransaction(
+    tx: PostgresJsDatabase<typeof schema>,
+    access: AccountingAccessContext
+  ): Promise<void> {
+    await this.seedTenantInTx(tx, access)
   }
 
   private async clearTenantDataInTx(
