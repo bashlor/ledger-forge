@@ -1,8 +1,18 @@
 import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 
+const DevOperatorAccessController = () =>
+  import('../http/controllers/dev_operator_access_controller.js')
 const DevOperatorConsoleController = () =>
   import('../http/controllers/dev_operator_console_controller.js')
+
+router
+  .group(() => {
+    router.get('/', [DevOperatorAccessController, 'show']).as('dev.root')
+    router.get('/access', [DevOperatorAccessController, 'show']).as('dev.access')
+    router.post('/access', [DevOperatorAccessController, 'store']).as('dev.access.store')
+  })
+  .prefix('/_dev')
 
 router
   .group(() => {

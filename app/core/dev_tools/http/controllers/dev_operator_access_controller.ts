@@ -71,13 +71,9 @@ export default class DevOperatorAccessController {
       return finalizeBootstrap(authentication)
     } catch (error) {
       try {
-        // Better Auth sign-up can leave a usable account/session behind before a later
-        // local workspace grant step fails. Re-running the bootstrap is safe and lets
-        // the existing user complete the dev-operator provisioning path.
         const recovered = await bootstrapService.bootstrap(payload, auth)
         return finalizeBootstrap(recovered)
       } catch {
-        // Fall through to the original public error below.
       }
 
       return presentPublicError(ctx, error, { flashAll: true })
