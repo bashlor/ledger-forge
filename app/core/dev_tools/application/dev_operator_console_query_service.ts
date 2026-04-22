@@ -241,9 +241,14 @@ export class DevOperatorConsoleQueryService {
   }
 
   async listAuditTrail(input: {
-    accessibleTenantIds: string[]
     activeTenantId: string
     filters: { action: string; actorId: string; search: string; tenantId: string }
+    inspectableTenants: {
+      id: string
+      isSessionTenant: boolean
+      name: string
+      slug: string
+    }[]
   }): Promise<{
     actors: { id: string; label: string }[]
     events: DevInspectorAuditEventDto[]
@@ -251,10 +256,11 @@ export class DevOperatorConsoleQueryService {
     tenants: { id: string; label: string }[]
   }> {
     const searchPattern = input.filters.search ? `%${input.filters.search}%` : null
+    const inspectableTenantIds = input.inspectableTenants.map((tenant) => tenant.id)
     const selectedTenantIds =
       input.filters.tenantId === 'all'
-        ? input.accessibleTenantIds
-        : input.accessibleTenantIds.filter((tenantId) => tenantId === input.filters.tenantId)
+        ? inspectableTenantIds
+        : inspectableTenantIds.filter((tenantId) => tenantId === input.filters.tenantId)
 
     const whereClauses = [inArray(schema.auditEvents.organizationId, selectedTenantIds)]
     if (input.filters.action) {
@@ -327,8 +333,8 @@ export class DevOperatorConsoleQueryService {
       })),
       filters: input.filters,
       tenants: [
-        { id: 'all', label: 'All memberships' },
-        ...selectedTenantOptions(input.accessibleTenantIds, input.activeTenantId),
+        { id: 'all', label: 'All tenants' },
+        ...selectedTenantOptions(input.inspectableTenants),
       ],
     }
   }
@@ -371,6 +377,40 @@ export class DevOperatorConsoleQueryService {
       ...row,
       status: row.status as 'confirmed' | 'draft',
     }))
+  }
+
+  async listInspectableTenants(authSession: AuthResult): Promise<
+    {
+      id: string
+      isSessionTenant: boolean
+      name: string
+      slug: string
+    }[]
+  > {
+    const sessionTenantId = authSession.session.activeOrganizationId
+    const rows = await this.db
+      .select({
+        id: schema.organization.id,
+        name: schema.organization.name,
+        slug: schema.organization.slug,
+      })
+      .from(schema.organization)
+      .orderBy(schema.organization.createdAt)
+
+    const tenants = rows.map((row) => ({
+      id: row.id,
+      isSessionTenant: row.id === sessionTenantId,
+      name: row.name,
+      slug: row.slug,
+    }))
+
+    return tenants.sort((left, right) => {
+      if (left.isSessionTenant === right.isSessionTenant) {
+        return left.name.localeCompare(right.name)
+      }
+
+      return left.isSessionTenant ? 1 : -1
+    })
   }
 
   async listInvoices(tenantId: string) {

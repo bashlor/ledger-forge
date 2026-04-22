@@ -85,6 +85,7 @@ type Props = InertiaProps<{
         name: string
         slug: string
       }
+      singleTenantMode: boolean
     }
     customers: {
       company: string
@@ -111,6 +112,12 @@ type Props = InertiaProps<{
       label: string
       section: 'danger_zone' | 'tenant_factory'
       tone: 'danger' | 'neutral'
+    }[]
+    inspectableTenants: {
+      id: string
+      isSessionTenant: boolean
+      name: string
+      slug: string
     }[]
     invoices: {
       createdAt: string
@@ -199,6 +206,7 @@ export default function DevInspectorPage({ inspector }: Props) {
   const [selectedMemberId, setSelectedMemberId] = useState<null | string>(null)
   const [selectedAuditEventId, setSelectedAuditEventId] = useState<null | string>(null)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [tenantModalOpen, setTenantModalOpen] = useState(false)
   const [invoiceBatchCount, setInvoiceBatchCount] = useState('12')
   const [expenseBatchCount, setExpenseBatchCount] = useState('8')
   const [customerBatchCount, setCustomerBatchCount] = useState('6')
@@ -209,9 +217,9 @@ export default function DevInspectorPage({ inspector }: Props) {
     customers,
     expenses,
     globalOperations,
+    inspectableTenants,
     invoices,
     members,
-    memberships,
     metrics,
     recentActions,
     view,
@@ -304,16 +312,13 @@ export default function DevInspectorPage({ inspector }: Props) {
       .some((value) => String(value).toLowerCase().includes(query))
   })
   const recentDenials = recentActions.filter((action) => action.result === 'denied').slice(0, 4)
-  const tenantFactoryOps = globalOperations.filter(
-    (operation) => operation.section === 'tenant_factory'
-  )
   const dangerOps = globalOperations.filter((operation) => operation.section === 'danger_zone')
   const tabCounts: Record<DevConsoleTab, null | number> = {
     'audit-trail': filteredAuditEvents.length,
     'data-generator': 4,
     'members-permissions': filteredMembers.length,
     overview: null,
-    'tenant-factory': tenantFactoryOps.length + dangerOps.length,
+    'tenant-factory': 1 + dangerOps.length,
     'workflow-probes':
       probeType === 'invoices'
         ? invoices.length
@@ -361,11 +366,7 @@ export default function DevInspectorPage({ inspector }: Props) {
   }
 
   function switchTenant(tenantId: string) {
-    setProcessingAction(`switch:${tenantId}`)
-    router.post('/_dev/inspector/active-tenant', buildQuery({ selectedRecordId: '', tenantId }), {
-      onFinish: () => setProcessingAction(null),
-      preserveScroll: true,
-    })
+    refreshSelection({ selectedRecordId: '', tenantId })
   }
 
   function runAction(
@@ -431,14 +432,18 @@ export default function DevInspectorPage({ inspector }: Props) {
         {view.activeTab === 'tenant-factory' ? (
           <TenantFactoryTab
             dangerOps={dangerOps}
-            memberships={memberships}
+            inspectableTenants={inspectableTenants}
+            onCreateTenant={() => {
+              if (context.singleTenantMode) return
+              setTenantModalOpen(true)
+            }}
             onRun={runAction}
             onSelectTenant={(tenantId) =>
               refreshSelection({ memberId: '', selectedRecordId: '', tenantId })
             }
             processingAction={processingAction}
             selectedTenantId={context.selectedTenantId}
-            tenantFactoryOps={tenantFactoryOps}
+            singleTenantMode={context.singleTenantMode}
           />
         ) : null}
 
@@ -491,9 +496,9 @@ export default function DevInspectorPage({ inspector }: Props) {
             copyText={copyText}
             customers={customers}
             expenses={expenses}
+            inspectableTenants={inspectableTenants}
             invoices={invoices}
             members={members}
-            memberships={memberships}
             onAllowUnauthorizedModeChange={setAllowUnauthorizedMode}
             onChangeProbeType={(next) => {
               refreshSelection({ probeType: next, selectedRecordId: '', tab: 'workflow-probes' })
@@ -569,6 +574,17 @@ export default function DevInspectorPage({ inspector }: Props) {
           }}
           open={commandPaletteOpen}
         />
+
+        {tenantModalOpen && !context.singleTenantMode ? (
+          <CreateTenantModal
+            onClose={() => setTenantModalOpen(false)}
+            onSubmit={(payload) => {
+              setTenantModalOpen(false)
+              runAction('create-tenant', payload)
+            }}
+            processingAction={processingAction}
+          />
+        ) : null}
       </div>
     </>
   )
@@ -1677,15 +1693,17 @@ function StickyTabs({
 
 function TenantFactoryTab({
   dangerOps,
-  memberships,
+  inspectableTenants,
+  onCreateTenant,
   onRun,
   onSelectTenant,
   processingAction,
   selectedTenantId,
-  tenantFactoryOps,
+  singleTenantMode,
 }: {
   dangerOps: Props['inspector']['globalOperations']
-  memberships: Props['inspector']['memberships']
+  inspectableTenants: Props['inspector']['inspectableTenants']
+  onCreateTenant: () => void
   onRun: (
     action: string,
     extra?: Record<string, string>,
@@ -1695,12 +1713,12 @@ function TenantFactoryTab({
   onSelectTenant: (tenantId: string) => void
   processingAction: null | string
   selectedTenantId: string
-  tenantFactoryOps: Props['inspector']['globalOperations']
+  singleTenantMode: boolean
 }) {
   return (
     <div className="space-y-3">
       <CompactPanel title="Tenant Factory">
-        <div className="grid gap-2 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid gap-2 lg:grid-cols-[280px_auto_minmax(0,1fr)]">
           <label className="space-y-1.5">
             <span className={labelClass}>Tenant selector</span>
             <select
@@ -1708,36 +1726,39 @@ function TenantFactoryTab({
               onChange={(event) => onSelectTenant(event.target.value)}
               value={selectedTenantId}
             >
-              {memberships.map((membership) => (
-                <option key={membership.organizationId} value={membership.organizationId}>
-                  {membership.organizationName} ({membership.role})
+              {inspectableTenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name}
+                  {tenant.isSessionTenant ? ' (session)' : ''}
                 </option>
               ))}
             </select>
           </label>
+          <div className="flex items-end">
+            <button
+              className={`${buttonClass()} w-full`}
+              disabled={singleTenantMode}
+              onClick={onCreateTenant}
+              type="button"
+            >
+              {singleTenantMode ? 'Unavailable' : 'Create tenant'}
+            </button>
+          </div>
           <div className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
-            Provisioning and destructive tenant operations stay isolated here so they never compete
-            with member, probe, or audit work.
+            {singleTenantMode
+              ? 'Single-tenant mode is active. Only the default tenant and the private dev-operator tenant are allowed, so tenant creation is blocked here.'
+              : 'Provisioning and destructive tenant operations stay isolated here so they never compete with member, probe, or audit work.'}
           </div>
         </div>
       </CompactPanel>
 
-      <div className="grid gap-3 xl:grid-cols-2">
-        <OperationPanel
-          description="Fast tenant creation for manual scenarios."
-          onRun={onRun}
-          operations={tenantFactoryOps}
-          processingAction={processingAction}
-          title="Provisioning"
-        />
-        <OperationPanel
-          description="Destructive actions are isolated and require explicit confirmation."
-          onRun={onRun}
-          operations={dangerOps}
-          processingAction={processingAction}
-          title="Danger Zone"
-        />
-      </div>
+      <OperationPanel
+        description="Destructive actions are isolated and require explicit confirmation."
+        onRun={onRun}
+        operations={dangerOps}
+        processingAction={processingAction}
+        title="Danger Zone"
+      />
     </div>
   )
 }
@@ -1882,9 +1903,9 @@ function WorkflowProbesTab({
   copyText,
   customers,
   expenses,
+  inspectableTenants,
   invoices,
   members,
-  memberships,
   onAllowUnauthorizedModeChange,
   onChangeProbeType,
   onRun,
@@ -1903,9 +1924,9 @@ function WorkflowProbesTab({
   copyText: (value: string) => void
   customers: Props['inspector']['customers']
   expenses: Props['inspector']['expenses']
+  inspectableTenants: Props['inspector']['inspectableTenants']
   invoices: Props['inspector']['invoices']
   members: Props['inspector']['members']
-  memberships: Props['inspector']['memberships']
   onAllowUnauthorizedModeChange: (value: boolean) => void
   onChangeProbeType: (value: ProbeType) => void
   onRun: (
@@ -1960,9 +1981,10 @@ function WorkflowProbesTab({
               onChange={(event) => onSelectTenant(event.target.value)}
               value={context.selectedTenantId}
             >
-              {memberships.map((membership) => (
-                <option key={membership.organizationId} value={membership.organizationId}>
-                  {membership.organizationName}
+              {inspectableTenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name}
+                  {tenant.isSessionTenant ? ' (session)' : ''}
                 </option>
               ))}
             </select>
@@ -2222,6 +2244,111 @@ const labelClass = 'text-[11px] font-semibold uppercase tracking-[0.14em] text-o
 
 function copyButtonClass() {
   return 'rounded-md border border-outline-variant/18 bg-surface-container-low px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface transition-colors hover:bg-surface-container'
+}
+
+function CreateTenantModal({
+  onClose,
+  onSubmit,
+  processingAction,
+}: {
+  onClose: () => void
+  onSubmit: (payload: Record<string, string>) => void
+  processingAction: null | string
+}) {
+  const [ownerEmail, setOwnerEmail] = useState('')
+  const [tenantName, setTenantName] = useState('')
+  const [ownerPassword, setOwnerPassword] = useState('SecureP@ss123')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('SecureP@ss123')
+  const [seedMode, setSeedMode] = useState<'empty' | 'seeded'>('seeded')
+
+  return (
+    <Modal onClose={onClose} open size="md" title="Create tenant">
+      <div className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-1.5">
+            <span className={labelClass}>Owner email</span>
+            <input
+              className={inputClass()}
+              onChange={(event) => setOwnerEmail(event.target.value)}
+              placeholder="owner@example.local"
+              value={ownerEmail}
+            />
+          </label>
+          <label className="space-y-1.5">
+            <span className={labelClass}>Tenant name</span>
+            <input
+              className={inputClass()}
+              onChange={(event) => setTenantName(event.target.value)}
+              placeholder="Ledger Forge Demo"
+              value={tenantName}
+            />
+          </label>
+          <label className="space-y-1.5">
+            <span className={labelClass}>Owner password</span>
+            <input
+              className={inputClass()}
+              onChange={(event) => setOwnerPassword(event.target.value)}
+              type="password"
+              value={ownerPassword}
+            />
+          </label>
+          <label className="space-y-1.5">
+            <span className={labelClass}>Confirm password</span>
+            <input
+              className={inputClass()}
+              onChange={(event) => setPasswordConfirmation(event.target.value)}
+              type="password"
+              value={passwordConfirmation}
+            />
+          </label>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2">
+          <button
+            className={`${buttonClass(seedMode === 'empty' ? 'primary' : 'secondary')} w-full`}
+            onClick={() => setSeedMode('empty')}
+            type="button"
+          >
+            Empty tenant
+          </button>
+          <button
+            className={`${buttonClass(seedMode === 'seeded' ? 'primary' : 'secondary')} w-full`}
+            onClick={() => setSeedMode('seeded')}
+            type="button"
+          >
+            Seeded tenant
+          </button>
+        </div>
+
+        <div className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+          The dev operator stays in its own session tenant. This modal creates a separate tenant
+          with a real owner account and optional demo data.
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button className={buttonClass('secondary')} onClick={onClose} type="button">
+            Cancel
+          </button>
+          <button
+            className={buttonClass()}
+            disabled={processingAction === 'create-tenant'}
+            onClick={() =>
+              onSubmit({
+                ownerEmail,
+                ownerPassword,
+                passwordConfirmation,
+                seedMode,
+                tenantName,
+              })
+            }
+            type="button"
+          >
+            {processingAction === 'create-tenant' ? 'Creating...' : 'Create tenant'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
 }
 
 function customerActionStates(

@@ -12,12 +12,20 @@ import {
   invoices,
   journalEntries,
 } from '#core/accounting/drizzle/schema'
+import { DevOperatorConsolePageService } from '#core/dev_tools/application/dev_operator_console_page_service'
+import { DevOperatorConsoleQueryService } from '#core/dev_tools/application/dev_operator_console_query_service'
+import { DevOperatorConsoleService } from '#core/dev_tools/application/dev_operator_console_service'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
-import { member, organization, session } from '#core/user_management/drizzle/schema'
+import {
+  AuthenticationPort,
+  type AuthProviderUser,
+} from '#core/user_management/domain/authentication'
+import { member, organization, session, user } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, eq, ne } from 'drizzle-orm'
+import { v7 as uuidv7 } from 'uuid'
 
 import {
   seedTestMember,
@@ -47,6 +55,126 @@ class DevOperatorAuthorizationService extends AuthorizationService {
     const actor = await super.actorFromSession(authSession)
     return { ...actor, isDevOperator: true }
   }
+}
+
+function createDevTenantFactoryAuth(db: PostgresJsDatabase<any>) {
+  return new (class extends AuthenticationPort {
+    async changePassword(): Promise<void> {}
+    getOAuthUrl(): string {
+      return ''
+    }
+    async getSession(token: null | string): Promise<AuthResult | null> {
+      if (!token) {
+        return null
+      }
+
+      const [sessionRow] = await db
+        .select({
+          activeOrganizationId: session.activeOrganizationId,
+          expiresAt: session.expiresAt,
+          token: session.token,
+          userId: session.userId,
+        })
+        .from(session)
+        .where(eq(session.token, token))
+        .limit(1)
+
+      if (!sessionRow) {
+        return null
+      }
+
+      const userRow = await this.getUserById(sessionRow.userId)
+      if (!userRow) {
+        return null
+      }
+
+      return {
+        session: sessionRow,
+        user: userRow,
+      }
+    }
+    async getUserById(id: string): Promise<AuthProviderUser | null> {
+      const [userRow] = await db
+        .select({
+          createdAt: user.createdAt,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          id: user.id,
+          image: user.image,
+          isAnonymous: user.isAnonymous,
+          name: user.name,
+          publicId: user.publicId,
+        })
+        .from(user)
+        .where(eq(user.id, id))
+        .limit(1)
+
+      return userRow ?? null
+    }
+    async requestPasswordReset(): Promise<void> {}
+    async resetPassword(): Promise<void> {}
+    async sendVerificationEmail(): Promise<void> {}
+    async signIn(): Promise<AuthResult> {
+      throw new Error('Not implemented in test auth')
+    }
+    async signInAnonymously(): Promise<AuthResult> {
+      throw new Error('Not implemented in test auth')
+    }
+    async signOut(): Promise<void> {}
+    async signUp(email: string, _password: string, name?: string): Promise<AuthResult> {
+      const userId = `tenant-owner-${uuidv7()}`
+      const token = `tenant-owner-session-${uuidv7()}`
+      const publicId = `pub_${uuidv7().replaceAll('-', '')}`
+
+      await db.insert(user).values({
+        createdAt: new Date(),
+        email,
+        emailVerified: true,
+        id: userId,
+        isAnonymous: false,
+        name: name ?? email,
+        publicId,
+      })
+      await db.insert(session).values({
+        activeOrganizationId: null,
+        expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+        id: `tenant-owner-session-id-${uuidv7()}`,
+        token,
+        userId,
+      })
+
+      return {
+        session: {
+          activeOrganizationId: null,
+          expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+          token,
+          userId,
+        },
+        user: {
+          createdAt: new Date(),
+          email,
+          emailVerified: true,
+          id: userId,
+          image: null,
+          isAnonymous: false,
+          name: name ?? email,
+          publicId,
+        },
+      }
+    }
+    async updateUser(): Promise<AuthProviderUser> {
+      throw new Error('Not implemented in test auth')
+    }
+    async validateSession(token: string): Promise<AuthResult> {
+      const authResult = await this.getSession(token)
+      if (!authResult) {
+        throw new Error('Session not found in test auth')
+      }
+
+      return authResult
+    }
+    async verifyEmail(): Promise<void> {}
+  })()
 }
 
 test.group('Dev operator console routes', (group) => {
@@ -98,7 +226,7 @@ test.group('Dev operator console routes', (group) => {
       id: 'dev-console-member-b',
       organizationId: TENANT_B,
       role: 'member',
-      userId: TEST_ACCOUNTING_USER_ID,
+      userId: SECOND_USER_ID,
     })
     await seedTestMember(db, {
       id: 'dev-console-member-c',
@@ -134,7 +262,9 @@ test.group('Dev operator console routes', (group) => {
   })
 
   group.each.teardown(() => {
+    app.container.restore(AuthenticationPort)
     app.container.restore(AuthorizationService)
+    app.container.restore(DevOperatorConsoleService)
     app.container.restore(DevToolsEnvironmentService)
   })
 
@@ -161,7 +291,29 @@ test.group('Dev operator console routes', (group) => {
     response.assertStatus(200)
     assert.equal(response.body().component, 'dev/inspector')
     assert.equal(response.body().props.inspector.context.activeTenantId, TEST_TENANT_ID)
-    assert.equal(response.body().props.inspector.memberships.length, 2)
+    assert.equal(response.body().props.inspector.memberships.length, 1)
+    assert.equal(response.body().props.inspector.inspectableTenants.length, 4)
+  })
+
+  test('GET /_dev/inspector disables tenant creation in single-tenant mode', async ({
+    assert,
+    client,
+  }) => {
+    await enableSingleTenantDevOperatorMode(db)
+
+    const response = await inertiaHeaders(client.get('/_dev/inspector'))
+      .header('cookie', authCookie())
+      .redirects(0)
+
+    response.assertStatus(200)
+    assert.isTrue(response.body().props.inspector.context.singleTenantMode)
+    const createTenantOperation = response
+      .body()
+      .props.inspector.globalOperations.find(
+        (operation: { action: null | string; available: boolean }) =>
+          operation.action === 'create-tenant'
+      )
+    assert.isFalse(createTenantOperation?.available ?? true)
   })
 
   test('GET /_dev/inspector applies auditSearch to audit events', async ({ assert, client }) => {
@@ -186,7 +338,7 @@ test.group('Dev operator console routes', (group) => {
     ])
 
     const response = await inertiaHeaders(client.get('/_dev/inspector'))
-      .qs({ auditSearch: 'search_target', tab: 'audit-trail' })
+      .qs({ auditSearch: 'search_target', tab: 'audit-trail', tenantId: TEST_TENANT_ID })
       .header('cookie', authCookie())
       .redirects(0)
 
@@ -196,7 +348,7 @@ test.group('Dev operator console routes', (group) => {
     assert.equal(response.body().props.inspector.audit.filters.search, 'search_target')
   })
 
-  test('POST /_dev/inspector/active-tenant updates the stored active organization', async ({
+  test('POST /_dev/inspector/active-tenant keeps the dev operator pinned to its session tenant', async ({
     assert,
     client,
   }) => {
@@ -216,7 +368,7 @@ test.group('Dev operator console routes', (group) => {
       .where(eq(session.token, SESSION_TOKEN))
       .limit(1)
 
-    assert.equal(storedSession?.activeOrganizationId, TENANT_B)
+    assert.equal(storedSession?.activeOrganizationId, TEST_TENANT_ID)
   })
 
   test('POST /_dev/inspector/actions/generate-demo-data seeds tenant-scoped records', async ({
@@ -256,56 +408,78 @@ test.group('Dev operator console routes', (group) => {
     assert.isAbove(Number(auditCount?.value ?? 0), 0)
   })
 
-  test('POST /_dev/inspector/actions/create-tenant-scenario creates a full scenario tenant', async ({
+  test('POST /_dev/inspector/actions/create-tenant creates an empty tenant with an isolated owner', async ({
     assert,
     client,
   }) => {
     await enableDevOperatorMode(db)
+    app.container.bindValue(AuthenticationPort, createDevTenantFactoryAuth(db))
 
     const organizationsBefore = await db.select({ id: organization.id }).from(organization)
 
     const response = await client
-      .post('/_dev/inspector/actions/create-tenant-scenario')
+      .post('/_dev/inspector/actions/create-tenant')
       .header('cookie', authCookie())
       .redirects(0)
-      .form({})
+      .form({
+        ownerEmail: 'factory-owner@example.local',
+        ownerPassword: 'SecureP@ss123',
+        passwordConfirmation: 'SecureP@ss123',
+        seedMode: 'empty',
+        tenantName: 'Factory Empty Tenant',
+      })
 
     response.assertStatus(302)
 
     const organizationIdsBefore = new Set(organizationsBefore.map((row) => row.id))
     const organizationsAfter = await db
-      .select({ id: organization.id, name: organization.name })
+      .select({ id: organization.id, name: organization.name, slug: organization.slug })
       .from(organization)
     const createdOrganization = organizationsAfter.find((row) => !organizationIdsBefore.has(row.id))
 
     assert.exists(createdOrganization)
-    assert.include(createdOrganization!.name, 'Dev Scenario')
+    assert.equal(createdOrganization!.name, 'Factory Empty Tenant')
+    assert.match(createdOrganization!.slug, /^[a-z]+-[a-z]+-[a-z]+-\d{3}$/)
 
     const membersForCreatedOrganization = await db
       .select({ isActive: member.isActive, role: member.role, userId: member.userId })
       .from(member)
       .where(eq(member.organizationId, createdOrganization!.id))
 
-    assert.lengthOf(membersForCreatedOrganization, 5)
+    assert.lengthOf(membersForCreatedOrganization, 1)
     assert.equal(membersForCreatedOrganization.filter((row) => row.role === 'owner').length, 1)
-    assert.equal(membersForCreatedOrganization.filter((row) => row.role === 'admin').length, 1)
-    assert.equal(membersForCreatedOrganization.filter((row) => row.role === 'member').length, 3)
-    assert.equal(membersForCreatedOrganization.filter((row) => row.isActive === false).length, 1)
+    assert.notEqual(membersForCreatedOrganization[0]?.userId, TEST_ACCOUNTING_USER_ID)
+    assert.equal(membersForCreatedOrganization.filter((row) => row.isActive === false).length, 0)
+
+    const [ownerSession] = await db
+      .select({ token: session.token })
+      .from(session)
+      .where(ne(session.userId, TEST_ACCOUNTING_USER_ID))
+      .limit(1)
+
+    assert.isUndefined(ownerSession)
   })
 
-  test('POST /_dev/inspector/actions/create-tenant-scenario-seeded seeds the created tenant', async ({
+  test('POST /_dev/inspector/actions/create-tenant seeds the created tenant when requested', async ({
     assert,
     client,
   }) => {
     await enableDevOperatorMode(db)
+    app.container.bindValue(AuthenticationPort, createDevTenantFactoryAuth(db))
 
     const organizationsBefore = await db.select({ id: organization.id }).from(organization)
 
     const response = await client
-      .post('/_dev/inspector/actions/create-tenant-scenario-seeded')
+      .post('/_dev/inspector/actions/create-tenant')
       .header('cookie', authCookie())
       .redirects(0)
-      .form({})
+      .form({
+        ownerEmail: 'factory-owner-seeded@example.local',
+        ownerPassword: 'SecureP@ss123',
+        passwordConfirmation: 'SecureP@ss123',
+        seedMode: 'seeded',
+        tenantName: 'Factory Seeded Tenant',
+      })
 
     response.assertStatus(302)
 
@@ -331,6 +505,36 @@ test.group('Dev operator console routes', (group) => {
     assert.isAbove(Number(customerCount?.value ?? 0), 0)
     assert.isAbove(Number(expenseCount?.value ?? 0), 0)
     assert.isAbove(Number(invoiceCount?.value ?? 0), 0)
+  })
+
+  test('POST /_dev/inspector/actions/create-tenant is blocked in single-tenant mode', async ({
+    assert,
+    client,
+  }) => {
+    await enableSingleTenantDevOperatorMode(db)
+    app.container.bindValue(AuthenticationPort, createDevTenantFactoryAuth(db))
+
+    const organizationsBefore = await db.select({ value: count() }).from(organization)
+
+    const response = await client
+      .post('/_dev/inspector/actions/create-tenant')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({
+        ownerEmail: 'single-tenant-owner@example.local',
+        ownerPassword: 'SecureP@ss123',
+        passwordConfirmation: 'SecureP@ss123',
+        seedMode: 'empty',
+        tenantName: 'Blocked Tenant',
+      })
+
+    response.assertStatus(302)
+
+    const organizationsAfter = await db.select({ value: count() }).from(organization)
+    assert.equal(
+      Number(organizationsAfter[0]?.value ?? 0),
+      Number(organizationsBefore[0]?.value ?? 0)
+    )
   })
 
   test('POST /_dev/inspector/actions/clear-tenant-data is blocked for member role', async ({
@@ -673,6 +877,17 @@ async function enableDevOperatorMode(db: PostgresJsDatabase<any>) {
   })
   app.container.swap(DevToolsEnvironmentService, async () => {
     return new DevToolsEnvironmentService(true)
+  })
+}
+
+async function enableSingleTenantDevOperatorMode(db: PostgresJsDatabase<any>) {
+  await enableDevOperatorMode(db)
+
+  app.container.swap(DevOperatorConsoleService, async () => {
+    return new DevOperatorConsoleService(db, {
+      pageService: new DevOperatorConsolePageService(new DevOperatorConsoleQueryService(db), true),
+      singleTenantMode: true,
+    })
   })
 }
 
