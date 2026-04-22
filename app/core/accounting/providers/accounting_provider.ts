@@ -4,12 +4,10 @@ import { AuditTrailHealthService } from '#core/accounting/application/audit/audi
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { DashboardService } from '#core/accounting/application/dashboard/index'
 import { DemoDatasetService } from '#core/accounting/application/demo/demo_dataset_service'
-import { DevOperatorConsoleService } from '#core/accounting/application/dev_operator_console_service'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { StructuredAccountingActivitySink } from '#core/accounting/application/support/activity_log'
 import { SystemAccountingBusinessCalendar } from '#core/accounting/application/support/business_calendar'
-import { MemberService } from '#core/user_management/application/member_service'
 import logger from '@adonisjs/core/services/logger'
 
 export default class AccountingProvider {
@@ -55,23 +53,6 @@ export default class AccountingProvider {
         activitySink: new StructuredAccountingActivitySink(logger, {
           adapter: 'service',
         }),
-      })
-    })
-
-    this.app.container.bind(DevOperatorConsoleService, async (resolver) => {
-      const db = await resolver.make('drizzle')
-      const customerService = await resolver.make(CustomerService)
-      const demoDatasetService = await resolver.make(DemoDatasetService)
-      const expenseService = await resolver.make(ExpenseService)
-      const invoiceService = await resolver.make(InvoiceService)
-      const memberService = await resolver.make(MemberService)
-
-      return new DevOperatorConsoleService(db, {
-        customerService,
-        demoDatasetService,
-        expenseService,
-        invoiceService,
-        memberService,
       })
     })
 

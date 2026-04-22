@@ -59,6 +59,7 @@
     "#core/common/*": "./app/core/common/*.js",
     "#core/shared/*": "./app/core/shared/*.js",
     "#core/user_management/*": "./app/core/user_management/*.js",
+    "#core/dev_tools/*": "./app/core/dev_tools/*.js",
     "#core/accounting/*": "./app/core/accounting/*.js"
   },
   "devDependencies": {

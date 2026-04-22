@@ -110,6 +110,7 @@ export default defineConfig({
     () => import('@adonisjs/static/static_provider'),
     () => import('#core/common/providers/drizzle_provider'),
     () => import('#core/accounting/providers/accounting_provider'),
+    () => import('#core/dev_tools/providers/dev_tools_provider'),
     () => import('#core/user_management/providers/auth_provider'),
     () => import('@adonisjs/cors/cors_provider'),
     () => import('@adonisjs/inertia/inertia_provider'),
