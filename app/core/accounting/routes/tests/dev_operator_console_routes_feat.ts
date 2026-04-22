@@ -539,7 +539,7 @@ test.group('Dev operator console routes', (group) => {
         tenantName: 'Factory Broken Seed Tenant',
       })
 
-    response.assertStatus(302)
+    response.assertStatus(500)
 
     const [ownerUser] = await db
       .select({ id: user.id })

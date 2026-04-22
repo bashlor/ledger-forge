@@ -73,7 +73,6 @@ export class DevOperatorTenantFactoryService {
 
     const tenantId = uuidv7()
     const tenantSlug = await this.allocateReadableSlug()
-    let bootstrapSessionDeleted = false
     try {
       await this.db.transaction(async (tx) => {
         await tx.insert(schema.organization).values({
@@ -104,14 +103,11 @@ export class DevOperatorTenantFactoryService {
         }
       })
     } catch (error) {
-      await this.deleteBootstrapSession(authentication.session.token)
-      bootstrapSessionDeleted = true
-      await this.cleanupBootstrapUser(authentication.user.id)
+      await this.deleteBootstrapSessionSafely(authentication.session.token)
+      await this.cleanupBootstrapUserSafely(authentication.user.id)
       throw error
     } finally {
-      if (!bootstrapSessionDeleted) {
-        await this.deleteBootstrapSession(authentication.session.token)
-      }
+      await this.deleteBootstrapSessionSafely(authentication.session.token)
     }
 
     return {
@@ -168,8 +164,24 @@ export class DevOperatorTenantFactoryService {
     await this.db.delete(schema.user).where(eq(schema.user.id, userId))
   }
 
+  private async cleanupBootstrapUserSafely(userId: string): Promise<void> {
+    try {
+      await this.cleanupBootstrapUser(userId)
+    } catch {
+      // Best-effort cleanup: tenant creation must not fail because rollback cleanup did.
+    }
+  }
+
   private async deleteBootstrapSession(sessionToken: string): Promise<void> {
     await this.db.delete(schema.session).where(eq(schema.session.token, sessionToken))
+  }
+
+  private async deleteBootstrapSessionSafely(sessionToken: string): Promise<void> {
+    try {
+      await this.deleteBootstrapSession(sessionToken)
+    } catch {
+      // Best-effort cleanup: tenant creation must not fail because session cleanup did.
+    }
   }
 }
 
