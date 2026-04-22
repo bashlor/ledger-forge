@@ -30,7 +30,7 @@ const mainNavLinks = [
 
 const pageDescriptions: Record<string, string> = {
   Customers: 'Billable contacts available for invoicing.',
-  'Dev Inspector': 'Internal operator console for tenant and audit checks.',
+  'Dev Console': 'Internal operator console for tenant and audit checks.',
   'Dev Tools': 'Local bootstrap page for dev-only operator access.',
   Expenses: 'Recorded expenses that feed into profit.',
   Invoices: 'Create, issue, and settle customer invoices.',
@@ -327,7 +327,7 @@ function pageLabelForUrl(url: string) {
   }
 
   if (url.startsWith('/_dev/inspector')) {
-    return 'Dev Inspector'
+    return 'Dev Console'
   }
 
   if (url.startsWith('/account')) {

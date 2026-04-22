@@ -121,13 +121,28 @@ export interface DevInspectorPageDto {
     tenants: { id: string; label: string }[]
   }
   context: {
+    accessMode: 'read_only'
     activeTenantId: string
     activeTenantName: string
     activeTenantSlug: string
     currentRole: 'admin' | 'member' | 'owner' | null
     environment: 'development'
     isAnonymous: boolean
+    operator: {
+      email: string
+      membershipRole: 'admin' | 'member' | 'owner' | null
+      name: string
+      publicId: string
+    }
     readOnlyBadge: string
+    scenario: {
+      actorId: string
+      actorName: string
+      actorRole: 'admin' | 'member' | 'owner' | null
+      tenantId: string
+      tenantName: string
+      tenantSlug: string
+    }
     selectedMemberId: string
     selectedMemberName: string
     selectedMemberPermissions: {
@@ -143,16 +158,36 @@ export interface DevInspectorPageDto {
     selectedMemberRole: 'admin' | 'member' | 'owner' | null
     selectedTenantId: string
     selectedTenantName: string
+    sessionTenant: {
+      id: string
+      name: string
+      slug: string
+    }
     userEmail: string
     userName: string
     userPublicId: string
   }
   customers: DevInspectorCustomerDto[]
   expenses: DevInspectorExpenseDto[]
+  globalOperations: {
+    action: ActionName | null
+    available: boolean
+    id: string
+    impact: string
+    label: string
+    section: 'danger_zone' | 'tenant_factory'
+    tone: 'danger' | 'neutral'
+  }[]
   invoices: DevInspectorInvoiceDto[]
   members: DevInspectorMemberDto[]
   memberships: DevInspectorMembershipDto[]
   metrics: DevInspectorMetricsDto
+  recentActions: {
+    action: string
+    id: string
+    result: 'denied' | 'error' | 'success'
+    timestamp: Date
+  }[]
 }
 
 export interface DevOperatorActionInput {
@@ -266,29 +301,46 @@ export class DevOperatorConsoleService {
       membershipRole: selectedMember?.role ?? null,
       userId: selectedMember?.userId ?? null,
     }
+    const audit = await this.listAuditTrail({
+      accessibleTenantIds: tenantIds,
+      activeTenantId,
+      filters: {
+        action: filters.action?.trim() ?? '',
+        actorId: filters.actorId?.trim() ?? '',
+        tenantId:
+          filters.tenantId?.trim() &&
+          (filters.tenantId === 'all' || tenantIds.includes(filters.tenantId))
+            ? filters.tenantId.trim()
+            : selectedTenantId,
+      },
+    })
+    const metrics = await this.loadMetrics(selectedTenantId)
 
     return {
-      audit: await this.listAuditTrail({
-        accessibleTenantIds: tenantIds,
-        activeTenantId,
-        filters: {
-          action: filters.action?.trim() ?? '',
-          actorId: filters.actorId?.trim() ?? '',
-          tenantId:
-            filters.tenantId?.trim() &&
-            (filters.tenantId === 'all' || tenantIds.includes(filters.tenantId))
-              ? filters.tenantId.trim()
-              : selectedTenantId,
-        },
-      }),
+      audit,
       context: {
+        accessMode: 'read_only',
         activeTenantId,
         activeTenantName: activeTenant.name,
         activeTenantSlug: activeTenant.slug,
         currentRole: currentMembership?.role ?? null,
         environment: 'development',
         isAnonymous: authSession.user.isAnonymous,
+        operator: {
+          email: authSession.user.email,
+          membershipRole: currentMembership?.role ?? null,
+          name: authSession.user.name ?? authSession.user.email,
+          publicId: authSession.user.publicId,
+        },
         readOnlyBadge: 'Read-Only Access',
+        scenario: {
+          actorId: selectedMember?.userId ?? '',
+          actorName: selectedMember?.name ?? selectedMember?.email ?? 'No member selected',
+          actorRole: selectedMember?.role ?? null,
+          tenantId: selectedTenantId,
+          tenantName: selectedTenant?.organizationName ?? activeTenant.name,
+          tenantSlug: selectedTenant?.organizationSlug ?? activeTenant.slug,
+        },
         selectedMemberId: selectedMember?.id ?? '',
         selectedMemberName: selectedMember?.name ?? selectedMember?.email ?? 'No member selected',
         selectedMemberPermissions: {
@@ -313,19 +365,86 @@ export class DevOperatorConsoleService {
         selectedMemberRole: selectedMember?.role ?? null,
         selectedTenantId,
         selectedTenantName: selectedTenant?.organizationName ?? activeTenant.name,
+        sessionTenant: {
+          id: activeTenant.id,
+          name: activeTenant.name,
+          slug: activeTenant.slug,
+        },
         userEmail: authSession.user.email,
         userName: authSession.user.name ?? authSession.user.email,
         userPublicId: authSession.user.publicId,
       },
       customers: await this.listCustomers(selectedTenantId),
       expenses: await this.listExpenses(selectedTenantId),
+      globalOperations: [
+        {
+          action: null,
+          available: false,
+          id: 'create-empty-tenant',
+          impact: 'Creates a blank tenant shell for isolated scenario setup.',
+          label: 'Create empty tenant',
+          section: 'tenant_factory',
+          tone: 'neutral',
+        },
+        {
+          action: 'create-tenant-scenario',
+          available: true,
+          id: 'create-full-tenant',
+          impact: 'Creates a tenant with owner, admin, active member, and inactive member.',
+          label: 'Create full tenant',
+          section: 'tenant_factory',
+          tone: 'neutral',
+        },
+        {
+          action: 'create-tenant-scenario-seeded',
+          available: true,
+          id: 'create-seeded-tenant',
+          impact: 'Creates a tenant and seeds records for a realistic end-to-end scenario.',
+          label: 'Create seeded tenant',
+          section: 'tenant_factory',
+          tone: 'neutral',
+        },
+        {
+          action: 'reset-local-dataset',
+          available: true,
+          id: 'reset-selected-tenant',
+          impact: 'Clears and re-seeds the currently selected tenant.',
+          label: 'Reset selected tenant',
+          section: 'danger_zone',
+          tone: 'danger',
+        },
+        {
+          action: 'clear-tenant-data',
+          available: true,
+          id: 'clear-selected-tenant',
+          impact: 'Removes tenant business records without deleting the tenant itself.',
+          label: 'Clear selected tenant',
+          section: 'danger_zone',
+          tone: 'danger',
+        },
+        {
+          action: null,
+          available: false,
+          id: 'reset-database',
+          impact: 'Reserved for a full local reset. Intentionally gated in this slice.',
+          label: 'Reset database',
+          section: 'danger_zone',
+          tone: 'danger',
+        },
+      ],
       invoices: await this.listInvoices(selectedTenantId),
       members: members.map((member) => ({
         ...member,
         isCurrentActor: member.id === selectedMember?.id,
       })),
       memberships,
-      metrics: await this.loadMetrics(selectedTenantId),
+      metrics,
+      recentActions: audit.events.slice(0, 5).map((event) => ({
+        action: event.action,
+        id: event.id,
+        result: event.result,
+        timestamp: event.timestamp,
+      })),
     }
   }
 
