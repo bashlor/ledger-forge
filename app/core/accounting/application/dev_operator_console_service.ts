@@ -1,9 +1,22 @@
+import type { CriticalAuditTrail } from '#core/accounting/application/audit/critical_audit_trail'
 import type { AuthResult } from '#core/user_management/domain/authentication'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { DatabaseCriticalAuditTrail } from '#core/accounting/application/audit/critical_audit_trail'
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { DemoDatasetService } from '#core/accounting/application/demo/demo_dataset_service'
+import {
+  type ActionName,
+  type DevInspectorCustomerDto,
+  type DevInspectorExpenseDto,
+  type DevInspectorFilters,
+  type DevInspectorInvoiceDto,
+  type DevInspectorMembershipDto,
+  type DevInspectorMetricsDto,
+  type DevInspectorPageDto,
+  type DevInspectorTab,
+  type DevOperatorActionInput,
+} from '#core/accounting/application/dev_operator_console_types'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
@@ -18,259 +31,30 @@ import { setActiveOrganizationForSession } from '#core/user_management/applicati
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
-export interface DevInspectorAuditEventDto {
-  action: string
-  actorEmail: null | string
-  actorId: null | string
-  actorName: null | string
-  details: null | Record<string, unknown>
-  entityId: string
-  entityType: string
-  errorCode: null | string
-  id: string
-  organizationId: string
-  organizationName: string
-  result: 'denied' | 'error' | 'success'
-  timestamp: Date
+export {
+  type ActionName,
+  type DevInspectorAuditEventDto,
+  type DevInspectorCustomerDto,
+  type DevInspectorExpenseDto,
+  type DevInspectorFilters,
+  type DevInspectorInvoiceDto,
+  type DevInspectorMemberDto,
+  type DevInspectorMembershipDto,
+  type DevInspectorMetricsDto,
+  type DevInspectorPageDto,
+  type DevInspectorTab,
+  type DevOperatorActionInput,
+  isDevOperatorActionName,
+} from '#core/accounting/application/dev_operator_console_types'
+
+interface DevOperatorConsoleDependencies {
+  auditTrail?: CriticalAuditTrail
+  customerService?: CustomerService
+  demoDatasetService?: DemoDatasetService
+  expenseService?: ExpenseService
+  invoiceService?: InvoiceService
+  memberService?: MemberService
 }
-
-export interface DevInspectorCustomerDto {
-  company: string
-  createdAt: Date
-  email: string
-  id: string
-  name: string
-  phone: string
-}
-
-export interface DevInspectorExpenseDto {
-  amountCents: number
-  category: string
-  createdAt: Date
-  date: string
-  id: string
-  label: string
-  status: 'confirmed' | 'draft'
-}
-
-export interface DevInspectorFilters {
-  action?: string
-  actorId?: string
-  auditSearch?: string
-  expenseId?: string
-  invoiceId?: string
-  memberId?: string
-  memberRole?: string
-  memberSearch?: string
-  memberStatus?: string
-  probeType?: string
-  selectedRecordId?: string
-  tab?: string
-  tenantId?: string
-}
-
-export interface DevInspectorInvoiceDto {
-  createdAt: Date
-  customerCompanyName: string
-  dueDate: string
-  id: string
-  invoiceNumber: string
-  issueDate: string
-  status: 'draft' | 'issued' | 'paid'
-  totalInclTaxCents: number
-}
-
-export interface DevInspectorMemberDto {
-  email: string
-  id: string
-  isActive: boolean
-  isCurrentActor: boolean
-  name: string
-  role: 'admin' | 'member' | 'owner'
-  userId: string
-}
-
-export interface DevInspectorMembershipDto {
-  id: string
-  isActive: boolean
-  isCurrent: boolean
-  organizationId: string
-  organizationName: string
-  organizationSlug: string
-  permissions: {
-    accountingRead: boolean
-    accountingWriteDrafts: boolean
-    auditTrailView: boolean
-    invoiceIssue: boolean
-    invoiceMarkPaid: boolean
-    membershipChangeRole: boolean
-    membershipList: boolean
-    membershipToggleActive: boolean
-  }
-  role: 'admin' | 'member' | 'owner'
-}
-
-export interface DevInspectorMetricsDto {
-  auditEvents: number
-  customers: number
-  expenses: number
-  invoices: number
-  members: number
-}
-
-export interface DevInspectorPageDto {
-  audit: {
-    actors: { id: string; label: string }[]
-    events: DevInspectorAuditEventDto[]
-    filters: {
-      action: string
-      actorId: string
-      search: string
-      tenantId: string
-    }
-    tenants: { id: string; label: string }[]
-  }
-  context: {
-    accessMode: 'read_only'
-    activeTenantId: string
-    activeTenantName: string
-    activeTenantSlug: string
-    currentRole: 'admin' | 'member' | 'owner' | null
-    environment: 'development'
-    isAnonymous: boolean
-    operator: {
-      email: string
-      membershipRole: 'admin' | 'member' | 'owner' | null
-      name: string
-      publicId: string
-    }
-    readOnlyBadge: string
-    scenario: {
-      actorId: string
-      actorName: string
-      actorRole: 'admin' | 'member' | 'owner' | null
-      tenantId: string
-      tenantName: string
-      tenantSlug: string
-    }
-    selectedMemberId: string
-    selectedMemberName: string
-    selectedMemberPermissions: {
-      accountingRead: boolean
-      accountingWriteDrafts: boolean
-      auditTrailView: boolean
-      invoiceIssue: boolean
-      invoiceMarkPaid: boolean
-      membershipChangeRole: boolean
-      membershipList: boolean
-      membershipToggleActive: boolean
-    }
-    selectedMemberRole: 'admin' | 'member' | 'owner' | null
-    selectedTenantId: string
-    selectedTenantName: string
-    sessionTenant: {
-      id: string
-      name: string
-      slug: string
-    }
-    userEmail: string
-    userName: string
-    userPublicId: string
-  }
-  customers: DevInspectorCustomerDto[]
-  expenses: DevInspectorExpenseDto[]
-  globalOperations: {
-    action: ActionName | null
-    available: boolean
-    id: string
-    impact: string
-    label: string
-    section: 'danger_zone' | 'tenant_factory'
-    tone: 'danger' | 'neutral'
-  }[]
-  invoices: DevInspectorInvoiceDto[]
-  members: DevInspectorMemberDto[]
-  memberships: DevInspectorMembershipDto[]
-  metrics: DevInspectorMetricsDto
-  recentActions: {
-    action: string
-    id: string
-    result: 'denied' | 'error' | 'success'
-    timestamp: Date
-  }[]
-  view: {
-    activeTab: DevInspectorTab
-    auditSearch: string
-    memberRole: 'admin' | 'all' | 'member' | 'owner'
-    memberSearch: string
-    memberStatus: 'active' | 'all' | 'inactive'
-    probeType: 'customers' | 'expenses' | 'invoices'
-    selectedRecordId: string
-  }
-}
-
-export type DevInspectorTab =
-  | 'audit-trail'
-  | 'data-generator'
-  | 'members-permissions'
-  | 'overview'
-  | 'tenant-factory'
-  | 'workflow-probes'
-
-export interface DevOperatorActionInput {
-  count?: number
-  customerId?: string
-  expenseId?: string
-  invoiceId?: string
-  memberId?: string
-  tab?: string
-  tenantId?: string
-}
-
-type ActionName =
-  | 'attempt-forbidden-access'
-  | 'change-invoice-status'
-  | 'change-member-role'
-  | 'clear-tenant-data'
-  | 'confirm-expense'
-  | 'create-customer-batch'
-  | 'create-expense-test'
-  | 'create-invoice-test'
-  | 'create-tenant-scenario'
-  | 'create-tenant-scenario-seeded'
-  | 'delete-confirmed-expense'
-  | 'delete-customer'
-  | 'delete-expense'
-  | 'delete-invoice'
-  | 'generate-demo-data'
-  | 'reset-local-dataset'
-  | 'switch-tenant'
-  | 'toggle-member-active'
-  | 'update-customer'
-  | 'update-invoice-draft'
-
-const ACTION_NAMES: readonly ActionName[] = [
-  'attempt-forbidden-access',
-  'change-invoice-status',
-  'change-member-role',
-  'clear-tenant-data',
-  'confirm-expense',
-  'create-customer-batch',
-  'create-expense-test',
-  'create-invoice-test',
-  'create-tenant-scenario',
-  'create-tenant-scenario-seeded',
-  'delete-customer',
-  'delete-confirmed-expense',
-  'delete-expense',
-  'delete-invoice',
-  'generate-demo-data',
-  'reset-local-dataset',
-  'switch-tenant',
-  'toggle-member-active',
-  'update-customer',
-  'update-invoice-draft',
-]
 
 interface ScenarioContext {
   access: AccountingAccessContext
@@ -289,10 +73,39 @@ interface ScenarioMember {
   userId: string
 }
 
-export class DevOperatorConsoleService {
-  private readonly auditTrail = new DatabaseCriticalAuditTrail()
+interface TenantSelection {
+  activeTenant: TenantSummary
+  currentMembership: DevInspectorMembershipDto | null
+  selectedTenant: DevInspectorMembershipDto | null
+  selectedTenantId: string
+  tenantIds: string[]
+}
 
-  constructor(private readonly db: PostgresJsDatabase<typeof schema>) {}
+interface TenantSummary {
+  id: string
+  name: string
+  slug: string
+}
+
+export class DevOperatorConsoleService {
+  private readonly auditTrail: CriticalAuditTrail
+  private readonly customerService: CustomerService
+  private readonly demoDatasetService: DemoDatasetService
+  private readonly expenseService: ExpenseService
+  private readonly invoiceService: InvoiceService
+  private readonly memberService: MemberService
+
+  constructor(
+    private readonly db: PostgresJsDatabase<typeof schema>,
+    dependencies: DevOperatorConsoleDependencies = {}
+  ) {
+    this.auditTrail = dependencies.auditTrail ?? new DatabaseCriticalAuditTrail()
+    this.customerService = dependencies.customerService ?? new CustomerService(db)
+    this.demoDatasetService = dependencies.demoDatasetService ?? new DemoDatasetService(db)
+    this.expenseService = dependencies.expenseService ?? new ExpenseService(db)
+    this.invoiceService = dependencies.invoiceService ?? new InvoiceService(db)
+    this.memberService = dependencies.memberService ?? new MemberService(db)
+  }
 
   async getPageData(
     authSession: AuthResult,
@@ -300,196 +113,57 @@ export class DevOperatorConsoleService {
     filters: DevInspectorFilters = {}
   ): Promise<DevInspectorPageDto> {
     const memberships = await this.listMemberships(authSession, authorizationService)
-    const activeTenantId = authSession.session.activeOrganizationId
-    if (!activeTenantId) {
-      throw new DomainError('Missing active tenant.', 'forbidden')
-    }
-
-    const currentMembership =
-      memberships.find((membership) => membership.organizationId === activeTenantId) ?? null
-    const activeTenant = currentMembership
-      ? {
-          id: currentMembership.organizationId,
-          name: currentMembership.organizationName,
-          slug: currentMembership.organizationSlug,
-        }
-      : await this.loadOrganization(activeTenantId)
-
-    const tenantIds = memberships.map((membership) => membership.organizationId)
-    const selectedTenantId =
-      filters.tenantId && tenantIds.includes(filters.tenantId) ? filters.tenantId : activeTenantId
-    const selectedTenant =
-      memberships.find((membership) => membership.organizationId === selectedTenantId) ??
-      currentMembership ??
-      null
-
-    const members = await this.listMembersForTenant(selectedTenantId, filters.memberId)
-    const selectedMember =
-      members.find((member) => member.id === filters.memberId) ??
-      members.find((member) => member.userId === authSession.user.id) ??
-      members[0] ??
-      null
-    const selectedMemberActor = {
-      activeTenantId: selectedTenantId,
-      isDevOperator: false,
-      membershipIsActive: selectedMember?.isActive ?? false,
-      membershipRole: selectedMember?.role ?? null,
-      userId: selectedMember?.userId ?? null,
-    }
-    const audit = await this.listAuditTrail({
-      accessibleTenantIds: tenantIds,
-      activeTenantId,
-      filters: {
-        action: filters.action?.trim() ?? '',
-        actorId: filters.actorId?.trim() ?? '',
-        search: filters.auditSearch?.trim() ?? '',
-        tenantId:
-          filters.tenantId?.trim() &&
-          (filters.tenantId === 'all' || tenantIds.includes(filters.tenantId))
-            ? filters.tenantId.trim()
-            : selectedTenantId,
-      },
-    })
-    const metrics = await this.loadMetrics(selectedTenantId)
+    const tenantSelection = await this.resolveTenantSelection(
+      memberships,
+      authSession.session.activeOrganizationId,
+      filters.tenantId
+    )
+    const members = await this.listMembersForTenant(
+      tenantSelection.selectedTenantId,
+      filters.memberId
+    )
+    const selectedMember = this.resolveSelectedMember(
+      members,
+      authSession.user.id,
+      filters.memberId
+    )
+    const auditFilters = this.buildAuditFilters(
+      filters,
+      tenantSelection.tenantIds,
+      tenantSelection.selectedTenantId
+    )
+    const [audit, customers, expenses, invoices, metrics] = await Promise.all([
+      this.listAuditTrail({
+        accessibleTenantIds: tenantSelection.tenantIds,
+        activeTenantId: tenantSelection.activeTenant.id,
+        filters: auditFilters,
+      }),
+      this.listCustomers(tenantSelection.selectedTenantId),
+      this.listExpenses(tenantSelection.selectedTenantId),
+      this.listInvoices(tenantSelection.selectedTenantId),
+      this.loadMetrics(tenantSelection.selectedTenantId),
+    ])
 
     return {
       audit,
-      context: {
-        accessMode: 'read_only',
-        activeTenantId,
-        activeTenantName: activeTenant.name,
-        activeTenantSlug: activeTenant.slug,
-        currentRole: currentMembership?.role ?? null,
-        environment: 'development',
-        isAnonymous: authSession.user.isAnonymous,
-        operator: {
-          email: authSession.user.email,
-          membershipRole: currentMembership?.role ?? null,
-          name: authSession.user.name ?? authSession.user.email,
-          publicId: authSession.user.publicId,
-        },
-        readOnlyBadge: 'Read-Only Access',
-        scenario: {
-          actorId: selectedMember?.userId ?? '',
-          actorName: selectedMember?.name ?? selectedMember?.email ?? 'No member selected',
-          actorRole: selectedMember?.role ?? null,
-          tenantId: selectedTenantId,
-          tenantName: selectedTenant?.organizationName ?? activeTenant.name,
-          tenantSlug: selectedTenant?.organizationSlug ?? activeTenant.slug,
-        },
-        selectedMemberId: selectedMember?.id ?? '',
-        selectedMemberName: selectedMember?.name ?? selectedMember?.email ?? 'No member selected',
-        selectedMemberPermissions: {
-          accountingRead: authorizationService.allows(selectedMemberActor, 'accounting.read'),
-          accountingWriteDrafts: authorizationService.allows(
-            selectedMemberActor,
-            'accounting.writeDrafts'
-          ),
-          auditTrailView: authorizationService.allows(selectedMemberActor, 'auditTrail.view'),
-          invoiceIssue: authorizationService.allows(selectedMemberActor, 'invoice.issue'),
-          invoiceMarkPaid: authorizationService.allows(selectedMemberActor, 'invoice.markPaid'),
-          membershipChangeRole: authorizationService.allows(
-            selectedMemberActor,
-            'membership.changeRole'
-          ),
-          membershipList: authorizationService.allows(selectedMemberActor, 'membership.list'),
-          membershipToggleActive: authorizationService.allows(
-            selectedMemberActor,
-            'membership.toggleActive'
-          ),
-        },
-        selectedMemberRole: selectedMember?.role ?? null,
-        selectedTenantId,
-        selectedTenantName: selectedTenant?.organizationName ?? activeTenant.name,
-        sessionTenant: {
-          id: activeTenant.id,
-          name: activeTenant.name,
-          slug: activeTenant.slug,
-        },
-        userEmail: authSession.user.email,
-        userName: authSession.user.name ?? authSession.user.email,
-        userPublicId: authSession.user.publicId,
-      },
-      customers: await this.listCustomers(selectedTenantId),
-      expenses: await this.listExpenses(selectedTenantId),
-      globalOperations: [
-        {
-          action: null,
-          available: false,
-          id: 'create-empty-tenant',
-          impact: 'Creates a blank tenant shell for isolated scenario setup.',
-          label: 'Create empty tenant',
-          section: 'tenant_factory',
-          tone: 'neutral',
-        },
-        {
-          action: 'create-tenant-scenario',
-          available: true,
-          id: 'create-full-tenant',
-          impact: 'Creates a tenant with owner, admin, active member, and inactive member.',
-          label: 'Create full tenant',
-          section: 'tenant_factory',
-          tone: 'neutral',
-        },
-        {
-          action: 'create-tenant-scenario-seeded',
-          available: true,
-          id: 'create-seeded-tenant',
-          impact: 'Creates a tenant and seeds records for a realistic end-to-end scenario.',
-          label: 'Create seeded tenant',
-          section: 'tenant_factory',
-          tone: 'neutral',
-        },
-        {
-          action: 'reset-local-dataset',
-          available: true,
-          id: 'reset-selected-tenant',
-          impact: 'Clears and re-seeds the currently selected tenant.',
-          label: 'Reset selected tenant',
-          section: 'danger_zone',
-          tone: 'danger',
-        },
-        {
-          action: 'clear-tenant-data',
-          available: true,
-          id: 'clear-selected-tenant',
-          impact: 'Removes tenant business records without deleting the tenant itself.',
-          label: 'Clear selected tenant',
-          section: 'danger_zone',
-          tone: 'danger',
-        },
-        {
-          action: null,
-          available: false,
-          id: 'reset-database',
-          impact: 'Reserved for a full local reset. Intentionally gated in this slice.',
-          label: 'Reset database',
-          section: 'danger_zone',
-          tone: 'danger',
-        },
-      ],
-      invoices: await this.listInvoices(selectedTenantId),
+      context: this.buildPageContext(
+        authSession,
+        authorizationService,
+        tenantSelection,
+        selectedMember
+      ),
+      customers,
+      expenses,
+      globalOperations: this.buildGlobalOperations(),
+      invoices,
       members: members.map((member) => ({
         ...member,
         isCurrentActor: member.id === selectedMember?.id,
       })),
       memberships,
       metrics,
-      recentActions: audit.events.slice(0, 5).map((event) => ({
-        action: event.action,
-        id: event.id,
-        result: event.result,
-        timestamp: event.timestamp,
-      })),
-      view: {
-        activeTab: resolveActiveTab(filters.tab),
-        auditSearch: filters.auditSearch?.trim() ?? '',
-        memberRole: resolveMemberRole(filters.memberRole),
-        memberSearch: filters.memberSearch?.trim() ?? '',
-        memberStatus: resolveMemberStatus(filters.memberStatus),
-        probeType: resolveProbeType(filters.probeType),
-        selectedRecordId: filters.selectedRecordId?.trim() ?? '',
-      },
+      recentActions: this.buildRecentActions(audit),
+      view: this.buildView(filters),
     }
   }
 
@@ -510,7 +184,7 @@ export class DevOperatorConsoleService {
         return this.changeMemberRole(scenario, authorizationService, input.memberId)
       case 'clear-tenant-data':
         authorizationService.authorize(scenario.actor, 'invoice.markPaid')
-        await new DemoDatasetService(this.db).clearTenantData(scenario.tenantId)
+        await this.demoDatasetService.clearTenantData(scenario.tenantId)
         return 'Selected tenant dataset cleared.'
       case 'confirm-expense':
         return this.confirmExpense(scenario, authorizationService, input.expenseId)
@@ -537,11 +211,11 @@ export class DevOperatorConsoleService {
         return this.deleteInvoice(scenario, authorizationService, input.invoiceId)
       case 'generate-demo-data':
         authorizationService.authorize(scenario.actor, 'invoice.markPaid')
-        await new DemoDatasetService(this.db).seedTenant(scenario.access)
+        await this.demoDatasetService.seedTenant(scenario.access)
         return 'Demo data generated for the selected tenant.'
       case 'reset-local-dataset':
         authorizationService.authorize(scenario.actor, 'invoice.markPaid')
-        await new DemoDatasetService(this.db).resetTenant(scenario.access)
+        await this.demoDatasetService.resetTenant(scenario.access)
         return 'Selected tenant dataset reset and re-seeded.'
       case 'switch-tenant':
         throw new DomainError(
@@ -620,12 +294,199 @@ export class DevOperatorConsoleService {
     )
   }
 
+  private buildAuditFilters(
+    filters: DevInspectorFilters,
+    tenantIds: string[],
+    selectedTenantId: string
+  ): DevInspectorPageDto['audit']['filters'] {
+    const requestedTenantId = filters.tenantId?.trim()
+
+    return {
+      action: filters.action?.trim() ?? '',
+      actorId: filters.actorId?.trim() ?? '',
+      search: filters.auditSearch?.trim() ?? '',
+      tenantId:
+        requestedTenantId && (requestedTenantId === 'all' || tenantIds.includes(requestedTenantId))
+          ? requestedTenantId
+          : selectedTenantId,
+    }
+  }
+
+  private buildGlobalOperations(): DevInspectorPageDto['globalOperations'] {
+    return [
+      {
+        action: null,
+        available: false,
+        id: 'create-empty-tenant',
+        impact: 'Creates a blank tenant shell for isolated scenario setup.',
+        label: 'Create empty tenant',
+        section: 'tenant_factory',
+        tone: 'neutral',
+      },
+      {
+        action: 'create-tenant-scenario',
+        available: true,
+        id: 'create-full-tenant',
+        impact: 'Creates a tenant with owner, admin, active member, and inactive member.',
+        label: 'Create full tenant',
+        section: 'tenant_factory',
+        tone: 'neutral',
+      },
+      {
+        action: 'create-tenant-scenario-seeded',
+        available: true,
+        id: 'create-seeded-tenant',
+        impact: 'Creates a tenant and seeds records for a realistic end-to-end scenario.',
+        label: 'Create seeded tenant',
+        section: 'tenant_factory',
+        tone: 'neutral',
+      },
+      {
+        action: 'reset-local-dataset',
+        available: true,
+        id: 'reset-selected-tenant',
+        impact: 'Clears and re-seeds the currently selected tenant.',
+        label: 'Reset selected tenant',
+        section: 'danger_zone',
+        tone: 'danger',
+      },
+      {
+        action: 'clear-tenant-data',
+        available: true,
+        id: 'clear-selected-tenant',
+        impact: 'Removes tenant business records without deleting the tenant itself.',
+        label: 'Clear selected tenant',
+        section: 'danger_zone',
+        tone: 'danger',
+      },
+      {
+        action: null,
+        available: false,
+        id: 'reset-database',
+        impact: 'Reserved for a full local reset. Intentionally gated in this slice.',
+        label: 'Reset database',
+        section: 'danger_zone',
+        tone: 'danger',
+      },
+    ]
+  }
+
+  private buildPageContext(
+    authSession: AuthResult,
+    authorizationService: AuthorizationService,
+    tenantSelection: TenantSelection,
+    selectedMember: null | ScenarioMember
+  ): DevInspectorPageDto['context'] {
+    const selectedTenantName =
+      tenantSelection.selectedTenant?.organizationName ?? tenantSelection.activeTenant.name
+
+    return {
+      accessMode: 'read_only',
+      activeTenantId: tenantSelection.activeTenant.id,
+      activeTenantName: tenantSelection.activeTenant.name,
+      activeTenantSlug: tenantSelection.activeTenant.slug,
+      currentRole: tenantSelection.currentMembership?.role ?? null,
+      environment: 'development',
+      isAnonymous: authSession.user.isAnonymous,
+      operator: {
+        email: authSession.user.email,
+        membershipRole: tenantSelection.currentMembership?.role ?? null,
+        name: authSession.user.name ?? authSession.user.email,
+        publicId: authSession.user.publicId,
+      },
+      readOnlyBadge: 'Read-Only Access',
+      scenario: {
+        actorId: selectedMember?.userId ?? '',
+        actorName: selectedMember?.name ?? selectedMember?.email ?? 'No member selected',
+        actorRole: selectedMember?.role ?? null,
+        tenantId: tenantSelection.selectedTenantId,
+        tenantName: selectedTenantName,
+        tenantSlug:
+          tenantSelection.selectedTenant?.organizationSlug ?? tenantSelection.activeTenant.slug,
+      },
+      selectedMemberId: selectedMember?.id ?? '',
+      selectedMemberName: selectedMember?.name ?? selectedMember?.email ?? 'No member selected',
+      selectedMemberPermissions: this.buildSelectedMemberPermissions(
+        authorizationService,
+        tenantSelection.selectedTenantId,
+        selectedMember
+      ),
+      selectedMemberRole: selectedMember?.role ?? null,
+      selectedTenantId: tenantSelection.selectedTenantId,
+      selectedTenantName,
+      sessionTenant: {
+        id: tenantSelection.activeTenant.id,
+        name: tenantSelection.activeTenant.name,
+        slug: tenantSelection.activeTenant.slug,
+      },
+      userEmail: authSession.user.email,
+      userName: authSession.user.name ?? authSession.user.email,
+      userPublicId: authSession.user.publicId,
+    }
+  }
+
+  private buildRecentActions(
+    audit: DevInspectorPageDto['audit']
+  ): DevInspectorPageDto['recentActions'] {
+    return audit.events.slice(0, 5).map((event) => ({
+      action: event.action,
+      id: event.id,
+      result: event.result,
+      timestamp: event.timestamp,
+    }))
+  }
+
+  private buildSelectedMemberPermissions(
+    authorizationService: AuthorizationService,
+    selectedTenantId: string,
+    selectedMember: null | ScenarioMember
+  ): DevInspectorPageDto['context']['selectedMemberPermissions'] {
+    const selectedMemberActor = {
+      activeTenantId: selectedTenantId,
+      isDevOperator: false,
+      membershipIsActive: selectedMember?.isActive ?? false,
+      membershipRole: selectedMember?.role ?? null,
+      userId: selectedMember?.userId ?? null,
+    }
+
+    return {
+      accountingRead: authorizationService.allows(selectedMemberActor, 'accounting.read'),
+      accountingWriteDrafts: authorizationService.allows(
+        selectedMemberActor,
+        'accounting.writeDrafts'
+      ),
+      auditTrailView: authorizationService.allows(selectedMemberActor, 'auditTrail.view'),
+      invoiceIssue: authorizationService.allows(selectedMemberActor, 'invoice.issue'),
+      invoiceMarkPaid: authorizationService.allows(selectedMemberActor, 'invoice.markPaid'),
+      membershipChangeRole: authorizationService.allows(
+        selectedMemberActor,
+        'membership.changeRole'
+      ),
+      membershipList: authorizationService.allows(selectedMemberActor, 'membership.list'),
+      membershipToggleActive: authorizationService.allows(
+        selectedMemberActor,
+        'membership.toggleActive'
+      ),
+    }
+  }
+
+  private buildView(filters: DevInspectorFilters): DevInspectorPageDto['view'] {
+    return {
+      activeTab: resolveActiveTab(filters.tab),
+      auditSearch: filters.auditSearch?.trim() ?? '',
+      memberRole: resolveMemberRole(filters.memberRole),
+      memberSearch: filters.memberSearch?.trim() ?? '',
+      memberStatus: resolveMemberStatus(filters.memberStatus),
+      probeType: resolveProbeType(filters.probeType),
+      selectedRecordId: filters.selectedRecordId?.trim() ?? '',
+    }
+  }
+
   private async changeInvoiceStatus(
     scenario: ScenarioContext,
     authorizationService: AuthorizationService,
     requestedInvoiceId?: string
   ): Promise<string> {
-    const invoiceService = new InvoiceService(this.db)
     const nextTarget = await this.findInvoiceForStatusTransition(
       scenario.tenantId,
       requestedInvoiceId
@@ -639,7 +500,7 @@ export class DevOperatorConsoleService {
 
     if (nextTarget.status === 'draft') {
       authorizationService.authorize(scenario.actor, 'invoice.issue')
-      await invoiceService.issueInvoice(
+      await this.invoiceService.issueInvoice(
         nextTarget.id,
         {
           issuedCompanyAddress: '15 rue de la Paix, 75001 Paris',
@@ -651,7 +512,7 @@ export class DevOperatorConsoleService {
     }
 
     authorizationService.authorize(scenario.actor, 'invoice.markPaid')
-    await invoiceService.markInvoicePaid(nextTarget.id, scenario.access)
+    await this.invoiceService.markInvoicePaid(nextTarget.id, scenario.access)
     return `Invoice ${nextTarget.invoiceNumber} marked as paid.`
   }
 
@@ -677,7 +538,7 @@ export class DevOperatorConsoleService {
     authorizationService.authorize(scenario.actor, 'membership.changeRole', subject ?? undefined)
 
     const nextRole = target.role === 'admin' ? 'member' : 'admin'
-    await new MemberService(this.db).updateMemberRole(target.id, nextRole, scenario.tenantId)
+    await this.memberService.updateMemberRole(target.id, nextRole, scenario.tenantId)
 
     const membershipLabel = await this.loadUserLabel(target.userId)
     await this.auditTrail.record(this.db, {
@@ -718,7 +579,7 @@ export class DevOperatorConsoleService {
       )
     }
 
-    await new ExpenseService(this.db).confirmExpense(targetExpense.id, scenario.access)
+    await this.expenseService.confirmExpense(targetExpense.id, scenario.access)
     return `Expense ${targetExpense.label} confirmed.`
   }
 
@@ -735,11 +596,9 @@ export class DevOperatorConsoleService {
     access: AccountingAccessContext,
     batchSize = 4
   ): Promise<string> {
-    const customerService = new CustomerService(this.db)
-
     for (let index = 0; index < batchSize; index++) {
       const suffix = shortToken()
-      await customerService.createCustomer(
+      await this.customerService.createCustomer(
         {
           address: `${10 + index} rue des Tests, 75010 Paris`,
           company: `Dev Customer ${suffix}`,
@@ -759,10 +618,8 @@ export class DevOperatorConsoleService {
     access: AccountingAccessContext,
     batchSize = 3
   ): Promise<string> {
-    const expenseService = new ExpenseService(this.db)
-
     for (let index = 0; index < batchSize; index++) {
-      await expenseService.createExpense(
+      await this.expenseService.createExpense(
         {
           amount: 48 + index * 11,
           category: index % 2 === 0 ? 'Software' : 'Travel',
@@ -780,12 +637,11 @@ export class DevOperatorConsoleService {
     access: AccountingAccessContext,
     batchSize = 3
   ): Promise<string> {
-    const invoiceService = new InvoiceService(this.db)
     const today = dateOnlyUtc(new Date())
 
     for (let index = 0; index < batchSize; index++) {
       const customerId = await this.findOrCreateCustomer(access)
-      await invoiceService.createDraft(
+      await this.invoiceService.createDraft(
         {
           customerId,
           dueDate: addDays(today, 14 + index),
@@ -873,7 +729,7 @@ export class DevOperatorConsoleService {
     })
 
     if (seedData) {
-      await new DemoDatasetService(this.db).seedTenant({
+      await this.demoDatasetService.seedTenant({
         actorId: actorIds.owner,
         isAnonymous: false,
         requestId: 'dev-operator-console',
@@ -902,7 +758,7 @@ export class DevOperatorConsoleService {
       )
     }
 
-    await new ExpenseService(this.db).deleteExpense(targetExpense.id, scenario.access)
+    await this.expenseService.deleteExpense(targetExpense.id, scenario.access)
     return `Expense ${targetExpense.label} deleted.`
   }
 
@@ -924,7 +780,7 @@ export class DevOperatorConsoleService {
       )
     }
 
-    await new CustomerService(this.db).deleteCustomer(targetCustomer.id, scenario.access)
+    await this.customerService.deleteCustomer(targetCustomer.id, scenario.access)
     return `Customer ${targetCustomer.company} deleted.`
   }
 
@@ -943,7 +799,7 @@ export class DevOperatorConsoleService {
       )
     }
 
-    await new ExpenseService(this.db).deleteExpense(targetExpense.id, scenario.access)
+    await this.expenseService.deleteExpense(targetExpense.id, scenario.access)
     return `Expense ${targetExpense.label} deleted.`
   }
 
@@ -965,7 +821,7 @@ export class DevOperatorConsoleService {
       )
     }
 
-    await new InvoiceService(this.db).deleteDraft(targetInvoice.id, scenario.access)
+    await this.invoiceService.deleteDraft(targetInvoice.id, scenario.access)
     return `Draft invoice ${targetInvoice.invoiceNumber} deleted.`
   }
 
@@ -1153,8 +1009,7 @@ export class DevOperatorConsoleService {
       return existing.id
     }
 
-    const customerService = new CustomerService(this.db)
-    const created = await customerService.createCustomer(
+    const created = await this.customerService.createCustomer(
       {
         address: '15 rue des Tests, 75010 Paris',
         company: `Dev Customer ${shortToken()}`,
@@ -1573,6 +1428,56 @@ export class DevOperatorConsoleService {
     }
   }
 
+  private resolveSelectedMember(
+    members: ScenarioMember[],
+    currentUserId: string,
+    requestedMemberId?: string
+  ): null | ScenarioMember {
+    return (
+      members.find((member) => member.id === requestedMemberId) ??
+      members.find((member) => member.userId === currentUserId) ??
+      members[0] ??
+      null
+    )
+  }
+
+  private async resolveTenantSelection(
+    memberships: DevInspectorMembershipDto[],
+    activeTenantId: null | string | undefined,
+    requestedTenantId?: string
+  ): Promise<TenantSelection> {
+    if (!activeTenantId) {
+      throw new DomainError('Missing active tenant.', 'forbidden')
+    }
+
+    const currentMembership =
+      memberships.find((membership) => membership.organizationId === activeTenantId) ?? null
+    const activeTenant = currentMembership
+      ? {
+          id: currentMembership.organizationId,
+          name: currentMembership.organizationName,
+          slug: currentMembership.organizationSlug,
+        }
+      : await this.loadOrganization(activeTenantId)
+
+    const tenantIds = memberships.map((membership) => membership.organizationId)
+    const selectedTenantId =
+      requestedTenantId && tenantIds.includes(requestedTenantId)
+        ? requestedTenantId
+        : activeTenantId
+
+    return {
+      activeTenant,
+      currentMembership,
+      selectedTenant:
+        memberships.find((membership) => membership.organizationId === selectedTenantId) ??
+        currentMembership ??
+        null,
+      selectedTenantId,
+      tenantIds,
+    }
+  }
+
   private async toggleMemberActive(
     scenario: ScenarioContext,
     authorizationService: AuthorizationService,
@@ -1595,7 +1500,7 @@ export class DevOperatorConsoleService {
     authorizationService.authorize(scenario.actor, 'membership.toggleActive', subject ?? undefined)
 
     const nextActive = !target.isActive
-    await new MemberService(this.db).toggleMemberActive(
+    await this.memberService.toggleMemberActive(
       target.id,
       nextActive,
       scenario.tenantId,
@@ -1640,7 +1545,7 @@ export class DevOperatorConsoleService {
       )
     }
 
-    await new CustomerService(this.db).updateCustomer(
+    await this.customerService.updateCustomer(
       customer.id,
       {
         address: customer.address,
@@ -1704,7 +1609,7 @@ export class DevOperatorConsoleService {
       throw new DomainError('Draft invoice has no editable lines.', 'business_logic_error')
     }
 
-    await new InvoiceService(this.db).updateDraft(
+    await this.invoiceService.updateDraft(
       invoice.id,
       {
         customerId: invoice.customerId,
@@ -1723,10 +1628,6 @@ export class DevOperatorConsoleService {
 
     return `Draft invoice ${invoice.invoiceNumber} updated.`
   }
-}
-
-export function isDevOperatorActionName(value: string): value is ActionName {
-  return ACTION_NAMES.includes(value as ActionName)
 }
 
 function addDays(value: string, days: number): string {

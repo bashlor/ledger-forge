@@ -9,6 +9,7 @@ import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { StructuredAccountingActivitySink } from '#core/accounting/application/support/activity_log'
 import { SystemAccountingBusinessCalendar } from '#core/accounting/application/support/business_calendar'
+import { MemberService } from '#core/user_management/application/member_service'
 import logger from '@adonisjs/core/services/logger'
 
 export default class AccountingProvider {
@@ -59,7 +60,19 @@ export default class AccountingProvider {
 
     this.app.container.bind(DevOperatorConsoleService, async (resolver) => {
       const db = await resolver.make('drizzle')
-      return new DevOperatorConsoleService(db)
+      const customerService = await resolver.make(CustomerService)
+      const demoDatasetService = await resolver.make(DemoDatasetService)
+      const expenseService = await resolver.make(ExpenseService)
+      const invoiceService = await resolver.make(InvoiceService)
+      const memberService = await resolver.make(MemberService)
+
+      return new DevOperatorConsoleService(db, {
+        customerService,
+        demoDatasetService,
+        expenseService,
+        invoiceService,
+        memberService,
+      })
     })
 
     this.app.container.bind(DemoDatasetService, async (resolver) => {
