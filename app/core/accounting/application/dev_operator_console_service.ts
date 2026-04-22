@@ -5,18 +5,19 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { DatabaseCriticalAuditTrail } from '#core/accounting/application/audit/critical_audit_trail'
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { DemoDatasetService } from '#core/accounting/application/demo/demo_dataset_service'
+import { DevOperatorConsolePageService } from '#core/accounting/application/dev_operator_console_page_service'
+import { DevOperatorConsoleQueryService } from '#core/accounting/application/dev_operator_console_query_service'
 import {
   type ActionName,
-  type DevInspectorCustomerDto,
-  type DevInspectorExpenseDto,
   type DevInspectorFilters,
-  type DevInspectorInvoiceDto,
-  type DevInspectorMembershipDto,
-  type DevInspectorMetricsDto,
   type DevInspectorPageDto,
-  type DevInspectorTab,
   type DevOperatorActionInput,
 } from '#core/accounting/application/dev_operator_console_types'
+import {
+  addDays,
+  dateOnlyUtc,
+  shortToken,
+} from '#core/accounting/application/dev_operator_console_utils'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
@@ -28,7 +29,7 @@ import {
 } from '#core/user_management/application/authorization_service'
 import { MemberService } from '#core/user_management/application/member_service'
 import { setActiveOrganizationForSession } from '#core/user_management/application/workspace_provisioning'
-import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 export {
@@ -54,6 +55,8 @@ interface DevOperatorConsoleDependencies {
   expenseService?: ExpenseService
   invoiceService?: InvoiceService
   memberService?: MemberService
+  pageService?: DevOperatorConsolePageService
+  queryService?: DevOperatorConsoleQueryService
 }
 
 interface ScenarioContext {
@@ -73,20 +76,6 @@ interface ScenarioMember {
   userId: string
 }
 
-interface TenantSelection {
-  activeTenant: TenantSummary
-  currentMembership: DevInspectorMembershipDto | null
-  selectedTenant: DevInspectorMembershipDto | null
-  selectedTenantId: string
-  tenantIds: string[]
-}
-
-interface TenantSummary {
-  id: string
-  name: string
-  slug: string
-}
-
 export class DevOperatorConsoleService {
   private readonly auditTrail: CriticalAuditTrail
   private readonly customerService: CustomerService
@@ -94,6 +83,8 @@ export class DevOperatorConsoleService {
   private readonly expenseService: ExpenseService
   private readonly invoiceService: InvoiceService
   private readonly memberService: MemberService
+  private readonly pageService: DevOperatorConsolePageService
+  private readonly queryService: DevOperatorConsoleQueryService
 
   constructor(
     private readonly db: PostgresJsDatabase<typeof schema>,
@@ -105,6 +96,9 @@ export class DevOperatorConsoleService {
     this.expenseService = dependencies.expenseService ?? new ExpenseService(db)
     this.invoiceService = dependencies.invoiceService ?? new InvoiceService(db)
     this.memberService = dependencies.memberService ?? new MemberService(db)
+    this.queryService = dependencies.queryService ?? new DevOperatorConsoleQueryService(db)
+    this.pageService =
+      dependencies.pageService ?? new DevOperatorConsolePageService(this.queryService)
   }
 
   async getPageData(
@@ -112,59 +106,7 @@ export class DevOperatorConsoleService {
     authorizationService: AuthorizationService,
     filters: DevInspectorFilters = {}
   ): Promise<DevInspectorPageDto> {
-    const memberships = await this.listMemberships(authSession, authorizationService)
-    const tenantSelection = await this.resolveTenantSelection(
-      memberships,
-      authSession.session.activeOrganizationId,
-      filters.tenantId
-    )
-    const members = await this.listMembersForTenant(
-      tenantSelection.selectedTenantId,
-      filters.memberId
-    )
-    const selectedMember = this.resolveSelectedMember(
-      members,
-      authSession.user.id,
-      filters.memberId
-    )
-    const auditFilters = this.buildAuditFilters(
-      filters,
-      tenantSelection.tenantIds,
-      tenantSelection.selectedTenantId
-    )
-    const [audit, customers, expenses, invoices, metrics] = await Promise.all([
-      this.listAuditTrail({
-        accessibleTenantIds: tenantSelection.tenantIds,
-        activeTenantId: tenantSelection.activeTenant.id,
-        filters: auditFilters,
-      }),
-      this.listCustomers(tenantSelection.selectedTenantId),
-      this.listExpenses(tenantSelection.selectedTenantId),
-      this.listInvoices(tenantSelection.selectedTenantId),
-      this.loadMetrics(tenantSelection.selectedTenantId),
-    ])
-
-    return {
-      audit,
-      context: this.buildPageContext(
-        authSession,
-        authorizationService,
-        tenantSelection,
-        selectedMember
-      ),
-      customers,
-      expenses,
-      globalOperations: this.buildGlobalOperations(),
-      invoices,
-      members: members.map((member) => ({
-        ...member,
-        isCurrentActor: member.id === selectedMember?.id,
-      })),
-      memberships,
-      metrics,
-      recentActions: this.buildRecentActions(audit),
-      view: this.buildView(filters),
-    }
+    return this.pageService.getPageData(authSession, authorizationService, filters)
   }
 
   async runAction(
@@ -269,7 +211,10 @@ export class DevOperatorConsoleService {
       )
     }
 
-    const targetInvoice = await this.findAnyInvoice(scenario.tenantId, requestedInvoiceId)
+    const targetInvoice = await this.queryService.findAnyInvoice(
+      scenario.tenantId,
+      requestedInvoiceId
+    )
     if (!targetInvoice) {
       throw new DomainError(
         'Create a test invoice before running the forbidden-access scenario.',
@@ -294,200 +239,12 @@ export class DevOperatorConsoleService {
     )
   }
 
-  private buildAuditFilters(
-    filters: DevInspectorFilters,
-    tenantIds: string[],
-    selectedTenantId: string
-  ): DevInspectorPageDto['audit']['filters'] {
-    const requestedTenantId = filters.tenantId?.trim()
-
-    return {
-      action: filters.action?.trim() ?? '',
-      actorId: filters.actorId?.trim() ?? '',
-      search: filters.auditSearch?.trim() ?? '',
-      tenantId:
-        requestedTenantId && (requestedTenantId === 'all' || tenantIds.includes(requestedTenantId))
-          ? requestedTenantId
-          : selectedTenantId,
-    }
-  }
-
-  private buildGlobalOperations(): DevInspectorPageDto['globalOperations'] {
-    return [
-      {
-        action: null,
-        available: false,
-        id: 'create-empty-tenant',
-        impact: 'Creates a blank tenant shell for isolated scenario setup.',
-        label: 'Create empty tenant',
-        section: 'tenant_factory',
-        tone: 'neutral',
-      },
-      {
-        action: 'create-tenant-scenario',
-        available: true,
-        id: 'create-full-tenant',
-        impact: 'Creates a tenant with owner, admin, active member, and inactive member.',
-        label: 'Create full tenant',
-        section: 'tenant_factory',
-        tone: 'neutral',
-      },
-      {
-        action: 'create-tenant-scenario-seeded',
-        available: true,
-        id: 'create-seeded-tenant',
-        impact: 'Creates a tenant and seeds records for a realistic end-to-end scenario.',
-        label: 'Create seeded tenant',
-        section: 'tenant_factory',
-        tone: 'neutral',
-      },
-      {
-        action: 'reset-local-dataset',
-        available: true,
-        id: 'reset-selected-tenant',
-        impact: 'Clears and re-seeds the currently selected tenant.',
-        label: 'Reset selected tenant',
-        section: 'danger_zone',
-        tone: 'danger',
-      },
-      {
-        action: 'clear-tenant-data',
-        available: true,
-        id: 'clear-selected-tenant',
-        impact: 'Removes tenant business records without deleting the tenant itself.',
-        label: 'Clear selected tenant',
-        section: 'danger_zone',
-        tone: 'danger',
-      },
-      {
-        action: null,
-        available: false,
-        id: 'reset-database',
-        impact: 'Reserved for a full local reset. Intentionally gated in this slice.',
-        label: 'Reset database',
-        section: 'danger_zone',
-        tone: 'danger',
-      },
-    ]
-  }
-
-  private buildPageContext(
-    authSession: AuthResult,
-    authorizationService: AuthorizationService,
-    tenantSelection: TenantSelection,
-    selectedMember: null | ScenarioMember
-  ): DevInspectorPageDto['context'] {
-    const selectedTenantName =
-      tenantSelection.selectedTenant?.organizationName ?? tenantSelection.activeTenant.name
-
-    return {
-      accessMode: 'read_only',
-      activeTenantId: tenantSelection.activeTenant.id,
-      activeTenantName: tenantSelection.activeTenant.name,
-      activeTenantSlug: tenantSelection.activeTenant.slug,
-      currentRole: tenantSelection.currentMembership?.role ?? null,
-      environment: 'development',
-      isAnonymous: authSession.user.isAnonymous,
-      operator: {
-        email: authSession.user.email,
-        membershipRole: tenantSelection.currentMembership?.role ?? null,
-        name: authSession.user.name ?? authSession.user.email,
-        publicId: authSession.user.publicId,
-      },
-      readOnlyBadge: 'Read-Only Access',
-      scenario: {
-        actorId: selectedMember?.userId ?? '',
-        actorName: selectedMember?.name ?? selectedMember?.email ?? 'No member selected',
-        actorRole: selectedMember?.role ?? null,
-        tenantId: tenantSelection.selectedTenantId,
-        tenantName: selectedTenantName,
-        tenantSlug:
-          tenantSelection.selectedTenant?.organizationSlug ?? tenantSelection.activeTenant.slug,
-      },
-      selectedMemberId: selectedMember?.id ?? '',
-      selectedMemberName: selectedMember?.name ?? selectedMember?.email ?? 'No member selected',
-      selectedMemberPermissions: this.buildSelectedMemberPermissions(
-        authorizationService,
-        tenantSelection.selectedTenantId,
-        selectedMember
-      ),
-      selectedMemberRole: selectedMember?.role ?? null,
-      selectedTenantId: tenantSelection.selectedTenantId,
-      selectedTenantName,
-      sessionTenant: {
-        id: tenantSelection.activeTenant.id,
-        name: tenantSelection.activeTenant.name,
-        slug: tenantSelection.activeTenant.slug,
-      },
-      userEmail: authSession.user.email,
-      userName: authSession.user.name ?? authSession.user.email,
-      userPublicId: authSession.user.publicId,
-    }
-  }
-
-  private buildRecentActions(
-    audit: DevInspectorPageDto['audit']
-  ): DevInspectorPageDto['recentActions'] {
-    return audit.events.slice(0, 5).map((event) => ({
-      action: event.action,
-      id: event.id,
-      result: event.result,
-      timestamp: event.timestamp,
-    }))
-  }
-
-  private buildSelectedMemberPermissions(
-    authorizationService: AuthorizationService,
-    selectedTenantId: string,
-    selectedMember: null | ScenarioMember
-  ): DevInspectorPageDto['context']['selectedMemberPermissions'] {
-    const selectedMemberActor = {
-      activeTenantId: selectedTenantId,
-      isDevOperator: false,
-      membershipIsActive: selectedMember?.isActive ?? false,
-      membershipRole: selectedMember?.role ?? null,
-      userId: selectedMember?.userId ?? null,
-    }
-
-    return {
-      accountingRead: authorizationService.allows(selectedMemberActor, 'accounting.read'),
-      accountingWriteDrafts: authorizationService.allows(
-        selectedMemberActor,
-        'accounting.writeDrafts'
-      ),
-      auditTrailView: authorizationService.allows(selectedMemberActor, 'auditTrail.view'),
-      invoiceIssue: authorizationService.allows(selectedMemberActor, 'invoice.issue'),
-      invoiceMarkPaid: authorizationService.allows(selectedMemberActor, 'invoice.markPaid'),
-      membershipChangeRole: authorizationService.allows(
-        selectedMemberActor,
-        'membership.changeRole'
-      ),
-      membershipList: authorizationService.allows(selectedMemberActor, 'membership.list'),
-      membershipToggleActive: authorizationService.allows(
-        selectedMemberActor,
-        'membership.toggleActive'
-      ),
-    }
-  }
-
-  private buildView(filters: DevInspectorFilters): DevInspectorPageDto['view'] {
-    return {
-      activeTab: resolveActiveTab(filters.tab),
-      auditSearch: filters.auditSearch?.trim() ?? '',
-      memberRole: resolveMemberRole(filters.memberRole),
-      memberSearch: filters.memberSearch?.trim() ?? '',
-      memberStatus: resolveMemberStatus(filters.memberStatus),
-      probeType: resolveProbeType(filters.probeType),
-      selectedRecordId: filters.selectedRecordId?.trim() ?? '',
-    }
-  }
-
   private async changeInvoiceStatus(
     scenario: ScenarioContext,
     authorizationService: AuthorizationService,
     requestedInvoiceId?: string
   ): Promise<string> {
-    const nextTarget = await this.findInvoiceForStatusTransition(
+    const nextTarget = await this.queryService.findInvoiceForStatusTransition(
       scenario.tenantId,
       requestedInvoiceId
     )
@@ -521,7 +278,7 @@ export class DevOperatorConsoleService {
     authorizationService: AuthorizationService,
     requestedMemberId?: string
   ): Promise<string> {
-    const target = await this.findTargetMember(
+    const target = await this.queryService.findTargetMember(
       scenario.tenantId,
       scenario.actorUserId,
       requestedMemberId
@@ -540,7 +297,7 @@ export class DevOperatorConsoleService {
     const nextRole = target.role === 'admin' ? 'member' : 'admin'
     await this.memberService.updateMemberRole(target.id, nextRole, scenario.tenantId)
 
-    const membershipLabel = await this.loadUserLabel(target.userId)
+    const membershipLabel = await this.queryService.loadUserLabel(target.userId)
     await this.auditTrail.record(this.db, {
       action: 'dev_change_member_role',
       actorId: scenario.access.actorId,
@@ -568,7 +325,7 @@ export class DevOperatorConsoleService {
   ): Promise<string> {
     authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
 
-    const targetExpense = await this.findDraftExpenseForConfirm(
+    const targetExpense = await this.queryService.findDraftExpenseForConfirm(
       scenario.tenantId,
       requestedExpenseId
     )
@@ -581,15 +338,6 @@ export class DevOperatorConsoleService {
 
     await this.expenseService.confirmExpense(targetExpense.id, scenario.access)
     return `Expense ${targetExpense.label} confirmed.`
-  }
-
-  private async countForTable(table: any, tenantId: string): Promise<number> {
-    const [row] = await this.db
-      .select({ value: count() })
-      .from(table)
-      .where(eq(table.organizationId, tenantId))
-
-    return Number(row?.value ?? 0)
   }
 
   private async createCustomerBatch(
@@ -747,7 +495,7 @@ export class DevOperatorConsoleService {
   ): Promise<string> {
     authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
 
-    const targetExpense = await this.findConfirmedExpenseForDeletion(
+    const targetExpense = await this.queryService.findConfirmedExpenseForDeletion(
       scenario.tenantId,
       requestedExpenseId
     )
@@ -769,7 +517,7 @@ export class DevOperatorConsoleService {
   ): Promise<string> {
     authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
 
-    const targetCustomer = await this.findCustomerForMutation(
+    const targetCustomer = await this.queryService.findCustomerForMutation(
       scenario.tenantId,
       requestedCustomerId
     )
@@ -791,7 +539,10 @@ export class DevOperatorConsoleService {
   ): Promise<string> {
     authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
 
-    const targetExpense = await this.findExpenseForDeletion(scenario.tenantId, requestedExpenseId)
+    const targetExpense = await this.queryService.findExpenseForDeletion(
+      scenario.tenantId,
+      requestedExpenseId
+    )
     if (!targetExpense) {
       throw new DomainError(
         'No expense is available in the selected tenant.',
@@ -810,7 +561,7 @@ export class DevOperatorConsoleService {
   ): Promise<string> {
     authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
 
-    const targetInvoice = await this.findDraftInvoiceForMutation(
+    const targetInvoice = await this.queryService.findDraftInvoiceForMutation(
       scenario.tenantId,
       requestedInvoiceId
     )
@@ -823,178 +574,6 @@ export class DevOperatorConsoleService {
 
     await this.invoiceService.deleteDraft(targetInvoice.id, scenario.access)
     return `Draft invoice ${targetInvoice.invoiceNumber} deleted.`
-  }
-
-  private async findAnyInvoice(
-    tenantId: string,
-    requestedInvoiceId?: string
-  ): Promise<null | { id: string }> {
-    const [row] = await this.db
-      .select({ id: schema.invoices.id })
-      .from(schema.invoices)
-      .where(
-        requestedInvoiceId
-          ? and(
-              eq(schema.invoices.organizationId, tenantId),
-              eq(schema.invoices.id, requestedInvoiceId)
-            )
-          : eq(schema.invoices.organizationId, tenantId)
-      )
-      .orderBy(desc(schema.invoices.createdAt))
-      .limit(1)
-
-    return row ?? null
-  }
-
-  private async findConfirmedExpenseForDeletion(
-    tenantId: string,
-    requestedExpenseId?: string
-  ): Promise<null | { id: string; label: string }> {
-    const [row] = await this.db
-      .select({
-        id: schema.expenses.id,
-        label: schema.expenses.label,
-      })
-      .from(schema.expenses)
-      .where(
-        and(
-          eq(schema.expenses.organizationId, tenantId),
-          eq(schema.expenses.status, 'confirmed'),
-          requestedExpenseId ? eq(schema.expenses.id, requestedExpenseId) : sql`true`
-        )
-      )
-      .orderBy(desc(schema.expenses.createdAt))
-      .limit(1)
-
-    return row ?? null
-  }
-
-  private async findCustomerForMutation(
-    tenantId: string,
-    requestedCustomerId?: string
-  ): Promise<null | { company: string; id: string }> {
-    const [row] = await this.db
-      .select({
-        company: schema.customers.company,
-        id: schema.customers.id,
-      })
-      .from(schema.customers)
-      .where(
-        and(
-          eq(schema.customers.organizationId, tenantId),
-          requestedCustomerId ? eq(schema.customers.id, requestedCustomerId) : sql`true`
-        )
-      )
-      .orderBy(desc(schema.customers.createdAt))
-      .limit(1)
-
-    return row ?? null
-  }
-
-  private async findDraftExpenseForConfirm(
-    tenantId: string,
-    requestedExpenseId?: string
-  ): Promise<null | { id: string; label: string }> {
-    const [row] = await this.db
-      .select({
-        id: schema.expenses.id,
-        label: schema.expenses.label,
-      })
-      .from(schema.expenses)
-      .where(
-        and(
-          eq(schema.expenses.organizationId, tenantId),
-          eq(schema.expenses.status, 'draft'),
-          requestedExpenseId ? eq(schema.expenses.id, requestedExpenseId) : sql`true`
-        )
-      )
-      .orderBy(desc(schema.expenses.createdAt))
-      .limit(1)
-
-    return row ?? null
-  }
-
-  private async findDraftInvoiceForMutation(
-    tenantId: string,
-    requestedInvoiceId?: string
-  ): Promise<null | { id: string; invoiceNumber: string }> {
-    const [row] = await this.db
-      .select({
-        id: schema.invoices.id,
-        invoiceNumber: schema.invoices.invoiceNumber,
-      })
-      .from(schema.invoices)
-      .where(
-        and(
-          eq(schema.invoices.organizationId, tenantId),
-          eq(schema.invoices.status, 'draft'),
-          requestedInvoiceId ? eq(schema.invoices.id, requestedInvoiceId) : sql`true`
-        )
-      )
-      .orderBy(desc(schema.invoices.createdAt))
-      .limit(1)
-
-    return row ?? null
-  }
-
-  private async findExpenseForDeletion(
-    tenantId: string,
-    requestedExpenseId?: string
-  ): Promise<null | { id: string; label: string }> {
-    const [row] = await this.db
-      .select({
-        id: schema.expenses.id,
-        label: schema.expenses.label,
-      })
-      .from(schema.expenses)
-      .where(
-        and(
-          eq(schema.expenses.organizationId, tenantId),
-          requestedExpenseId ? eq(schema.expenses.id, requestedExpenseId) : sql`true`
-        )
-      )
-      .orderBy(desc(schema.expenses.createdAt))
-      .limit(1)
-
-    return row ?? null
-  }
-
-  private async findInvoiceForStatusTransition(
-    tenantId: string,
-    requestedInvoiceId?: string
-  ): Promise<null | { id: string; invoiceNumber: string; status: 'draft' | 'issued' | 'paid' }> {
-    const baseCondition = and(
-      eq(schema.invoices.organizationId, tenantId),
-      requestedInvoiceId ? eq(schema.invoices.id, requestedInvoiceId) : sql`true`
-    )
-
-    const [draft] = await this.db
-      .select({
-        id: schema.invoices.id,
-        invoiceNumber: schema.invoices.invoiceNumber,
-        status: schema.invoices.status,
-      })
-      .from(schema.invoices)
-      .where(and(baseCondition, eq(schema.invoices.status, 'draft')))
-      .orderBy(desc(schema.invoices.createdAt))
-      .limit(1)
-
-    if (draft) {
-      return draft
-    }
-
-    const [issued] = await this.db
-      .select({
-        id: schema.invoices.id,
-        invoiceNumber: schema.invoices.invoiceNumber,
-        status: schema.invoices.status,
-      })
-      .from(schema.invoices)
-      .where(and(baseCondition, eq(schema.invoices.status, 'issued')))
-      .orderBy(desc(schema.invoices.createdAt))
-      .limit(1)
-
-    return issued ?? null
   }
 
   private async findOrCreateCustomer(access: AccountingAccessContext): Promise<string> {
@@ -1022,43 +601,6 @@ export class DevOperatorConsoleService {
     )
 
     return created.id
-  }
-
-  private async findTargetMember(
-    tenantId: string,
-    actorUserId: string,
-    requestedMemberId?: string
-  ): Promise<null | {
-    id: string
-    isActive: boolean
-    role: 'admin' | 'member' | 'owner'
-    userId: string
-  }> {
-    const [row] = await this.db
-      .select({
-        id: schema.member.id,
-        isActive: schema.member.isActive,
-        role: schema.member.role,
-        userId: schema.member.userId,
-      })
-      .from(schema.member)
-      .where(
-        requestedMemberId
-          ? and(eq(schema.member.organizationId, tenantId), eq(schema.member.id, requestedMemberId))
-          : and(
-              eq(schema.member.organizationId, tenantId),
-              sql`${schema.member.userId} <> ${actorUserId}`
-            )
-      )
-      .orderBy(schema.member.createdAt)
-      .limit(1)
-
-    return row
-      ? {
-          ...row,
-          role: row.role as 'admin' | 'member' | 'owner',
-        }
-      : null
   }
 
   private async insertScenarioUser(
@@ -1102,141 +644,6 @@ export class DevOperatorConsoleService {
     return rows.map((row) => row.organizationId)
   }
 
-  private async listAuditTrail(input: {
-    accessibleTenantIds: string[]
-    activeTenantId: string
-    filters: { action: string; actorId: string; search: string; tenantId: string }
-  }): Promise<DevInspectorPageDto['audit']> {
-    const selectedTenantIds =
-      input.filters.tenantId === 'all'
-        ? input.accessibleTenantIds
-        : input.accessibleTenantIds.filter((tenantId) => tenantId === input.filters.tenantId)
-
-    const whereClauses = [inArray(schema.auditEvents.organizationId, selectedTenantIds)]
-    if (input.filters.action) {
-      whereClauses.push(eq(schema.auditEvents.action, input.filters.action))
-    }
-    if (input.filters.actorId) {
-      whereClauses.push(eq(schema.auditEvents.actorId, input.filters.actorId))
-    }
-
-    const rows = await this.db
-      .select({
-        action: schema.auditEvents.action,
-        actorEmail: schema.user.email,
-        actorId: schema.auditEvents.actorId,
-        actorName: schema.user.name,
-        changes: schema.auditEvents.changes,
-        entityId: schema.auditEvents.entityId,
-        entityType: schema.auditEvents.entityType,
-        id: schema.auditEvents.id,
-        metadata: schema.auditEvents.metadata,
-        organizationId: schema.auditEvents.organizationId,
-        organizationName: schema.organization.name,
-        timestamp: schema.auditEvents.createdAt,
-      })
-      .from(schema.auditEvents)
-      .innerJoin(schema.organization, eq(schema.auditEvents.organizationId, schema.organization.id))
-      .leftJoin(schema.user, eq(schema.auditEvents.actorId, schema.user.id))
-      .where(and(...whereClauses))
-      .orderBy(desc(schema.auditEvents.createdAt))
-      .limit(40)
-
-    const actors = new Map<string, string>()
-    for (const row of rows) {
-      if (row.actorId) {
-        actors.set(row.actorId, row.actorName || row.actorEmail || row.actorId)
-      }
-    }
-
-    return {
-      actors: [...actors.entries()].map(([id, label]) => ({ id, label })),
-      events: rows.map((row) => ({
-        action: row.action,
-        actorEmail: row.actorEmail,
-        actorId: row.actorId,
-        actorName: row.actorName,
-        details: auditEventDetails(row.changes, row.metadata),
-        entityId: row.entityId,
-        entityType: row.entityType,
-        errorCode: metadataErrorCode(row.metadata),
-        id: row.id,
-        organizationId: row.organizationId,
-        organizationName: row.organizationName,
-        result: metadataResult(row.metadata),
-        timestamp: row.timestamp,
-      })),
-      filters: input.filters,
-      tenants: [
-        { id: 'all', label: 'All memberships' },
-        ...selectedTenantOptions(input.accessibleTenantIds, input.activeTenantId),
-      ],
-    }
-  }
-
-  private async listCustomers(tenantId: string): Promise<DevInspectorCustomerDto[]> {
-    const rows = await this.db
-      .select({
-        company: schema.customers.company,
-        createdAt: schema.customers.createdAt,
-        email: schema.customers.email,
-        id: schema.customers.id,
-        name: schema.customers.name,
-        phone: schema.customers.phone,
-      })
-      .from(schema.customers)
-      .where(eq(schema.customers.organizationId, tenantId))
-      .orderBy(desc(schema.customers.createdAt))
-      .limit(24)
-
-    return rows
-  }
-
-  private async listExpenses(tenantId: string): Promise<DevInspectorExpenseDto[]> {
-    const rows = await this.db
-      .select({
-        amountCents: schema.expenses.amountCents,
-        category: schema.expenses.category,
-        createdAt: schema.expenses.createdAt,
-        date: schema.expenses.date,
-        id: schema.expenses.id,
-        label: schema.expenses.label,
-        status: schema.expenses.status,
-      })
-      .from(schema.expenses)
-      .where(eq(schema.expenses.organizationId, tenantId))
-      .orderBy(desc(schema.expenses.createdAt))
-      .limit(24)
-
-    return rows.map((row) => ({
-      ...row,
-      status: row.status as 'confirmed' | 'draft',
-    }))
-  }
-
-  private async listInvoices(tenantId: string): Promise<DevInspectorInvoiceDto[]> {
-    const rows = await this.db
-      .select({
-        createdAt: schema.invoices.createdAt,
-        customerCompanyName: schema.invoices.customerCompanyName,
-        dueDate: schema.invoices.dueDate,
-        id: schema.invoices.id,
-        invoiceNumber: schema.invoices.invoiceNumber,
-        issueDate: schema.invoices.issueDate,
-        status: schema.invoices.status,
-        totalInclTaxCents: schema.invoices.totalInclTaxCents,
-      })
-      .from(schema.invoices)
-      .where(eq(schema.invoices.organizationId, tenantId))
-      .orderBy(desc(schema.invoices.createdAt))
-      .limit(24)
-
-    return rows.map((row) => ({
-      ...row,
-      status: row.status as 'draft' | 'issued' | 'paid',
-    }))
-  }
-
   private async listMembersForTenant(
     tenantId: string,
     selectedMemberId?: string
@@ -1265,114 +672,6 @@ export class DevOperatorConsoleService {
       ...row,
       role: row.role as 'admin' | 'member' | 'owner',
     }))
-  }
-
-  private async listMemberships(
-    authSession: AuthResult,
-    authorizationService: AuthorizationService
-  ): Promise<DevInspectorMembershipDto[]> {
-    const rows = await this.db
-      .select({
-        id: schema.member.id,
-        isActive: schema.member.isActive,
-        organizationId: schema.member.organizationId,
-        organizationName: schema.organization.name,
-        organizationSlug: schema.organization.slug,
-        role: schema.member.role,
-      })
-      .from(schema.member)
-      .innerJoin(schema.organization, eq(schema.member.organizationId, schema.organization.id))
-      .where(eq(schema.member.userId, authSession.user.id))
-      .orderBy(schema.organization.createdAt, schema.member.createdAt)
-
-    return rows.map((row) => {
-      const membershipRole = row.role as DevInspectorMembershipDto['role']
-      const membershipActor = {
-        activeTenantId: row.organizationId,
-        isDevOperator: false,
-        membershipIsActive: row.isActive,
-        membershipRole,
-        userId: authSession.user.id,
-      }
-
-      return {
-        id: row.id,
-        isActive: row.isActive,
-        isCurrent: authSession.session.activeOrganizationId === row.organizationId,
-        organizationId: row.organizationId,
-        organizationName: row.organizationName,
-        organizationSlug: row.organizationSlug,
-        permissions: {
-          accountingRead: authorizationService.allows(membershipActor, 'accounting.read'),
-          accountingWriteDrafts: authorizationService.allows(
-            membershipActor,
-            'accounting.writeDrafts'
-          ),
-          auditTrailView: authorizationService.allows(membershipActor, 'auditTrail.view'),
-          invoiceIssue: authorizationService.allows(membershipActor, 'invoice.issue'),
-          invoiceMarkPaid: authorizationService.allows(membershipActor, 'invoice.markPaid'),
-          membershipChangeRole: authorizationService.allows(
-            membershipActor,
-            'membership.changeRole'
-          ),
-          membershipList: authorizationService.allows(membershipActor, 'membership.list'),
-          membershipToggleActive: authorizationService.allows(
-            membershipActor,
-            'membership.toggleActive'
-          ),
-        },
-        role: membershipRole,
-      }
-    })
-  }
-
-  private async loadMetrics(tenantId: string): Promise<DevInspectorMetricsDto> {
-    const [invoiceCount, expenseCount, customerCount, auditEventCount, memberCount] =
-      await Promise.all([
-        this.countForTable(schema.invoices, tenantId),
-        this.countForTable(schema.expenses, tenantId),
-        this.countForTable(schema.customers, tenantId),
-        this.countForTable(schema.auditEvents, tenantId),
-        this.countForTable(schema.member, tenantId),
-      ])
-
-    return {
-      auditEvents: auditEventCount,
-      customers: customerCount,
-      expenses: expenseCount,
-      invoices: invoiceCount,
-      members: memberCount,
-    }
-  }
-
-  private async loadOrganization(
-    organizationId: string
-  ): Promise<{ id: string; name: string; slug: string }> {
-    const [row] = await this.db
-      .select({
-        id: schema.organization.id,
-        name: schema.organization.name,
-        slug: schema.organization.slug,
-      })
-      .from(schema.organization)
-      .where(eq(schema.organization.id, organizationId))
-      .limit(1)
-
-    if (!row) {
-      throw new DomainError('Active organization not found.', 'not_found')
-    }
-
-    return row
-  }
-
-  private async loadUserLabel(userId: string): Promise<string> {
-    const [row] = await this.db
-      .select({ email: schema.user.email, name: schema.user.name })
-      .from(schema.user)
-      .where(eq(schema.user.id, userId))
-      .limit(1)
-
-    return row?.name || row?.email || userId
   }
 
   private async resolveScenario(
@@ -1428,62 +727,12 @@ export class DevOperatorConsoleService {
     }
   }
 
-  private resolveSelectedMember(
-    members: ScenarioMember[],
-    currentUserId: string,
-    requestedMemberId?: string
-  ): null | ScenarioMember {
-    return (
-      members.find((member) => member.id === requestedMemberId) ??
-      members.find((member) => member.userId === currentUserId) ??
-      members[0] ??
-      null
-    )
-  }
-
-  private async resolveTenantSelection(
-    memberships: DevInspectorMembershipDto[],
-    activeTenantId: null | string | undefined,
-    requestedTenantId?: string
-  ): Promise<TenantSelection> {
-    if (!activeTenantId) {
-      throw new DomainError('Missing active tenant.', 'forbidden')
-    }
-
-    const currentMembership =
-      memberships.find((membership) => membership.organizationId === activeTenantId) ?? null
-    const activeTenant = currentMembership
-      ? {
-          id: currentMembership.organizationId,
-          name: currentMembership.organizationName,
-          slug: currentMembership.organizationSlug,
-        }
-      : await this.loadOrganization(activeTenantId)
-
-    const tenantIds = memberships.map((membership) => membership.organizationId)
-    const selectedTenantId =
-      requestedTenantId && tenantIds.includes(requestedTenantId)
-        ? requestedTenantId
-        : activeTenantId
-
-    return {
-      activeTenant,
-      currentMembership,
-      selectedTenant:
-        memberships.find((membership) => membership.organizationId === selectedTenantId) ??
-        currentMembership ??
-        null,
-      selectedTenantId,
-      tenantIds,
-    }
-  }
-
   private async toggleMemberActive(
     scenario: ScenarioContext,
     authorizationService: AuthorizationService,
     requestedMemberId?: string
   ): Promise<string> {
-    const target = await this.findTargetMember(
+    const target = await this.queryService.findTargetMember(
       scenario.tenantId,
       scenario.actorUserId,
       requestedMemberId
@@ -1507,7 +756,7 @@ export class DevOperatorConsoleService {
       scenario.actorUserId
     )
 
-    const membershipLabel = await this.loadUserLabel(target.userId)
+    const membershipLabel = await this.queryService.loadUserLabel(target.userId)
     return `${membershipLabel} ${nextActive ? 'activated' : 'deactivated'}.`
   }
 
@@ -1628,108 +877,4 @@ export class DevOperatorConsoleService {
 
     return `Draft invoice ${invoice.invoiceNumber} updated.`
   }
-}
-
-function addDays(value: string, days: number): string {
-  const [year, month, day] = value.split('-').map(Number)
-  return dateOnlyUtc(new Date(Date.UTC(year, month - 1, day + days)))
-}
-
-function auditEventDetails(changes: unknown, metadata: unknown): null | Record<string, unknown> {
-  const details: Record<string, unknown> = {}
-
-  if (changes && typeof changes === 'object' && !Array.isArray(changes)) {
-    details.changes = changes as Record<string, unknown>
-  }
-
-  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
-    details.metadata = metadata as Record<string, unknown>
-  }
-
-  return Object.keys(details).length > 0 ? details : null
-}
-
-function dateOnlyUtc(date: Date): string {
-  const year = date.getUTCFullYear()
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(date.getUTCDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function metadataErrorCode(value: unknown): null | string {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
-
-  const candidate = (value as Record<string, unknown>).errorCode
-  return typeof candidate === 'string' && candidate.length > 0 ? candidate : null
-}
-
-function metadataResult(value: unknown): 'denied' | 'error' | 'success' {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return 'success'
-  }
-
-  const candidate = (value as Record<string, unknown>).result
-  return candidate === 'denied' || candidate === 'error' ? candidate : 'success'
-}
-
-function resolveActiveTab(value?: string): DevInspectorTab {
-  switch (value?.trim()) {
-    case 'audit-trail':
-    case 'data-generator':
-    case 'members-permissions':
-    case 'overview':
-    case 'tenant-factory':
-    case 'workflow-probes':
-      return value as DevInspectorTab
-    default:
-      return 'overview'
-  }
-}
-
-function resolveMemberRole(value?: string): 'admin' | 'all' | 'member' | 'owner' {
-  switch (value?.trim()) {
-    case 'admin':
-      return 'admin'
-    case 'member':
-      return 'member'
-    case 'owner':
-      return 'owner'
-    default:
-      return 'all'
-  }
-}
-
-function resolveMemberStatus(value?: string): 'active' | 'all' | 'inactive' {
-  switch (value?.trim()) {
-    case 'active':
-      return 'active'
-    case 'inactive':
-      return 'inactive'
-    default:
-      return 'all'
-  }
-}
-
-function resolveProbeType(value?: string): 'customers' | 'expenses' | 'invoices' {
-  switch (value?.trim()) {
-    case 'customers':
-      return 'customers'
-    case 'expenses':
-      return 'expenses'
-    default:
-      return 'invoices'
-  }
-}
-
-function selectedTenantOptions(accessibleTenantIds: string[], activeTenantId: string) {
-  return accessibleTenantIds.map((tenantId) => ({
-    id: tenantId,
-    label: tenantId === activeTenantId ? `${tenantId} (active)` : tenantId,
-  }))
-}
-
-function shortToken(): string {
-  return Math.random().toString(36).slice(2, 8)
 }
