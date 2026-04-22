@@ -81,6 +81,7 @@ export default defineConfig({
   preloads: [
     () => import('#core/accounting/routes/api_routes'),
     () => import('#core/accounting/routes/web_routes'),
+    () => import('#core/dev_tools/routes/web_routes'),
     () => import('#core/user_management/http/routes/api_routes'),
     () => import('#core/user_management/http/routes/inertia_routes'),
     () => import('#start/kernel'),
