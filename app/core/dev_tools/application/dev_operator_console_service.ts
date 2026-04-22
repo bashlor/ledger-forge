@@ -1,5 +1,6 @@
 import type { CriticalAuditTrail } from '#core/accounting/application/audit/critical_audit_trail'
 import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
+import type { AuthenticationPort } from '#core/user_management/domain/authentication'
 import type { AuthResult } from '#core/user_management/domain/authentication'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
@@ -23,14 +24,15 @@ import {
   dateOnlyUtc,
   shortToken,
 } from '#core/dev_tools/application/dev_operator_console_utils'
+import { DevOperatorTenantFactoryService } from '#core/dev_tools/application/dev_operator_tenant_factory_service'
 import {
   AuthorizationDeniedError,
   type AuthorizationService,
 } from '#core/user_management/application/authorization_service'
 import { MemberService } from '#core/user_management/application/member_service'
 import { setActiveOrganizationForSession } from '#core/user_management/application/workspace_provisioning'
+import { isSingleTenantMode } from '#core/user_management/support/tenant_mode'
 import { and, desc, eq, sql } from 'drizzle-orm'
-import { v7 as uuidv7 } from 'uuid'
 
 export {
   type ActionName,
@@ -57,6 +59,8 @@ interface DevOperatorConsoleDependencies {
   memberService?: MemberService
   pageService?: DevOperatorConsolePageService
   queryService?: DevOperatorConsoleQueryService
+  singleTenantMode?: boolean
+  tenantFactoryService?: DevOperatorTenantFactoryService
 }
 
 interface ScenarioContext {
@@ -85,6 +89,8 @@ export class DevOperatorConsoleService {
   private readonly memberService: MemberService
   private readonly pageService: DevOperatorConsolePageService
   private readonly queryService: DevOperatorConsoleQueryService
+  private readonly singleTenantMode: boolean
+  private readonly tenantFactoryService: DevOperatorTenantFactoryService
 
   constructor(
     private readonly db: PostgresJsDatabase<typeof schema>,
@@ -97,8 +103,12 @@ export class DevOperatorConsoleService {
     this.invoiceService = dependencies.invoiceService ?? new InvoiceService(db)
     this.memberService = dependencies.memberService ?? new MemberService(db)
     this.queryService = dependencies.queryService ?? new DevOperatorConsoleQueryService(db)
+    this.singleTenantMode = dependencies.singleTenantMode ?? isSingleTenantMode()
     this.pageService =
-      dependencies.pageService ?? new DevOperatorConsolePageService(this.queryService)
+      dependencies.pageService ??
+      new DevOperatorConsolePageService(this.queryService, this.singleTenantMode)
+    this.tenantFactoryService =
+      dependencies.tenantFactoryService ?? new DevOperatorTenantFactoryService(db)
   }
 
   async getPageData(
@@ -113,7 +123,8 @@ export class DevOperatorConsoleService {
     authSession: AuthResult,
     action: ActionName,
     authorizationService: AuthorizationService,
-    input: DevOperatorActionInput = {}
+    input: DevOperatorActionInput = {},
+    auth?: AuthenticationPort
   ): Promise<string> {
     const scenario = await this.resolveScenario(authSession, input.tenantId, input.memberId)
 
@@ -139,10 +150,14 @@ export class DevOperatorConsoleService {
       case 'create-invoice-test':
         authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
         return this.createInvoiceBatch(scenario.access, input.count)
-      case 'create-tenant-scenario':
-        return this.createTenantScenario(authSession.user.id, false)
-      case 'create-tenant-scenario-seeded':
-        return this.createTenantScenario(authSession.user.id, true)
+      case 'create-tenant':
+        if (!auth) {
+          throw new DomainError(
+            'Authentication provider unavailable for tenant creation.',
+            'forbidden'
+          )
+        }
+        return this.createTenant(input, auth)
       case 'delete-confirmed-expense':
         return this.deleteConfirmedExpense(scenario, authorizationService, input.expenseId)
       case 'delete-customer':
@@ -180,19 +195,11 @@ export class DevOperatorConsoleService {
     sessionToken: string,
     tenantId: string
   ): Promise<void> {
-    const [membership] = await this.db
-      .select({ organizationId: schema.member.organizationId })
-      .from(schema.member)
-      .where(
-        and(
-          eq(schema.member.userId, authSession.user.id),
-          eq(schema.member.organizationId, tenantId)
-        )
+    if (tenantId !== authSession.session.activeOrganizationId) {
+      throw new DomainError(
+        'Dev operator session tenant stays pinned to its dedicated workspace.',
+        'forbidden'
       )
-      .limit(1)
-
-    if (!membership) {
-      throw new DomainError('You are not a member of this organization.', 'forbidden')
     }
 
     await setActiveOrganizationForSession(this.db, sessionToken, tenantId)
@@ -410,82 +417,20 @@ export class DevOperatorConsoleService {
     return `${batchSize} draft invoices created.`
   }
 
-  private async createTenantScenario(operatorUserId: string, seedData: boolean): Promise<string> {
-    const suffix = shortToken()
-    const tenantId = uuidv7()
-    const tenantName = `Dev Scenario ${suffix}`
-    const tenantSlug = `dev-scenario-${suffix}-${shortToken()}`
-    const actorIds = {
-      activeMember: uuidv7(),
-      admin: uuidv7(),
-      inactiveMember: uuidv7(),
-      owner: uuidv7(),
+  private async createTenant(
+    input: DevOperatorActionInput,
+    auth: AuthenticationPort
+  ): Promise<string> {
+    if (this.singleTenantMode) {
+      throw new DomainError('Tenant creation is unavailable in single-tenant mode.', 'forbidden')
     }
 
-    await this.db.transaction(async (tx) => {
-      await tx.insert(schema.organization).values({
-        createdAt: new Date(),
-        id: tenantId,
-        logo: null,
-        metadata: JSON.stringify({ devInspectorScenario: true }),
-        name: tenantName,
-        slug: tenantSlug,
-      })
+    const created = await this.tenantFactoryService.createTenant(
+      normalizeCreateTenantInput(input),
+      auth
+    )
 
-      await tx.insert(schema.member).values({
-        createdAt: new Date(),
-        id: uuidv7(),
-        isActive: true,
-        organizationId: tenantId,
-        role: 'member',
-        userId: operatorUserId,
-      })
-
-      await this.insertScenarioUser(tx, {
-        email: `dev-owner-${suffix}@example.local`,
-        memberId: uuidv7(),
-        name: `Dev Owner ${suffix}`,
-        organizationId: tenantId,
-        role: 'owner',
-        userId: actorIds.owner,
-      })
-      await this.insertScenarioUser(tx, {
-        email: `dev-admin-${suffix}@example.local`,
-        memberId: uuidv7(),
-        name: `Dev Admin ${suffix}`,
-        organizationId: tenantId,
-        role: 'admin',
-        userId: actorIds.admin,
-      })
-      await this.insertScenarioUser(tx, {
-        email: `dev-member-active-${suffix}@example.local`,
-        memberId: uuidv7(),
-        name: `Dev Member Active ${suffix}`,
-        organizationId: tenantId,
-        role: 'member',
-        userId: actorIds.activeMember,
-      })
-      await this.insertScenarioUser(tx, {
-        email: `dev-member-inactive-${suffix}@example.local`,
-        isActive: false,
-        memberId: uuidv7(),
-        name: `Dev Member Inactive ${suffix}`,
-        organizationId: tenantId,
-        role: 'member',
-        userId: actorIds.inactiveMember,
-      })
-    })
-
-    if (seedData) {
-      await this.demoDatasetService.seedTenant({
-        actorId: actorIds.owner,
-        isAnonymous: false,
-        requestId: 'dev-operator-console',
-        tenantId,
-      })
-    }
-
-    return `${tenantName} created with owner/admin/member scenarios${seedData ? ' and demo data' : ''}.`
+    return `${created.tenantName} created for ${normalizeEmail(input.ownerEmail)}.`
   }
 
   private async deleteConfirmedExpense(
@@ -603,44 +548,12 @@ export class DevOperatorConsoleService {
     return created.id
   }
 
-  private async insertScenarioUser(
-    tx: Parameters<Parameters<PostgresJsDatabase<typeof schema>['transaction']>[0]>[0],
-    input: {
-      email: string
-      isActive?: boolean
-      memberId: string
-      name: string
-      organizationId: string
-      role: 'admin' | 'member' | 'owner'
-      userId: string
-    }
-  ): Promise<void> {
-    await tx.insert(schema.user).values({
-      createdAt: new Date(),
-      email: input.email,
-      emailVerified: false,
-      id: input.userId,
-      isAnonymous: false,
-      name: input.name,
-      publicId: `pub_${uuidv7().replaceAll('-', '')}`,
-    })
-
-    await tx.insert(schema.member).values({
-      createdAt: new Date(),
-      id: input.memberId,
-      isActive: input.isActive ?? true,
-      organizationId: input.organizationId,
-      role: input.role,
-      userId: input.userId,
-    })
-  }
-
   private async resolveScenario(
     authSession: AuthResult,
     requestedTenantId?: string,
     requestedMemberId?: string
   ): Promise<ScenarioContext> {
-    const accessibleTenantIds = await this.queryService.listAccessibleTenantIds(authSession.user.id)
+    const inspectableTenants = await this.queryService.listInspectableTenants(authSession)
     const requestedTenant = requestedTenantId?.trim() || ''
     const tenantId = requestedTenant || authSession.session.activeOrganizationId
 
@@ -648,7 +561,7 @@ export class DevOperatorConsoleService {
       throw new DomainError('Missing active tenant.', 'forbidden')
     }
 
-    if (!accessibleTenantIds.includes(tenantId)) {
+    if (!inspectableTenants.some((tenant) => tenant.id === tenantId)) {
       throw new DomainError('Selected tenant is not available for this dev operator.', 'forbidden')
     }
 
@@ -838,4 +751,26 @@ export class DevOperatorConsoleService {
 
     return `Draft invoice ${invoice.invoiceNumber} updated.`
   }
+}
+
+function normalizeCreateTenantInput(input: DevOperatorActionInput): {
+  ownerEmail: string
+  ownerPassword: string
+  seedMode: 'empty' | 'seeded'
+  tenantName: string
+} {
+  const seedMode = input.seedMode === 'seeded' ? 'seeded' : 'empty'
+
+  return {
+    ownerEmail: normalizeEmail(input.ownerEmail),
+    ownerPassword: String(input.ownerPassword ?? ''),
+    seedMode,
+    tenantName: String(input.tenantName ?? '').trim(),
+  }
+}
+
+function normalizeEmail(value: string | undefined): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
 }

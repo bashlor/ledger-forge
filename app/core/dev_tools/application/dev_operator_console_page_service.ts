@@ -14,17 +14,22 @@ import {
   resolveProbeType,
 } from '#core/dev_tools/application/dev_operator_console_utils'
 import { type AuthorizationService } from '#core/user_management/application/authorization_service'
+import { isSingleTenantMode } from '#core/user_management/support/tenant_mode'
 
 interface TenantSelection {
   activeTenant: { id: string; name: string; slug: string }
   currentMembership: DevInspectorMembershipDto | null
+  inspectableTenants: DevInspectorPageDto['inspectableTenants']
   selectedTenant: DevInspectorMembershipDto | null
   selectedTenantId: string
-  tenantIds: string[]
+  selectedTenantOption: DevInspectorPageDto['inspectableTenants'][number]
 }
 
 export class DevOperatorConsolePageService {
-  constructor(private readonly queryService: DevOperatorConsoleQueryService) {}
+  constructor(
+    private readonly queryService: DevOperatorConsoleQueryService,
+    private readonly singleTenantMode: boolean = isSingleTenantMode()
+  ) {}
 
   async getPageData(
     authSession: AuthResult,
@@ -32,7 +37,9 @@ export class DevOperatorConsolePageService {
     filters: DevInspectorFilters = {}
   ): Promise<DevInspectorPageDto> {
     const memberships = await this.queryService.listMemberships(authSession, authorizationService)
+    const inspectableTenants = await this.queryService.listInspectableTenants(authSession)
     const tenantSelection = await this.resolveTenantSelection(
+      inspectableTenants,
       memberships,
       authSession.session.activeOrganizationId,
       filters.tenantId
@@ -48,15 +55,15 @@ export class DevOperatorConsolePageService {
     )
     const auditFilters = this.buildAuditFilters(
       filters,
-      tenantSelection.tenantIds,
+      tenantSelection.inspectableTenants.map((tenant) => tenant.id),
       tenantSelection.selectedTenantId
     )
 
     const [audit, customers, expenses, invoices, metrics] = await Promise.all([
       this.queryService.listAuditTrail({
-        accessibleTenantIds: tenantSelection.tenantIds,
         activeTenantId: tenantSelection.activeTenant.id,
         filters: auditFilters,
+        inspectableTenants: tenantSelection.inspectableTenants,
       }),
       this.queryService.listCustomers(tenantSelection.selectedTenantId),
       this.queryService.listExpenses(tenantSelection.selectedTenantId),
@@ -74,7 +81,8 @@ export class DevOperatorConsolePageService {
       ),
       customers,
       expenses,
-      globalOperations: this.buildGlobalOperations(),
+      globalOperations: this.buildGlobalOperations(this.singleTenantMode),
+      inspectableTenants: tenantSelection.inspectableTenants,
       invoices,
       members: members.map((member) => ({
         ...member,
@@ -105,32 +113,18 @@ export class DevOperatorConsolePageService {
     }
   }
 
-  private buildGlobalOperations(): DevInspectorPageDto['globalOperations'] {
+  private buildGlobalOperations(
+    singleTenantMode: boolean
+  ): DevInspectorPageDto['globalOperations'] {
     return [
       {
-        action: null,
-        available: false,
-        id: 'create-empty-tenant',
-        impact: 'Creates a blank tenant shell for isolated scenario setup.',
-        label: 'Create empty tenant',
-        section: 'tenant_factory',
-        tone: 'neutral',
-      },
-      {
-        action: 'create-tenant-scenario',
-        available: true,
-        id: 'create-full-tenant',
-        impact: 'Creates a tenant with owner, admin, active member, and inactive member.',
-        label: 'Create full tenant',
-        section: 'tenant_factory',
-        tone: 'neutral',
-      },
-      {
-        action: 'create-tenant-scenario-seeded',
-        available: true,
-        id: 'create-seeded-tenant',
-        impact: 'Creates a tenant and seeds records for a realistic end-to-end scenario.',
-        label: 'Create seeded tenant',
+        action: 'create-tenant',
+        available: !singleTenantMode,
+        id: 'create-tenant',
+        impact: singleTenantMode
+          ? 'Unavailable in single-tenant mode. Only the default tenant and the private dev-operator tenant are allowed.'
+          : 'Creates a tenant with an owner account, then optionally seeds demo records.',
+        label: 'Create tenant',
         section: 'tenant_factory',
         tone: 'neutral',
       },
@@ -178,7 +172,7 @@ export class DevOperatorConsolePageService {
     }
   ): DevInspectorPageDto['context'] {
     const selectedTenantName =
-      tenantSelection.selectedTenant?.organizationName ?? tenantSelection.activeTenant.name
+      tenantSelection.selectedTenant?.organizationName ?? tenantSelection.selectedTenantOption.name
 
     return {
       accessMode: 'read_only',
@@ -202,7 +196,8 @@ export class DevOperatorConsolePageService {
         tenantId: tenantSelection.selectedTenantId,
         tenantName: selectedTenantName,
         tenantSlug:
-          tenantSelection.selectedTenant?.organizationSlug ?? tenantSelection.activeTenant.slug,
+          tenantSelection.selectedTenant?.organizationSlug ??
+          tenantSelection.selectedTenantOption.slug,
       },
       selectedMemberId: selectedMember?.id ?? '',
       selectedMemberName: selectedMember?.name ?? selectedMember?.email ?? 'No member selected',
@@ -219,6 +214,7 @@ export class DevOperatorConsolePageService {
         name: tenantSelection.activeTenant.name,
         slug: tenantSelection.activeTenant.slug,
       },
+      singleTenantMode: this.singleTenantMode,
       userEmail: authSession.user.email,
       userName: authSession.user.name ?? authSession.user.email,
       userPublicId: authSession.user.publicId,
@@ -314,6 +310,7 @@ export class DevOperatorConsolePageService {
   }
 
   private async resolveTenantSelection(
+    inspectableTenants: DevInspectorPageDto['inspectableTenants'],
     memberships: DevInspectorMembershipDto[],
     activeTenantId: null | string | undefined,
     requestedTenantId?: string
@@ -324,33 +321,31 @@ export class DevOperatorConsolePageService {
 
     const currentMembership =
       memberships.find((membership) => membership.organizationId === activeTenantId) ?? null
-    const activeTenant = currentMembership
-      ? {
-          id: currentMembership.organizationId,
-          name: currentMembership.organizationName,
-          slug: currentMembership.organizationSlug,
-        }
-      : {
-          id: activeTenantId,
-          name: activeTenantId,
-          slug: activeTenantId,
-        }
+    const activeTenant = inspectableTenants.find((tenant) => tenant.id === activeTenantId)
 
-    const tenantIds = memberships.map((membership) => membership.organizationId)
+    if (!activeTenant) {
+      throw new DomainError('Active tenant is not available.', 'forbidden')
+    }
+
+    const fallbackTenantId =
+      inspectableTenants.find((tenant) => !tenant.isSessionTenant)?.id ?? activeTenantId
     const selectedTenantId =
-      requestedTenantId && tenantIds.includes(requestedTenantId)
+      requestedTenantId && inspectableTenants.some((tenant) => tenant.id === requestedTenantId)
         ? requestedTenantId
-        : activeTenantId
+        : fallbackTenantId
+    const selectedTenantOption =
+      inspectableTenants.find((tenant) => tenant.id === selectedTenantId) ?? activeTenant
 
     return {
       activeTenant,
       currentMembership,
+      inspectableTenants,
       selectedTenant:
         memberships.find((membership) => membership.organizationId === selectedTenantId) ??
         currentMembership ??
         null,
       selectedTenantId,
-      tenantIds,
+      selectedTenantOption,
     }
   }
 }

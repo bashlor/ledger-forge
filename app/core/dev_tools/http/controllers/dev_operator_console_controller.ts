@@ -7,8 +7,10 @@ import { presentPublicMessage } from '#core/common/http/presenters/inertia_publi
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { DevOperatorConsoleService } from '#core/dev_tools/application/dev_operator_console_service'
 import { isDevOperatorActionName } from '#core/dev_tools/application/dev_operator_console_service'
+import { createDevTenantValidator } from '#core/dev_tools/http/validators/dev_operator'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
+import { AuthenticationPort } from '#core/user_management/domain/authentication'
 import { readSessionToken } from '#core/user_management/http/session/session_token'
 import { inject } from '@adonisjs/core'
 
@@ -49,7 +51,8 @@ export default class DevOperatorConsoleController {
     ctx: HttpContext,
     authorizationService: AuthorizationService,
     consoleService: DevOperatorConsoleService,
-    devToolsEnvironment: DevToolsEnvironmentService
+    devToolsEnvironment: DevToolsEnvironmentService,
+    auth: AuthenticationPort
   ) {
     devToolsEnvironment.ensureEnabled()
 
@@ -62,6 +65,11 @@ export default class DevOperatorConsoleController {
       return redirectBackToInspector(ctx)
     }
 
+    const createTenantPayload =
+      action === 'create-tenant'
+        ? await ctx.request.validateUsing(createDevTenantValidator)
+        : undefined
+
     await runConsoleAction(ctx, async () => {
       const message = await consoleService.runAction(
         ctx.authSession!,
@@ -73,9 +81,14 @@ export default class DevOperatorConsoleController {
           expenseId: stringInput(ctx, 'expenseId'),
           invoiceId: stringInput(ctx, 'invoiceId'),
           memberId: stringInput(ctx, 'memberId'),
+          ownerEmail: createTenantPayload?.ownerEmail,
+          ownerPassword: createTenantPayload?.ownerPassword,
+          seedMode: createTenantPayload?.seedMode,
           tab: stringInput(ctx, 'tab'),
           tenantId: stringInput(ctx, 'tenantId'),
-        }
+          tenantName: createTenantPayload?.tenantName,
+        },
+        auth
       )
       ctx.session.flash('notification', { message, type: 'success' })
     })

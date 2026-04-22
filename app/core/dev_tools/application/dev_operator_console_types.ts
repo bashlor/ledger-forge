@@ -7,8 +7,7 @@ export type ActionName =
   | 'create-customer-batch'
   | 'create-expense-test'
   | 'create-invoice-test'
-  | 'create-tenant-scenario'
-  | 'create-tenant-scenario-seeded'
+  | 'create-tenant'
   | 'delete-confirmed-expense'
   | 'delete-customer'
   | 'delete-expense'
@@ -175,6 +174,7 @@ export interface DevInspectorPageDto {
       name: string
       slug: string
     }
+    singleTenantMode: boolean
     userEmail: string
     userName: string
     userPublicId: string
@@ -190,6 +190,7 @@ export interface DevInspectorPageDto {
     section: 'danger_zone' | 'tenant_factory'
     tone: 'danger' | 'neutral'
   }[]
+  inspectableTenants: DevInspectorTenantOptionDto[]
   invoices: DevInspectorInvoiceDto[]
   members: DevInspectorMemberDto[]
   memberships: DevInspectorMembershipDto[]
@@ -219,14 +220,25 @@ export type DevInspectorTab =
   | 'tenant-factory'
   | 'workflow-probes'
 
+export interface DevInspectorTenantOptionDto {
+  id: string
+  isSessionTenant: boolean
+  name: string
+  slug: string
+}
+
 export interface DevOperatorActionInput {
   count?: number
   customerId?: string
   expenseId?: string
   invoiceId?: string
   memberId?: string
+  ownerEmail?: string
+  ownerPassword?: string
+  seedMode?: string
   tab?: string
   tenantId?: string
+  tenantName?: string
 }
 
 const ACTION_NAMES: readonly ActionName[] = [
@@ -235,11 +247,10 @@ const ACTION_NAMES: readonly ActionName[] = [
   'change-member-role',
   'clear-tenant-data',
   'confirm-expense',
+  'create-tenant',
   'create-customer-batch',
   'create-expense-test',
   'create-invoice-test',
-  'create-tenant-scenario',
-  'create-tenant-scenario-seeded',
   'delete-customer',
   'delete-confirmed-expense',
   'delete-expense',
