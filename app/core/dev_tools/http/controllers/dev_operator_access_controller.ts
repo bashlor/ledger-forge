@@ -70,11 +70,6 @@ export default class DevOperatorAccessController {
       const authentication = await bootstrapService.bootstrap(payload, auth)
       return finalizeBootstrap(authentication)
     } catch (error) {
-      try {
-        const recovered = await bootstrapService.bootstrap(payload, auth)
-        return finalizeBootstrap(recovered)
-      } catch {}
-
       return presentPublicError(ctx, error, { flashAll: true })
     }
   }
