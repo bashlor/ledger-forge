@@ -57,6 +57,7 @@ export interface DevInspectorFilters {
   expenseId?: string
   invoiceId?: string
   memberId?: string
+  tab?: string
   tenantId?: string
 }
 
@@ -188,13 +189,25 @@ export interface DevInspectorPageDto {
     result: 'denied' | 'error' | 'success'
     timestamp: Date
   }[]
+  view: {
+    activeTab: DevInspectorTab
+  }
 }
+
+export type DevInspectorTab =
+  | 'audit-trail'
+  | 'data-generator'
+  | 'members-permissions'
+  | 'overview'
+  | 'tenant-factory'
+  | 'workflow-probes'
 
 export interface DevOperatorActionInput {
   customerId?: string
   expenseId?: string
   invoiceId?: string
   memberId?: string
+  tab?: string
   tenantId?: string
 }
 
@@ -445,6 +458,9 @@ export class DevOperatorConsoleService {
         result: event.result,
         timestamp: event.timestamp,
       })),
+      view: {
+        activeTab: resolveActiveTab(filters.tab),
+      },
     }
   }
 
@@ -1555,6 +1571,20 @@ function metadataResult(value: unknown): 'denied' | 'error' | 'success' {
 
   const candidate = (value as Record<string, unknown>).result
   return candidate === 'denied' || candidate === 'error' ? candidate : 'success'
+}
+
+function resolveActiveTab(value?: string): DevInspectorTab {
+  switch (value?.trim()) {
+    case 'audit-trail':
+    case 'data-generator':
+    case 'members-permissions':
+    case 'overview':
+    case 'tenant-factory':
+    case 'workflow-probes':
+      return value as DevInspectorTab
+    default:
+      return 'overview'
+  }
 }
 
 function selectedTenantOptions(accessibleTenantIds: string[], activeTenantId: string) {

@@ -32,6 +32,7 @@ export default class DevOperatorConsoleController {
         expenseId: stringInput(ctx, 'expenseId'),
         invoiceId: stringInput(ctx, 'invoiceId'),
         memberId: stringInput(ctx, 'memberId'),
+        tab: stringInput(ctx, 'tab'),
         tenantId: stringInput(ctx, 'tenantId'),
       }),
     })
@@ -65,6 +66,7 @@ export default class DevOperatorConsoleController {
           expenseId: stringInput(ctx, 'expenseId'),
           invoiceId: stringInput(ctx, 'invoiceId'),
           memberId: stringInput(ctx, 'memberId'),
+          tab: stringInput(ctx, 'tab'),
           tenantId: stringInput(ctx, 'tenantId'),
         }
       )
@@ -112,6 +114,7 @@ function redirectBackToInspector(ctx: HttpContext) {
   const expenseId = stringInput(ctx, 'expenseId')
   const invoiceId = stringInput(ctx, 'invoiceId')
   const memberId = stringInput(ctx, 'memberId')
+  const tab = stringInput(ctx, 'tab')
   const tenantId = stringInput(ctx, 'tenantId')
 
   if (action) query.action = action
@@ -119,6 +122,7 @@ function redirectBackToInspector(ctx: HttpContext) {
   if (expenseId) query.expenseId = expenseId
   if (invoiceId) query.invoiceId = invoiceId
   if (memberId) query.memberId = memberId
+  if (tab) query.tab = tab
   if (tenantId) query.tenantId = tenantId
 
   return ctx.response

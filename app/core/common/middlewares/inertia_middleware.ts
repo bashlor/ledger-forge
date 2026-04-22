@@ -56,7 +56,7 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
 
     return {
       devTools: ctx.inertia.always({
-        accessHref: '/_dev/access',
+        accessHref: '/_dev',
         canAccess: canAccessDevTools,
         enabled: devToolsEnabled,
       }),

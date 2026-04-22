@@ -12,6 +12,7 @@ const InvoicesController = () => import('../http/controllers/invoices_controller
 
 router
   .group(() => {
+    router.get('/', [DevOperatorAccessController, 'show']).as('dev.root')
     router.get('/access', [DevOperatorAccessController, 'show']).as('dev.access')
     router.post('/access', [DevOperatorAccessController, 'store']).as('dev.access.store')
   })

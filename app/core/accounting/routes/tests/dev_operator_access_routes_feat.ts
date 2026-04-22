@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '#core/common/drizzle/index'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
+import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
   AuthenticationPort,
   type AuthProviderUser,
@@ -232,6 +233,40 @@ test.group('Dev operator access routes', (group) => {
     response.assertStatus(200)
     assert.equal(response.body().component, 'dev/access')
     assert.equal(response.body().props.bootstrap.defaults.email, 'dev-operator@example.local')
+  })
+
+  test('GET /_dev redirects to the inspector when the signed-in user already has dev operator access', async ({
+    assert,
+    client,
+  }) => {
+    const created = await db
+      .insert(schema.user)
+      .values({
+        email: 'signed-dev@example.local',
+        id: uuidv7(),
+        name: 'Signed Dev Operator',
+        publicId: `pub_${uuidv7().replaceAll('-', '')}`,
+      })
+      .returning({ id: schema.user.id })
+    const userId = created[0]!.id
+    const sessionToken = `dev-access-${uuidv7()}`
+
+    await db.insert(schema.devOperatorAccess).values({ userId })
+    await db.insert(schema.session).values({
+      activeOrganizationId: null,
+      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+      id: uuidv7(),
+      token: sessionToken,
+      userId,
+    })
+
+    const response = await client
+      .get('/_dev')
+      .cookie(AUTH_SESSION_TOKEN_COOKIE_NAME, sessionToken)
+      .redirects(0)
+
+    response.assertStatus(302)
+    assert.equal(response.header('location'), '/_dev/inspector')
   })
 
   test('POST /_dev/access provisions a dev operator and opens the inspector', async ({
