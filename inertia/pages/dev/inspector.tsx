@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 
-import { Link } from '@adonisjs/inertia/react'
 import { Head, router } from '@inertiajs/react'
-import { startTransition, useDeferredValue, useState } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 
 import { DataTable } from '~/components/data_table'
 import { DrawerPanel } from '~/components/drawer_panel'
@@ -20,9 +19,9 @@ type DevConsoleTab =
   | 'overview'
   | 'tenant-factory'
   | 'workflow-probes'
-
-type DialogState = null | { id: string; kind: 'expense' } | { id: string; kind: 'invoice' }
-
+type MemberRoleFilter = 'admin' | 'all' | 'member' | 'owner'
+type MemberStatusFilter = 'active' | 'all' | 'inactive'
+type ProbeType = 'customers' | 'expenses' | 'invoices'
 type Props = InertiaProps<{
   inspector: {
     audit: {
@@ -32,8 +31,10 @@ type Props = InertiaProps<{
         actorEmail: null | string
         actorId: null | string
         actorName: null | string
+        details: null | Record<string, unknown>
         entityId: string
         entityType: string
+        errorCode: null | string
         id: string
         organizationId: string
         organizationName: string
@@ -43,6 +44,7 @@ type Props = InertiaProps<{
       filters: {
         action: string
         actorId: string
+        search: string
         tenantId: string
       }
       tenants: { id: string; label: string }[]
@@ -163,34 +165,44 @@ type Props = InertiaProps<{
     }[]
     view: {
       activeTab: DevConsoleTab
+      auditSearch: string
+      memberRole: MemberRoleFilter
+      memberSearch: string
+      memberStatus: MemberStatusFilter
+      probeType: ProbeType
+      selectedRecordId: string
     }
   }
 }>
 
-const tabs: { id: DevConsoleTab; label: string; shortLabel: string }[] = [
-  { id: 'overview', label: 'Overview', shortLabel: 'Overview' },
-  { id: 'tenant-factory', label: 'Tenant Factory', shortLabel: 'Factory' },
-  { id: 'members-permissions', label: 'Members & Permissions', shortLabel: 'Members' },
-  { id: 'data-generator', label: 'Data Generator', shortLabel: 'Generator' },
-  { id: 'workflow-probes', label: 'Workflow Probes', shortLabel: 'Probes' },
-  { id: 'audit-trail', label: 'Audit Trail', shortLabel: 'Audit' },
-] as const
+type WorkflowActionState = {
+  allowed: boolean
+  attemptable?: boolean
+  extra: Record<string, string>
+  id: string
+  label: string
+  reason: string
+  tone: ActionTone
+}
+
+const tabs: { id: DevConsoleTab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'tenant-factory', label: 'Tenant Factory' },
+  { id: 'members-permissions', label: 'Members & Permissions' },
+  { id: 'data-generator', label: 'Data Generator' },
+  { id: 'workflow-probes', label: 'Workflow Probes' },
+  { id: 'audit-trail', label: 'Audit Trail' },
+]
 
 export default function DevInspectorPage({ inspector }: Props) {
   const [processingAction, setProcessingAction] = useState<null | string>(null)
-  const [dialogState, setDialogState] = useState<DialogState>(null)
   const [selectedMemberId, setSelectedMemberId] = useState<null | string>(null)
-  const [memberSearch, setMemberSearch] = useState('')
-  const [memberRoleFilter, setMemberRoleFilter] = useState<'admin' | 'all' | 'member' | 'owner'>(
-    'all'
-  )
-  const [memberStatusFilter, setMemberStatusFilter] = useState<'active' | 'all' | 'inactive'>('all')
-  const [generatorActorId, setGeneratorActorId] = useState(inspector.context.selectedMemberId)
+  const [selectedAuditEventId, setSelectedAuditEventId] = useState<null | string>(null)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [invoiceBatchCount, setInvoiceBatchCount] = useState('12')
   const [expenseBatchCount, setExpenseBatchCount] = useState('8')
   const [customerBatchCount, setCustomerBatchCount] = useState('6')
   const [allowUnauthorizedMode, setAllowUnauthorizedMode] = useState(false)
-  const deferredSearch = useDeferredValue(memberSearch)
   const {
     audit,
     context,
@@ -204,30 +216,70 @@ export default function DevInspectorPage({ inspector }: Props) {
     recentActions,
     view,
   } = inspector
-  const selectedMembership = memberships.find(
-    (membership) => membership.organizationId === context.selectedTenantId
-  )
+  const memberSearch = view.memberSearch
+  const memberRoleFilter = view.memberRole
+  const memberStatusFilter = view.memberStatus
+  const auditSearch = view.auditSearch
+  const probeType = view.probeType
+  const selectedRecordId = view.selectedRecordId
+  const generatorActorId = context.selectedMemberId
+
+  useEffect(() => {
+    function handleKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setCommandPaletteOpen(true)
+      }
+
+      if (event.key.toLowerCase() === 'r' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const target = event.target
+        if (
+          target instanceof HTMLElement &&
+          ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
+        ) {
+          return
+        }
+
+        event.preventDefault()
+        refreshSelection()
+      }
+    }
+
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [
+    audit.filters.action,
+    audit.filters.actorId,
+    auditSearch,
+    context.selectedMemberId,
+    context.selectedTenantId,
+    memberRoleFilter,
+    memberSearch,
+    memberStatusFilter,
+    probeType,
+    selectedRecordId,
+    view.activeTab,
+  ])
+
   const selectedMember = selectedMemberId
     ? (members.find((member) => member.id === selectedMemberId) ?? null)
     : null
-  const activeInvoice =
-    dialogState?.kind === 'invoice'
-      ? (invoices.find((invoice) => invoice.id === dialogState.id) ?? null)
-      : null
-  const activeExpense =
-    dialogState?.kind === 'expense'
-      ? (expenses.find((expense) => expense.id === dialogState.id) ?? null)
-      : null
-  const tenantFactoryOps = globalOperations.filter(
-    (operation) => operation.section === 'tenant_factory'
-  )
-  const dangerOps = globalOperations.filter((operation) => operation.section === 'danger_zone')
+  const selectedAuditEvent = selectedAuditEventId
+    ? (audit.events.find((event) => event.id === selectedAuditEventId) ?? null)
+    : null
+  const selectedInvoice = invoices.find((invoice) => invoice.id === selectedRecordId) ?? null
+  const selectedExpense = expenses.find((expense) => expense.id === selectedRecordId) ?? null
+  const selectedCustomer = customers.find((customer) => customer.id === selectedRecordId) ?? null
+  const selectedProbeRecord =
+    probeType === 'invoices'
+      ? selectedInvoice
+      : probeType === 'expenses'
+        ? selectedExpense
+        : selectedCustomer
   const filteredMembers = members.filter((member) => {
+    const query = memberSearch.trim().toLowerCase()
     const matchesSearch =
-      !deferredSearch.trim() ||
-      `${member.name} ${member.email} ${member.userId}`
-        .toLowerCase()
-        .includes(deferredSearch.trim().toLowerCase())
+      !query || `${member.name} ${member.email} ${member.userId}`.toLowerCase().includes(query)
     const matchesRole = memberRoleFilter === 'all' || member.role === memberRoleFilter
     const matchesStatus =
       memberStatusFilter === 'all' ||
@@ -235,66 +287,102 @@ export default function DevInspectorPage({ inspector }: Props) {
 
     return matchesSearch && matchesRole && matchesStatus
   })
+  const filteredAuditEvents = audit.events.filter((event) => {
+    const query = auditSearch.trim().toLowerCase()
+    if (!query) return true
 
-  function baseSelection() {
-    return {
+    return [
+      event.action,
+      event.entityType,
+      event.entityId,
+      event.organizationName,
+      event.actorName,
+      event.actorEmail,
+      event.errorCode,
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query))
+  })
+  const recentDenials = recentActions.filter((action) => action.result === 'denied').slice(0, 4)
+  const tenantFactoryOps = globalOperations.filter(
+    (operation) => operation.section === 'tenant_factory'
+  )
+  const dangerOps = globalOperations.filter((operation) => operation.section === 'danger_zone')
+  const tabCounts: Record<DevConsoleTab, null | number> = {
+    'audit-trail': filteredAuditEvents.length,
+    'data-generator': 4,
+    'members-permissions': filteredMembers.length,
+    overview: null,
+    'tenant-factory': tenantFactoryOps.length + dangerOps.length,
+    'workflow-probes':
+      probeType === 'invoices'
+        ? invoices.length
+        : probeType === 'expenses'
+          ? expenses.length
+          : customers.length,
+  }
+
+  function buildQuery(overrides: Record<string, null | string | undefined> = {}) {
+    const query: Record<string, string> = {}
+    const source = {
+      action: audit.filters.action,
+      actorId: audit.filters.actorId,
+      auditSearch,
       memberId: context.selectedMemberId,
+      memberRole: memberRoleFilter,
+      memberSearch,
+      memberStatus: memberStatusFilter,
+      probeType,
+      selectedRecordId,
       tab: view.activeTab,
       tenantId: context.selectedTenantId,
+      ...overrides,
     }
+
+    for (const [key, value] of Object.entries(source)) {
+      if (!value) continue
+      if ((key === 'memberRole' || key === 'memberStatus') && value === 'all') continue
+      query[key] = value
+    }
+
+    return query
   }
 
-  function auditQuery() {
-    return {
-      ...(audit.filters.action ? { action: audit.filters.action } : {}),
-      ...(audit.filters.actorId ? { actorId: audit.filters.actorId } : {}),
-      ...(audit.filters.tenantId ? { tenantId: audit.filters.tenantId } : {}),
-      ...baseSelection(),
-    }
-  }
-
-  function refreshSelection(next: Record<string, string> = {}) {
-    router.get(
-      '/_dev/inspector',
-      {
-        ...auditQuery(),
-        ...next,
-      },
-      {
-        preserveScroll: true,
-        preserveState: true,
-        replace: true,
-      }
-    )
+  function refreshSelection(overrides: Record<string, null | string | undefined> = {}) {
+    router.get('/_dev/inspector', buildQuery(overrides), {
+      preserveScroll: true,
+      preserveState: true,
+      replace: true,
+    })
   }
 
   function setActiveTab(tab: DevConsoleTab) {
-    startTransition(() => {
-      router.get(
-        '/_dev/inspector',
-        {
-          ...auditQuery(),
-          tab,
-        },
-        {
-          preserveScroll: true,
-          preserveState: true,
-          replace: true,
-        }
-      )
+    startTransition(() => refreshSelection({ tab }))
+  }
+
+  function switchTenant(tenantId: string) {
+    setProcessingAction(`switch:${tenantId}`)
+    router.post('/_dev/inspector/active-tenant', buildQuery({ selectedRecordId: '', tenantId }), {
+      onFinish: () => setProcessingAction(null),
+      preserveScroll: true,
     })
   }
 
   function runAction(
     action: string,
     extra: Record<string, string> = {},
-    tone: ActionTone = 'primary'
+    tone: ActionTone = 'primary',
+    confirmMessage?: string
   ) {
+    if (confirmMessage && typeof window !== 'undefined' && !window.confirm(confirmMessage)) {
+      return
+    }
+
     setProcessingAction(action)
     router.post(
       `/_dev/inspector/actions/${action}`,
       {
-        ...auditQuery(),
+        ...buildQuery(),
         ...extra,
       } as never,
       {
@@ -305,26 +393,16 @@ export default function DevInspectorPage({ inspector }: Props) {
     )
   }
 
-  function switchTenant(tenantId: string) {
-    setProcessingAction(`switch:${tenantId}`)
-    router.post(
-      '/_dev/inspector/active-tenant',
-      {
-        ...auditQuery(),
-        tenantId,
-      } as never,
-      {
-        onFinish: () => setProcessingAction(null),
-        preserveScroll: true,
-      }
-    )
+  function copyText(value: string) {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return
+    void navigator.clipboard.writeText(value)
   }
 
   return (
     <>
       <Head title="Dev Console" />
 
-      <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-3">
         <DevConsoleHeader
           onRefresh={() => refreshSelection()}
           operatorEmail={context.operator.email}
@@ -332,16 +410,20 @@ export default function DevInspectorPage({ inspector }: Props) {
           readOnlyBadge={context.readOnlyBadge}
         />
 
-        <StickyTabs activeTab={view.activeTab} onChange={setActiveTab} />
+        <StickyTabs activeTab={view.activeTab} counts={tabCounts} onChange={setActiveTab} />
 
         {view.activeTab === 'overview' ? (
           <OverviewTab
             context={context}
-            memberships={memberships}
             metrics={metrics}
+            onOpenAudit={() => refreshSelection({ tab: 'audit-trail' })}
+            onOpenMembers={() => refreshSelection({ tab: 'members-permissions' })}
+            onOpenProbe={(nextProbeType) =>
+              refreshSelection({ probeType: nextProbeType, tab: 'workflow-probes' })
+            }
             processingAction={processingAction}
             recentActions={recentActions}
-            selectedMembership={selectedMembership}
+            recentDenials={recentDenials}
             switchTenant={switchTenant}
           />
         ) : null}
@@ -351,7 +433,9 @@ export default function DevInspectorPage({ inspector }: Props) {
             dangerOps={dangerOps}
             memberships={memberships}
             onRun={runAction}
-            onSelectTenant={(tenantId) => refreshSelection({ memberId: '', tenantId })}
+            onSelectTenant={(tenantId) =>
+              refreshSelection({ memberId: '', selectedRecordId: '', tenantId })
+            }
             processingAction={processingAction}
             selectedTenantId={context.selectedTenantId}
             tenantFactoryOps={tenantFactoryOps}
@@ -361,13 +445,20 @@ export default function DevInspectorPage({ inspector }: Props) {
         {view.activeTab === 'members-permissions' ? (
           <MembersTab
             filteredMembers={filteredMembers}
+            key={`${memberSearch}:${memberRoleFilter}:${memberStatusFilter}`}
             memberRoleFilter={memberRoleFilter}
             memberSearch={memberSearch}
             memberStatusFilter={memberStatusFilter}
             onMemberClick={setSelectedMemberId}
-            onRoleFilterChange={setMemberRoleFilter}
-            onSearchChange={setMemberSearch}
-            onStatusFilterChange={setMemberStatusFilter}
+            onRoleFilterChange={(next) =>
+              refreshSelection({ memberRole: next, tab: 'members-permissions' })
+            }
+            onSearchChange={(next) =>
+              refreshSelection({ memberSearch: next, tab: 'members-permissions' })
+            }
+            onStatusFilterChange={(next) =>
+              refreshSelection({ memberStatus: next, tab: 'members-permissions' })
+            }
             recentActions={recentActions}
             scenarioTenantName={context.scenario.tenantName}
           />
@@ -381,31 +472,74 @@ export default function DevInspectorPage({ inspector }: Props) {
             expenseBatchCount={expenseBatchCount}
             invoiceBatchCount={invoiceBatchCount}
             members={members}
-            onActorChange={setGeneratorActorId}
+            onActorChange={(memberId) => refreshSelection({ memberId, tab: 'data-generator' })}
             onAllowUnauthorizedModeChange={setAllowUnauthorizedMode}
             onCustomerBatchCountChange={setCustomerBatchCount}
             onExpenseBatchCountChange={setExpenseBatchCount}
             onInvoiceBatchCountChange={setInvoiceBatchCount}
-            onRun={runAction}
+            onRun={(action, extra, tone) =>
+              runAction(action, { ...extra, memberId: generatorActorId }, tone)
+            }
             processingAction={processingAction}
           />
         ) : null}
 
         {view.activeTab === 'workflow-probes' ? (
           <WorkflowProbesTab
+            allowUnauthorizedMode={allowUnauthorizedMode}
+            context={context}
+            copyText={copyText}
             customers={customers}
             expenses={expenses}
             invoices={invoices}
-            onOpenExpense={(id) => setDialogState({ id, kind: 'expense' })}
-            onOpenInvoice={(id) => setDialogState({ id, kind: 'invoice' })}
+            members={members}
+            memberships={memberships}
+            onAllowUnauthorizedModeChange={setAllowUnauthorizedMode}
+            onChangeProbeType={(next) => {
+              refreshSelection({ probeType: next, selectedRecordId: '', tab: 'workflow-probes' })
+            }}
+            onRun={runAction}
+            onSelectActor={(memberId) =>
+              refreshSelection({ memberId, selectedRecordId: '', tab: 'workflow-probes' })
+            }
+            onSelectRecord={(recordId) => {
+              refreshSelection({ selectedRecordId: recordId, tab: 'workflow-probes' })
+            }}
+            onSelectTenant={(tenantId) =>
+              refreshSelection({
+                memberId: '',
+                selectedRecordId: '',
+                tab: 'workflow-probes',
+                tenantId,
+              })
+            }
+            probeType={probeType}
+            processingAction={processingAction}
+            selectedCustomer={selectedCustomer}
+            selectedExpense={selectedExpense}
+            selectedInvoice={selectedInvoice}
+            selectedRecord={selectedProbeRecord}
           />
         ) : null}
 
         {view.activeTab === 'audit-trail' ? (
-          <AuditTrailTab audit={audit} baseSelection={baseSelection} />
+          <AuditTrailTab
+            audit={audit}
+            auditSearch={auditSearch}
+            filteredEvents={filteredAuditEvents}
+            key={`${audit.filters.action}:${audit.filters.actorId}:${audit.filters.tenantId}:${auditSearch}`}
+            onActionFilterChange={(action) => refreshSelection({ action, tab: 'audit-trail' })}
+            onActorFilterChange={(actorId) => refreshSelection({ actorId, tab: 'audit-trail' })}
+            onAuditSearchChange={(search) =>
+              refreshSelection({ auditSearch: search, tab: 'audit-trail' })
+            }
+            onEventClick={setSelectedAuditEventId}
+            onTenantFilterChange={(tenantId) => refreshSelection({ tab: 'audit-trail', tenantId })}
+          />
         ) : null}
 
         <MemberDrawer
+          copyText={copyText}
           member={selectedMember}
           onClose={() => setSelectedMemberId(null)}
           onRun={runAction}
@@ -418,62 +552,148 @@ export default function DevInspectorPage({ inspector }: Props) {
           scenarioTenantName={context.scenario.tenantName}
         />
 
-        <InvoiceProbeModal
-          invoice={activeInvoice}
-          onClose={() => setDialogState(null)}
-          onRun={runAction}
-          processingAction={processingAction}
+        <AuditEventDrawer
+          event={selectedAuditEvent}
+          onClose={() => setSelectedAuditEventId(null)}
         />
-        <ExpenseProbeModal
-          expense={activeExpense}
-          onClose={() => setDialogState(null)}
-          onRun={runAction}
-          processingAction={processingAction}
+
+        <CommandPalette
+          onClose={() => setCommandPaletteOpen(false)}
+          onNavigate={(tab) => {
+            setCommandPaletteOpen(false)
+            setActiveTab(tab)
+          }}
+          onRefresh={() => {
+            setCommandPaletteOpen(false)
+            refreshSelection()
+          }}
+          open={commandPaletteOpen}
         />
       </div>
     </>
   )
 }
 
-function AuditTrailTab({
-  audit,
-  baseSelection,
+function ActivityList({
+  items,
 }: {
-  audit: Props['inspector']['audit']
-  baseSelection: () => Record<string, string>
+  items: {
+    id: string
+    label: string
+    meta: string
+    tone: 'danger' | 'info' | 'neutral' | 'success' | 'warning'
+    toneLabel: string
+  }[]
 }) {
   return (
-    <DataTable
-      emptyMessage="No audit events match the current filters."
-      headerContent={
-        <form
-          className="grid gap-2 lg:grid-cols-[1fr_1fr_1fr_auto]"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const formData = new FormData(event.currentTarget)
-            router.get(
-              '/_dev/inspector',
-              {
-                ...baseSelection(),
-                action: String(formData.get('action') ?? ''),
-                actorId: String(formData.get('actorId') ?? ''),
-                tenantId: String(formData.get('tenantId') ?? ''),
-              },
-              {
-                preserveScroll: true,
-                preserveState: true,
-                replace: true,
-              }
-            )
-          }}
+    <div className="space-y-2">
+      {items.map((item) => (
+        <div
+          className="flex items-start justify-between gap-3 rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5"
+          key={item.id}
         >
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-on-surface">{item.label}</p>
+            <p className="text-xs text-on-surface-variant">{item.meta}</p>
+          </div>
+          <ToneBadge label={item.toneLabel} tone={item.tone} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function AuditEventDrawer({
+  event,
+  onClose,
+}: {
+  event: null | Props['inspector']['audit']['events'][number]
+  onClose: () => void
+}) {
+  return (
+    <DrawerPanel
+      description="Compact event payload and result details for denied, error, and success paths."
+      footer={
+        <button className={buttonClass('secondary')} onClick={onClose} type="button">
+          Close
+        </button>
+      }
+      icon="data_object"
+      onClose={onClose}
+      open={Boolean(event)}
+      title={event ? humanizeAuditAction(event.action) : 'Audit event'}
+    >
+      {event ? (
+        <div className="space-y-4">
+          <DetailList>
+            <DetailRow label="Timestamp" value={formatTimestamp(event.timestamp)} />
+            <DetailRow
+              label="Actor"
+              value={event.actorName || event.actorEmail || event.actorId || 'system'}
+            />
+            <DetailRow label="Tenant" value={event.organizationName} />
+            <DetailRow label="Entity" value={`${event.entityType}:${event.entityId}`} />
+            <DetailRow
+              label="Result"
+              value={<ToneBadge label={event.result} tone={toneForAuditResult(event.result)} />}
+            />
+            <DetailRow label="Error code" value={event.errorCode ?? 'none'} />
+          </DetailList>
+
+          <JsonPreview
+            title="JSON details"
+            value={event.details ?? { message: 'No structured details on this event.' }}
+          />
+        </div>
+      ) : null}
+    </DrawerPanel>
+  )
+}
+
+function AuditTrailTab({
+  audit,
+  auditSearch,
+  filteredEvents,
+  onActionFilterChange,
+  onActorFilterChange,
+  onAuditSearchChange,
+  onEventClick,
+  onTenantFilterChange,
+}: {
+  audit: Props['inspector']['audit']
+  auditSearch: string
+  filteredEvents: Props['inspector']['audit']['events']
+  onActionFilterChange: (value: string) => void
+  onActorFilterChange: (value: string) => void
+  onAuditSearchChange: (value: string) => void
+  onEventClick: (eventId: string) => void
+  onTenantFilterChange: (value: string) => void
+}) {
+  const [visibleCount, setVisibleCount] = useState(20)
+  const visibleEvents = filteredEvents.slice(0, visibleCount)
+
+  return (
+    <DataTable
+      emptyMessage="No audit events match the active filters."
+      headerContent={
+        <div className="grid min-w-[920px] gap-2 xl:grid-cols-[minmax(0,1.2fr)_220px_220px_200px]">
           <input
             className={inputClass()}
-            defaultValue={audit.filters.action}
-            name="action"
-            placeholder="Filter action"
+            onChange={(event) => onAuditSearchChange(event.target.value)}
+            placeholder="Search actor, entity, action, error code"
+            value={auditSearch}
           />
-          <select className={inputClass()} defaultValue={audit.filters.actorId} name="actorId">
+          <input
+            className={inputClass()}
+            onChange={(event) => onActionFilterChange(event.target.value)}
+            placeholder="Filter action"
+            value={audit.filters.action}
+          />
+          <select
+            className={inputClass()}
+            onChange={(event) => onActorFilterChange(event.target.value)}
+            value={audit.filters.actorId}
+          >
             <option value="">All actors</option>
             {audit.actors.map((actor) => (
               <option key={actor.id} value={actor.id}>
@@ -481,81 +701,92 @@ function AuditTrailTab({
               </option>
             ))}
           </select>
-          <select className={inputClass()} defaultValue={audit.filters.tenantId} name="tenantId">
+          <select
+            className={inputClass()}
+            onChange={(event) => onTenantFilterChange(event.target.value)}
+            value={audit.filters.tenantId}
+          >
             {audit.tenants.map((tenant) => (
               <option key={tenant.id} value={tenant.id}>
                 {tenant.label}
               </option>
             ))}
           </select>
-          <div className="flex gap-2">
-            <button className={buttonClass()} type="submit">
-              Apply
-            </button>
-            <button
-              className={buttonClass('secondary')}
-              onClick={() =>
-                router.get('/_dev/inspector', baseSelection(), {
-                  preserveScroll: true,
-                  replace: true,
-                })
-              }
-              type="button"
-            >
-              Reset
-            </button>
-          </div>
-        </form>
+        </div>
       }
-      isEmpty={audit.events.length === 0}
+      isEmpty={visibleEvents.length === 0}
       title="Audit Trail"
     >
-      <ScrollableTable maxHeightClass="max-h-[32rem]">
-        <table className="w-full min-w-[980px] border-collapse text-left text-sm">
-          <thead className="sticky top-0 z-10">
-            <tr className="border-b border-outline-variant/15 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
-              <th className="px-4 py-2.5">Timestamp</th>
-              <th className="px-4 py-2.5">Actor</th>
-              <th className="px-4 py-2.5">Tenant</th>
-              <th className="px-4 py-2.5">Action</th>
-              <th className="px-4 py-2.5">Entity</th>
-              <th className="px-4 py-2.5">Result</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/10">
-            {audit.events.map((event) => (
-              <tr key={event.id}>
-                <td className="whitespace-nowrap px-4 py-3 text-on-surface-variant">
-                  {formatTimestamp(event.timestamp)}
-                </td>
-                <td className="px-4 py-3 text-on-surface">
-                  {event.actorName || event.actorEmail || event.actorId || 'system'}
-                </td>
-                <td className="px-4 py-3 text-on-surface-variant">{event.organizationName}</td>
-                <td className="px-4 py-3 font-medium text-on-surface">
-                  {humanizeAuditAction(event.action)}
-                </td>
-                <td className="px-4 py-3 text-on-surface-variant">
-                  {event.entityType}:{event.entityId}
-                </td>
-                <td className="px-4 py-3">
-                  <ToneBadge label={event.result} tone={toneForAuditResult(event.result)} />
-                </td>
+      <div className="space-y-3">
+        <ScrollableTable maxHeightClass="max-h-[34rem]">
+          <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
+            <thead className="sticky top-0 z-20">
+              <tr className="border-b border-outline-variant/12 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                <th className="sticky left-0 z-10 bg-surface-container-low px-3 py-2">Timestamp</th>
+                <th className="px-3 py-2">Actor</th>
+                <th className="px-3 py-2">Tenant</th>
+                <th className="px-3 py-2">Action</th>
+                <th className="px-3 py-2">Entity</th>
+                <th className="px-3 py-2">Result</th>
+                <th className="px-3 py-2">Error code</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollableTable>
+            </thead>
+            <tbody>
+              {visibleEvents.map((event, index) => (
+                <tr
+                  className={`cursor-pointer border-b border-outline-variant/8 transition-colors hover:bg-surface-container-low/75 ${
+                    index % 2 === 0
+                      ? 'bg-surface-container-lowest'
+                      : 'bg-surface-container-lowest/70'
+                  }`}
+                  key={event.id}
+                  onClick={() => onEventClick(event.id)}
+                >
+                  <td className="sticky left-0 bg-inherit px-3 py-2.5 text-xs text-on-surface-variant">
+                    {formatTimestamp(event.timestamp)}
+                  </td>
+                  <td className="px-3 py-2.5 text-on-surface">
+                    {event.actorName || event.actorEmail || event.actorId || 'system'}
+                  </td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">{event.organizationName}</td>
+                  <td className="px-3 py-2.5 font-medium text-on-surface">
+                    {humanizeAuditAction(event.action)}
+                  </td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">
+                    {event.entityType}:{event.entityId}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <ToneBadge label={event.result} tone={toneForAuditResult(event.result)} />
+                  </td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">{event.errorCode ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ScrollableTable>
+
+        {filteredEvents.length > visibleCount ? (
+          <div className="flex justify-end">
+            <button
+              className={buttonClass('secondary')}
+              onClick={() => setVisibleCount((count) => count + 20)}
+              type="button"
+            >
+              Load more
+            </button>
+          </div>
+        ) : null}
+      </div>
     </DataTable>
   )
 }
 
 function buttonClass(tone: ActionTone = 'primary') {
   const base =
-    'inline-flex items-center rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+    'inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 
   if (tone === 'secondary') {
-    return `${base} border border-outline-variant/20 bg-surface-container-low text-on-surface hover:bg-surface-container`
+    return `${base} border border-outline-variant/18 bg-surface-container-low text-on-surface hover:bg-surface-container`
   }
 
   if (tone === 'danger') {
@@ -565,15 +796,60 @@ function buttonClass(tone: ActionTone = 'primary') {
   return `${base} milled-steel-gradient text-on-primary hover:opacity-90`
 }
 
-function CompatibilityBlock({ items, title }: { items: string[]; title: string }) {
+function CommandPalette({
+  onClose,
+  onNavigate,
+  onRefresh,
+  open,
+}: {
+  onClose: () => void
+  onNavigate: (tab: DevConsoleTab) => void
+  onRefresh: () => void
+  open: boolean
+}) {
   return (
-    <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-low px-4 py-4">
-      <h3 className="text-base font-semibold text-on-surface">{title}</h3>
-      <ul className="mt-3 space-y-3 text-sm leading-6 text-on-surface-variant">
-        {items.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
+    <Modal onClose={onClose} open={open} size="sm" title="Command Palette">
+      <div className="space-y-3">
+        <section className="space-y-2">
+          <p className={labelClass}>Navigation</p>
+          <div className="grid gap-2">
+            {tabs.map((tab) => (
+              <button
+                className="flex items-center justify-between rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2.5 text-left text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container"
+                key={tab.id}
+                onClick={() => onNavigate(tab.id)}
+                type="button"
+              >
+                <span>{tab.label}</span>
+                <span className="text-xs text-on-surface-variant">Open</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-2">
+          <p className={labelClass}>Actions</p>
+          <button
+            className="flex w-full items-center justify-between rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2.5 text-left text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container"
+            onClick={onRefresh}
+            type="button"
+          >
+            <span>Refresh console</span>
+            <span className="text-xs text-on-surface-variant">R</span>
+          </button>
+        </section>
+      </div>
+    </Modal>
+  )
+}
+
+function CompactPanel({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <section className="rounded-2xl border border-outline-variant/12 bg-surface-container-lowest">
+      <div className="border-b border-outline-variant/10 px-4 py-3">
+        <h2 className="text-base font-semibold text-on-surface">{title}</h2>
+      </div>
+      <div className="px-4 py-4">{children}</div>
     </section>
   )
 }
@@ -608,17 +884,14 @@ function DataGeneratorTab({
   processingAction: null | string
 }) {
   return (
-    <div className="space-y-4">
-      <TabPanel
-        description="Keep generation controls compact. The advanced parameter UI is now isolated from runtime probes."
-        title="Data Generator"
-      >
-        <div className="grid gap-3 lg:grid-cols-[220px_220px_auto]">
-          <label className="space-y-2">
+    <div className="space-y-3">
+      <CompactPanel title="Data Generator">
+        <div className="grid gap-2 xl:grid-cols-[220px_220px_minmax(0,1fr)]">
+          <label className="space-y-1.5">
             <span className={labelClass}>Actor</span>
             <select
               className={inputClass()}
-              onChange={(e) => onActorChange(e.target.value)}
+              onChange={(event) => onActorChange(event.target.value)}
               value={actorId}
             >
               {members.map((member) => (
@@ -628,60 +901,62 @@ function DataGeneratorTab({
               ))}
             </select>
           </label>
-          <label className="space-y-2">
+
+          <label className="space-y-1.5">
             <span className={labelClass}>Unauthorized mode</span>
             <button
-              className={`${buttonClass('secondary')} w-full justify-center`}
+              className={`${buttonClass('secondary')} w-full`}
               onClick={() => onAllowUnauthorizedModeChange(!allowUnauthorizedMode)}
               type="button"
             >
               {allowUnauthorizedMode ? 'Enabled' : 'Disabled'}
             </button>
           </label>
-          <div className="rounded-2xl border border-outline-variant/12 bg-surface-container-low px-3 py-3 text-sm text-on-surface-variant">
-            Advanced controls are visually separated now. Backend parameterization follows in the
-            next slice.
+
+          <div className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+            Batch generators stay isolated from live probes. Use them to prepare realistic manual
+            scenarios quickly.
           </div>
         </div>
-      </TabPanel>
+      </CompactPanel>
 
-      <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
+      <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
         <GeneratorCard
           action="create-invoice-test"
           count={invoiceBatchCount}
-          description="Draft-first invoice batch for workflow and permission checks."
           label="Invoice batch"
           onCountChange={onInvoiceBatchCountChange}
           onRun={onRun}
           processingAction={processingAction}
+          summary="Draft-heavy batch for issue, pay, and delete tests."
         />
         <GeneratorCard
           action="create-expense-test"
           count={expenseBatchCount}
-          description="Expense set with varied categories and statuses."
           label="Expense batch"
           onCountChange={onExpenseBatchCountChange}
           onRun={onRun}
           processingAction={processingAction}
+          summary="Mixed draft expenses for confirm and delete checks."
         />
         <GeneratorCard
           action="create-customer-batch"
           count={customerBatchCount}
-          description="Customer records to support seeded draft and send flows."
           label="Customer batch"
           onCountChange={onCustomerBatchCountChange}
           onRun={onRun}
           processingAction={processingAction}
+          summary="Realistic contacts and companies for seeded flows."
         />
         <GeneratorCard
           action="generate-demo-data"
-          count="Full"
-          description="Broad seeded dataset for richer end-to-end manual scenarios."
-          label="Generate full dataset"
+          count="full"
+          label="Full dataset"
           onCountChange={() => undefined}
           onRun={onRun}
           processingAction={processingAction}
           readOnlyCount
+          summary="Customers, invoices, expenses, and mixed states."
         />
       </div>
     </div>
@@ -690,7 +965,7 @@ function DataGeneratorTab({
 
 function DetailList({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-outline-variant/15 bg-surface-container-low">
+    <div className="overflow-hidden rounded-xl border border-outline-variant/12 bg-surface-container-low">
       {children}
     </div>
   )
@@ -698,7 +973,7 @@ function DetailList({ children }: { children: ReactNode }) {
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="grid grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-4 border-b border-outline-variant/10 px-4 py-4 last:border-b-0">
+    <div className="grid grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)] gap-4 border-b border-outline-variant/10 px-3 py-2.5 last:border-b-0">
       <div className={labelClass}>{label}</div>
       <div className="text-right text-sm font-medium text-on-surface">{value}</div>
     </div>
@@ -717,31 +992,22 @@ function DevConsoleHeader({
   readOnlyBadge: string
 }) {
   return (
-    <section className="rounded-[22px] border border-outline-variant/18 bg-surface-container-lowest px-4 py-4 shadow-ambient-tight">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-headline text-[2rem] font-extrabold tracking-tight text-on-surface">
-              Dev Console
-            </h1>
-            <ToneBadge label="Development" tone="info" />
-            <ToneBadge label={readOnlyBadge} tone="warning" />
+    <section className="rounded-[20px] border border-outline-variant/14 bg-surface-container-lowest px-4 py-3 shadow-ambient-tight">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="font-headline text-[1.75rem] font-extrabold tracking-tight text-on-surface">
+          Dev Console
+        </h1>
+        <ToneBadge label="Development" tone="info" />
+        <ToneBadge label={readOnlyBadge} tone="warning" />
+        <div className="ml-auto flex min-w-0 items-center gap-3">
+          <div className="min-w-0 rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2">
+            <p className={labelClass}>Current operator</p>
+            <p className="truncate text-sm font-semibold text-on-surface">{operatorName}</p>
+            <p className="truncate text-xs text-on-surface-variant">{operatorEmail}</p>
           </div>
-          <p className="mt-2 text-sm text-on-surface-variant">
-            Structured internal console for manual business-rule and isolation checks.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <HeaderTile label="Current operator" secondary={operatorEmail} value={operatorName} />
-          <HeaderTile label="Search shortcut" value="Cmd/Ctrl + K" />
-          <HeaderTile label="Date" value={formatLongDate(new Date().toISOString())} />
           <button className={buttonClass('secondary')} onClick={onRefresh} type="button">
             Refresh
           </button>
-          <Link className={buttonClass('secondary')} href="/dashboard">
-            Open workspace
-          </Link>
         </div>
       </div>
     </section>
@@ -749,93 +1015,7 @@ function DevConsoleHeader({
 }
 
 function EmptyStateCopy({ text }: { text: string }) {
-  return <p className="text-sm leading-6 text-on-surface-variant">{text}</p>
-}
-
-function ExpenseProbeModal({
-  expense,
-  onClose,
-  onRun,
-  processingAction,
-}: {
-  expense: null | Props['inspector']['expenses'][number]
-  onClose: () => void
-  onRun: (action: string, extra?: Record<string, string>, tone?: ActionTone) => void
-  processingAction: null | string
-}) {
-  return (
-    <Modal
-      description="Expense probes stay compact and intentionally explicit for draft vs confirmed deletion paths."
-      footer={
-        expense ? (
-          <>
-            <button className={buttonClass('secondary')} onClick={onClose} type="button">
-              Close
-            </button>
-            <button
-              className={buttonClass('danger')}
-              disabled={
-                processingAction === 'delete-confirmed-expense' ||
-                processingAction === 'delete-expense'
-              }
-              onClick={() =>
-                onRun(
-                  expense.status === 'confirmed' ? 'delete-confirmed-expense' : 'delete-expense',
-                  { expenseId: expense.id },
-                  'danger'
-                )
-              }
-              type="button"
-            >
-              {processingAction === 'delete-confirmed-expense' ||
-              processingAction === 'delete-expense'
-                ? 'Running...'
-                : expense.status === 'confirmed'
-                  ? 'Attempt delete confirmed expense'
-                  : 'Delete draft expense'}
-            </button>
-          </>
-        ) : undefined
-      }
-      onClose={onClose}
-      open={Boolean(expense)}
-      size="md"
-      title={expense ? expense.label : 'Expense probe'}
-    >
-      {expense ? (
-        <div className="space-y-4">
-          <DetailList>
-            <DetailRow label="Category" value={expense.category} />
-            <DetailRow label="Status" value={expense.status} />
-            <DetailRow label="Date" value={formatShortDate(expense.date)} />
-            <DetailRow label="Amount" value={formatMoney(expense.amountCents)} />
-          </DetailList>
-          <CompatibilityBlock
-            items={
-              expense.status === 'draft'
-                ? [
-                    'Draft expense deletion is expected to succeed when draft-write permissions exist.',
-                    'Denied responses here should come from permissions or isolation, not record state.',
-                  ]
-                : [
-                    'Confirmed expense deletion should remain visible and fail explicitly.',
-                    'This is a deliberate forbidden path worth keeping in tooling.',
-                  ]
-            }
-            title="Probe notes"
-          />
-        </div>
-      ) : null}
-    </Modal>
-  )
-}
-
-function formatLongDate(value: string) {
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(value))
+  return <p className="text-sm text-on-surface-variant">{text}</p>
 }
 
 function formatMoney(amountCents: number) {
@@ -852,28 +1032,33 @@ function formatTimestamp(value: string) {
 function GeneratorCard({
   action,
   count,
-  description,
   label,
   onCountChange,
   onRun,
   processingAction,
   readOnlyCount = false,
+  summary,
 }: {
   action: string
   count: string
-  description: string
   label: string
   onCountChange: (value: string) => void
   onRun: (action: string, extra?: Record<string, string>, tone?: ActionTone) => void
   processingAction: null | string
   readOnlyCount?: boolean
+  summary: string
 }) {
   return (
-    <div className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest px-4 py-4 shadow-ambient-tight">
-      <p className={labelClass}>Generator</p>
-      <h3 className="mt-2 text-lg font-semibold text-on-surface">{label}</h3>
-      <p className="mt-2 text-sm leading-6 text-on-surface-variant">{description}</p>
-      <label className="mt-4 block space-y-2">
+    <div className="rounded-2xl border border-outline-variant/12 bg-surface-container-lowest px-4 py-4 shadow-ambient-tight">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className={labelClass}>Generator</p>
+          <h3 className="mt-1 text-lg font-semibold text-on-surface">{label}</h3>
+        </div>
+        <ToneBadge label="ready" tone="neutral" />
+      </div>
+      <p className="mt-2 text-sm leading-6 text-on-surface-variant">{summary}</p>
+      <label className="mt-3 block space-y-1.5">
         <span className={labelClass}>Count</span>
         <input
           className={inputClass()}
@@ -883,31 +1068,13 @@ function GeneratorCard({
         />
       </label>
       <button
-        className={`${buttonClass()} mt-4 w-full justify-center`}
+        className={`${buttonClass()} mt-3 w-full`}
         disabled={processingAction === action}
-        onClick={() => onRun(action)}
+        onClick={() => onRun(action, readOnlyCount ? {} : { count })}
         type="button"
       >
         {processingAction === action ? 'Running...' : 'Generate'}
       </button>
-    </div>
-  )
-}
-
-function HeaderTile({
-  label,
-  secondary,
-  value,
-}: {
-  label: string
-  secondary?: string
-  value: string
-}) {
-  return (
-    <div className="rounded-2xl border border-outline-variant/15 bg-surface-container-low px-4 py-3">
-      <p className={labelClass}>{label}</p>
-      <p className="mt-1 text-sm font-semibold text-on-surface">{value}</p>
-      {secondary ? <p className="truncate text-xs text-on-surface-variant">{secondary}</p> : null}
     </div>
   )
 }
@@ -917,104 +1084,24 @@ function humanizeAuditAction(action: string) {
 }
 
 function inputClass() {
-  return 'w-full rounded-xl border border-outline-variant/20 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-primary/30'
+  return 'w-full rounded-lg border border-outline-variant/18 bg-surface-container-low px-3 py-2 text-sm text-on-surface outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-primary/25'
 }
 
-function InvoiceProbeModal({
-  invoice,
-  onClose,
-  onRun,
-  processingAction,
-}: {
-  invoice: null | Props['inspector']['invoices'][number]
-  onClose: () => void
-  onRun: (action: string, extra?: Record<string, string>, tone?: ActionTone) => void
-  processingAction: null | string
-}) {
+function JsonPreview({ title, value }: { title: string; value: unknown }) {
   return (
-    <Modal
-      description="Invoice probes remain centralized inside the workflow tab and keep forbidden operations visible."
-      footer={
-        invoice ? (
-          <>
-            <button className={buttonClass('secondary')} onClick={onClose} type="button">
-              Close
-            </button>
-            <button
-              className={buttonClass('secondary')}
-              disabled={processingAction === 'update-invoice-draft'}
-              onClick={() => onRun('update-invoice-draft', { invoiceId: invoice.id })}
-              type="button"
-            >
-              {processingAction === 'update-invoice-draft' ? 'Running...' : 'Edit draft'}
-            </button>
-            <button
-              className={buttonClass()}
-              disabled={processingAction === 'change-invoice-status'}
-              onClick={() => onRun('change-invoice-status', { invoiceId: invoice.id })}
-              type="button"
-            >
-              {processingAction === 'change-invoice-status'
-                ? 'Running...'
-                : invoice.status === 'draft'
-                  ? 'Issue invoice'
-                  : invoice.status === 'issued'
-                    ? 'Mark paid'
-                    : 'Advance status'}
-            </button>
-            <button
-              className={buttonClass('danger')}
-              disabled={processingAction === 'delete-invoice'}
-              onClick={() => onRun('delete-invoice', { invoiceId: invoice.id }, 'danger')}
-              type="button"
-            >
-              {processingAction === 'delete-invoice' ? 'Running...' : 'Delete as draft'}
-            </button>
-          </>
-        ) : undefined
-      }
-      onClose={onClose}
-      open={Boolean(invoice)}
-      size="lg"
-      title={invoice ? invoice.invoiceNumber : 'Invoice probe'}
-    >
-      {invoice ? (
-        <div className="space-y-4">
-          <DetailList>
-            <DetailRow label="Customer" value={invoice.customerCompanyName} />
-            <DetailRow label="Status" value={invoice.status} />
-            <DetailRow
-              label="Date window"
-              value={`${formatShortDate(invoice.issueDate)} to ${formatShortDate(invoice.dueDate)}`}
-            />
-            <DetailRow label="Total" value={formatMoney(invoice.totalInclTaxCents)} />
-          </DetailList>
-          <CompatibilityBlock
-            items={
-              invoice.status === 'draft'
-                ? [
-                    'Draft invoices support edit, issue, and delete as the normal probe path.',
-                    'Forbidden issue attempts should remain visible rather than hidden.',
-                  ]
-                : invoice.status === 'issued'
-                  ? [
-                      'Issued invoices can advance to paid when the selected actor is allowed.',
-                      'Delete-as-draft should fail visibly because the document left draft state.',
-                    ]
-                  : [
-                      'Paid invoices are terminal and draft-only actions should fail.',
-                      'Keeping them visible helps verify business-rule denials quickly.',
-                    ]
-            }
-            title="Probe notes"
-          />
-        </div>
-      ) : null}
-    </Modal>
+    <section className="overflow-hidden rounded-xl border border-outline-variant/12 bg-surface-container-low">
+      <div className="border-b border-outline-variant/10 px-3 py-2">
+        <p className={labelClass}>{title}</p>
+      </div>
+      <pre className="overflow-x-auto px-3 py-3 text-xs leading-6 text-on-surface">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    </section>
   )
 }
 
 function MemberDrawer({
+  copyText,
   member,
   onClose,
   onRun,
@@ -1023,9 +1110,15 @@ function MemberDrawer({
   scenarioActorId,
   scenarioTenantName,
 }: {
+  copyText: (value: string) => void
   member: null | Props['inspector']['members'][number]
   onClose: () => void
-  onRun: (action: string, extra?: Record<string, string>, tone?: ActionTone) => void
+  onRun: (
+    action: string,
+    extra?: Record<string, string>,
+    tone?: ActionTone,
+    confirmMessage?: string
+  ) => void
   onSetScenarioActor: (memberId: string) => void
   processingAction: null | string
   scenarioActorId: string
@@ -1033,7 +1126,7 @@ function MemberDrawer({
 }) {
   return (
     <DrawerPanel
-      description="Inspect identity, role rules, and quick member mutations without leaving the members workspace."
+      description="Identity, role rules, and fast member mutations for RBAC and isolation checks."
       footer={
         member ? (
           <div className="flex flex-wrap gap-2">
@@ -1051,7 +1144,14 @@ function MemberDrawer({
             <button
               className={buttonClass(member.isActive ? 'danger' : 'primary')}
               disabled={processingAction === 'toggle-member-active'}
-              onClick={() => onRun('toggle-member-active', { memberId: member.id })}
+              onClick={() =>
+                onRun(
+                  'toggle-member-active',
+                  { memberId: member.id },
+                  member.isActive ? 'danger' : 'primary',
+                  member.isActive ? 'Deactivate this member?' : undefined
+                )
+              }
               type="button"
             >
               {processingAction === 'toggle-member-active'
@@ -1081,25 +1181,66 @@ function MemberDrawer({
       title={member ? member.name : 'Member inspector'}
     >
       {member ? (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <DetailList>
             <DetailRow label="Name" value={member.name} />
             <DetailRow label="Email" value={member.email} />
             <DetailRow label="Tenant" value={scenarioTenantName} />
-            <DetailRow label="Role" value={member.role} />
-            <DetailRow label="Status" value={member.isActive ? 'active' : 'inactive'} />
-            <DetailRow label="User id" value={member.userId} />
+            <DetailRow label="Role" value={<RoleBadge role={member.role} />} />
+            <DetailRow
+              label="Status"
+              value={
+                <ToneBadge
+                  label={member.isActive ? 'active' : 'inactive'}
+                  tone={member.isActive ? 'success' : 'warning'}
+                />
+              }
+            />
+            <DetailRow
+              label="User id"
+              value={
+                <div className="flex justify-end gap-2">
+                  <span className="font-mono text-xs">{member.userId}</span>
+                  <button
+                    className={copyButtonClass()}
+                    onClick={() => copyText(member.userId)}
+                    type="button"
+                  >
+                    Copy
+                  </button>
+                </div>
+              }
+            />
           </DetailList>
 
-          <CompatibilityBlock
-            items={[
-              member.role === 'owner'
-                ? 'Owner cannot be demoted or deactivated.'
-                : 'Non-owner members remain valid targets for role and status probes.',
-              member.id === scenarioActorId
-                ? 'Self-targeting checks matter because self-deactivation should remain blocked.'
-                : 'This row can become the scenario actor for permission-sensitive flows.',
-              'Cross-tenant mutations remain forbidden even when the operator can see the row.',
+          <RuleList
+            rules={[
+              {
+                allowed: member.role !== 'owner',
+                label: 'Owner cannot be demoted',
+                reason:
+                  member.role === 'owner'
+                    ? 'Blocked by role invariant.'
+                    : 'No owner lock on this row.',
+              },
+              {
+                allowed: member.id !== scenarioActorId,
+                label: 'Self deactivation blocked',
+                reason:
+                  member.id === scenarioActorId
+                    ? 'Current scenario actor should not deactivate itself.'
+                    : 'Safe target for cross-member status checks.',
+              },
+              {
+                allowed: member.role === 'member',
+                label: 'Member can be promoted',
+                reason: member.role === 'member' ? 'Valid promotion path.' : 'Already elevated.',
+              },
+              {
+                allowed: false,
+                label: 'Cross-tenant forbidden',
+                reason: 'Mutations outside the selected tenant remain blocked.',
+              },
             ]}
             title="Rules preview"
           />
@@ -1122,32 +1263,31 @@ function MembersTab({
   scenarioTenantName,
 }: {
   filteredMembers: Props['inspector']['members']
-  memberRoleFilter: 'admin' | 'all' | 'member' | 'owner'
+  memberRoleFilter: MemberRoleFilter
   memberSearch: string
-  memberStatusFilter: 'active' | 'all' | 'inactive'
+  memberStatusFilter: MemberStatusFilter
   onMemberClick: (memberId: string) => void
-  onRoleFilterChange: (value: 'admin' | 'all' | 'member' | 'owner') => void
+  onRoleFilterChange: (value: MemberRoleFilter) => void
   onSearchChange: (value: string) => void
-  onStatusFilterChange: (value: 'active' | 'all' | 'inactive') => void
+  onStatusFilterChange: (value: MemberStatusFilter) => void
   recentActions: Props['inspector']['recentActions']
   scenarioTenantName: string
 }) {
+  const [visibleCount, setVisibleCount] = useState(12)
   return (
     <DataTable
       emptyMessage="No members match the current filters."
       headerContent={
-        <div className="grid min-w-[720px] gap-2 md:grid-cols-[minmax(0,1.4fr)_180px_180px]">
+        <div className="grid min-w-[720px] gap-2 lg:grid-cols-[minmax(0,1.4fr)_180px_180px]">
           <input
             className={inputClass()}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search name, email, or user id"
+            placeholder="Search name, email, user id"
             value={memberSearch}
           />
           <select
             className={inputClass()}
-            onChange={(event) =>
-              onRoleFilterChange(event.target.value as 'admin' | 'all' | 'member' | 'owner')
-            }
+            onChange={(event) => onRoleFilterChange(event.target.value as MemberRoleFilter)}
             value={memberRoleFilter}
           >
             <option value="all">All roles</option>
@@ -1157,9 +1297,7 @@ function MembersTab({
           </select>
           <select
             className={inputClass()}
-            onChange={(event) =>
-              onStatusFilterChange(event.target.value as 'active' | 'all' | 'inactive')
-            }
+            onChange={(event) => onStatusFilterChange(event.target.value as MemberStatusFilter)}
             value={memberStatusFilter}
           >
             <option value="all">All statuses</option>
@@ -1171,288 +1309,267 @@ function MembersTab({
       isEmpty={filteredMembers.length === 0}
       title="Members & Permissions"
     >
-      <ScrollableTable maxHeightClass="max-h-[38rem]">
-        <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
-          <thead className="sticky top-0 z-10">
-            <tr className="border-b border-outline-variant/15 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
-              <th className="px-4 py-2.5">Name</th>
-              <th className="px-4 py-2.5">Email</th>
-              <th className="px-4 py-2.5">Role</th>
-              <th className="px-4 py-2.5">Status</th>
-              <th className="px-4 py-2.5">Tenant</th>
-              <th className="px-4 py-2.5">Scenario actor</th>
-              <th className="px-4 py-2.5">Last action</th>
-              <th className="px-4 py-2.5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/10">
-            {filteredMembers.map((member) => (
-              <tr
-                className={`cursor-pointer transition-colors hover:bg-surface-container-low/70 ${
-                  member.isCurrentActor ? 'bg-primary/5' : ''
-                }`}
-                key={member.id}
-                onClick={() => onMemberClick(member.id)}
-              >
-                <td className="px-4 py-3 font-medium text-on-surface">{member.name}</td>
-                <td className="px-4 py-3 text-on-surface-variant">{member.email}</td>
-                <td className="px-4 py-3">
-                  <RoleBadge role={member.role} />
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={member.isActive ? 'confirmed' : 'overdue'} />
-                </td>
-                <td className="px-4 py-3 text-on-surface-variant">{scenarioTenantName}</td>
-                <td className="px-4 py-3">
-                  {member.isCurrentActor ? (
-                    <ToneBadge label="Scenario actor" tone="info" />
-                  ) : (
-                    <span className="text-xs text-on-surface-variant">Available</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-on-surface-variant">
-                  {recentActions[0]
-                    ? humanizeAuditAction(recentActions[0].action)
-                    : 'No action yet'}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button className={rowActionButtonClass()} type="button">
-                    Inspect
-                  </button>
-                </td>
+      <div className="space-y-3">
+        <ScrollableTable maxHeightClass="max-h-[38rem]">
+          <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
+            <thead className="sticky top-0 z-20">
+              <tr className="border-b border-outline-variant/12 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                <th className="px-3 py-2">Name</th>
+                <th className="px-3 py-2">Email</th>
+                <th className="px-3 py-2">Role</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Tenant</th>
+                <th className="px-3 py-2">Scenario actor</th>
+                <th className="px-3 py-2">Last action</th>
+                <th className="sticky right-0 bg-surface-container-low px-3 py-2 text-right">
+                  Actions
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollableTable>
+            </thead>
+            <tbody>
+              {filteredMembers.slice(0, visibleCount).map((member, index) => (
+                <tr
+                  className={`cursor-pointer border-b border-outline-variant/8 transition-colors hover:bg-surface-container-low/75 ${
+                    member.isCurrentActor
+                      ? 'bg-primary/6'
+                      : index % 2 === 0
+                        ? 'bg-surface-container-lowest'
+                        : 'bg-surface-container-lowest/70'
+                  }`}
+                  key={member.id}
+                  onClick={() => onMemberClick(member.id)}
+                >
+                  <td className="px-3 py-2.5 font-medium text-on-surface">{member.name}</td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">{member.email}</td>
+                  <td className="px-3 py-2.5">
+                    <RoleBadge role={member.role} />
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <StatusBadge status={member.isActive ? 'confirmed' : 'overdue'} />
+                  </td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">{scenarioTenantName}</td>
+                  <td className="px-3 py-2.5">
+                    {member.isCurrentActor ? (
+                      <ToneBadge label="Scenario actor" tone="info" />
+                    ) : (
+                      <span className="text-xs text-on-surface-variant">Available</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">
+                    {recentActions[0]
+                      ? humanizeAuditAction(recentActions[0].action)
+                      : 'No action yet'}
+                  </td>
+                  <td className="sticky right-0 bg-inherit px-3 py-2.5 text-right">
+                    <button className={rowActionButtonClass()} type="button">
+                      Inspect
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ScrollableTable>
+
+        {filteredMembers.length > visibleCount ? (
+          <div className="flex justify-end">
+            <button
+              className={buttonClass('secondary')}
+              onClick={() => setVisibleCount((count) => count + 12)}
+              type="button"
+            >
+              Load more
+            </button>
+          </div>
+        ) : null}
+      </div>
     </DataTable>
   )
 }
 
-function MetricRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between rounded-2xl border border-outline-variant/12 bg-surface-container-low px-4 py-3">
-      <p className={labelClass}>{label}</p>
-      <p className="text-xl font-extrabold tabular-nums text-on-surface">{value}</p>
-    </div>
-  )
-}
-
-function OperationPanel({
-  description,
-  onRun,
-  operations,
-  processingAction,
-  title,
-}: {
-  description: string
-  onRun: (action: string, extra?: Record<string, string>, tone?: ActionTone) => void
-  operations: Props['inspector']['globalOperations']
-  processingAction: null | string
-  title: string
-}) {
-  return (
-    <TabPanel description={description} title={title}>
-      <div className="space-y-3">
-        {operations.map((operation) => {
-          const tone = operation.tone === 'danger' ? 'danger' : 'secondary'
-          return (
-            <div
-              className="rounded-2xl border border-outline-variant/12 bg-surface-container-low px-4 py-4"
-              key={operation.id}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-on-surface">{operation.label}</h3>
-                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                    {operation.impact}
-                  </p>
-                </div>
-                <button
-                  className={`${buttonClass(tone)} shrink-0`}
-                  disabled={
-                    !operation.available ||
-                    !operation.action ||
-                    processingAction === operation.action
-                  }
-                  onClick={() => operation.action && onRun(operation.action, {}, tone)}
-                  type="button"
-                >
-                  {!operation.available
-                    ? 'Soon'
-                    : processingAction === operation.action
-                      ? 'Running...'
-                      : 'Run'}
-                </button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </TabPanel>
-  )
-}
-
-function OverviewItem({
+function MetricCard({
+  hint,
+  isWarning = false,
   label,
-  mono = false,
+  onClick,
   value,
 }: {
+  hint: string
+  isWarning?: boolean
   label: string
-  mono?: boolean
-  value: string
+  onClick: () => void
+  value: number
 }) {
   return (
-    <div className="rounded-2xl border border-outline-variant/12 bg-surface-container-low px-4 py-3">
+    <button
+      className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+        isWarning
+          ? 'border-amber-500/25 bg-amber-500/8 hover:bg-amber-500/12'
+          : 'border-outline-variant/12 bg-surface-container-low hover:bg-surface-container'
+      }`}
+      onClick={onClick}
+      type="button"
+    >
       <p className={labelClass}>{label}</p>
-      <p className={`mt-1 text-sm text-on-surface ${mono ? 'font-mono text-xs' : 'font-semibold'}`}>
-        {value}
-      </p>
-    </div>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <p className="text-2xl font-extrabold tabular-nums text-on-surface">{value}</p>
+        <p className="text-right text-xs text-on-surface-variant">{hint}</p>
+      </div>
+    </button>
   )
 }
 
 function OverviewTab({
   context,
-  memberships,
   metrics,
+  onOpenAudit,
+  onOpenMembers,
+  onOpenProbe,
   processingAction,
   recentActions,
-  selectedMembership,
+  recentDenials,
   switchTenant,
 }: {
   context: Props['inspector']['context']
-  memberships: Props['inspector']['memberships']
   metrics: Props['inspector']['metrics']
+  onOpenAudit: () => void
+  onOpenMembers: () => void
+  onOpenProbe: (probeType: ProbeType) => void
   processingAction: null | string
   recentActions: Props['inspector']['recentActions']
-  selectedMembership?: Props['inspector']['memberships'][number]
+  recentDenials: Props['inspector']['recentActions']
   switchTenant: (tenantId: string) => void
 }) {
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_340px]">
-      <TabPanel
-        description="Current session and scenario state for the operator and the active test actor."
-        title="Overview"
-      >
-        <div className="grid gap-3 lg:grid-cols-2">
-          <OverviewItem label="Operator read-only" value={context.readOnlyBadge} />
-          <OverviewItem label="Access mode" value={context.accessMode} />
-          <OverviewItem label="Session tenant" value={context.sessionTenant.name} />
-          <OverviewItem label="Active actor" value={context.scenario.actorName} />
-          <OverviewItem label="Current role" value={context.scenario.actorRole ?? 'none'} />
-          <OverviewItem label="Workspace slug" mono value={context.scenario.tenantSlug} />
-        </div>
-
-        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-          <label className="space-y-2">
-            <span className={labelClass}>Active tenant</span>
-            <select
-              className={inputClass()}
-              onChange={(event) =>
-                router.get(
-                  '/_dev/inspector',
-                  { memberId: '', tab: 'overview', tenantId: event.target.value },
-                  { preserveScroll: true, preserveState: true, replace: true }
-                )
+    <div className="grid gap-3 xl:grid-cols-[minmax(0,1.25fr)_360px]">
+      <CompactPanel title="Active Context">
+        <div className="space-y-4">
+          <DetailList>
+            <DetailRow label="Session tenant" value={context.sessionTenant.name} />
+            <DetailRow label="Active actor" value={context.scenario.actorName} />
+            <DetailRow label="Current role" value={context.scenario.actorRole ?? 'none'} />
+            <DetailRow
+              label="Make active"
+              value={
+                <button
+                  className={buttonClass()}
+                  onClick={() => switchTenant(context.scenario.tenantId)}
+                  type="button"
+                >
+                  {processingAction === `switch:${context.scenario.tenantId}`
+                    ? 'Switching...'
+                    : 'Make session tenant active'}
+                </button>
               }
-              value={context.scenario.tenantId}
-            >
-              {memberships.map((membership) => (
-                <option key={membership.organizationId} value={membership.organizationId}>
-                  {membership.organizationName} ({membership.role}
-                  {membership.isActive ? '' : ', inactive'})
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="flex items-end">
-            <button
-              className={buttonClass()}
-              onClick={() => switchTenant(context.scenario.tenantId)}
-              type="button"
-            >
-              {processingAction === `switch:${context.scenario.tenantId}`
-                ? 'Switching...'
-                : 'Make session tenant active'}
-            </button>
+            />
+          </DetailList>
+
+          <div className="flex flex-wrap gap-2">
+            <PermissionChip
+              active={context.selectedMemberPermissions.accountingRead}
+              label="Accounting read"
+            />
+            <PermissionChip
+              active={context.selectedMemberPermissions.accountingWriteDrafts}
+              label="Draft writes"
+            />
+            <PermissionChip
+              active={context.selectedMemberPermissions.invoiceIssue}
+              label="Issue invoice"
+            />
+            <PermissionChip
+              active={context.selectedMemberPermissions.invoiceMarkPaid}
+              label="Mark paid"
+            />
+            <PermissionChip
+              active={context.selectedMemberPermissions.membershipList}
+              label="List members"
+            />
+            <PermissionChip
+              active={context.selectedMemberPermissions.membershipToggleActive}
+              label="Toggle active"
+            />
+            <PermissionChip
+              active={context.selectedMemberPermissions.membershipChangeRole}
+              label="Change role"
+            />
+            <PermissionChip
+              active={context.selectedMemberPermissions.auditTrailView}
+              label="Audit trail"
+            />
           </div>
         </div>
+      </CompactPanel>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <PermissionChip
-            active={context.selectedMemberPermissions.accountingRead}
-            label="Accounting read"
+      <CompactPanel title="Quick Metrics">
+        <div className="grid gap-2">
+          <MetricCard
+            hint={metrics.invoices === 0 ? 'No draft or issued data' : 'Open workflow probes'}
+            isWarning={metrics.invoices === 0}
+            label="Invoices"
+            onClick={() => onOpenProbe('invoices')}
+            value={metrics.invoices}
           />
-          <PermissionChip
-            active={context.selectedMemberPermissions.accountingWriteDrafts}
-            label="Draft writes"
+          <MetricCard
+            hint={metrics.expenses === 0 ? 'No expense data' : 'Open workflow probes'}
+            isWarning={metrics.expenses === 0}
+            label="Expenses"
+            onClick={() => onOpenProbe('expenses')}
+            value={metrics.expenses}
           />
-          <PermissionChip
-            active={context.selectedMemberPermissions.invoiceIssue}
-            label="Issue invoice"
+          <MetricCard
+            hint={metrics.customers === 0 ? 'No customer data' : 'Open workflow probes'}
+            isWarning={metrics.customers === 0}
+            label="Customers"
+            onClick={() => onOpenProbe('customers')}
+            value={metrics.customers}
           />
-          <PermissionChip
-            active={context.selectedMemberPermissions.invoiceMarkPaid}
-            label="Mark paid"
+          <MetricCard
+            hint="Inspect authorization targets"
+            label="Members"
+            onClick={onOpenMembers}
+            value={metrics.members}
           />
-          <PermissionChip
-            active={context.selectedMemberPermissions.membershipList}
-            label="List members"
-          />
-          <PermissionChip
-            active={context.selectedMemberPermissions.membershipToggleActive}
-            label="Toggle active"
-          />
-          <PermissionChip
-            active={context.selectedMemberPermissions.membershipChangeRole}
-            label="Change role"
-          />
-          <PermissionChip
-            active={context.selectedMemberPermissions.auditTrailView}
-            label="Audit trail"
+          <MetricCard
+            hint="Latest console activity"
+            label="Audit events"
+            onClick={onOpenAudit}
+            value={metrics.auditEvents}
           />
         </div>
-      </TabPanel>
+      </CompactPanel>
 
-      <div className="space-y-4">
-        <TabPanel title="Quick metrics">
-          <div className="grid gap-3">
-            <MetricRow label="Invoices" value={metrics.invoices} />
-            <MetricRow label="Expenses" value={metrics.expenses} />
-            <MetricRow label="Customers" value={metrics.customers} />
-            <MetricRow label="Members" value={metrics.members} />
-            <MetricRow label="Audit events" value={metrics.auditEvents} />
-          </div>
-        </TabPanel>
+      <CompactPanel title="Recent Actions">
+        {recentActions.length > 0 ? (
+          <ActivityList
+            items={recentActions.map((action) => ({
+              id: action.id,
+              label: humanizeAuditAction(action.action),
+              meta: formatTimestamp(action.timestamp),
+              tone: toneForAuditResult(action.result),
+              toneLabel: action.result,
+            }))}
+          />
+        ) : (
+          <EmptyStateCopy text="No console actions recorded yet." />
+        )}
+      </CompactPanel>
 
-        <TabPanel title="Last run status">
-          {recentActions[0] ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-on-surface">
-                  {humanizeAuditAction(recentActions[0].action)}
-                </p>
-                <ToneBadge
-                  label={recentActions[0].result}
-                  tone={toneForAuditResult(recentActions[0].result)}
-                />
-              </div>
-              <p className="text-sm text-on-surface-variant">
-                {formatTimestamp(recentActions[0].timestamp)}
-              </p>
-            </div>
-          ) : (
-            <EmptyStateCopy text="No console actions recorded yet." />
-          )}
-        </TabPanel>
-
-        {selectedMembership?.isActive === false ? (
-          <TabPanel title="Membership status">
-            <EmptyStateCopy text="The selected membership is inactive. Some scenario actions are expected to fail." />
-          </TabPanel>
-        ) : null}
-      </div>
+      <CompactPanel title="Recent Denials">
+        {recentDenials.length > 0 ? (
+          <ActivityList
+            items={recentDenials.map((action) => ({
+              id: action.id,
+              label: humanizeAuditAction(action.action),
+              meta: formatTimestamp(action.timestamp),
+              tone: 'warning',
+              toneLabel: 'denied',
+            }))}
+          />
+        ) : (
+          <EmptyStateCopy text="No denied actions in the latest runs." />
+        )}
+      </CompactPanel>
     </div>
   )
 }
@@ -1460,7 +1577,7 @@ function OverviewTab({
 function PermissionChip({ active, label }: { active: boolean; label: string }) {
   return (
     <span
-      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
+      className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
         active
           ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700'
           : 'border-outline-variant/20 bg-surface-container-low text-on-surface-variant'
@@ -1471,64 +1588,40 @@ function PermissionChip({ active, label }: { active: boolean; label: string }) {
   )
 }
 
-function ProbeSummary({ subtitle, title }: { subtitle: string; title: string }) {
-  return (
-    <div className="rounded-2xl border border-outline-variant/12 bg-surface-container-low px-4 py-3">
-      <p className="text-sm font-semibold text-on-surface">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-on-surface-variant">{subtitle}</p>
-    </div>
-  )
-}
-
-function ProbeTable({
-  columns,
-  rows,
-  title,
-}: {
-  columns: string[]
-  rows: ReactNode[][]
-  title: string
-}) {
-  return (
-    <DataTable
-      emptyMessage={`No records available in ${title.toLowerCase()}.`}
-      isEmpty={rows.length === 0}
-      title={title}
-    >
-      <ScrollableTable maxHeightClass="max-h-[28rem]">
-        <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-          <thead className="sticky top-0 z-10">
-            <tr className="border-b border-outline-variant/15 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
-              {columns.map((column) => (
-                <th className="px-4 py-2.5" key={column}>
-                  {column}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/10">
-            {rows.map((row, rowIndex) => (
-              <tr key={`${title}-${rowIndex}`}>
-                {row.map((cell, cellIndex) => (
-                  <td
-                    className="px-4 py-3 text-on-surface-variant"
-                    key={`${title}-${rowIndex}-${cellIndex}`}
-                  >
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollableTable>
-    </DataTable>
-  )
-}
-
 function RoleBadge({ role }: { role: 'admin' | 'member' | 'owner' }) {
   const tone = role === 'owner' ? 'warning' : role === 'admin' ? 'info' : 'neutral'
   return <ToneBadge label={role} tone={tone} />
+}
+
+function RuleList({
+  rules,
+  title,
+}: {
+  rules: { allowed: boolean; label: string; reason: string }[]
+  title: string
+}) {
+  return (
+    <section className="space-y-2">
+      <p className={labelClass}>{title}</p>
+      <div className="space-y-2">
+        {rules.map((rule) => (
+          <div
+            className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-3"
+            key={rule.label}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-on-surface">{rule.label}</p>
+              <ToneBadge
+                label={rule.allowed ? 'allowed' : 'blocked'}
+                tone={rule.allowed ? 'success' : 'warning'}
+              />
+            </div>
+            <p className="mt-2 text-sm text-on-surface-variant">{rule.reason}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 function ScrollableTable({
@@ -1543,19 +1636,21 @@ function ScrollableTable({
 
 function StickyTabs({
   activeTab,
+  counts,
   onChange,
 }: {
   activeTab: DevConsoleTab
+  counts: Record<DevConsoleTab, null | number>
   onChange: (tab: DevConsoleTab) => void
 }) {
   return (
-    <nav className="sticky top-16 z-20 overflow-x-auto rounded-[18px] border border-outline-variant/15 bg-surface-container-lowest/95 px-2 py-2 shadow-ambient backdrop-blur-md">
-      <div className="flex min-w-max items-center gap-2">
+    <nav className="sticky top-16 z-20 overflow-x-auto rounded-[18px] border border-outline-variant/12 bg-surface-container-lowest/95 px-2 py-1.5 shadow-ambient backdrop-blur-md">
+      <div className="grid min-w-max grid-flow-col gap-2 auto-cols-fr">
         {tabs.map((tab) => {
           const active = activeTab === tab.id
           return (
             <button
-              className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
+              className={`flex min-w-[170px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
                 active
                   ? 'bg-on-surface text-background'
                   : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
@@ -1564,41 +1659,19 @@ function StickyTabs({
               onClick={() => onChange(tab.id)}
               type="button"
             >
-              <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden">{tab.shortLabel}</span>
+              <span>{tab.label}</span>
+              {counts[tab.id] !== null ? (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${active ? 'bg-background/15 text-background' : 'bg-surface-container-low text-on-surface-variant'}`}
+                >
+                  {counts[tab.id]}
+                </span>
+              ) : null}
             </button>
           )
         })}
       </div>
     </nav>
-  )
-}
-
-function TabPanel({
-  children,
-  description,
-  title,
-}: {
-  children: ReactNode
-  description?: string
-  title: string
-}) {
-  return (
-    <section className="rounded-[22px] border border-outline-variant/16 bg-surface-container-lowest shadow-ambient-tight">
-      <div className="border-b border-outline-variant/10 px-4 py-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-[1.35rem] font-extrabold tracking-tight text-on-surface">
-              {title}
-            </h2>
-            {description ? (
-              <p className="mt-1 text-sm leading-6 text-on-surface-variant">{description}</p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-      <div className="px-4 py-4">{children}</div>
-    </section>
   )
 }
 
@@ -1613,17 +1686,22 @@ function TenantFactoryTab({
 }: {
   dangerOps: Props['inspector']['globalOperations']
   memberships: Props['inspector']['memberships']
-  onRun: (action: string, extra?: Record<string, string>, tone?: ActionTone) => void
+  onRun: (
+    action: string,
+    extra?: Record<string, string>,
+    tone?: ActionTone,
+    confirmMessage?: string
+  ) => void
   onSelectTenant: (tenantId: string) => void
   processingAction: null | string
   selectedTenantId: string
   tenantFactoryOps: Props['inspector']['globalOperations']
 }) {
   return (
-    <div className="space-y-4">
-      <TabPanel title="Tenant Factory">
-        <div className="grid gap-3 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <label className="space-y-2">
+    <div className="space-y-3">
+      <CompactPanel title="Tenant Factory">
+        <div className="grid gap-2 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <label className="space-y-1.5">
             <span className={labelClass}>Tenant selector</span>
             <select
               className={inputClass()}
@@ -1637,27 +1715,27 @@ function TenantFactoryTab({
               ))}
             </select>
           </label>
-          <div className="rounded-2xl border border-outline-variant/12 bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
-            Provisioning and destructive tenant actions are intentionally isolated in this tab so
-            they never compete with member or audit work.
+          <div className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+            Provisioning and destructive tenant operations stay isolated here so they never compete
+            with member, probe, or audit work.
           </div>
         </div>
-      </TabPanel>
+      </CompactPanel>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-3 xl:grid-cols-2">
         <OperationPanel
-          description="Create local tenant scenarios quickly."
+          description="Fast tenant creation for manual scenarios."
           onRun={onRun}
           operations={tenantFactoryOps}
           processingAction={processingAction}
           title="Provisioning"
         />
         <OperationPanel
-          description="Destructive actions stay grouped and visually separated."
+          description="Destructive actions are isolated and require explicit confirmation."
           onRun={onRun}
           operations={dangerOps}
           processingAction={processingAction}
-          title="Danger zone"
+          title="Danger Zone"
         />
       </div>
     </div>
@@ -1673,108 +1751,695 @@ function ToneBadge({
 }) {
   return (
     <span
-      className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${toneBadgeClass(tone)}`}
+      className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${toneBadgeClass(tone)}`}
     >
       {label}
     </span>
   )
 }
 
+function WorkflowActionPanel({
+  allowUnauthorizedMode,
+  copyText,
+  onRun,
+  probeType,
+  processingAction,
+  record,
+  selectedPermissions,
+}: {
+  allowUnauthorizedMode: boolean
+  copyText: (value: string) => void
+  onRun: (
+    action: string,
+    extra?: Record<string, string>,
+    tone?: ActionTone,
+    confirmMessage?: string
+  ) => void
+  probeType: ProbeType
+  processingAction: null | string
+  record:
+    | null
+    | Props['inspector']['customers'][number]
+    | Props['inspector']['expenses'][number]
+    | Props['inspector']['invoices'][number]
+  selectedPermissions: Props['inspector']['context']['selectedMemberPermissions']
+}) {
+  if (!record) {
+    return (
+      <CompactPanel title="Record Actions">
+        <EmptyStateCopy text="Select a record from the table to inspect it and run contextual actions." />
+      </CompactPanel>
+    )
+  }
+
+  const actions =
+    probeType === 'invoices'
+      ? invoiceActionStates(record as Props['inspector']['invoices'][number], selectedPermissions)
+      : probeType === 'expenses'
+        ? expenseActionStates(record as Props['inspector']['expenses'][number], selectedPermissions)
+        : customerActionStates(
+            (record as Props['inspector']['customers'][number]).id,
+            selectedPermissions
+          )
+
+  return (
+    <CompactPanel title="Record Actions">
+      <div className="space-y-4">
+        <DetailList>
+          <DetailRow label="Entity" value={probeType.slice(0, -1)} />
+          <DetailRow
+            label="Record id"
+            value={
+              <div className="flex justify-end gap-2">
+                <span className="font-mono text-xs">{record.id}</span>
+                <button
+                  className={copyButtonClass()}
+                  onClick={() => copyText(record.id)}
+                  type="button"
+                >
+                  Copy
+                </button>
+              </div>
+            }
+          />
+          {'invoiceNumber' in record ? (
+            <DetailRow label="Primary" value={record.invoiceNumber} />
+          ) : null}
+          {'label' in record ? <DetailRow label="Primary" value={record.label} /> : null}
+          {'company' in record ? <DetailRow label="Primary" value={record.company} /> : null}
+        </DetailList>
+
+        <RuleList
+          rules={actions.map((action) => ({
+            allowed: action.allowed,
+            label: action.label,
+            reason: action.reason,
+          }))}
+          title="Action states"
+        />
+
+        <div className="space-y-2">
+          {actions.map((action) => {
+            const canAttempt =
+              action.allowed || (allowUnauthorizedMode && action.attemptable !== false)
+            return (
+              <button
+                className={`${buttonClass(action.tone)} w-full justify-between`}
+                disabled={!canAttempt || processingAction === action.id}
+                key={action.label}
+                onClick={() =>
+                  onRun(
+                    action.id,
+                    action.extra,
+                    action.tone,
+                    action.tone === 'danger' ? `${action.label}?` : undefined
+                  )
+                }
+                type="button"
+              >
+                <span>{processingAction === action.id ? 'Running...' : action.label}</span>
+                <span className="text-xs opacity-80">
+                  {action.allowed ? 'allowed' : allowUnauthorizedMode ? 'attempt' : 'blocked'}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {!allowUnauthorizedMode ? (
+          <div className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+            Enable unauthorized mode to deliberately trigger blocked paths and verify denials.
+          </div>
+        ) : null}
+      </div>
+    </CompactPanel>
+  )
+}
+
 function WorkflowProbesTab({
+  allowUnauthorizedMode,
+  context,
+  copyText,
   customers,
   expenses,
   invoices,
-  onOpenExpense,
-  onOpenInvoice,
+  members,
+  memberships,
+  onAllowUnauthorizedModeChange,
+  onChangeProbeType,
+  onRun,
+  onSelectActor,
+  onSelectRecord,
+  onSelectTenant,
+  probeType,
+  processingAction,
+  selectedCustomer,
+  selectedExpense,
+  selectedInvoice,
+  selectedRecord,
+}: {
+  allowUnauthorizedMode: boolean
+  context: Props['inspector']['context']
+  copyText: (value: string) => void
+  customers: Props['inspector']['customers']
+  expenses: Props['inspector']['expenses']
+  invoices: Props['inspector']['invoices']
+  members: Props['inspector']['members']
+  memberships: Props['inspector']['memberships']
+  onAllowUnauthorizedModeChange: (value: boolean) => void
+  onChangeProbeType: (value: ProbeType) => void
+  onRun: (
+    action: string,
+    extra?: Record<string, string>,
+    tone?: ActionTone,
+    confirmMessage?: string
+  ) => void
+  onSelectActor: (memberId: string) => void
+  onSelectRecord: (recordId: string) => void
+  onSelectTenant: (tenantId: string) => void
+  probeType: ProbeType
+  processingAction: null | string
+  selectedCustomer: null | Props['inspector']['customers'][number]
+  selectedExpense: null | Props['inspector']['expenses'][number]
+  selectedInvoice: null | Props['inspector']['invoices'][number]
+  selectedRecord:
+    | null
+    | Props['inspector']['customers'][number]
+    | Props['inspector']['expenses'][number]
+    | Props['inspector']['invoices'][number]
+}) {
+  const createAction =
+    probeType === 'invoices'
+      ? { action: 'create-invoice-test', label: 'Create draft' }
+      : probeType === 'expenses'
+        ? { action: 'create-expense-test', label: 'Create expense' }
+        : { action: 'create-customer-batch', label: 'Create customer' }
+
+  return (
+    <div className="space-y-3">
+      <CompactPanel title="Workflow Probes">
+        <div className="grid gap-2 xl:grid-cols-[220px_260px_220px_auto_auto]">
+          <label className="space-y-1.5">
+            <span className={labelClass}>Selected actor</span>
+            <select
+              className={inputClass()}
+              onChange={(event) => onSelectActor(event.target.value)}
+              value={context.selectedMemberId}
+            >
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name} ({member.role})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1.5">
+            <span className={labelClass}>Selected tenant</span>
+            <select
+              className={inputClass()}
+              onChange={(event) => onSelectTenant(event.target.value)}
+              value={context.selectedTenantId}
+            >
+              {memberships.map((membership) => (
+                <option key={membership.organizationId} value={membership.organizationId}>
+                  {membership.organizationName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1.5">
+            <span className={labelClass}>Unauthorized mode</span>
+            <button
+              className={`${buttonClass('secondary')} w-full`}
+              onClick={() => onAllowUnauthorizedModeChange(!allowUnauthorizedMode)}
+              type="button"
+            >
+              {allowUnauthorizedMode ? 'Enabled' : 'Disabled'}
+            </button>
+          </label>
+          <div className="flex items-end">
+            <button
+              className={`${buttonClass()} w-full`}
+              disabled={processingAction === createAction.action}
+              onClick={() => onRun(createAction.action, { count: '1' })}
+              type="button"
+            >
+              {processingAction === createAction.action ? 'Running...' : createAction.label}
+            </button>
+          </div>
+          <div className="flex items-end rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+            Run mutations as the selected scenario actor inside the selected tenant.
+          </div>
+        </div>
+      </CompactPanel>
+
+      <nav className="sticky top-[8.2rem] z-10 flex gap-2 overflow-x-auto rounded-2xl border border-outline-variant/12 bg-surface-container-lowest/95 p-2 backdrop-blur-md">
+        {(
+          [
+            ['invoices', 'Invoices'],
+            ['expenses', 'Expenses'],
+            ['customers', 'Customers'],
+          ] as const
+        ).map(([id, label]) => {
+          const active = probeType === id
+          const count =
+            id === 'invoices'
+              ? invoices.length
+              : id === 'expenses'
+                ? expenses.length
+                : customers.length
+          return (
+            <button
+              className={`flex min-w-[160px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                active
+                  ? 'bg-on-surface text-background'
+                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+              }`}
+              key={id}
+              onClick={() => onChangeProbeType(id)}
+              type="button"
+            >
+              <span>{label}</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] ${active ? 'bg-background/15 text-background' : 'bg-surface-container-low text-on-surface-variant'}`}
+              >
+                {count}
+              </span>
+            </button>
+          )
+        })}
+      </nav>
+
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_380px]">
+        <WorkflowRecordTable
+          customers={customers}
+          expenses={expenses}
+          invoices={invoices}
+          onSelectRecord={onSelectRecord}
+          probeType={probeType}
+          selectedCustomer={selectedCustomer}
+          selectedExpense={selectedExpense}
+          selectedInvoice={selectedInvoice}
+        />
+
+        <WorkflowActionPanel
+          allowUnauthorizedMode={allowUnauthorizedMode}
+          copyText={copyText}
+          onRun={onRun}
+          probeType={probeType}
+          processingAction={processingAction}
+          record={selectedRecord}
+          selectedPermissions={context.selectedMemberPermissions}
+        />
+      </div>
+    </div>
+  )
+}
+
+function WorkflowRecordTable({
+  customers,
+  expenses,
+  invoices,
+  onSelectRecord,
+  probeType,
+  selectedCustomer,
+  selectedExpense,
+  selectedInvoice,
 }: {
   customers: Props['inspector']['customers']
   expenses: Props['inspector']['expenses']
   invoices: Props['inspector']['invoices']
-  onOpenExpense: (id: string) => void
-  onOpenInvoice: (id: string) => void
+  onSelectRecord: (recordId: string) => void
+  probeType: ProbeType
+  selectedCustomer: null | Props['inspector']['customers'][number]
+  selectedExpense: null | Props['inspector']['expenses'][number]
+  selectedInvoice: null | Props['inspector']['invoices'][number]
 }) {
+  const title =
+    probeType === 'invoices' ? 'Invoices' : probeType === 'expenses' ? 'Expenses' : 'Customers'
+
   return (
-    <div className="space-y-4">
-      <TabPanel
-        description="Keep business mutations focused in one workspace, separate from tenant setup and member administration."
-        title="Workflow Probes"
-      >
-        <div className="grid gap-3 lg:grid-cols-3">
-          <ProbeSummary
-            subtitle="Create, issue, mark paid, delete draft, reject delete sent."
-            title="Invoice actions"
-          />
-          <ProbeSummary
-            subtitle="Create, confirm, delete draft, reject delete confirmed."
-            title="Expense actions"
-          />
-          <ProbeSummary
-            subtitle="Create/update/delete visibility is reserved for the next workflow slice."
-            title="Customer actions"
-          />
-        </div>
-      </TabPanel>
+    <DataTable
+      emptyMessage={`No ${title.toLowerCase()} available in the selected tenant.`}
+      isEmpty={
+        probeType === 'invoices'
+          ? invoices.length === 0
+          : probeType === 'expenses'
+            ? expenses.length === 0
+            : customers.length === 0
+      }
+      title={title}
+    >
+      <ScrollableTable maxHeightClass="max-h-[42rem]">
+        {probeType === 'invoices' ? (
+          <table className="w-full min-w-[820px] border-collapse text-left text-sm">
+            <thead className="sticky top-0 z-20">
+              <tr className="border-b border-outline-variant/12 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                <th className="px-3 py-2">Invoice</th>
+                <th className="px-3 py-2">Customer</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Window</th>
+                <th className="px-3 py-2">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoices.map((invoice, index) => (
+                <tr
+                  className={`cursor-pointer border-b border-outline-variant/8 transition-colors hover:bg-surface-container-low/75 ${
+                    selectedInvoice?.id === invoice.id
+                      ? 'bg-primary/6'
+                      : index % 2 === 0
+                        ? 'bg-surface-container-lowest'
+                        : 'bg-surface-container-lowest/70'
+                  }`}
+                  key={invoice.id}
+                  onClick={() => onSelectRecord(invoice.id)}
+                >
+                  <td className="px-3 py-2.5 font-medium text-on-surface">
+                    {invoice.invoiceNumber}
+                  </td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">
+                    {invoice.customerCompanyName}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <StatusBadge status={invoice.status} />
+                  </td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">
+                    {formatShortDate(invoice.issueDate)} to {formatShortDate(invoice.dueDate)}
+                  </td>
+                  <td className="px-3 py-2.5 text-on-surface">
+                    {formatMoney(invoice.totalInclTaxCents)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
 
-      <div className="grid gap-4 2xl:grid-cols-2">
-        <ProbeTable
-          columns={['Invoice', 'Customer', 'Status', 'Window', 'Total', 'Actions']}
-          rows={invoices.map((invoice) => [
-            invoice.invoiceNumber,
-            invoice.customerCompanyName,
-            <StatusBadge key={`${invoice.id}-status`} status={invoice.status} />,
-            `${formatShortDate(invoice.issueDate)} to ${formatShortDate(invoice.dueDate)}`,
-            formatMoney(invoice.totalInclTaxCents),
-            <button
-              className={rowActionButtonClass()}
-              key={`${invoice.id}-action`}
-              onClick={() => onOpenInvoice(invoice.id)}
-              type="button"
-            >
-              Probe
-            </button>,
-          ])}
-          title="Invoices"
-        />
-        <ProbeTable
-          columns={['Expense', 'Category', 'Date', 'Status', 'Amount', 'Actions']}
-          rows={expenses.map((expense) => [
-            expense.label,
-            expense.category,
-            formatShortDate(expense.date),
-            <StatusBadge key={`${expense.id}-status`} status={expense.status} />,
-            formatMoney(expense.amountCents),
-            <button
-              className={rowActionButtonClass()}
-              key={`${expense.id}-action`}
-              onClick={() => onOpenExpense(expense.id)}
-              type="button"
-            >
-              Probe
-            </button>,
-          ])}
-          title="Expenses"
-        />
-      </div>
+        {probeType === 'expenses' ? (
+          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+            <thead className="sticky top-0 z-20">
+              <tr className="border-b border-outline-variant/12 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                <th className="px-3 py-2">Expense</th>
+                <th className="px-3 py-2">Category</th>
+                <th className="px-3 py-2">Date</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {expenses.map((expense, index) => (
+                <tr
+                  className={`cursor-pointer border-b border-outline-variant/8 transition-colors hover:bg-surface-container-low/75 ${
+                    selectedExpense?.id === expense.id
+                      ? 'bg-primary/6'
+                      : index % 2 === 0
+                        ? 'bg-surface-container-lowest'
+                        : 'bg-surface-container-lowest/70'
+                  }`}
+                  key={expense.id}
+                  onClick={() => onSelectRecord(expense.id)}
+                >
+                  <td className="px-3 py-2.5 font-medium text-on-surface">{expense.label}</td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">{expense.category}</td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">
+                    {formatShortDate(expense.date)}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <StatusBadge status={expense.status} />
+                  </td>
+                  <td className="px-3 py-2.5 text-on-surface">
+                    {formatMoney(expense.amountCents)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
 
-      <ProbeTable
-        columns={['Company', 'Contact', 'Email', 'Phone', 'Created']}
-        rows={customers.map((customer) => [
-          customer.company,
-          customer.name,
-          customer.email,
-          customer.phone,
-          formatTimestamp(customer.createdAt),
-        ])}
-        title="Customers"
-      />
-    </div>
+        {probeType === 'customers' ? (
+          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+            <thead className="sticky top-0 z-20">
+              <tr className="border-b border-outline-variant/12 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                <th className="px-3 py-2">Company</th>
+                <th className="px-3 py-2">Contact</th>
+                <th className="px-3 py-2">Email</th>
+                <th className="px-3 py-2">Phone</th>
+                <th className="px-3 py-2">Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map((customer, index) => (
+                <tr
+                  className={`cursor-pointer border-b border-outline-variant/8 transition-colors hover:bg-surface-container-low/75 ${
+                    selectedCustomer?.id === customer.id
+                      ? 'bg-primary/6'
+                      : index % 2 === 0
+                        ? 'bg-surface-container-lowest'
+                        : 'bg-surface-container-lowest/70'
+                  }`}
+                  key={customer.id}
+                  onClick={() => onSelectRecord(customer.id)}
+                >
+                  <td className="px-3 py-2.5 font-medium text-on-surface">{customer.company}</td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">{customer.name}</td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">{customer.email}</td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">{customer.phone}</td>
+                  <td className="px-3 py-2.5 text-on-surface-variant">
+                    {formatTimestamp(customer.createdAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+      </ScrollableTable>
+    </DataTable>
   )
 }
 
 const labelClass = 'text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant'
 
+function copyButtonClass() {
+  return 'rounded-md border border-outline-variant/18 bg-surface-container-low px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface transition-colors hover:bg-surface-container'
+}
+
+function customerActionStates(
+  customerId: string,
+  permissions: Props['inspector']['context']['selectedMemberPermissions']
+): WorkflowActionState[] {
+  return [
+    {
+      allowed: permissions.accountingWriteDrafts,
+      extra: { customerId },
+      id: 'update-customer',
+      label: 'Update customer',
+      reason: permissions.accountingWriteDrafts
+        ? 'Draft write permission available.'
+        : 'Draft write permission is missing.',
+      tone: 'secondary' as const,
+    },
+    {
+      allowed: permissions.accountingWriteDrafts,
+      extra: { customerId },
+      id: 'delete-customer',
+      label: 'Delete customer',
+      reason: permissions.accountingWriteDrafts
+        ? 'Delete path available unless invoices are linked.'
+        : 'Draft write permission is missing.',
+      tone: 'danger' as const,
+    },
+  ]
+}
+
+function expenseActionStates(
+  expense: Props['inspector']['expenses'][number],
+  permissions: Props['inspector']['context']['selectedMemberPermissions']
+): WorkflowActionState[] {
+  return [
+    {
+      allowed: permissions.accountingWriteDrafts && expense.status === 'draft',
+      extra: { expenseId: expense.id },
+      id: 'confirm-expense',
+      label: 'Confirm expense',
+      reason:
+        expense.status !== 'draft'
+          ? 'Only draft expenses can be confirmed.'
+          : permissions.accountingWriteDrafts
+            ? 'Draft write permission available.'
+            : 'Draft write permission is missing.',
+      tone: 'primary' as const,
+    },
+    {
+      allowed: permissions.accountingWriteDrafts && expense.status === 'draft',
+      extra: { expenseId: expense.id },
+      id: 'delete-expense',
+      label: 'Delete draft expense',
+      reason:
+        expense.status !== 'draft'
+          ? 'Only draft expenses can be deleted.'
+          : permissions.accountingWriteDrafts
+            ? 'Draft delete path is available.'
+            : 'Draft write permission is missing.',
+      tone: 'danger' as const,
+    },
+    {
+      allowed: permissions.accountingWriteDrafts && expense.status === 'confirmed',
+      extra: { expenseId: expense.id },
+      id: 'delete-confirmed-expense',
+      label: 'Delete confirmed expense',
+      reason:
+        expense.status !== 'confirmed'
+          ? 'Select a confirmed expense to exercise the blocked path.'
+          : permissions.accountingWriteDrafts
+            ? 'Visible blocked path for confirmed delete checks.'
+            : 'Draft write permission is missing.',
+      tone: 'danger' as const,
+    },
+  ]
+}
+
+function invoiceActionStates(
+  invoice: Props['inspector']['invoices'][number],
+  permissions: Props['inspector']['context']['selectedMemberPermissions']
+): WorkflowActionState[] {
+  return [
+    {
+      allowed: permissions.accountingWriteDrafts && invoice.status === 'draft',
+      extra: { invoiceId: invoice.id },
+      id: 'update-invoice-draft',
+      label: 'Update draft',
+      reason:
+        invoice.status !== 'draft'
+          ? 'Only draft invoices can be edited.'
+          : permissions.accountingWriteDrafts
+            ? 'Draft write permission available.'
+            : 'Draft write permission is missing.',
+      tone: 'secondary' as const,
+    },
+    {
+      allowed: permissions.invoiceIssue && invoice.status === 'draft',
+      extra: { invoiceId: invoice.id },
+      id: 'change-invoice-status',
+      label: 'Send invoice',
+      reason:
+        invoice.status !== 'draft'
+          ? 'Only draft invoices can be issued.'
+          : permissions.invoiceIssue
+            ? 'Issue permission available.'
+            : 'Issue permission is missing.',
+      tone: 'primary' as const,
+    },
+    {
+      allowed: permissions.invoiceMarkPaid && invoice.status === 'issued',
+      extra: { invoiceId: invoice.id },
+      id: 'change-invoice-status',
+      label: 'Mark paid',
+      reason:
+        invoice.status !== 'issued'
+          ? 'Only issued invoices can be marked as paid.'
+          : permissions.invoiceMarkPaid
+            ? 'Mark-paid permission available.'
+            : 'Mark-paid permission is missing.',
+      tone: 'primary' as const,
+    },
+    {
+      allowed: permissions.accountingWriteDrafts && invoice.status === 'draft',
+      extra: { invoiceId: invoice.id },
+      id: 'delete-invoice',
+      label: 'Delete draft',
+      reason:
+        invoice.status !== 'draft'
+          ? 'Only draft invoices can be deleted.'
+          : permissions.accountingWriteDrafts
+            ? 'Draft deletion path is available.'
+            : 'Draft write permission is missing.',
+      tone: 'danger' as const,
+    },
+    {
+      allowed: false,
+      attemptable: invoice.status !== 'draft',
+      extra: { invoiceId: invoice.id },
+      id: 'delete-invoice',
+      label: 'Delete sent invoice',
+      reason:
+        invoice.status === 'draft'
+          ? 'Select a non-draft invoice to exercise the blocked path.'
+          : 'Visible blocked path for forbidden deletion checks.',
+      tone: 'danger' as const,
+    },
+  ]
+}
+
+function OperationPanel({
+  description,
+  onRun,
+  operations,
+  processingAction,
+  title,
+}: {
+  description: string
+  onRun: (
+    action: string,
+    extra?: Record<string, string>,
+    tone?: ActionTone,
+    confirmMessage?: string
+  ) => void
+  operations: Props['inspector']['globalOperations']
+  processingAction: null | string
+  title: string
+}) {
+  return (
+    <CompactPanel title={title}>
+      <div className="space-y-2">
+        <p className="text-sm text-on-surface-variant">{description}</p>
+        {operations.map((operation) => {
+          const tone = operation.tone === 'danger' ? 'danger' : 'secondary'
+          return (
+            <div
+              className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-4 py-3"
+              key={operation.id}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-on-surface">{operation.label}</h3>
+                  <p className="mt-1.5 text-sm text-on-surface-variant">{operation.impact}</p>
+                </div>
+                <button
+                  className={`${buttonClass(tone)} shrink-0`}
+                  disabled={
+                    !operation.available ||
+                    !operation.action ||
+                    processingAction === operation.action
+                  }
+                  onClick={() =>
+                    operation.action &&
+                    onRun(
+                      operation.action,
+                      {},
+                      tone,
+                      operation.tone === 'danger' ? `${operation.label}?` : undefined
+                    )
+                  }
+                  type="button"
+                >
+                  {!operation.available
+                    ? 'Soon'
+                    : processingAction === operation.action
+                      ? 'Running...'
+                      : 'Run'}
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </CompactPanel>
+  )
+}
+
 function rowActionButtonClass() {
-  return 'rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-on-surface transition-colors hover:bg-surface-container'
+  return 'rounded-lg border border-outline-variant/18 bg-surface-container-low px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface transition-colors hover:bg-surface-container'
 }
 
 function toneBadgeClass(tone: 'danger' | 'info' | 'neutral' | 'success' | 'warning') {

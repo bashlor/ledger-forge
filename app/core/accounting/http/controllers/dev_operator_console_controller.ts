@@ -29,9 +29,15 @@ export default class DevOperatorConsoleController {
       inspector: await consoleService.getPageData(ctx.authSession!, authorizationService, {
         action: stringInput(ctx, 'action'),
         actorId: stringInput(ctx, 'actorId'),
+        auditSearch: stringInput(ctx, 'auditSearch'),
         expenseId: stringInput(ctx, 'expenseId'),
         invoiceId: stringInput(ctx, 'invoiceId'),
         memberId: stringInput(ctx, 'memberId'),
+        memberRole: stringInput(ctx, 'memberRole'),
+        memberSearch: stringInput(ctx, 'memberSearch'),
+        memberStatus: stringInput(ctx, 'memberStatus'),
+        probeType: stringInput(ctx, 'probeType'),
+        selectedRecordId: stringInput(ctx, 'selectedRecordId'),
         tab: stringInput(ctx, 'tab'),
         tenantId: stringInput(ctx, 'tenantId'),
       }),
@@ -62,6 +68,7 @@ export default class DevOperatorConsoleController {
         action,
         authorizationService,
         {
+          count: numberInput(ctx, 'count'),
           customerId: stringInput(ctx, 'customerId'),
           expenseId: stringInput(ctx, 'expenseId'),
           invoiceId: stringInput(ctx, 'invoiceId'),
@@ -107,21 +114,43 @@ export default class DevOperatorConsoleController {
   }
 }
 
+function numberInput(ctx: HttpContext, key: string): number | undefined {
+  const raw = String(ctx.request.input(key) ?? '').trim()
+  if (!raw) {
+    return undefined
+  }
+
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+}
+
 function redirectBackToInspector(ctx: HttpContext) {
   const query: Record<string, string> = {}
   const action = stringInput(ctx, 'action')
   const actorId = stringInput(ctx, 'actorId')
+  const auditSearch = stringInput(ctx, 'auditSearch')
   const expenseId = stringInput(ctx, 'expenseId')
   const invoiceId = stringInput(ctx, 'invoiceId')
   const memberId = stringInput(ctx, 'memberId')
+  const memberRole = stringInput(ctx, 'memberRole')
+  const memberSearch = stringInput(ctx, 'memberSearch')
+  const memberStatus = stringInput(ctx, 'memberStatus')
+  const probeType = stringInput(ctx, 'probeType')
+  const selectedRecordId = stringInput(ctx, 'selectedRecordId')
   const tab = stringInput(ctx, 'tab')
   const tenantId = stringInput(ctx, 'tenantId')
 
   if (action) query.action = action
   if (actorId) query.actorId = actorId
+  if (auditSearch) query.auditSearch = auditSearch
   if (expenseId) query.expenseId = expenseId
   if (invoiceId) query.invoiceId = invoiceId
   if (memberId) query.memberId = memberId
+  if (memberRole) query.memberRole = memberRole
+  if (memberSearch) query.memberSearch = memberSearch
+  if (memberStatus) query.memberStatus = memberStatus
+  if (probeType) query.probeType = probeType
+  if (selectedRecordId) query.selectedRecordId = selectedRecordId
   if (tab) query.tab = tab
   if (tenantId) query.tenantId = tenantId
 
