@@ -30,7 +30,10 @@ export class DeferredDatabaseResetLauncher {
   constructor(
     private readonly runner: DeferredDatabaseResetCommandRunner = new NodeDeferredDatabaseResetCommandRunner(),
     private readonly repoRoot: string = process.cwd(),
-    private readonly scriptPath: string = resolve(process.cwd(), 'scripts/reset-local-dev-environment.sh'),
+    private readonly scriptPath: string = resolve(
+      process.cwd(),
+      'scripts/reset-local-dev-environment.sh'
+    ),
     private readonly delaySeconds: number = 3
   ) {}
 
