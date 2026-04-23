@@ -19,6 +19,9 @@ class NodeDeferredDatabaseResetCommandRunner implements DeferredDatabaseResetCom
       stdio: 'ignore',
     })
 
+    child.once('error', (error) => {
+      console.error('deferred_database_reset_spawn_failed', error)
+    })
     child.unref()
   }
 }
@@ -26,10 +29,10 @@ class NodeDeferredDatabaseResetCommandRunner implements DeferredDatabaseResetCom
 export class DeferredDatabaseResetLauncher {
   constructor(
     private readonly runner: DeferredDatabaseResetCommandRunner = new NodeDeferredDatabaseResetCommandRunner(),
-    private readonly repoRoot: string = resolve(import.meta.dirname, '../../../../'),
+    private readonly repoRoot: string = process.cwd(),
     private readonly scriptPath: string = resolve(
-      import.meta.dirname,
-      '../../../../scripts/reset-local-dev-environment.sh'
+      process.cwd(),
+      'scripts/reset-local-dev-environment.sh'
     ),
     private readonly delaySeconds: number = 3
   ) {}

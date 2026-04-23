@@ -1,0 +1,22 @@
+services:
+  migrate:
+    environment:
+      APP_URL: ${TEST_PROD_APP_URL}
+      DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED: 'false'
+      DEV_TOOLS_ENABLED: 'false'
+      DEMO_COMMANDS_ENABLED: 'false'
+      DEMO_MODE_ENABLED: 'false'
+      LIMITER_STORE: ${LIMITER_STORE:-redis}
+      NODE_ENV: production
+      SESSION_DRIVER: ${SESSION_DRIVER:-cookie}
+
+  app:
+    environment:
+      APP_URL: ${TEST_PROD_APP_URL}
+      DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED: 'false'
+      DEV_TOOLS_ENABLED: 'false'
+      DEMO_COMMANDS_ENABLED: 'false'
+      DEMO_MODE_ENABLED: 'false'
+      LIMITER_STORE: ${LIMITER_STORE:-redis}
+      NODE_ENV: production
+      SESSION_DRIVER: ${SESSION_DRIVER:-cookie}

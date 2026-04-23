@@ -204,7 +204,7 @@ test.group('Dev operator access routes', (group) => {
     app.container.bindValue('authAdapter', auth)
 
     app.container.swap(AuthorizationService, async () => {
-      return new AuthorizationService(db, [], true)
+      return new AuthorizationService(db, true)
     })
 
     app.container.swap(DevToolsEnvironmentService, async () => {

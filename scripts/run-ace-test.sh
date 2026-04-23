@@ -26,6 +26,31 @@ normalize_test_server_env() {
   fi
 }
 
+read_env_value() {
+  local key="$1"
+  local file="$2"
+
+  if [[ ! -f "$file" ]]; then
+    return 1
+  fi
+
+  local line
+  line="$(grep -E "^${key}=" "$file" | tail -n 1 || true)"
+
+  if [[ -z "$line" ]]; then
+    return 1
+  fi
+
+  printf '%s' "${line#*=}"
+}
+
+load_test_runtime_flags() {
+  local test_env_file="$REPO_ROOT/.env.test"
+
+  export DEV_TOOLS_ENABLED="${DEV_TOOLS_ENABLED:-$(read_env_value DEV_TOOLS_ENABLED "$test_env_file" || printf 'false')}"
+  export DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED="${DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED:-$(read_env_value DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED "$test_env_file" || printf 'false')}"
+}
+
 run_tests() {
   exec pnpm exec node --import @poppinss/ts-exec "$REPO_ROOT/bin/test.ts" "$@"
 }
@@ -103,6 +128,7 @@ require_cmd node
 
 generate_registry
 normalize_test_server_env
+load_test_runtime_flags
 
 SUITE="${1:-}"
 shift || true

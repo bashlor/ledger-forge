@@ -9,7 +9,6 @@ import { AuthenticationPort } from '../domain/authentication.js'
 import { BetterAuthAdapter } from '../infra/auth/better_auth_adapter.js'
 import { type BetterAuthInstance, createBetterAuth } from '../infra/auth/better_auth_drizzle.js'
 import { StructuredUserManagementActivitySink } from '../support/activity_log.js'
-import { parseDevOperatorPublicIds } from '../support/dev_operator.js'
 
 declare module '@adonisjs/core/types' {
   interface ContainerBindings {
@@ -48,14 +47,15 @@ export default class AuthProvider {
 
     this.app.container.bind(AuthorizationService, async (resolver) => {
       const drizzle = await resolver.make('drizzle')
-      return new AuthorizationService(drizzle, parseDevOperatorPublicIds())
+      const devToolsEnvironmentService = await resolver.make(DevToolsEnvironmentService)
+      return new AuthorizationService(drizzle, devToolsEnvironmentService.isEnabled())
     })
 
-    this.app.container.bind(DevToolsEnvironmentService, async () => {
+    this.app.container.singleton(DevToolsEnvironmentService, async () => {
       return new DevToolsEnvironmentService()
     })
 
-    this.app.container.bind(LocalDevDestructiveToolsService, async () => {
+    this.app.container.singleton(LocalDevDestructiveToolsService, async () => {
       return new LocalDevDestructiveToolsService()
     })
 

@@ -2,7 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
-import { isDevelopmentEnvironment } from '#core/user_management/support/dev_operator'
+import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
 import app from '@adonisjs/core/services/app'
 import BaseInertiaMiddleware from '@adonisjs/inertia/inertia_middleware'
 
@@ -37,7 +37,8 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
      */
     const authUser = ctx.authSession?.user
     const workspace = ctx.workspaceShare
-    const devToolsEnabled = isDevelopmentEnvironment()
+    const devToolsEnvironment = await app.container.make(DevToolsEnvironmentService)
+    const devToolsEnabled = devToolsEnvironment.isEnabled()
     const canAccessDevTools = await this.resolveDevToolsAccess(ctx, devToolsEnabled)
     /**
      * Inertia / http-transformers refuse top-level `null` for serialized props
@@ -113,9 +114,13 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
       return false
     }
 
-    const authorizationService = await app.container.make(AuthorizationService)
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
-    return authorizationService.allows(actor, 'devTools.access')
+    try {
+      const authorizationService = await app.container.make(AuthorizationService)
+      const actor = await authorizationService.actorFromSession(ctx.authSession)
+      return authorizationService.allows(actor, 'devTools.access')
+    } catch {
+      return false
+    }
   }
 }
 
