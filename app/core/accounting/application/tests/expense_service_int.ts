@@ -8,6 +8,7 @@ import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
 
+import { runSimultaneously } from '../../../../../tests/helpers/concurrency_barrier.js'
 import {
   seedTestOrganization,
   setupTestDatabaseForGroup,
@@ -87,6 +88,26 @@ test.group('ExpenseService | createExpense', (group) => {
 
     assert.equal(result.amount, 100)
   })
+
+  test('rejects malformed dates outside HTTP validation', async ({ assert }) => {
+    const error = await service
+      .createExpense(makeInput({ date: 'not-a-date' }), TEST_ACCOUNTING_ACCESS_CONTEXT)
+      .catch((e) => e)
+
+    assert.instanceOf(error, DomainError)
+    assert.equal(error.type, 'invalid_data')
+    assert.equal(error.message, 'Expense date must be a valid calendar date.')
+  })
+
+  test('rejects impossible calendar dates outside HTTP validation', async ({ assert }) => {
+    const error = await service
+      .createExpense(makeInput({ date: '2026-02-30' }), TEST_ACCOUNTING_ACCESS_CONTEXT)
+      .catch((e) => e)
+
+    assert.instanceOf(error, DomainError)
+    assert.equal(error.type, 'invalid_data')
+    assert.equal(error.message, 'Expense date must be a valid calendar date.')
+  })
 })
 
 test.group('ExpenseService | confirmExpense', (group) => {
@@ -132,6 +153,40 @@ test.group('ExpenseService | confirmExpense', (group) => {
 
     assert.instanceOf(error, DomainError)
     assert.equal(error.type, 'business_logic_error')
+  })
+
+  test('concurrent confirm requests create only one journal entry', async ({ assert }) => {
+    const created = await service.createExpense(
+      makeInput({ amount: 73.5, label: 'Concurrent confirm' }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const results = await runSimultaneously([
+      (waitAtBarrier) =>
+        service.confirmExpense(created.id, TEST_ACCOUNTING_ACCESS_CONTEXT, {
+          afterRead: waitAtBarrier,
+        }),
+      (waitAtBarrier) =>
+        service.confirmExpense(created.id, TEST_ACCOUNTING_ACCESS_CONTEXT, {
+          afterRead: waitAtBarrier,
+        }),
+    ])
+
+    assert.equal(
+      results.filter((result) => result.status === 'fulfilled').length,
+      1,
+      'only one confirm should win in simultaneous execution'
+    )
+
+    const [row] = await db.select().from(expenses).where(eq(expenses.id, created.id))
+    assert.equal(row.status, 'confirmed')
+
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.expenseId, created.id))
+
+    assert.equal(entries.length, 1)
   })
 })
 
@@ -233,6 +288,33 @@ test.group('ExpenseService | deleteExpense', (group) => {
 
     assert.instanceOf(error, DomainError)
     assert.equal(error.type, 'business_logic_error')
+  })
+
+  test('concurrent delete requests remove draft exactly once', async ({ assert }) => {
+    const created = await service.createExpense(
+      makeInput({ amount: 12, category: 'Office', label: 'Concurrent delete' }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const results = await runSimultaneously([
+      (waitAtBarrier) =>
+        service.deleteExpense(created.id, TEST_ACCOUNTING_ACCESS_CONTEXT, {
+          afterRead: waitAtBarrier,
+        }),
+      (waitAtBarrier) =>
+        service.deleteExpense(created.id, TEST_ACCOUNTING_ACCESS_CONTEXT, {
+          afterRead: waitAtBarrier,
+        }),
+    ])
+
+    assert.equal(
+      results.filter((result) => result.status === 'fulfilled').length,
+      1,
+      'only one delete should win in simultaneous execution'
+    )
+
+    const rows = await db.select().from(expenses).where(eq(expenses.id, created.id))
+    assert.equal(rows.length, 0)
   })
 })
 
