@@ -314,6 +314,26 @@ test.group('Dev operator access routes', (group) => {
       inspectorResponse.body().props.inspector.context.userEmail,
       'local-dev@example.local'
     )
+
+    const [persistedSession] = await db
+      .select({ activeOrganizationId: schema.session.activeOrganizationId })
+      .from(schema.session)
+      .where(eq(schema.session.userId, user!.id))
+      .limit(1)
+
+    assert.exists(persistedSession?.activeOrganizationId)
+
+    const tenantMemberships = await db
+      .select({
+        role: schema.member.role,
+        userId: schema.member.userId,
+      })
+      .from(schema.member)
+      .where(eq(schema.member.organizationId, persistedSession!.activeOrganizationId!))
+
+    assert.lengthOf(tenantMemberships, 1)
+    assert.equal(tenantMemberships[0]?.userId, user!.id)
+    assert.equal(tenantMemberships[0]?.role, 'owner')
   })
 
   test('POST /_dev/access does not retry bootstrap after a failure', async ({ assert, client }) => {
