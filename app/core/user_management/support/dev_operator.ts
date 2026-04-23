@@ -22,6 +22,13 @@ export function isDevelopmentEnvironment(nodeEnv = env.get('NODE_ENV')): boolean
   return nodeEnv === 'development'
 }
 
+export function isDevToolsRuntimeEnabled(
+  nodeEnv = (process.env.NODE_ENV as 'development' | 'production' | 'test' | undefined) ??
+    'production'
+): boolean {
+  return nodeEnv === 'development'
+}
+
 export function parseDevOperatorPublicIds(
   value = env.get('DEV_OPERATOR_PUBLIC_IDS') ?? ''
 ): string[] {
