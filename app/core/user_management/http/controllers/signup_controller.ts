@@ -5,6 +5,7 @@ import * as schema from '#core/common/drizzle/index'
 import { presentPublicError } from '#core/common/http/presenters/inertia_public_error_presenter'
 import { seedProvisionedWorkspaceDemoData } from '#core/user_management/application/demo_workspace_bootstrap'
 import { provisionPersonalWorkspace } from '#core/user_management/application/workspace_provisioning'
+import { isSingleTenantMode } from '#core/user_management/support/tenant_mode'
 import { inject } from '@adonisjs/core'
 import app from '@adonisjs/core/services/app'
 
@@ -41,15 +42,17 @@ export default class SignupController {
       )
 
       try {
-        const db = (await app.container.make('drizzle')) as PostgresJsDatabase<typeof schema>
-        const provisioning = await provisionPersonalWorkspace(db, {
-          displayName: fullName ?? undefined,
-          email,
-          isAnonymous: false,
-          sessionToken: authentication.session.token,
-          userId: authentication.user.id,
-        })
-        await seedProvisionedWorkspaceDemoData(db, provisioning)
+        if (!isSingleTenantMode()) {
+          const db = (await app.container.make('drizzle')) as PostgresJsDatabase<typeof schema>
+          const provisioning = await provisionPersonalWorkspace(db, {
+            displayName: fullName ?? undefined,
+            email,
+            isAnonymous: false,
+            sessionToken: authentication.session.token,
+            userId: authentication.user.id,
+          })
+          await seedProvisionedWorkspaceDemoData(db, provisioning)
+        }
       } catch (error) {
         ctx.logger.warn({ err: error }, 'workspace_provision_on_signup_failed')
       }

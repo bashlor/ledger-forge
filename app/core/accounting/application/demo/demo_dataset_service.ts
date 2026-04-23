@@ -124,6 +124,13 @@ export class DemoDatasetService {
     })
   }
 
+  async seedTenantInTransaction(
+    tx: PostgresJsDatabase<typeof schema>,
+    access: AccountingAccessContext
+  ): Promise<void> {
+    await this.seedTenantInTx(tx, access)
+  }
+
   private async clearTenantDataInTx(
     tx: PostgresJsDatabase<typeof schema>,
     tenantId: string

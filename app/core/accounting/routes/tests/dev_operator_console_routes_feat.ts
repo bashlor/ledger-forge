@@ -2,6 +2,7 @@ import type { AuthResult } from '#core/user_management/domain/authentication'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
+import { type DemoDatasetService } from '#core/accounting/application/demo/demo_dataset_service'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { systemAccessContext } from '#core/accounting/application/support/access_context'
@@ -15,6 +16,7 @@ import {
 import { DevOperatorConsolePageService } from '#core/dev_tools/application/dev_operator_console_page_service'
 import { DevOperatorConsoleQueryService } from '#core/dev_tools/application/dev_operator_console_query_service'
 import { DevOperatorConsoleService } from '#core/dev_tools/application/dev_operator_console_service'
+import { DevOperatorTenantFactoryService } from '#core/dev_tools/application/dev_operator_tenant_factory_service'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
 import {
@@ -489,6 +491,11 @@ test.group('Dev operator console routes', (group) => {
 
     assert.exists(createdOrganization)
 
+    const membersForCreatedOrganization = await db
+      .select({ isActive: member.isActive, role: member.role, userId: member.userId })
+      .from(member)
+      .where(eq(member.organizationId, createdOrganization!.id))
+
     const [customerCount] = await db
       .select({ value: count() })
       .from(customers)
@@ -502,9 +509,73 @@ test.group('Dev operator console routes', (group) => {
       .from(invoices)
       .where(eq(invoices.organizationId, createdOrganization!.id))
 
+    assert.lengthOf(membersForCreatedOrganization, 1)
+    assert.equal(membersForCreatedOrganization[0]?.role, 'owner')
+    assert.isTrue(membersForCreatedOrganization[0]?.isActive ?? false)
+    assert.notEqual(membersForCreatedOrganization[0]?.userId, TEST_ACCOUNTING_USER_ID)
     assert.isAbove(Number(customerCount?.value ?? 0), 0)
     assert.isAbove(Number(expenseCount?.value ?? 0), 0)
     assert.isAbove(Number(invoiceCount?.value ?? 0), 0)
+
+    const [ownerSession] = await db
+      .select({ token: session.token })
+      .from(session)
+      .where(ne(session.userId, TEST_ACCOUNTING_USER_ID))
+      .limit(1)
+
+    assert.isUndefined(ownerSession)
+  })
+
+  test('POST /_dev/inspector/actions/create-tenant rolls back the bootstrap user when seeding fails', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+    app.container.bindValue(AuthenticationPort, createDevTenantFactoryAuth(db))
+    app.container.swap(DevOperatorConsoleService, async () => {
+      const failingDemoDatasetService = {
+        async seedTenantInTransaction() {
+          throw new Error('seed exploded')
+        },
+      } as unknown as DemoDatasetService
+
+      return new DevOperatorConsoleService(db, {
+        tenantFactoryService: new DevOperatorTenantFactoryService(db, failingDemoDatasetService),
+      })
+    })
+
+    const response = await client
+      .post('/_dev/inspector/actions/create-tenant')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({
+        ownerEmail: 'factory-owner-rollback@example.local',
+        ownerPassword: 'SecureP@ss123',
+        passwordConfirmation: 'SecureP@ss123',
+        seedMode: 'seeded',
+        tenantName: 'Factory Broken Seed Tenant',
+      })
+
+    response.assertStatus(500)
+
+    const [ownerUser] = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, 'factory-owner-rollback@example.local'))
+      .limit(1)
+    const [createdTenant] = await db
+      .select({ id: organization.id })
+      .from(organization)
+      .where(eq(organization.name, 'Factory Broken Seed Tenant'))
+      .limit(1)
+    const ownerSessions = await db
+      .select({ id: session.id })
+      .from(session)
+      .where(ne(session.userId, TEST_ACCOUNTING_USER_ID))
+
+    assert.isUndefined(ownerUser)
+    assert.isUndefined(createdTenant)
+    assert.lengthOf(ownerSessions, 0)
   })
 
   test('POST /_dev/inspector/actions/create-tenant is blocked in single-tenant mode', async ({

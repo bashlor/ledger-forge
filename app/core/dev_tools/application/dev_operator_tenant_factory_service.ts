@@ -73,7 +73,6 @@ export class DevOperatorTenantFactoryService {
 
     const tenantId = uuidv7()
     const tenantSlug = await this.allocateReadableSlug()
-
     try {
       await this.db.transaction(async (tx) => {
         await tx.insert(schema.organization).values({
@@ -96,16 +95,20 @@ export class DevOperatorTenantFactoryService {
           role: 'owner',
           userId: authentication.user.id,
         })
+        if (input.seedMode === 'seeded') {
+          await this.demoDatasetService.seedTenantInTransaction(
+            tx,
+            systemAccessContext(tenantId, 'dev-tenant-factory')
+          )
+        }
       })
-
-      if (input.seedMode === 'seeded') {
-        await this.demoDatasetService.seedTenant(
-          systemAccessContext(tenantId, 'dev-tenant-factory')
-        )
-      }
-    } finally {
-      await this.deleteBootstrapSession(authentication.session.token)
+    } catch (error) {
+      await this.deleteBootstrapSessionSafely(authentication.session.token)
+      await this.cleanupBootstrapUserSafely(authentication.user.id)
+      throw error
     }
+
+    await this.deleteBootstrapSessionSafely(authentication.session.token)
 
     return {
       ownerUserId: authentication.user.id,
@@ -135,8 +138,50 @@ export class DevOperatorTenantFactoryService {
     return `dev-${uuidv7().slice(0, 8)}`
   }
 
+  private async cleanupBootstrapUser(userId: string): Promise<void> {
+    const [remainingMember] = await this.db
+      .select({ id: schema.member.id })
+      .from(schema.member)
+      .where(eq(schema.member.userId, userId))
+      .limit(1)
+
+    const [remainingSession] = await this.db
+      .select({ id: schema.session.id })
+      .from(schema.session)
+      .where(eq(schema.session.userId, userId))
+      .limit(1)
+
+    const [remainingGrant] = await this.db
+      .select({ userId: schema.devOperatorAccess.userId })
+      .from(schema.devOperatorAccess)
+      .where(eq(schema.devOperatorAccess.userId, userId))
+      .limit(1)
+
+    if (remainingMember || remainingSession || remainingGrant) {
+      return
+    }
+
+    await this.db.delete(schema.user).where(eq(schema.user.id, userId))
+  }
+
+  private async cleanupBootstrapUserSafely(userId: string): Promise<void> {
+    try {
+      await this.cleanupBootstrapUser(userId)
+    } catch {
+      // Best-effort cleanup: tenant creation must not fail because rollback cleanup did.
+    }
+  }
+
   private async deleteBootstrapSession(sessionToken: string): Promise<void> {
     await this.db.delete(schema.session).where(eq(schema.session.token, sessionToken))
+  }
+
+  private async deleteBootstrapSessionSafely(sessionToken: string): Promise<void> {
+    try {
+      await this.deleteBootstrapSession(sessionToken)
+    } catch {
+      // Best-effort cleanup: tenant creation must not fail because session cleanup did.
+    }
   }
 }
 

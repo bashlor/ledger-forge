@@ -59,6 +59,10 @@ export function can(
     return actor.isDevOperator
   }
 
+  if (actor.isDevOperator) {
+    return false
+  }
+
   if (!actor.activeTenantId || !actor.membershipIsActive || !actor.membershipRole) {
     return false
   }

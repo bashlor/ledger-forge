@@ -14,17 +14,29 @@ class SingleTenantTestMiddleware extends WorkspaceShareMiddleware {
   constructor(
     auth: AuthenticationPort,
     private readonly options: {
-      ensureSingleTenantMembership?: () => Promise<void>
+      ensureSingleTenantMembership?: () => Promise<{
+        organizationId: string
+        wasProvisioned: boolean
+      }>
       getSingleTenantOrgId?: () => string
       hasActiveTenantMembership?: () => Promise<boolean>
       isSingleTenantMode?: boolean
+      seedWorkspaceDemoData?: () => Promise<boolean>
     } = {}
   ) {
     super(auth)
   }
 
-  protected override async ensureSingleTenantMembership(): Promise<void> {
-    await this.options.ensureSingleTenantMembership?.()
+  protected override async ensureSingleTenantMembership(): Promise<{
+    organizationId: string
+    wasProvisioned: boolean
+  }> {
+    return (
+      (await this.options.ensureSingleTenantMembership?.()) ?? {
+        organizationId: this.getSingleTenantOrgId(),
+        wasProvisioned: false,
+      }
+    )
   }
 
   protected override getSingleTenantOrgId(): string {
@@ -41,6 +53,75 @@ class SingleTenantTestMiddleware extends WorkspaceShareMiddleware {
 
   protected override isSingleTenantMode(): boolean {
     return this.options.isSingleTenantMode ?? true
+  }
+
+  protected override async seedWorkspaceDemoData(): Promise<boolean> {
+    return (await this.options.seedWorkspaceDemoData?.()) ?? false
+  }
+}
+
+class WorkspaceTestMiddleware extends WorkspaceShareMiddleware {
+  constructor(
+    auth: AuthenticationPort,
+    private readonly options: {
+      ensureSingleTenantMembership?: () => Promise<{
+        organizationId: string
+        wasProvisioned: boolean
+      }>
+      getSingleTenantOrgId?: () => string
+      hasActiveTenantMembership?: () => Promise<boolean>
+      isSingleTenantMode?: boolean
+      provisionPersonalWorkspace?: () => Promise<{
+        organizationId: null | string
+        wasProvisioned: boolean
+      }>
+      seedWorkspaceDemoData?: () => Promise<boolean>
+    } = {}
+  ) {
+    super(auth)
+  }
+
+  protected override async ensureSingleTenantMembership(): Promise<{
+    organizationId: string
+    wasProvisioned: boolean
+  }> {
+    return (
+      (await this.options.ensureSingleTenantMembership?.()) ?? {
+        organizationId: this.getSingleTenantOrgId(),
+        wasProvisioned: false,
+      }
+    )
+  }
+
+  protected override getSingleTenantOrgId(): string {
+    return this.options.getSingleTenantOrgId?.() ?? 'org-single'
+  }
+
+  protected override async hasActiveTenantMembership(): Promise<boolean> {
+    if (!this.options.hasActiveTenantMembership) {
+      throw new Error('hasActiveTenantMembership should not be called in this test')
+    }
+
+    return this.options.hasActiveTenantMembership()
+  }
+
+  protected override isSingleTenantMode(): boolean {
+    return this.options.isSingleTenantMode ?? true
+  }
+
+  protected override async provisionPersonalWorkspace(): Promise<{
+    organizationId: null | string
+    wasProvisioned: boolean
+  }> {
+    if (!this.options.provisionPersonalWorkspace) {
+      throw new Error('provisionPersonalWorkspace should not be called in this test')
+    }
+
+    return this.options.provisionPersonalWorkspace()
+  }
+
+  protected override async seedWorkspaceDemoData(): Promise<boolean> {
+    return (await this.options.seedWorkspaceDemoData?.()) ?? false
   }
 }
 
@@ -212,6 +293,7 @@ test.group('WorkspaceShareMiddleware', () => {
     assert,
   }) => {
     const synchronized: string[] = []
+    const seeded: string[] = []
     const db = {
       query: {
         organization: {
@@ -248,9 +330,14 @@ test.group('WorkspaceShareMiddleware', () => {
     const middleware = new SingleTenantTestMiddleware(auth as unknown as AuthenticationPort, {
       ensureSingleTenantMembership: async () => {
         ensureCalled += 1
+        return { organizationId: 'org-single', wasProvisioned: true }
       },
       hasActiveTenantMembership: async () => {
         throw new Error('membership check should be skipped in single-tenant mode')
+      },
+      seedWorkspaceDemoData: async () => {
+        seeded.push('org-single')
+        return true
       },
     })
 
@@ -269,7 +356,127 @@ test.group('WorkspaceShareMiddleware', () => {
     assert.equal(ensureCalled, 1)
     assert.equal(ctx.authSession.session.activeOrganizationId, 'org-single')
     assert.deepEqual(synchronized, ['session-token'])
+    assert.deepEqual(seeded, ['org-single'])
     assert.deepEqual(ctx.redirects, [])
+  })
+
+  test('single-tenant mode keeps the active organization when demo seeding fails', async ({
+    assert,
+  }) => {
+    const synchronized: string[] = []
+    const db = {
+      query: {
+        organization: {
+          findFirst: async () => ({
+            id: 'org-single',
+            logo: null,
+            metadata: JSON.stringify({ workspaceKind: 'personal' }),
+            name: 'Organization',
+            slug: 'single-abc123',
+          }),
+        },
+      },
+      update() {
+        return {
+          set(payload: Record<string, unknown>) {
+            assert.deepEqual(payload, { activeOrganizationId: 'org-single' })
+            return {
+              where() {
+                synchronized.push('session-token')
+                return Promise.resolve()
+              },
+            }
+          },
+        }
+      },
+    }
+    app.container.bindValue('drizzle', db as unknown as AppDrizzleDb)
+
+    const auth = {
+      getSession: async () => createAuthSession('org-stale'),
+    } satisfies Pick<AuthenticationPort, 'getSession'>
+
+    const middleware = new WorkspaceTestMiddleware(auth as unknown as AuthenticationPort, {
+      ensureSingleTenantMembership: async () => ({
+        organizationId: 'org-single',
+        wasProvisioned: true,
+      }),
+      seedWorkspaceDemoData: async () => {
+        throw new Error('seed exploded')
+      },
+    })
+
+    const ctx = createContext({
+      authSession: createAuthSession('org-stale'),
+      cookie: 'session-token',
+      path: '/app/dashboard',
+    })
+    let nextCalled = false
+
+    await middleware.handle(ctx as never, async () => {
+      nextCalled = true
+    })
+
+    assert.isTrue(nextCalled)
+    assert.equal(ctx.authSession.session.activeOrganizationId, 'org-single')
+    assert.deepEqual(synchronized, ['session-token'])
+    assert.deepEqual(ctx.redirects, [])
+    assert.lengthOf(ctx.warnings, 1)
+    assert.equal(ctx.warnings[0]!.message, 'single_workspace_demo_seed_failed')
+  })
+
+  test('personal workspace mode keeps the provisioned active organization when demo seeding fails', async ({
+    assert,
+  }) => {
+    app.container.bindValue('drizzle', {
+      query: {
+        organization: {
+          findFirst: async () => ({
+            id: 'org-personal',
+            logo: null,
+            metadata: JSON.stringify({ workspaceKind: 'personal' }),
+            name: 'User workspace',
+            slug: 'user-workspace',
+          }),
+        },
+      },
+    } as unknown as AppDrizzleDb)
+
+    const auth = {
+      getSession: async (token: null | string) => {
+        assert.equal(token, 'session-token')
+        return createAuthSession('org-personal')
+      },
+    } satisfies Pick<AuthenticationPort, 'getSession'>
+
+    const middleware = new WorkspaceTestMiddleware(auth as unknown as AuthenticationPort, {
+      hasActiveTenantMembership: async () => true,
+      isSingleTenantMode: false,
+      provisionPersonalWorkspace: async () => ({
+        organizationId: 'org-personal',
+        wasProvisioned: true,
+      }),
+      seedWorkspaceDemoData: async () => {
+        throw new Error('seed exploded')
+      },
+    })
+
+    const ctx = createContext({
+      authSession: createAuthSession(null),
+      cookie: 'session-token',
+      path: '/app/dashboard',
+    })
+    let nextCalled = false
+
+    await middleware.handle(ctx as never, async () => {
+      nextCalled = true
+    })
+
+    assert.isTrue(nextCalled)
+    assert.equal(ctx.authSession.session.activeOrganizationId, 'org-personal')
+    assert.deepEqual(ctx.redirects, [])
+    assert.lengthOf(ctx.warnings, 1)
+    assert.equal(ctx.warnings[0]!.message, 'personal_workspace_demo_seed_failed')
   })
 
   test('single-tenant mode logs a visible configuration error and clears the active organization', async ({
