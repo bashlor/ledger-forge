@@ -14,6 +14,7 @@ import type {
 } from '~/lib/types'
 
 import { AppIcon } from '~/components/app_icon'
+import { PrimaryButton } from '~/components/button'
 import { useDateScope } from '~/components/date_scope_provider'
 import { DateScopeSummary } from '~/components/date_scope_summary'
 import { ErrorBanner } from '~/components/error_banner'
@@ -675,14 +676,9 @@ function InvoicesContent({
         ) : (
           <PageHeader
             actions={
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={accountingReadOnly}
-                onClick={handleCreateDraft}
-                type="button"
-              >
+              <PrimaryButton disabled={accountingReadOnly} onClick={handleCreateDraft}>
                 New invoice
-              </button>
+              </PrimaryButton>
             }
             description="Invoicing covers the main rules: drafts, issuing, payment, and conditional deletion."
             eyebrow="Invoicing"

@@ -9,9 +9,12 @@ import type {
 } from '~/lib/types'
 import type { FormErrors } from '~/types'
 
+import { PrimaryButton } from '~/components/button'
 import { DataTable } from '~/components/data_table'
+import { EmptyState } from '~/components/empty_state'
 import { ErrorBanner } from '~/components/error_banner'
 import { PageHeader } from '~/components/page_header'
+import { SearchForm } from '~/components/search_form'
 import { DEFAULT_PAGE_SIZE } from '~/lib/pagination'
 
 import type { InertiaProps } from '../../types'
@@ -19,11 +22,6 @@ import type { InertiaProps } from '../../types'
 import { CustomerDrawer } from './customers/customer_drawer'
 import { SummaryCards } from './customers/summary_cards'
 import { CustomerTable } from './customers/table'
-
-interface CustomerSearchFormProps {
-  appliedSearch: string
-  onSubmit: (searchQuery: string) => void
-}
 
 interface CustomersPageProps {
   accountingReadOnly: boolean
@@ -168,14 +166,9 @@ export default function CustomersPage({
         <PageHeader
           actions={
             canManageCustomers ? (
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={accountingReadOnly}
-                onClick={openCreate}
-                type="button"
-              >
+              <PrimaryButton disabled={accountingReadOnly} onClick={openCreate}>
                 New customer
-              </button>
+              </PrimaryButton>
             ) : null
           }
           className="gap-3"
@@ -202,10 +195,12 @@ export default function CustomersPage({
           emptyMessage="No customers yet."
           headerContent={
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <CustomerSearchForm
-                appliedSearch={appliedSearch}
+              <SearchForm
+                ariaLabel="Search customers"
                 key={appliedSearch}
                 onSubmit={submitSearch}
+                placeholder="Search company, contact, email, phone"
+                value={appliedSearch}
               />
               <select
                 aria-label="Filter customers"
@@ -253,11 +248,7 @@ export default function CustomersPage({
           title="Customer register"
         >
           {filteredItems.length === 0 ? (
-            <div className="px-4 py-8">
-              <div className="rounded-lg border border-dashed border-outline-variant/35 bg-surface-container-low px-4 py-5 text-sm text-on-surface-variant">
-                No customers match the current filters on this page.
-              </div>
-            </div>
+            <EmptyState message="No customers match the current filters on this page." />
           ) : (
             <CustomerTable
               canManageCustomers={canManageCustomers}
@@ -271,34 +262,5 @@ export default function CustomersPage({
         </DataTable>
       </div>
     </>
-  )
-}
-
-function CustomerSearchForm({ appliedSearch, onSubmit }: CustomerSearchFormProps) {
-  const [searchQuery, setSearchQuery] = useState(appliedSearch)
-
-  return (
-    <form
-      className="flex w-full gap-2 sm:w-auto"
-      onSubmit={(event) => {
-        event.preventDefault()
-        onSubmit(searchQuery)
-      }}
-    >
-      <input
-        aria-label="Search customers"
-        className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
-        onChange={(event) => setSearchQuery(event.target.value)}
-        placeholder="Search company, contact, email, phone"
-        type="search"
-        value={searchQuery}
-      />
-      <button
-        className="rounded-lg border border-outline-variant/35 px-3 text-sm text-on-surface"
-        type="submit"
-      >
-        Search
-      </button>
-    </form>
   )
 }

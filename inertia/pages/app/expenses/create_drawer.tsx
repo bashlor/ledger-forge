@@ -2,8 +2,10 @@ import { useState } from 'react'
 
 import type { CreateExpenseInput, ExpenseDto } from '~/lib/types'
 
+import { PrimaryButton, SecondaryButton } from '~/components/button'
 import { DrawerPanel } from '~/components/drawer_panel'
 import { ErrorBanner } from '~/components/error_banner'
+import { FormField } from '~/components/form_field'
 import { todayDateOnlyUtc } from '~/lib/date'
 
 interface CreateDrawerProps {
@@ -60,22 +62,18 @@ export function CreateDrawer({
               Confirmed expense (read-only)
             </p>
           ) : null}
-          <button
-            className="rounded-lg bg-surface-container-highest px-4 py-3 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high"
-            onClick={handleClose}
-            type="button"
-          >
+          <SecondaryButton className="py-3" onClick={handleClose}>
             {detailsMode ? 'Close' : 'Cancel'}
-          </button>
+          </SecondaryButton>
           {detailsMode ? null : (
-            <button
-              className="rounded-lg px-4 py-3 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
+            <PrimaryButton
+              className="py-3"
               disabled={accountingReadOnly || processing}
               form="expense-form"
               type="submit"
             >
               {processing ? 'Saving…' : 'Save draft'}
-            </button>
+            </PrimaryButton>
           )}
         </div>
       }
@@ -87,23 +85,14 @@ export function CreateDrawer({
       {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
 
       <form className="space-y-4" id="expense-form" onSubmit={handleSubmit}>
-        <div>
-          <label
-            className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
-            htmlFor="expense-label"
-          >
-            Label
-          </label>
-          <input
-            className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={fieldDisabled}
-            id="expense-label"
-            onChange={(e) => setCreateForm((f) => ({ ...f, label: e.target.value }))}
-            required
-            type="text"
-            value={form.label}
-          />
-        </div>
+        <FormField
+          disabled={fieldDisabled}
+          id="expense-label"
+          label="Label"
+          onChange={(value) => setCreateForm((f) => ({ ...f, label: value }))}
+          required
+          value={form.label}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -128,38 +117,24 @@ export function CreateDrawer({
             </select>
           </div>
 
-          <div>
-            <label
-              className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
-              htmlFor="expense-amount"
-            >
-              Amount (€)
-            </label>
-            <input
-              className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={fieldDisabled}
-              id="expense-amount"
-              min="0.01"
-              onChange={(e) => setCreateForm((f) => ({ ...f, amount: Number(e.target.value) }))}
-              required
-              step="0.01"
-              type="number"
-              value={form.amount}
-            />
-          </div>
+          <FormField
+            disabled={fieldDisabled}
+            id="expense-amount"
+            label="Amount (€)"
+            min="0.01"
+            onChange={(value) => setCreateForm((f) => ({ ...f, amount: Number(value) }))}
+            required
+            step="0.01"
+            type="number"
+            value={form.amount}
+          />
 
           <div className="sm:col-span-2">
-            <label
-              className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
-              htmlFor="expense-date"
-            >
-              Date
-            </label>
-            <input
-              className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+            <FormField
               disabled={fieldDisabled}
               id="expense-date"
-              onChange={(e) => setCreateForm((f) => ({ ...f, date: e.target.value }))}
+              label="Date"
+              onChange={(value) => setCreateForm((f) => ({ ...f, date: value }))}
               required
               type="date"
               value={form.date}

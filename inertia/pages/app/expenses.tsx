@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { CreateExpenseInput, ExpenseDto, ExpenseSummaryDto, PaginatedList } from '~/lib/types'
 
+import { PrimaryButton, SecondaryButton } from '~/components/button'
 import { DataTable } from '~/components/data_table'
 import { useDateScope } from '~/components/date_scope_provider'
 import { ErrorBanner } from '~/components/error_banner'
 import { Modal } from '~/components/modal'
 import { PageHeader } from '~/components/page_header'
+import { SearchForm } from '~/components/search_form'
 import { DEFAULT_PAGE_SIZE } from '~/lib/pagination'
 
 import type { InertiaProps } from '../../types'
@@ -15,11 +17,6 @@ import type { InertiaProps } from '../../types'
 import { CreateDrawer } from './expenses/create_drawer'
 import { SummaryCards, SummaryCardsSkeleton } from './expenses/summary_cards'
 import { ExpenseTable } from './expenses/table'
-
-interface ExpenseSearchFormProps {
-  appliedSearch: string
-  onSubmit: (searchQuery: string) => void
-}
 
 type PendingAction = { id: string; kind: 'confirm' | 'delete'; label: string }
 
@@ -168,14 +165,13 @@ export default function ExpensesPage({
 
         <PageHeader
           actions={
-            <button
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:justify-start"
+            <PrimaryButton
+              className="w-full sm:w-auto"
               disabled={accountingReadOnly}
               onClick={openCreateDrawer}
-              type="button"
             >
               New expense
-            </button>
+            </PrimaryButton>
           }
           description="Expenses start as drafts, can be confirmed once, and only drafts stay deletable."
           eyebrow="Costs"
@@ -202,10 +198,12 @@ export default function ExpensesPage({
         <DataTable
           emptyMessage="No expenses found."
           headerContent={
-            <ExpenseSearchForm
-              appliedSearch={appliedSearch}
+            <SearchForm
+              ariaLabel="Search expenses"
               key={appliedSearch}
               onSubmit={submitSearch}
+              placeholder="Search label or category"
+              value={appliedSearch}
             />
           }
           isEmpty={expenses.items.length === 0}
@@ -246,13 +244,7 @@ export default function ExpensesPage({
         }
         footer={
           <>
-            <button
-              className="rounded-lg bg-surface-container-highest px-4 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high"
-              onClick={() => setPendingAction(null)}
-              type="button"
-            >
-              Cancel
-            </button>
+            <SecondaryButton onClick={() => setPendingAction(null)}>Cancel</SecondaryButton>
             <button
               className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
                 pendingAction?.kind === 'delete'
@@ -275,34 +267,5 @@ export default function ExpensesPage({
         <p className="text-sm text-on-surface-variant">This action cannot be undone.</p>
       </Modal>
     </>
-  )
-}
-
-function ExpenseSearchForm({ appliedSearch, onSubmit }: ExpenseSearchFormProps) {
-  const [searchQuery, setSearchQuery] = useState(appliedSearch)
-
-  return (
-    <form
-      className="flex w-full gap-2 sm:w-auto"
-      onSubmit={(event) => {
-        event.preventDefault()
-        onSubmit(searchQuery)
-      }}
-    >
-      <input
-        aria-label="Search expenses"
-        className="h-9 w-full rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors placeholder:text-on-surface-variant/80 focus:border-primary sm:w-64"
-        onChange={(event) => setSearchQuery(event.target.value)}
-        placeholder="Search label or category"
-        type="search"
-        value={searchQuery}
-      />
-      <button
-        className="rounded-lg border border-outline-variant/35 px-3 text-sm text-on-surface"
-        type="submit"
-      >
-        Search
-      </button>
-    </form>
   )
 }
