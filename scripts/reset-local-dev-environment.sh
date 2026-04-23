@@ -15,6 +15,11 @@ SOURCE_PID="${RESET_SOURCE_PID:-}"
 
 mkdir -p "$LOG_DIR"
 
+get_env_value() {
+  local key="$1" file="$2"
+  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || true
+}
+
 {
   echo "[$(date -Is)] Starting local dev environment reset"
 
@@ -23,17 +28,22 @@ mkdir -p "$LOG_DIR"
     exit 1
   fi
 
-  set -a
-  source "$REPO_ROOT/.env"
-  set +a
+  NODE_ENV_VALUE="$(get_env_value 'NODE_ENV' "$REPO_ROOT/.env")"
+  DESTRUCTIVE_DEV_TOOLS_ENABLED="$(
+    get_env_value 'DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED' "$REPO_ROOT/.env"
+  )"
 
-  if [[ "${NODE_ENV:-}" != "development" ]]; then
+  if [[ -z "$DESTRUCTIVE_DEV_TOOLS_ENABLED" ]]; then
+    DESTRUCTIVE_DEV_TOOLS_ENABLED="$(get_env_value 'DEV_TOOLS_LOCAL_ENABLED' "$REPO_ROOT/.env")"
+  fi
+
+  if [[ "$NODE_ENV_VALUE" != "development" ]]; then
     echo 'Reset is only available in NODE_ENV=development.' >&2
     exit 1
   fi
 
-  if [[ "${DEV_TOOLS_LOCAL_ENABLED:-false}" != "true" ]]; then
-    echo 'Reset requires DEV_TOOLS_LOCAL_ENABLED=true.' >&2
+  if [[ "$DESTRUCTIVE_DEV_TOOLS_ENABLED" != "true" ]]; then
+    echo 'Reset requires DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED=true.' >&2
     exit 1
   fi
 
@@ -59,8 +69,8 @@ mkdir -p "$LOG_DIR"
   echo "[$(date -Is)] Re-running first-easy-start.sh"
   bash "$REPO_ROOT/first-easy-start.sh"
 
-  echo "[$(date -Is)] Starting pnpm dev"
-  nohup pnpm dev >"$DEV_LOG_FILE" 2>&1 &
+  echo "[$(date -Is)] Restarting local services"
+  nohup bash -lc "cd '$REPO_ROOT' && pnpm services:up && pnpm dev" >"$DEV_LOG_FILE" 2>&1 &
 
   echo "[$(date -Is)] Local dev environment reset completed"
 } >>"$LOG_FILE" 2>&1
