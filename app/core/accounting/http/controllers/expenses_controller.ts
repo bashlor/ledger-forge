@@ -1,4 +1,4 @@
-import type { DateFilter } from '#core/accounting/application/expenses/index'
+import type { DateFilter } from '#core/accounting/application/support/date_filter_types'
 import type { HttpContext } from '@adonisjs/core/http'
 
 import { getAccountingReadOnlyState } from '#core/accounting/application/audit/accounting_readonly_policy'
@@ -19,13 +19,21 @@ import {
 
 export default class ExpensesController {
   @inject()
-  async confirmDraftExpense(ctx: HttpContext, expenseService: ExpenseService) {
+  async confirmDraftExpense(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    expenseService: ExpenseService
+  ) {
     const { params } = await ctx.request.validateUsing(expenseParamsValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => expenseService.confirmExpense(params.id, access),
+      () => {
+        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        return expenseService.confirmExpense(params.id, access)
+      },
       'Expense confirmed.'
     )
 
@@ -33,13 +41,21 @@ export default class ExpensesController {
   }
 
   @inject()
-  async deleteDraftExpense(ctx: HttpContext, expenseService: ExpenseService) {
+  async deleteDraftExpense(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    expenseService: ExpenseService
+  ) {
     const { params } = await ctx.request.validateUsing(expenseParamsValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => expenseService.deleteExpense(params.id, access),
+      () => {
+        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        return expenseService.deleteExpense(params.id, access)
+      },
       'Draft expense deleted.'
     )
 
@@ -85,13 +101,21 @@ export default class ExpensesController {
   }
 
   @inject()
-  async store(ctx: HttpContext, expenseService: ExpenseService) {
+  async store(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    expenseService: ExpenseService
+  ) {
     const payload = await ctx.request.validateUsing(createExpenseValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => expenseService.createExpense(payload, access),
+      () => {
+        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        return expenseService.createExpense(payload, access)
+      },
       'Expense saved as draft.'
     )
 

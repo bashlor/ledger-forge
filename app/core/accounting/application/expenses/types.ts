@@ -1,6 +1,7 @@
 import type { expenses } from '#core/accounting/drizzle/schema'
 import type { ExpenseCategory } from '#core/accounting/expense_categories'
 
+export type { DateFilter } from '#core/accounting/application/support/date_filter_types'
 export type { ExpenseCategory } from '#core/accounting/expense_categories'
 
 export interface CreateExpenseInput {
@@ -8,11 +9,6 @@ export interface CreateExpenseInput {
   category: string
   date: string
   label: string
-}
-
-export interface DateFilter {
-  endDate: string
-  startDate: string
 }
 
 export interface ExpenseConcurrencyHooks {
