@@ -7,10 +7,11 @@ import { v7 as uuidv7 } from 'uuid'
 import type { CustomerRow, NormalizedCustomerInput } from './types.js'
 
 type DrizzleDb = PostgresJsDatabase<any>
+type DrizzleExecutor = DrizzleDb | DrizzleTx
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 
 export async function deleteCustomerIfUnlinked(
-  tx: DrizzleTx,
+  tx: DrizzleExecutor,
   id: string,
   organizationId: string
 ): Promise<undefined | { id: string }> {
@@ -56,7 +57,7 @@ export async function insertCustomer(
 }
 
 export async function syncDraftInvoiceCustomerSnapshots(
-  tx: DrizzleTx,
+  tx: DrizzleExecutor,
   customerId: string,
   input: NormalizedCustomerInput,
   organizationId: string
@@ -81,7 +82,7 @@ export async function syncDraftInvoiceCustomerSnapshots(
 }
 
 export async function updateCustomerById(
-  tx: DrizzleTx,
+  tx: DrizzleExecutor,
   id: string,
   input: NormalizedCustomerInput,
   organizationId: string
