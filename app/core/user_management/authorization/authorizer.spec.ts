@@ -42,6 +42,7 @@ test.group('authorization/authorizer', () => {
     assert.isTrue(can(currentActor, 'invoice.issue'))
     assert.isTrue(can(currentActor, 'invoice.markPaid'))
     assert.isTrue(can(currentActor, 'auditTrail.view'))
+    assert.isTrue(can(currentActor, 'membership.toggleActive'))
   })
 
   test('owner can change member roles', ({ assert }) => {
@@ -72,6 +73,7 @@ test.group('authorization/authorizer', () => {
 
     assert.isFalse(can(currentActor, 'accounting.read'))
     assert.isFalse(can(currentActor, 'invoice.issue'))
+    assert.isFalse(can(currentActor, 'membership.toggleActive'))
   })
 
   test('dev operators can only access dev tools', ({ assert }) => {

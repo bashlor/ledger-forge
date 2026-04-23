@@ -84,7 +84,7 @@ export default class MembershipController {
       async () => {
         authorizationService.authorize(actor, 'membership.changeRole', target)
 
-        await memberService.updateMemberRole(memberId, role, tenantId)
+        await memberService.updateMemberRole(memberId, role, tenantId, ctx.authSession!.user.id)
       },
       role === 'admin' ? 'Member promoted to admin.' : 'Admin demoted to member.'
     )

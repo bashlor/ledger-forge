@@ -90,13 +90,7 @@ export class DevOperatorConsoleService {
         invoiceService
       )
     this.membershipActions =
-      dependencies.membershipActions ??
-      new DevOperatorConsoleMembershipActions(
-        db,
-        memberService,
-        new DatabaseCriticalAuditTrail(),
-        queryService
-      )
+      dependencies.membershipActions ?? new DevOperatorConsoleMembershipActions(db, memberService)
     this.maintenanceActions =
       dependencies.maintenanceActions ??
       new DevOperatorConsoleMaintenanceActions(

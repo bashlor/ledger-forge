@@ -1,4 +1,13 @@
-import { boolean, pgSchema, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import {
+  boolean,
+  check,
+  pgSchema,
+  text,
+  timestamp,
+  uniqueIndex,
+  varchar,
+} from 'drizzle-orm/pg-core'
 
 export const authSchema = pgSchema('auth')
 
@@ -59,6 +68,10 @@ export const member = authSchema.table(
       .references(() => user.id, { onDelete: 'cascade' }),
   },
   (table) => ({
+    inactiveAdminForbidden: check(
+      'auth_member_inactive_admin_forbidden',
+      sql`not (${table.isActive} = false and ${table.role} = 'admin')`
+    ),
     orgUserUnique: uniqueIndex('auth_member_organization_id_user_id_unique').on(
       table.organizationId,
       table.userId
