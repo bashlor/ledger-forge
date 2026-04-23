@@ -176,6 +176,13 @@
       "when": 1777340000000,
       "tag": "0024_audit_events_member_entity",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1777600000000,
+      "tag": "0025_member_inactive_admin_constraint",
+      "breakpoints": true
     }
   ]
 }

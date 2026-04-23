@@ -40,6 +40,7 @@ const ADMIN_ABILITIES: readonly AuthorizationAbility[] = [
   'invoice.issue',
   'invoice.markPaid',
   'membership.list',
+  'membership.toggleActive',
 ]
 
 const OWNER_ABILITIES: readonly AuthorizationAbility[] = [

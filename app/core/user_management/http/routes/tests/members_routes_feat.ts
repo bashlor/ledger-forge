@@ -1,5 +1,6 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { auditEvents } from '#core/accounting/drizzle/schema'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
   AuthenticationPort,
@@ -270,6 +271,10 @@ test.group('Members routes | PATCH toggle active', (group) => {
   group.each.setup(async () => {
     // Reset all members to active after each test
     await db.update(member).set({ isActive: true })
+    await db.update(member).set({ role: 'admin' }).where(eq(member.id, MEMBER_IDS.admin))
+    await db.update(member).set({ role: 'admin' }).where(eq(member.id, MEMBER_IDS.anotherAdmin))
+    await db.update(member).set({ role: 'member' }).where(eq(member.id, MEMBER_IDS.regular))
+    await db.delete(auditEvents)
   })
 
   group.teardown(async () => cleanup())
@@ -320,10 +325,11 @@ test.group('Members routes | PATCH toggle active', (group) => {
     response.assertStatus(302)
 
     const [row] = await db
-      .select({ isActive: member.isActive })
+      .select({ isActive: member.isActive, role: member.role })
       .from(member)
       .where(eq(member.id, MEMBER_IDS.admin))
     assert.isFalse(row.isActive)
+    assert.equal(row.role, 'member')
   })
 
   test('admin cannot deactivate another admin (redirects with flash error)', async ({
@@ -345,6 +351,26 @@ test.group('Members routes | PATCH toggle active', (group) => {
       .select({ isActive: member.isActive })
       .from(member)
       .where(eq(member.id, MEMBER_IDS.anotherAdmin))
+    assert.isTrue(row.isActive)
+  })
+
+  test('admin cannot deactivate the owner (redirects with flash error)', async ({
+    assert,
+    client,
+  }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.owner}`),
+      adminSession
+    )
+      .redirects(0)
+      .form({ isActive: 'false' })
+
+    response.assertStatus(302)
+
+    const [row] = await db
+      .select({ isActive: member.isActive })
+      .from(member)
+      .where(eq(member.id, MEMBER_IDS.owner))
     assert.isTrue(row.isActive)
   })
 
@@ -451,6 +477,60 @@ test.group('Members routes | PATCH toggle active', (group) => {
     assert.isTrue(row.isActive)
   })
 
+  test('successful toggle writes an audit event for the targeted member and tenant', async ({
+    assert,
+    client,
+  }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}`),
+      ownerSession
+    )
+      .redirects(0)
+      .form({ isActive: 'false' })
+
+    response.assertStatus(302)
+
+    const [event] = await db
+      .select({
+        action: auditEvents.action,
+        changes: auditEvents.changes,
+        entityId: auditEvents.entityId,
+        entityType: auditEvents.entityType,
+        organizationId: auditEvents.organizationId,
+      })
+      .from(auditEvents)
+      .where(eq(auditEvents.entityId, MEMBER_IDS.regular))
+      .limit(1)
+
+    assert.equal(event?.action, 'member_deactivated')
+    assert.equal(event?.entityId, MEMBER_IDS.regular)
+    assert.equal(event?.entityType, 'member')
+    assert.equal(event?.organizationId, TEST_TENANT_ID)
+    assert.deepEqual(event?.changes, {
+      after: { isActive: false },
+      before: { isActive: true },
+    })
+  })
+
+  test('refused toggle does not create an audit event', async ({ assert, client }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.owner}`),
+      adminSession
+    )
+      .redirects(0)
+      .form({ isActive: 'false' })
+
+    response.assertStatus(302)
+
+    const [event] = await db
+      .select({ id: auditEvents.id })
+      .from(auditEvents)
+      .where(eq(auditEvents.organizationId, TEST_TENANT_ID))
+      .limit(1)
+
+    assert.isUndefined(event)
+  })
+
   test('unauthenticated PATCH is redirected to /signin', async ({ client }) => {
     const response = await client
       .patch(`/account/organizations/members/${MEMBER_IDS.regular}`)
@@ -489,6 +569,7 @@ test.group('Members routes | PATCH update role', (group) => {
     await db.update(member).set({ role: 'admin' }).where(eq(member.id, MEMBER_IDS.admin))
     await db.update(member).set({ role: 'admin' }).where(eq(member.id, MEMBER_IDS.anotherAdmin))
     await db.update(member).set({ role: 'member' }).where(eq(member.id, MEMBER_IDS.regular))
+    await db.delete(auditEvents)
   })
 
   group.teardown(async () => cleanup())
@@ -559,6 +640,72 @@ test.group('Members routes | PATCH update role', (group) => {
       .from(member)
       .where(eq(member.id, MEMBER_IDS.regular))
     assert.equal(row.role, 'member')
+  })
+
+  test('owner cannot demote itself', async ({ assert, client }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.owner}/role`),
+      ownerSession
+    )
+      .redirects(0)
+      .form({ role: 'member' })
+
+    response.assertStatus(302)
+
+    const [row] = await db
+      .select({ role: member.role })
+      .from(member)
+      .where(eq(member.id, MEMBER_IDS.owner))
+    assert.equal(row.role, 'owner')
+  })
+
+  test('successful role change writes an audit event', async ({ assert, client }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}/role`),
+      ownerSession
+    )
+      .redirects(0)
+      .form({ role: 'admin' })
+
+    response.assertStatus(302)
+
+    const [event] = await db
+      .select({
+        action: auditEvents.action,
+        changes: auditEvents.changes,
+        entityId: auditEvents.entityId,
+        organizationId: auditEvents.organizationId,
+      })
+      .from(auditEvents)
+      .where(eq(auditEvents.entityId, MEMBER_IDS.regular))
+      .limit(1)
+
+    assert.equal(event?.action, 'member_role_changed')
+    assert.equal(event?.entityId, MEMBER_IDS.regular)
+    assert.equal(event?.organizationId, TEST_TENANT_ID)
+    assert.deepEqual(event?.changes, {
+      after: { role: 'admin' },
+      before: { role: 'member' },
+    })
+  })
+
+  test('refused role change does not create an audit event', async ({ assert, client }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}/role`),
+      adminSession
+    )
+      .redirects(0)
+      .form({ role: 'admin' })
+
+    response.assertStatus(302)
+
+    const [event] = await db
+      .select({ id: auditEvents.id })
+      .from(auditEvents)
+      .where(eq(auditEvents.organizationId, TEST_TENANT_ID))
+      .limit(1)
+
+    assert.isUndefined(event)
   })
 
   test('missing target member returns 404 before role authorization checks', async ({ client }) => {

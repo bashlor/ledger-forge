@@ -46,6 +46,10 @@ Development-only ability:
 Membership and authorization checks include contextual rules beyond static role checks:
 
 - owner membership is protected from direct deactivation and role demotion by non-owner flows
+- owner cannot demote itself and cannot be deactivated
+- admin cannot change any membership role and cannot target owner membership mutations
+- direct promotion to `owner` is forbidden in membership management flows
+- deactivating an `admin` automatically normalizes the membership to inactive `member`
 - the first member provisioned for a tenant remains the owner; later users joining the same tenant do not become owner, including in demo mode
 - self-destructive operations are blocked (for example self-deactivation)
 - admin-level actions on privileged targets are constrained by explicit subject checks

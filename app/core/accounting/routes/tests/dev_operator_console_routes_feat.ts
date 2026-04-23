@@ -264,6 +264,10 @@ test.group('Dev operator console routes', (group) => {
       .where(
         and(eq(member.userId, TEST_ACCOUNTING_USER_ID), eq(member.organizationId, TEST_TENANT_ID))
       )
+    await db
+      .update(member)
+      .set({ isActive: true, role: 'member' })
+      .where(eq(member.id, 'dev-console-member-c'))
   })
 
   group.each.teardown(() => {
@@ -359,6 +363,101 @@ test.group('Dev operator console routes', (group) => {
     assert.equal(response.body().props.inspector.audit.events.length, 1)
     assert.equal(response.body().props.inspector.audit.events[0].id, 'audit-search-hit')
     assert.equal(response.body().props.inspector.audit.filters.search, 'search_target')
+  })
+
+  test('GET /_dev/inspector previews selected member permissions from the RBAC source of truth', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db)
+
+    const memberResponse = await inertiaHeaders(client.get('/_dev/inspector'))
+      .qs({
+        memberId: 'dev-console-member-c',
+        tab: 'members-permissions',
+        tenantId: TEST_TENANT_ID,
+      })
+      .header('cookie', authCookie())
+      .redirects(0)
+
+    memberResponse.assertStatus(200)
+    assert.deepEqual(memberResponse.body().props.inspector.context.selectedMemberPermissions, {
+      accountingRead: true,
+      accountingWriteDrafts: true,
+      auditTrailView: false,
+      invoiceIssue: false,
+      invoiceMarkPaid: false,
+      membershipChangeRole: false,
+      membershipList: false,
+      membershipToggleActive: false,
+    })
+
+    const adminResponse = await inertiaHeaders(client.get('/_dev/inspector'))
+      .qs({
+        memberId: 'dev-console-member-a',
+        tab: 'members-permissions',
+        tenantId: TEST_TENANT_ID,
+      })
+      .header('cookie', authCookie())
+      .redirects(0)
+
+    adminResponse.assertStatus(200)
+    assert.deepEqual(adminResponse.body().props.inspector.context.selectedMemberPermissions, {
+      accountingRead: true,
+      accountingWriteDrafts: true,
+      auditTrailView: true,
+      invoiceIssue: true,
+      invoiceMarkPaid: true,
+      membershipChangeRole: false,
+      membershipList: true,
+      membershipToggleActive: true,
+    })
+
+    await db.update(member).set({ role: 'owner' }).where(eq(member.id, 'dev-console-member-a'))
+
+    const ownerResponse = await inertiaHeaders(client.get('/_dev/inspector'))
+      .qs({
+        memberId: 'dev-console-member-a',
+        tab: 'members-permissions',
+        tenantId: TEST_TENANT_ID,
+      })
+      .header('cookie', authCookie())
+      .redirects(0)
+
+    ownerResponse.assertStatus(200)
+    assert.deepEqual(ownerResponse.body().props.inspector.context.selectedMemberPermissions, {
+      accountingRead: true,
+      accountingWriteDrafts: true,
+      auditTrailView: true,
+      invoiceIssue: true,
+      invoiceMarkPaid: true,
+      membershipChangeRole: true,
+      membershipList: true,
+      membershipToggleActive: true,
+    })
+
+    await db.update(member).set({ isActive: false }).where(eq(member.id, 'dev-console-member-c'))
+
+    const inactiveResponse = await inertiaHeaders(client.get('/_dev/inspector'))
+      .qs({
+        memberId: 'dev-console-member-c',
+        tab: 'members-permissions',
+        tenantId: TEST_TENANT_ID,
+      })
+      .header('cookie', authCookie())
+      .redirects(0)
+
+    inactiveResponse.assertStatus(200)
+    assert.deepEqual(inactiveResponse.body().props.inspector.context.selectedMemberPermissions, {
+      accountingRead: false,
+      accountingWriteDrafts: false,
+      auditTrailView: false,
+      invoiceIssue: false,
+      invoiceMarkPaid: false,
+      membershipChangeRole: false,
+      membershipList: false,
+      membershipToggleActive: false,
+    })
   })
 
   test('POST /_dev/inspector/active-tenant keeps the dev operator pinned to its session tenant', async ({
@@ -901,7 +1000,7 @@ test.group('Dev operator console routes', (group) => {
     assert.isFalse(toggledMember?.isActive ?? true)
   })
 
-  test('POST /_dev/inspector/actions/change-member-role stores member audit entity type', async ({
+  test('POST /_dev/inspector/actions/change-member-role stores membership audit entity type', async ({
     assert,
     client,
   }) => {
@@ -927,7 +1026,7 @@ test.group('Dev operator console routes', (group) => {
       .where(
         and(
           eq(auditEvents.organizationId, TEST_TENANT_ID),
-          eq(auditEvents.action, 'dev_change_member_role')
+          eq(auditEvents.action, 'member_role_changed')
         )
       )
       .limit(1)
@@ -968,7 +1067,7 @@ test.group('Dev operator console routes', (group) => {
       .where(
         and(
           eq(auditEvents.organizationId, TEST_TENANT_ID),
-          eq(auditEvents.action, 'dev_change_member_role')
+          eq(auditEvents.action, 'member_role_changed')
         )
       )
       .limit(1)
@@ -1025,7 +1124,7 @@ test.group('Dev operator console routes', (group) => {
       .where(
         and(
           eq(auditEvents.organizationId, TEST_TENANT_ID),
-          eq(auditEvents.action, 'dev_change_member_role')
+          eq(auditEvents.action, 'member_role_changed')
         )
       )
       .limit(1)
