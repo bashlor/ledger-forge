@@ -2,7 +2,9 @@ import type { ReactNode } from 'react'
 
 import { formatCurrency } from '~/lib/format'
 
-import { labelClass, ToneBadge } from './inspector_ui_primitives'
+import type { ActionTone } from './inspector_types'
+
+import { buttonClass, inputClass, labelClass, ToneBadge } from './inspector_ui_primitives'
 
 export function ActivityList({
   items,
@@ -63,6 +65,65 @@ export function formatTimestamp(value: string) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
+}
+
+export function GeneratorCard({
+  action,
+  count,
+  label,
+  onCountChange,
+  onRun,
+  processingAction,
+  readOnlyCount = false,
+  summary,
+}: {
+  action: string
+  count: string
+  label: string
+  onCountChange: (value: string) => void
+  onRun: (action: string, extra?: Record<string, string>, tone?: ActionTone) => void
+  processingAction: null | string
+  readOnlyCount?: boolean
+  summary: string
+}) {
+  const isRunning = processingAction === action
+
+  return (
+    <section className="rounded-2xl border border-outline-variant/12 bg-surface-container-low p-4">
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-on-surface">{label}</h3>
+          <p className="mt-1 text-sm text-on-surface-variant">{summary}</p>
+        </div>
+
+        <label className="space-y-1.5">
+          <span className={labelClass}>Count</span>
+          {readOnlyCount ? (
+            <div className="rounded-lg border border-outline-variant/18 bg-surface-container px-3 py-2 text-sm font-medium text-on-surface">
+              {count}
+            </div>
+          ) : (
+            <input
+              className={inputClass()}
+              min="1"
+              onChange={(event) => onCountChange(event.target.value)}
+              type="number"
+              value={count}
+            />
+          )}
+        </label>
+
+        <button
+          className={`${buttonClass()} w-full`}
+          disabled={isRunning}
+          onClick={() => onRun(action, readOnlyCount ? {} : { count })}
+          type="button"
+        >
+          {isRunning ? 'Running...' : 'Run'}
+        </button>
+      </div>
+    </section>
+  )
 }
 
 export function humanizeAuditAction(action: string) {

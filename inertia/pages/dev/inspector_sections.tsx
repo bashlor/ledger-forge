@@ -2,7 +2,6 @@ import { useState } from 'react'
 
 import { DataTable } from '~/components/data_table'
 import { StatusBadge } from '~/components/status_badge'
-import { formatShortDate } from '~/lib/format'
 
 import type {
   ActionTone,
@@ -15,7 +14,6 @@ import type {
 import {
   ActivityList,
   EmptyStateCopy,
-  formatMoney,
   formatTimestamp,
   GeneratorCard,
   humanizeAuditAction,

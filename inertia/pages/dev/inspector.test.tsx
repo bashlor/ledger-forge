@@ -22,6 +22,15 @@ function buildProps(
   viewOverrides: Partial<Props['inspector']['view']> = {}
 ): Props {
   return {
+    devTools: {
+      accessHref: '/_dev',
+      canAccess: true,
+      enabled: true,
+    },
+    errors: {},
+    flash: {
+      notification: null,
+    },
     inspector: {
       audit: {
         actors: [{ id: 'actor-1', label: 'Pat User' }],
@@ -196,6 +205,15 @@ function buildProps(
       },
       ...overrides,
     },
+    user: {
+      email: 'dev@example.com',
+      fullName: 'Dev Operator',
+      id: 'dev-public-id',
+      image: null,
+      initials: 'DO',
+      isAnonymous: false,
+    },
+    workspace: undefined,
   }
 }
 
