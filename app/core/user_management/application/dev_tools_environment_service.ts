@@ -1,8 +1,14 @@
 import { DomainError } from '#core/common/errors/domain_error'
-import { isDevelopmentEnvironment } from '#core/user_management/support/dev_operator'
+import { isDevToolsRuntimeEnabled } from '#core/user_management/support/dev_operator'
+import env from '#start/env'
 
 export class DevToolsEnvironmentService {
-  constructor(private readonly enabled: boolean = isDevelopmentEnvironment()) {}
+  constructor(
+    private readonly enabled: boolean = isDevToolsRuntimeEnabled({
+      enabled: env.get('DEV_TOOLS_ENABLED', false),
+      nodeEnv: env.get('NODE_ENV'),
+    })
+  ) {}
 
   ensureEnabled(): void {
     if (!this.enabled) {

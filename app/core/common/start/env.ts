@@ -30,6 +30,8 @@ export default await Env.create(new URL('../../../../', import.meta.url), {
   DEV_OPERATOR_DEFAULT_NAME: Env.schema.string.optional(),
   DEV_OPERATOR_DEFAULT_PASSWORD: Env.schema.string.optional(),
   DEV_OPERATOR_PUBLIC_IDS: Env.schema.string.optional(),
+  DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED: Env.schema.boolean.optional(),
+  DEV_TOOLS_ENABLED: Env.schema.boolean.optional(),
   DEV_TOOLS_LOCAL_ENABLED: Env.schema.boolean.optional(),
   HOST: Env.schema.string({ format: 'host' }),
   LOG_LEVEL: Env.schema.string(),

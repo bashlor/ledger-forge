@@ -11,14 +11,18 @@ test.group('isDevelopmentEnvironment', () => {
 })
 
 test.group('isDevToolsRuntimeEnabled', () => {
-  test('is enabled in development and test', ({ assert }) => {
-    assert.isTrue(isDevToolsRuntimeEnabled('development'))
-    assert.isTrue(isDevToolsRuntimeEnabled('test'))
+  test('is enabled only when the global flag is on in development or test', ({ assert }) => {
+    assert.isTrue(isDevToolsRuntimeEnabled({ enabled: true, nodeEnv: 'development' }))
+    assert.isTrue(isDevToolsRuntimeEnabled({ enabled: true, nodeEnv: 'test' }))
+    assert.isFalse(isDevToolsRuntimeEnabled({ enabled: false, nodeEnv: 'development' }))
+    assert.isFalse(isDevToolsRuntimeEnabled({ enabled: false, nodeEnv: 'test' }))
   })
 
-  test('is disabled in production — dev tools routes and provider must not be loaded', ({
-    assert,
-  }) => {
-    assert.isFalse(isDevToolsRuntimeEnabled('production'))
+  test('defaults test runtime to enabled when the new flag is still absent', ({ assert }) => {
+    assert.isTrue(isDevToolsRuntimeEnabled({ nodeEnv: 'test' }))
+  })
+
+  test('is disabled in production even when the flag is on', ({ assert }) => {
+    assert.isFalse(isDevToolsRuntimeEnabled({ enabled: true, nodeEnv: 'production' }))
   })
 })

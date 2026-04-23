@@ -23,10 +23,23 @@ export function isDevelopmentEnvironment(nodeEnv = env.get('NODE_ENV')): boolean
 }
 
 export function isDevToolsRuntimeEnabled(
-  nodeEnv = (process.env.NODE_ENV as 'development' | 'production' | 'test' | undefined) ??
-    'production'
+  input: {
+    enabled?: boolean
+    nodeEnv?: 'development' | 'production' | 'test'
+  } = {}
 ): boolean {
-  return nodeEnv === 'development' || nodeEnv === 'test'
+  const nodeEnv =
+    input.nodeEnv ??
+    (process.env.NODE_ENV as 'development' | 'production' | 'test' | undefined) ??
+    'production'
+  const enabled =
+    input.enabled ?? parseBooleanEnv(process.env.DEV_TOOLS_ENABLED) ?? nodeEnv === 'test'
+
+  if (nodeEnv !== 'development' && nodeEnv !== 'test') {
+    return false
+  }
+
+  return enabled
 }
 
 export function parseDevOperatorPublicIds(
@@ -44,4 +57,20 @@ export function readDevOperatorBootstrapDefaults(): DevOperatorBootstrapDefaults
     fullName: (env.get('DEV_OPERATOR_DEFAULT_NAME') ?? 'Dev Operator').trim(),
     password: env.get('DEV_OPERATOR_DEFAULT_PASSWORD') ?? 'DevOperator123!',
   }
+}
+
+function parseBooleanEnv(value: string | undefined): boolean | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (value === 'true') {
+    return true
+  }
+
+  if (value === 'false') {
+    return false
+  }
+
+  return undefined
 }
