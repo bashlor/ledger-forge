@@ -1,3 +1,4 @@
+import type * as schema from '#core/common/drizzle/index'
 import type { AuthResult } from '#core/user_management/domain/authentication'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
@@ -30,7 +31,7 @@ export interface DevOperatorScenarioMember {
 
 export class DevOperatorConsoleScenarioService {
   constructor(
-    private readonly db: PostgresJsDatabase<any>,
+    private readonly db: PostgresJsDatabase<typeof schema>,
     private readonly queryService: DevOperatorConsoleQueryService
   ) {}
 
@@ -51,8 +52,8 @@ export class DevOperatorConsoleScenarioService {
       throw new DomainError('Selected tenant is not available for this dev operator.', 'forbidden')
     }
 
-    const members = await this.queryService.listMembersForTenant(tenantId, requestedMemberId)
     const requestedMember = requestedMemberId?.trim() || ''
+    const members = await this.queryService.listMembersForTenant(tenantId, requestedMember)
     if (requestedMember && !members.some((member) => member.id === requestedMember)) {
       throw new DomainError(
         'Selected scenario member does not belong to the selected tenant.',
@@ -61,7 +62,7 @@ export class DevOperatorConsoleScenarioService {
     }
 
     const selectedMember =
-      members.find((member) => member.id === requestedMemberId) ??
+      members.find((member) => member.id === requestedMember) ??
       members.find((member) => member.userId === authSession.user.id) ??
       members[0] ??
       null
