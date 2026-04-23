@@ -3,6 +3,7 @@ import type { ApplicationService } from '@adonisjs/core/types'
 import { AuthorizationService } from '../application/authorization_service.js'
 import { DevOperatorBootstrapService } from '../application/dev_operator_bootstrap_service.js'
 import { DevToolsEnvironmentService } from '../application/dev_tools_environment_service.js'
+import { LocalDevDestructiveToolsService } from '../application/local_dev_destructive_tools_service.js'
 import { MemberService } from '../application/member_service.js'
 import { AuthenticationPort } from '../domain/authentication.js'
 import { BetterAuthAdapter } from '../infra/auth/better_auth_adapter.js'
@@ -52,6 +53,10 @@ export default class AuthProvider {
 
     this.app.container.bind(DevToolsEnvironmentService, async () => {
       return new DevToolsEnvironmentService()
+    })
+
+    this.app.container.bind(LocalDevDestructiveToolsService, async () => {
+      return new LocalDevDestructiveToolsService()
     })
 
     this.app.container.bind(DevOperatorBootstrapService, async (resolver) => {

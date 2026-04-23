@@ -167,9 +167,11 @@ function redirectBackToInspector(ctx: HttpContext) {
   if (tab) query.tab = tab
   if (tenantId) query.tenantId = tenantId
 
-  return ctx.response
-    .redirect()
-    .toRoute('dev.inspector', [], Object.keys(query).length > 0 ? { qs: query } : undefined)
+  const searchParams = new URLSearchParams(query)
+  const location =
+    searchParams.size > 0 ? `/_dev/inspector?${searchParams.toString()}` : '/_dev/inspector'
+
+  return ctx.response.redirect().toPath(location)
 }
 
 async function runConsoleAction(ctx: HttpContext, action: () => Promise<void>): Promise<void> {

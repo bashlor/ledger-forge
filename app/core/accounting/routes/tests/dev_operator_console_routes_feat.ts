@@ -13,12 +13,15 @@ import {
   invoices,
   journalEntries,
 } from '#core/accounting/drizzle/schema'
+import { type DeferredDatabaseResetCommandRunner } from '#core/dev_tools/application/deferred_database_reset_launcher'
+import { DeferredDatabaseResetLauncher } from '#core/dev_tools/application/deferred_database_reset_launcher'
 import { DevOperatorConsolePageService } from '#core/dev_tools/application/dev_operator_console_page_service'
 import { DevOperatorConsoleQueryService } from '#core/dev_tools/application/dev_operator_console_query_service'
 import { DevOperatorConsoleService } from '#core/dev_tools/application/dev_operator_console_service'
 import { DevOperatorTenantFactoryService } from '#core/dev_tools/application/dev_operator_tenant_factory_service'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { DevToolsEnvironmentService } from '#core/user_management/application/dev_tools_environment_service'
+import { LocalDevDestructiveToolsService } from '#core/user_management/application/local_dev_destructive_tools_service'
 import {
   AuthenticationPort,
   type AuthProviderUser,
@@ -268,6 +271,7 @@ test.group('Dev operator console routes', (group) => {
     app.container.restore(AuthorizationService)
     app.container.restore(DevOperatorConsoleService)
     app.container.restore(DevToolsEnvironmentService)
+    app.container.restore(LocalDevDestructiveToolsService)
   })
 
   group.teardown(async () => cleanup())
@@ -295,6 +299,13 @@ test.group('Dev operator console routes', (group) => {
     assert.equal(response.body().props.inspector.context.activeTenantId, TEST_TENANT_ID)
     assert.equal(response.body().props.inspector.memberships.length, 1)
     assert.equal(response.body().props.inspector.inspectableTenants.length, 4)
+    const resetDatabaseOperation = response
+      .body()
+      .props.inspector.globalOperations.find(
+        (operation: { action: null | string; available: boolean }) =>
+          operation.action === 'reset-database'
+      )
+    assert.isFalse(resetDatabaseOperation?.available ?? true)
   })
 
   test('GET /_dev/inspector disables tenant creation in single-tenant mode', async ({
@@ -637,11 +648,11 @@ test.group('Dev operator console routes', (group) => {
     assert.isAbove(Number(invoiceCount?.value ?? 0), 0)
   })
 
-  test('POST /_dev/inspector/actions/reset-local-dataset keeps other tenants untouched', async ({
+  test('POST /_dev/inspector/actions/reset-tenant keeps other tenants untouched', async ({
     assert,
     client,
   }) => {
-    await enableDevOperatorMode(db)
+    await enableDevOperatorMode(db, true)
     await seedDraftInvoice()
     const customerService = await app.container.make(CustomerService)
     await customerService.createCustomer(
@@ -657,7 +668,7 @@ test.group('Dev operator console routes', (group) => {
     )
 
     const response = await client
-      .post('/_dev/inspector/actions/reset-local-dataset')
+      .post('/_dev/inspector/actions/reset-tenant')
       .header('cookie', authCookie())
       .redirects(0)
       .form({})
@@ -675,6 +686,87 @@ test.group('Dev operator console routes', (group) => {
 
     assert.isAbove(Number(tenantACustomers?.value ?? 0), 0)
     assert.equal(Number(tenantBCustomers?.value ?? 0), 1)
+  })
+
+  test('POST /_dev/inspector/actions/reset-tenant is forbidden when local destructive tools are disabled', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db, false)
+    await seedDraftInvoice()
+
+    const response = await client
+      .post('/_dev/inspector/actions/reset-tenant')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+
+    const [invoiceCount] = await db
+      .select({ value: count() })
+      .from(invoices)
+      .where(eq(invoices.organizationId, TEST_TENANT_ID))
+
+    assert.isAbove(Number(invoiceCount?.value ?? 0), 0)
+  })
+
+  test('POST /_dev/inspector/actions/reset-database is forbidden when local destructive tools are disabled', async ({
+    client,
+  }) => {
+    await enableDevOperatorMode(db, false)
+
+    const response = await client
+      .post('/_dev/inspector/actions/reset-database')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+  })
+
+  test('POST /_dev/inspector/actions/reset-database schedules a deferred local restart', async ({
+    assert,
+    client,
+  }) => {
+    await enableDevOperatorMode(db, true)
+    const launches: Array<{
+      args: string[]
+      command: string
+      cwd: string
+      env: NodeJS.ProcessEnv
+    }> = []
+    const runner: DeferredDatabaseResetCommandRunner = {
+      run(command, args, options) {
+        launches.push({ args, command, cwd: options.cwd, env: options.env })
+      },
+    }
+
+    app.container.swap(DevOperatorConsoleService, async () => {
+      return new DevOperatorConsoleService(db, {
+        databaseResetLauncher: new DeferredDatabaseResetLauncher(
+          runner,
+          '/repo',
+          '/repo/scripts/reset-local-dev-environment.sh',
+          5
+        ),
+        localDevDestructiveTools: new LocalDevDestructiveToolsService(true),
+      })
+    })
+
+    const response = await client
+      .post('/_dev/inspector/actions/reset-database')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    response.assertStatus(302)
+    assert.lengthOf(launches, 1)
+    assert.equal(launches[0]!.command, 'bash')
+    assert.deepEqual(launches[0]!.args, ['/repo/scripts/reset-local-dev-environment.sh'])
+    assert.equal(launches[0]!.cwd, '/repo')
+    assert.equal(launches[0]!.env.DATABASE_RESET_DELAY_SECONDS, '5')
+    assert.equal(launches[0]!.env.RESET_SOURCE_PID, String(process.pid))
   })
 
   test('POST /_dev/inspector/actions/unknown redirects back with validation flow', async ({
@@ -942,12 +1034,20 @@ test.group('Dev operator console routes', (group) => {
   })
 })
 
-async function enableDevOperatorMode(db: PostgresJsDatabase<any>) {
+async function enableDevOperatorMode(db: PostgresJsDatabase<any>, localDestructiveTools = false) {
   app.container.swap(AuthorizationService, async () => {
     return new DevOperatorAuthorizationService(db)
   })
   app.container.swap(DevToolsEnvironmentService, async () => {
     return new DevToolsEnvironmentService(true)
+  })
+  app.container.swap(LocalDevDestructiveToolsService, async () => {
+    return new LocalDevDestructiveToolsService(localDestructiveTools)
+  })
+  app.container.swap(DevOperatorConsoleService, async () => {
+    return new DevOperatorConsoleService(db, {
+      localDevDestructiveTools: new LocalDevDestructiveToolsService(localDestructiveTools),
+    })
   })
 }
 
@@ -956,7 +1056,12 @@ async function enableSingleTenantDevOperatorMode(db: PostgresJsDatabase<any>) {
 
   app.container.swap(DevOperatorConsoleService, async () => {
     return new DevOperatorConsoleService(db, {
-      pageService: new DevOperatorConsolePageService(new DevOperatorConsoleQueryService(db), true),
+      localDevDestructiveTools: new LocalDevDestructiveToolsService(false),
+      pageService: new DevOperatorConsolePageService(
+        new DevOperatorConsoleQueryService(db),
+        true,
+        false
+      ),
       singleTenantMode: true,
     })
   })

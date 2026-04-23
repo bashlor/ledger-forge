@@ -11,6 +11,7 @@ import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import * as schema from '#core/common/drizzle/index'
 import { DomainError } from '#core/common/errors/domain_error'
+import { DeferredDatabaseResetLauncher } from '#core/dev_tools/application/deferred_database_reset_launcher'
 import { DevOperatorConsolePageService } from '#core/dev_tools/application/dev_operator_console_page_service'
 import { DevOperatorConsoleQueryService } from '#core/dev_tools/application/dev_operator_console_query_service'
 import {
@@ -29,6 +30,7 @@ import {
   AuthorizationDeniedError,
   type AuthorizationService,
 } from '#core/user_management/application/authorization_service'
+import { LocalDevDestructiveToolsService } from '#core/user_management/application/local_dev_destructive_tools_service'
 import { MemberService } from '#core/user_management/application/member_service'
 import { setActiveOrganizationForSession } from '#core/user_management/application/workspace_provisioning'
 import { isSingleTenantMode } from '#core/user_management/support/tenant_mode'
@@ -53,9 +55,11 @@ export {
 interface DevOperatorConsoleDependencies {
   auditTrail?: CriticalAuditTrail
   customerService?: CustomerService
+  databaseResetLauncher?: DeferredDatabaseResetLauncher
   demoDatasetService?: DemoDatasetService
   expenseService?: ExpenseService
   invoiceService?: InvoiceService
+  localDevDestructiveTools?: LocalDevDestructiveToolsService
   memberService?: MemberService
   pageService?: DevOperatorConsolePageService
   queryService?: DevOperatorConsoleQueryService
@@ -83,9 +87,11 @@ interface ScenarioMember {
 export class DevOperatorConsoleService {
   private readonly auditTrail: CriticalAuditTrail
   private readonly customerService: CustomerService
+  private readonly databaseResetLauncher: DeferredDatabaseResetLauncher
   private readonly demoDatasetService: DemoDatasetService
   private readonly expenseService: ExpenseService
   private readonly invoiceService: InvoiceService
+  private readonly localDevDestructiveTools: LocalDevDestructiveToolsService
   private readonly memberService: MemberService
   private readonly pageService: DevOperatorConsolePageService
   private readonly queryService: DevOperatorConsoleQueryService
@@ -101,12 +107,20 @@ export class DevOperatorConsoleService {
     this.demoDatasetService = dependencies.demoDatasetService ?? new DemoDatasetService(db)
     this.expenseService = dependencies.expenseService ?? new ExpenseService(db)
     this.invoiceService = dependencies.invoiceService ?? new InvoiceService(db)
+    this.localDevDestructiveTools =
+      dependencies.localDevDestructiveTools ?? new LocalDevDestructiveToolsService()
     this.memberService = dependencies.memberService ?? new MemberService(db)
     this.queryService = dependencies.queryService ?? new DevOperatorConsoleQueryService(db)
     this.singleTenantMode = dependencies.singleTenantMode ?? isSingleTenantMode()
+    this.databaseResetLauncher =
+      dependencies.databaseResetLauncher ?? new DeferredDatabaseResetLauncher()
     this.pageService =
       dependencies.pageService ??
-      new DevOperatorConsolePageService(this.queryService, this.singleTenantMode)
+      new DevOperatorConsolePageService(
+        this.queryService,
+        this.singleTenantMode,
+        this.localDevDestructiveTools.isEnabled()
+      )
     this.tenantFactoryService =
       dependencies.tenantFactoryService ?? new DevOperatorTenantFactoryService(db)
   }
@@ -136,6 +150,7 @@ export class DevOperatorConsoleService {
       case 'change-member-role':
         return this.changeMemberRole(scenario, authorizationService, input.memberId)
       case 'clear-tenant-data':
+        this.localDevDestructiveTools.ensureEnabled()
         authorizationService.authorize(scenario.actor, 'invoice.markPaid')
         await this.demoDatasetService.clearTenantData(scenario.tenantId)
         return 'Selected tenant dataset cleared.'
@@ -170,7 +185,12 @@ export class DevOperatorConsoleService {
         authorizationService.authorize(scenario.actor, 'invoice.markPaid')
         await this.demoDatasetService.seedTenant(scenario.access)
         return 'Demo data generated for the selected tenant.'
-      case 'reset-local-dataset':
+      case 'reset-database':
+        this.localDevDestructiveTools.ensureEnabled()
+        this.databaseResetLauncher.schedule(process.pid)
+        return 'Local database reset scheduled. The app will restart in a few seconds.'
+      case 'reset-tenant':
+        this.localDevDestructiveTools.ensureEnabled()
         authorizationService.authorize(scenario.actor, 'invoice.markPaid')
         await this.demoDatasetService.resetTenant(scenario.access)
         return 'Selected tenant dataset reset and re-seeded.'

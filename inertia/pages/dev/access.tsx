@@ -39,7 +39,7 @@ export default function DevAccessPage({ bootstrap }: Props) {
               fly. The resulting account is then granted dev operator access in the local database.
             </p>
 
-            <Form className="mt-6 space-y-5" route="dev.access.store">
+            <Form action="/_dev/access" className="mt-6 space-y-5" method="post">
               {({ errors }: { errors: FormErrors }) => {
                 return (
                   <>

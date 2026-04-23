@@ -13,7 +13,8 @@ export type ActionName =
   | 'delete-expense'
   | 'delete-invoice'
   | 'generate-demo-data'
-  | 'reset-local-dataset'
+  | 'reset-database'
+  | 'reset-tenant'
   | 'switch-tenant'
   | 'toggle-member-active'
   | 'update-customer'
@@ -189,6 +190,7 @@ export interface DevInspectorPageDto {
     label: string
     section: 'danger_zone' | 'tenant_factory'
     tone: 'danger' | 'neutral'
+    unavailableLabel?: string
   }[]
   inspectableTenants: DevInspectorTenantOptionDto[]
   invoices: DevInspectorInvoiceDto[]
@@ -256,7 +258,8 @@ const ACTION_NAMES: readonly ActionName[] = [
   'delete-expense',
   'delete-invoice',
   'generate-demo-data',
-  'reset-local-dataset',
+  'reset-database',
+  'reset-tenant',
   'switch-tenant',
   'toggle-member-active',
   'update-customer',
