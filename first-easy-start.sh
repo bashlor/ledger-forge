@@ -19,6 +19,10 @@ require_cmd() {
   }
 }
 
+generate_uuid_v7() {
+  node --input-type=module -e "import { v7 as uuidv7 } from 'uuid'; console.log(uuidv7())"
+}
+
 get_env_value() {
   local key="$1" file="$2"
   grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || true
@@ -43,6 +47,11 @@ ensure_env_value() {
     return
   fi
 
+  if grep -q "^#[[:space:]]*${key}=" "$file"; then
+    sed -i -E "s|^#[[:space:]]*${key}=.*|${key}=${value}|" "$file"
+    return
+  fi
+
   set_env_value "$key" "$value" "$file"
 }
 
@@ -64,6 +73,7 @@ wait_for_compose_exec() {
 
 require_cmd openssl
 require_cmd pnpm
+require_cmd node
 resolve_compose_cmd
 
 APP_URL_FIXED='http://localhost:3333'
@@ -87,10 +97,11 @@ set_env_value 'APP_KEY' "$(openssl rand -hex 32)" "$REPO_ROOT/.env"
 set_env_value 'BETTER_AUTH_SECRET' "$(openssl rand -hex 32)" "$REPO_ROOT/.env"
 set_env_value 'APP_URL' "$APP_URL_FIXED" "$REPO_ROOT/.env"
 set_env_value 'TENANT_MODE' 'single' "$REPO_ROOT/.env"
-ensure_env_value 'SINGLE_TENANT_ORG_ID' "$(openssl rand -hex 16)" "$REPO_ROOT/.env"
+ensure_env_value 'SINGLE_TENANT_ORG_ID' "$(generate_uuid_v7)" "$REPO_ROOT/.env"
 set_env_value 'DEMO_MODE_ENABLED' 'true' "$REPO_ROOT/.env"
 set_env_value 'DEMO_COMMANDS_ENABLED' 'true' "$REPO_ROOT/.env"
-set_env_value 'DEV_TOOLS_LOCAL_ENABLED' 'true' "$REPO_ROOT/.env"
+set_env_value 'DEV_TOOLS_ENABLED' 'true' "$REPO_ROOT/.env"
+set_env_value 'DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED' 'true' "$REPO_ROOT/.env"
 set_env_value 'DEMO_ALLOWED_TENANT_IDS' "$(get_env_value 'SINGLE_TENANT_ORG_ID' "$REPO_ROOT/.env")" "$REPO_ROOT/.env"
 ensure_env_value 'DEV_OPERATOR_DEFAULT_NAME' "$DEV_OPERATOR_DEFAULT_NAME" "$REPO_ROOT/.env"
 ensure_env_value 'DEV_OPERATOR_DEFAULT_EMAIL' "$DEV_OPERATOR_DEFAULT_EMAIL" "$REPO_ROOT/.env"
@@ -103,7 +114,8 @@ set_env_value 'BETTER_AUTH_SECRET' "$(openssl rand -hex 32)" "$REPO_ROOT/.env.te
 set_env_value 'APP_URL' "$APP_URL_FIXED" "$REPO_ROOT/.env.test"
 set_env_value 'DEMO_MODE_ENABLED' 'false' "$REPO_ROOT/.env.test"
 set_env_value 'DEMO_COMMANDS_ENABLED' 'false' "$REPO_ROOT/.env.test"
-set_env_value 'DEV_TOOLS_LOCAL_ENABLED' 'false' "$REPO_ROOT/.env.test"
+set_env_value 'DEV_TOOLS_ENABLED' 'true' "$REPO_ROOT/.env.test"
+set_env_value 'DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED' 'false' "$REPO_ROOT/.env.test"
 ensure_env_value 'DEV_OPERATOR_DEFAULT_NAME' "$DEV_OPERATOR_DEFAULT_NAME" "$REPO_ROOT/.env.test"
 ensure_env_value 'DEV_OPERATOR_DEFAULT_EMAIL' "$DEV_OPERATOR_DEFAULT_EMAIL" "$REPO_ROOT/.env.test"
 ensure_env_value 'DEV_OPERATOR_DEFAULT_PASSWORD' "$DEV_OPERATOR_DEFAULT_PASSWORD" "$REPO_ROOT/.env.test"
@@ -150,6 +162,8 @@ echo ''
 echo 'Local demo mode enabled in .env:'
 echo '  DEMO_MODE_ENABLED=true'
 echo '  DEMO_COMMANDS_ENABLED=true'
+echo '  DEV_TOOLS_ENABLED=true'
+echo '  DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED=true'
 echo "  DEMO_ALLOWED_TENANT_IDS=$(get_env_value 'DEMO_ALLOWED_TENANT_IDS' "$REPO_ROOT/.env")"
 echo ''
 echo 'PostgreSQL and Redis are stopped. To work on the app:'
