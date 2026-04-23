@@ -3,6 +3,7 @@ import type { CustomerListItemDto } from '~/lib/types'
 import { formatCurrency } from '~/lib/format'
 
 interface CustomerTableProps {
+  canManageCustomers: boolean
   items: CustomerListItemDto[]
   onDelete: (customer: CustomerListItemDto) => void
   onEdit: (customer: CustomerListItemDto) => void
@@ -11,12 +12,15 @@ interface CustomerTableProps {
 }
 
 export function CustomerTable({
+  canManageCustomers,
   items,
   onDelete,
   onEdit,
   processing,
   readOnly,
 }: CustomerTableProps) {
+  const canInteract = canManageCustomers && !readOnly
+
   return (
     <table className="w-full min-w-[860px] border-collapse text-left text-sm">
       <thead>
@@ -33,16 +37,21 @@ export function CustomerTable({
       <tbody className="divide-y divide-outline-variant/10">
         {items.map((customer) => (
           <tr
-            className="group cursor-pointer transition-colors hover:bg-surface-container-low/60 focus-within:bg-surface-container-low/70"
+            className={`group transition-colors focus-within:bg-surface-container-low/70 ${
+              canInteract ? 'cursor-pointer hover:bg-surface-container-low/60' : ''
+            }`}
             key={customer.id}
-            onClick={() => onEdit(customer)}
+            onClick={() => {
+              if (canInteract) onEdit(customer)
+            }}
             onKeyDown={(event) => {
+              if (!canInteract) return
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault()
                 onEdit(customer)
               }
             }}
-            tabIndex={0}
+            tabIndex={canInteract ? 0 : -1}
           >
             <td className="px-4 py-2.5 font-medium text-on-surface">
               <div>{customer.company}</div>
@@ -65,15 +74,17 @@ export function CustomerTable({
                 onClick={(event) => event.stopPropagation()}
                 onKeyDown={(event) => event.stopPropagation()}
               >
-                <button
-                  className="rounded border border-error/20 px-3 py-1.5 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={processing || readOnly || customer.canDelete === false}
-                  onClick={() => onDelete(customer)}
-                  title={customer.deleteBlockReason}
-                  type="button"
-                >
-                  Delete
-                </button>
+                {canManageCustomers ? (
+                  <button
+                    className="rounded border border-error/20 px-3 py-1.5 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={processing || readOnly || customer.canDelete === false}
+                    onClick={() => onDelete(customer)}
+                    title={customer.deleteBlockReason}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                ) : null}
               </div>
             </td>
           </tr>

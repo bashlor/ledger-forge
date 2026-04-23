@@ -18,13 +18,21 @@ import {
 
 export default class CustomersController {
   @inject()
-  async destroy(ctx: HttpContext, customerService: CustomerService) {
+  async destroy(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    customerService: CustomerService
+  ) {
     const { params } = await ctx.request.validateUsing(customerParamsValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => customerService.deleteCustomer(params.id, access),
+      () => {
+        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        return customerService.deleteCustomer(params.id, access)
+      },
       'Customer deleted.'
     )
 
@@ -53,19 +61,28 @@ export default class CustomersController {
     return renderInertiaPage(ctx.inertia, 'app/customers', {
       accountingReadOnly: readOnlyState.enabled,
       accountingReadOnlyMessage: readOnlyState.message,
+      canManageCustomers: authorizationService.allows(actor, 'accounting.writeDrafts'),
       customers,
       filters: { search: search ?? '' },
     })
   }
 
   @inject()
-  async store(ctx: HttpContext, customerService: CustomerService) {
+  async store(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    customerService: CustomerService
+  ) {
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => customerService.createCustomer(payload, access),
+      () => {
+        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        return customerService.createCustomer(payload, access)
+      },
       'Customer created.'
     )
 
@@ -73,14 +90,22 @@ export default class CustomersController {
   }
 
   @inject()
-  async update(ctx: HttpContext, customerService: CustomerService) {
+  async update(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    customerService: CustomerService
+  ) {
     const { params } = await ctx.request.validateUsing(customerParamsValidator)
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
     const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
 
     await flashAction(
       ctx,
-      () => customerService.updateCustomer(params.id, payload, access),
+      () => {
+        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        return customerService.updateCustomer(params.id, payload, access)
+      },
       'Customer updated.'
     )
 
