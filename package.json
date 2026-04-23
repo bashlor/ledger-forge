@@ -14,6 +14,7 @@
     "setup": "bash ./first-easy-start.sh",
     "start": "node bin/server.js",
     "build": "rm -rf build && node ace build",
+    "check:prod-safety": "bash ./scripts/check-production-safety.sh",
     "postbuild": "node scripts/prune-dev-only-build-artifacts.mjs",
     "dev": "node ace migration:run && node ace serve --hmr",
     "services:up": "bash ./scripts/services.sh up",
