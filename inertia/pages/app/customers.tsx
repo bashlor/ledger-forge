@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import type {
   CreateCustomerInput,
@@ -89,12 +89,7 @@ export default function CustomersPage({
     [errors]
   )
   const hasCustomerErrors = Object.keys(customerErrors).length > 0
-
-  useEffect(() => {
-    if (hasCustomerErrors && canManageCustomers) {
-      setDrawerOpen(true)
-    }
-  }, [canManageCustomers, hasCustomerErrors])
+  const isDrawerOpen = drawerOpen || (canManageCustomers && hasCustomerErrors)
 
   function openCreate() {
     if (!canMutateCustomers) return
@@ -196,7 +191,7 @@ export default function CustomersPage({
           key={drawerKey}
           onClose={closeDrawer}
           onSubmit={handleSubmit}
-          open={drawerOpen}
+          open={isDrawerOpen}
           processing={processing}
           readOnly={accountingReadOnly}
           readOnlyMessage={accountingReadOnlyMessage}
