@@ -112,6 +112,7 @@ type Props = InertiaProps<{
       label: string
       section: 'danger_zone' | 'tenant_factory'
       tone: 'danger' | 'neutral'
+      unavailableLabel?: string
     }[]
     inspectableTenants: {
       id: string
@@ -2551,7 +2552,7 @@ function OperationPanel({
                   type="button"
                 >
                   {!operation.available
-                    ? 'Soon'
+                    ? (operation.unavailableLabel ?? 'Unavailable')
                     : processingAction === operation.action
                       ? 'Running...'
                       : 'Run'}

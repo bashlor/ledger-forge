@@ -28,7 +28,8 @@ interface TenantSelection {
 export class DevOperatorConsolePageService {
   constructor(
     private readonly queryService: DevOperatorConsoleQueryService,
-    private readonly singleTenantMode: boolean = isSingleTenantMode()
+    private readonly singleTenantMode: boolean = isSingleTenantMode(),
+    private readonly localDestructiveToolsEnabled: boolean = false
   ) {}
 
   async getPageData(
@@ -81,7 +82,10 @@ export class DevOperatorConsolePageService {
       ),
       customers,
       expenses,
-      globalOperations: this.buildGlobalOperations(this.singleTenantMode),
+      globalOperations: this.buildGlobalOperations(
+        this.singleTenantMode,
+        this.localDestructiveToolsEnabled
+      ),
       inspectableTenants: tenantSelection.inspectableTenants,
       invoices,
       members: members.map((member) => ({
@@ -114,7 +118,8 @@ export class DevOperatorConsolePageService {
   }
 
   private buildGlobalOperations(
-    singleTenantMode: boolean
+    singleTenantMode: boolean,
+    localDestructiveToolsEnabled: boolean
   ): DevInspectorPageDto['globalOperations'] {
     return [
       {
@@ -129,31 +134,40 @@ export class DevOperatorConsolePageService {
         tone: 'neutral',
       },
       {
-        action: 'reset-local-dataset',
-        available: true,
+        action: 'reset-tenant',
+        available: localDestructiveToolsEnabled,
         id: 'reset-selected-tenant',
-        impact: 'Clears and re-seeds the currently selected tenant.',
+        impact: localDestructiveToolsEnabled
+          ? 'Clears and re-seeds the currently selected tenant.'
+          : 'Available only in explicit local development mode.',
         label: 'Reset selected tenant',
         section: 'danger_zone',
         tone: 'danger',
+        unavailableLabel: 'Unavailable',
       },
       {
         action: 'clear-tenant-data',
-        available: true,
+        available: localDestructiveToolsEnabled,
         id: 'clear-selected-tenant',
-        impact: 'Removes tenant business records without deleting the tenant itself.',
+        impact: localDestructiveToolsEnabled
+          ? 'Removes tenant business records without deleting the tenant itself.'
+          : 'Available only in explicit local development mode.',
         label: 'Clear selected tenant',
         section: 'danger_zone',
         tone: 'danger',
+        unavailableLabel: 'Unavailable',
       },
       {
-        action: null,
-        available: false,
+        action: 'reset-database',
+        available: localDestructiveToolsEnabled,
         id: 'reset-database',
-        impact: 'Reserved for a full local reset. Intentionally gated in this slice.',
+        impact: localDestructiveToolsEnabled
+          ? 'Stops local containers, rebuilds the local bootstrap, then restarts `pnpm dev` after a short delay.'
+          : 'Available only in explicit local development mode.',
         label: 'Reset database',
         section: 'danger_zone',
         tone: 'danger',
+        unavailableLabel: 'Unavailable',
       },
     ]
   }
