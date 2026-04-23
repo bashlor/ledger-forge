@@ -11,9 +11,9 @@ test.group('isDevelopmentEnvironment', () => {
 })
 
 test.group('isDevToolsRuntimeEnabled', () => {
-  test('is enabled only in development', ({ assert }) => {
+  test('is enabled in development and test', ({ assert }) => {
     assert.isTrue(isDevToolsRuntimeEnabled('development'))
-    assert.isFalse(isDevToolsRuntimeEnabled('test'))
+    assert.isTrue(isDevToolsRuntimeEnabled('test'))
   })
 
   test('is disabled in production — dev tools routes and provider must not be loaded', ({

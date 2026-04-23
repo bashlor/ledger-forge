@@ -26,7 +26,7 @@ export function isDevToolsRuntimeEnabled(
   nodeEnv = (process.env.NODE_ENV as 'development' | 'production' | 'test' | undefined) ??
     'production'
 ): boolean {
-  return nodeEnv === 'development'
+  return nodeEnv === 'development' || nodeEnv === 'test'
 }
 
 export function parseDevOperatorPublicIds(
