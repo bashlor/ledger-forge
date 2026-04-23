@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import type {
   CreateCustomerInput,
@@ -28,6 +28,7 @@ interface CustomerSearchFormProps {
 interface CustomersPageProps {
   accountingReadOnly: boolean
   accountingReadOnlyMessage: string
+  canManageCustomers: boolean
   customers: CustomerListDto
   filters?: { search?: string }
 }
@@ -35,6 +36,7 @@ interface CustomersPageProps {
 export default function CustomersPage({
   accountingReadOnly,
   accountingReadOnlyMessage,
+  canManageCustomers,
   customers,
   filters,
 }: InertiaProps<CustomersPageProps>) {
@@ -49,6 +51,7 @@ export default function CustomersPage({
   const { items, pagination, summary } = customers
   const appliedSearch = filters?.search?.trim() ?? ''
   const hasPageItems = items.length > 0
+  const canMutateCustomers = canManageCustomers && !accountingReadOnly
   const filteredItems = useMemo(
     () =>
       items.filter((customer) => {
@@ -86,22 +89,17 @@ export default function CustomersPage({
     [errors]
   )
   const hasCustomerErrors = Object.keys(customerErrors).length > 0
-
-  useEffect(() => {
-    if (hasCustomerErrors) {
-      setDrawerOpen(true)
-    }
-  }, [hasCustomerErrors])
+  const isDrawerOpen = drawerOpen || (canManageCustomers && hasCustomerErrors)
 
   function openCreate() {
-    if (accountingReadOnly) return
+    if (!canMutateCustomers) return
     setEditTarget(null)
     setDrawerKey((k) => k + 1)
     setDrawerOpen(true)
   }
 
   function openEdit(customer: CustomerListItemDto) {
-    if (accountingReadOnly) return
+    if (!canMutateCustomers) return
     setEditTarget(customer)
     setDrawerKey((k) => k + 1)
     setDrawerOpen(true)
@@ -113,7 +111,7 @@ export default function CustomersPage({
   }
 
   function handleSubmit(form: CreateCustomerInput, editingId: null | string) {
-    if (accountingReadOnly) return
+    if (!canMutateCustomers) return
     const normalized = {
       ...form,
       email: form.email?.trim() || undefined,
@@ -136,7 +134,7 @@ export default function CustomersPage({
   }
 
   function handleDelete(customer: CustomerListItemDto) {
-    if (accountingReadOnly) return
+    if (!canMutateCustomers) return
     if (customer.canDelete === false) return
     if (!window.confirm(`Delete customer "${customer.company}"?`)) return
 
@@ -169,14 +167,16 @@ export default function CustomersPage({
 
         <PageHeader
           actions={
-            <button
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={accountingReadOnly}
-              onClick={openCreate}
-              type="button"
-            >
-              New customer
-            </button>
+            canManageCustomers ? (
+              <button
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={accountingReadOnly}
+                onClick={openCreate}
+                type="button"
+              >
+                New customer
+              </button>
+            ) : null
           }
           className="gap-3"
           description="Customers are your billable contacts. Deletion is blocked once an invoice references a customer."
@@ -191,7 +191,7 @@ export default function CustomersPage({
           key={drawerKey}
           onClose={closeDrawer}
           onSubmit={handleSubmit}
-          open={drawerOpen}
+          open={isDrawerOpen}
           processing={processing}
           readOnly={accountingReadOnly}
           readOnlyMessage={accountingReadOnlyMessage}
@@ -260,6 +260,7 @@ export default function CustomersPage({
             </div>
           ) : (
             <CustomerTable
+              canManageCustomers={canManageCustomers}
               items={filteredItems}
               onDelete={handleDelete}
               onEdit={openEdit}
