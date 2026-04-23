@@ -119,7 +119,10 @@ describe('customers page', () => {
     routerPostMock.mockReset()
     routerPutMock.mockReset()
     usePageMock.mockReset()
-    vi.stubGlobal('confirm', vi.fn(() => true))
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true)
+    )
   })
 
   it('submits customer creation with trimmed contact fields and preserved query params', () => {
@@ -249,7 +252,9 @@ describe('customers page', () => {
       target: { value: 'with_invoices' },
     })
 
-    expect(screen.getByText('No customers match the current filters on this page.')).toBeInTheDocument()
+    expect(
+      screen.getByText('No customers match the current filters on this page.')
+    ).toBeInTheDocument()
     expect(routerGetMock).not.toHaveBeenCalled()
   })
 

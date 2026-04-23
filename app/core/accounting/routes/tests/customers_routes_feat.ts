@@ -359,7 +359,10 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(updated.company, 'Kestrel Analytics Updated')
   })
 
-  test('update redirects back to the current customers query params', async ({ assert, client }) => {
+  test('update redirects back to the current customers query params', async ({
+    assert,
+    client,
+  }) => {
     const id = uuidv7()
     await db.insert(customers).values({
       address: '7 impasse Query, Nantes',
