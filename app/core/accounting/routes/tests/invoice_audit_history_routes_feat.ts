@@ -126,7 +126,7 @@ test.group('Invoices routes | GET /invoices/:id/history', (group) => {
     await db.update(member).set({ role: 'member' }).where(eq(member.userId, TEST_USER_ID))
     app.container.swap(AuthorizationService, async () => {
       const drizzle = await app.container.make('drizzle')
-      return new AuthorizationService(drizzle, [TEST_INVOICE_USER_PUBLIC_ID])
+      return new AuthorizationService(drizzle, false)
     })
     const service = new InvoiceService(db)
     const invoice = await createDraftViaService(service, { issueDate: dateOffsetFromTodayUtc(10) })

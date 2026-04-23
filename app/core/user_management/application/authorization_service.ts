@@ -22,7 +22,6 @@ export class AuthorizationDeniedError extends DomainError {
 export class AuthorizationService {
   constructor(
     private readonly db: PostgresJsDatabase<typeof schema>,
-    private readonly devOperatorPublicIds: readonly string[] = [],
     private readonly devToolsEnabled: boolean = env.get('NODE_ENV') === 'development'
   ) {}
 
@@ -111,11 +110,6 @@ export class AuthorizationService {
   private async isDevOperator(authSession?: AuthResult | null): Promise<boolean> {
     if (!this.devToolsEnabled) {
       return false
-    }
-
-    const publicId = authSession?.user.publicId?.trim()
-    if (publicId && this.devOperatorPublicIds.includes(publicId)) {
-      return true
     }
 
     const userId = authSession?.user.id?.trim()

@@ -33,10 +33,6 @@ get_env_value() {
     get_env_value 'DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED' "$REPO_ROOT/.env"
   )"
 
-  if [[ -z "$DESTRUCTIVE_DEV_TOOLS_ENABLED" ]]; then
-    DESTRUCTIVE_DEV_TOOLS_ENABLED="$(get_env_value 'DEV_TOOLS_LOCAL_ENABLED' "$REPO_ROOT/.env")"
-  fi
-
   if [[ "$NODE_ENV_VALUE" != "development" ]]; then
     echo 'Reset is only available in NODE_ENV=development.' >&2
     exit 1
