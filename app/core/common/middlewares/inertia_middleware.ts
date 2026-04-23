@@ -114,9 +114,13 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
       return false
     }
 
-    const authorizationService = await app.container.make(AuthorizationService)
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
-    return authorizationService.allows(actor, 'devTools.access')
+    try {
+      const authorizationService = await app.container.make(AuthorizationService)
+      const actor = await authorizationService.actorFromSession(ctx.authSession)
+      return authorizationService.allows(actor, 'devTools.access')
+    } catch {
+      return false
+    }
   }
 }
 
