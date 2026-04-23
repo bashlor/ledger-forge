@@ -1,5 +1,5 @@
 import { DomainError } from '#core/common/errors/domain_error'
-import { isDevToolsRuntimeEnabled } from '#core/user_management/support/dev_operator'
+import { isDevToolsRuntimeEnabled } from '#core/user_management/support/dev_tools_runtime'
 import env from '#start/env'
 
 export class DevToolsEnvironmentService {

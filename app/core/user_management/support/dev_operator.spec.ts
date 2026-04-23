@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 
-import { isDevelopmentEnvironment, isDevToolsRuntimeEnabled } from './dev_operator.js'
+import { isDevelopmentEnvironment } from './dev_operator.js'
+import { isDevToolsRuntimeEnabled } from './dev_tools_runtime.js'
 
 test.group('isDevelopmentEnvironment', () => {
   test('returns true only for development', ({ assert }) => {

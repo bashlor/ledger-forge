@@ -1,4 +1,4 @@
-import { isDevToolsRuntimeEnabled } from '#core/user_management/support/dev_operator'
+import { isDevToolsRuntimeEnabled } from '#core/user_management/support/dev_tools_runtime'
 import { defineConfig } from '@adonisjs/core/app'
 import { indexPages } from '@adonisjs/inertia'
 import { generateRegistry } from '@tuyau/core/hooks'

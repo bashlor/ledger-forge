@@ -47,7 +47,8 @@ export default class AuthProvider {
 
     this.app.container.bind(AuthorizationService, async (resolver) => {
       const drizzle = await resolver.make('drizzle')
-      return new AuthorizationService(drizzle)
+      const devToolsEnvironmentService = await resolver.make(DevToolsEnvironmentService)
+      return new AuthorizationService(drizzle, devToolsEnvironmentService.isEnabled())
     })
 
     this.app.container.singleton(DevToolsEnvironmentService, async () => {
