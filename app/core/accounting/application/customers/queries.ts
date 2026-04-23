@@ -10,15 +10,16 @@ import type { CustomerAggregate, CustomerRow } from './types.js'
 import { requireTenantScope } from '../support/tenant_scope.js'
 
 type DrizzleDb = PostgresJsDatabase<any>
+type DrizzleExecutor = DrizzleDb | DrizzleTx
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 
 export async function customerStateForDelete(
-  tx: DrizzleTx,
+  db: DrizzleExecutor,
   id: string,
   organizationId: string
 ): Promise<undefined | { id: string; invoiceCount: number }> {
   const where = applyCustomerTenantScope(eq(customers.id, id), organizationId)
-  const [state] = await tx
+  const [state] = await db
     .select({
       id: customers.id,
       invoiceCount: count(invoices.id),
@@ -30,7 +31,7 @@ export async function customerStateForDelete(
   return state
 }
 export async function findCustomerById(
-  db: DrizzleDb,
+  db: DrizzleExecutor,
   id: string,
   tenantId: string
 ): Promise<CustomerRow | undefined> {
@@ -40,7 +41,7 @@ export async function findCustomerById(
 }
 
 export async function invoiceAggregateForCustomer(
-  db: DrizzleDb,
+  db: DrizzleExecutor,
   customerId: string,
   tenantId: string
 ): Promise<CustomerAggregate> {
@@ -62,7 +63,7 @@ export async function invoiceAggregateForCustomer(
 }
 
 export async function listCustomersWithAggregates(
-  db: DrizzleDb,
+  db: DrizzleExecutor,
   page: number,
   perPage: number,
   tenantId: string,
