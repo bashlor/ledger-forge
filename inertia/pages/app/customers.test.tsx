@@ -76,9 +76,14 @@ function buildProps(
     accountingReadOnlyMessage: 'Accounting is in read-only mode.',
     canManageCustomers: true,
     customers: buildCustomers(),
+    devTools: {
+      accessHref: '/_dev',
+      canAccess: false,
+      enabled: false,
+    },
     errors: {},
-    flash: { notification: null },
     filters: { search: '  Existing Search  ' },
+    flash: { notification: null },
     user: {
       email: 'pat@example.com',
       fullName: 'Pat User',
@@ -92,19 +97,19 @@ function buildProps(
   }
 }
 
-function setPageErrors(errors: FormErrors = {}) {
-  usePageMock.mockImplementation(() => ({
-    props: { errors },
-    url: '/customers',
-  }))
-}
-
 function renderPage(
   overrides: Partial<ComponentProps<typeof CustomersPage>> = {},
   errors: FormErrors = {}
 ) {
   setPageErrors(errors)
   return render(<CustomersPage {...buildProps(overrides)} />)
+}
+
+function setPageErrors(errors: FormErrors = {}) {
+  usePageMock.mockImplementation(() => ({
+    props: { errors },
+    url: '/customers',
+  }))
 }
 
 describe('customers page', () => {
