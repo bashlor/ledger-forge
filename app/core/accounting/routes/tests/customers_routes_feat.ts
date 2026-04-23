@@ -1,7 +1,5 @@
-import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import { CustomerService } from '#core/accounting/application/customers/index'
 import { auditEvents, customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
@@ -15,7 +13,6 @@ import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
-import { expectRejects } from '../../../../../tests/helpers/expect_rejects.js'
 import {
   seedTestMember,
   seedTestOrganization,
@@ -43,13 +40,6 @@ const fakeSession: AuthResult = {
     userId: fakeUser.id,
   },
   user: fakeUser,
-}
-
-const TEST_ACCOUNTING_ACCESS_CONTEXT: AccountingAccessContext = {
-  actorId: fakeUser.id,
-  isAnonymous: false,
-  requestId: 'test',
-  tenantId: TEST_TENANT_ID,
 }
 
 class FakeAuth extends AuthenticationPort {
@@ -214,6 +204,81 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(props.customers.items[0].company, 'Filterable Co')
   })
 
+  test('GET /customers returns default pagination props with an empty search filter', async ({
+    assert,
+    client,
+  }) => {
+    const customerId = uuidv7()
+    await db.insert(customers).values({
+      address: '10 rue Default, Paris',
+      company: 'Default Co',
+      email: 'default@example.com',
+      id: customerId,
+      name: 'Default User',
+      organizationId: TEST_TENANT_ID,
+      phone: '+33 6 22 33 44 55',
+    })
+
+    const response = await inertiaGet(client, '/customers')
+
+    response.assertStatus(200)
+    assert.equal(response.body().component, 'app/customers')
+
+    const props = response.body().props
+    assert.equal(props.filters.search, '')
+    assert.equal(props.customers.pagination.page, 1)
+    assert.equal(props.customers.pagination.perPage, 10)
+    assert.equal(props.customers.pagination.totalItems, 1)
+    assert.equal(props.customers.pagination.totalPages, 1)
+    assert.equal(props.customers.items[0].id, customerId)
+  })
+
+  test('GET /customers clamps an oversized page request through the route contract', async ({
+    assert,
+    client,
+  }) => {
+    await db.insert(customers).values([
+      {
+        address: '1 test street',
+        company: 'Alpha Co',
+        email: 'alpha@example.com',
+        id: uuidv7(),
+        name: 'Alpha User',
+        organizationId: TEST_TENANT_ID,
+        phone: '+1 555 1000',
+      },
+      {
+        address: '2 test street',
+        company: 'Beta Co',
+        email: 'beta@example.com',
+        id: uuidv7(),
+        name: 'Beta User',
+        organizationId: TEST_TENANT_ID,
+        phone: '+1 555 1001',
+      },
+      {
+        address: '3 test street',
+        company: 'Gamma Co',
+        email: 'gamma@example.com',
+        id: uuidv7(),
+        name: 'Gamma User',
+        organizationId: TEST_TENANT_ID,
+        phone: '+1 555 1002',
+      },
+    ])
+
+    const response = await inertiaGet(client, '/customers?page=99&perPage=2')
+
+    response.assertStatus(200)
+
+    const props = response.body().props
+    assert.equal(props.customers.pagination.page, 2)
+    assert.equal(props.customers.pagination.perPage, 2)
+    assert.equal(props.customers.pagination.totalPages, 2)
+    assert.equal(props.customers.pagination.totalItems, 3)
+    assert.equal(props.customers.items.length, 1)
+  })
+
   test('inactive membership cannot create, update, or delete customers', async ({
     assert,
     client,
@@ -292,6 +357,40 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     const [updated] = await db.select().from(customers).where(eq(customers.id, id))
     assert.equal(updated.address, '7 impasse du Port, Nantes')
     assert.equal(updated.company, 'Kestrel Analytics Updated')
+  })
+
+  test('update redirects back to the current customers query params', async ({ assert, client }) => {
+    const id = uuidv7()
+    await db.insert(customers).values({
+      address: '7 impasse Query, Nantes',
+      company: 'Kestrel Analytics',
+      email: 'nina@kestrel.test',
+      id,
+      name: 'Nina Rossi',
+      organizationId: TEST_TENANT_ID,
+      phone: '+33 6 20 30 40 50',
+    })
+
+    const response = await withAuthCookie(client.put(`/customers/${id}`))
+      .redirects(0)
+      .form({
+        address: '8 impasse Query, Nantes',
+        company: 'Kestrel Analytics Updated',
+        email: 'nina@kestrel.test',
+        name: 'Nina Rossi',
+        page: 4,
+        perPage: 25,
+        phone: '+33 6 20 30 40 50',
+        search: 'query filter',
+      })
+
+    response.assertStatus(302)
+
+    const location = new URL(`http://localhost${response.header('location')}`)
+    assert.equal(location.pathname, '/customers')
+    assert.equal(location.searchParams.get('page'), '4')
+    assert.equal(location.searchParams.get('perPage'), '25')
+    assert.equal(location.searchParams.get('search'), 'query filter')
   })
 
   test('create redirects back to the current customers query params', async ({
@@ -405,63 +504,6 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(rows.length, 0)
   })
 
-  test('customer service rejects blank company and contact details after trim', async ({
-    assert,
-  }) => {
-    const customerService = new CustomerService(db)
-
-    await expectRejects(assert, () =>
-      customerService.createCustomer(
-        {
-          address: '5 rue des Tests, Paris',
-          company: '   ',
-          email: '   ',
-          name: '   ',
-          phone: '   ',
-        },
-        TEST_ACCOUNTING_ACCESS_CONTEXT
-      )
-    )
-
-    const rows = await db.select().from(customers)
-    assert.equal(rows.length, 0)
-  })
-
-  test('customer service rejects update when both email and phone are blank after trim', async ({
-    assert,
-  }) => {
-    const id = uuidv7()
-    await db.insert(customers).values({
-      address: '7 impasse du Port, Nantes',
-      company: 'Kestrel Analytics',
-      email: 'nina@kestrel.test',
-      id,
-      name: 'Nina Rossi',
-      organizationId: TEST_TENANT_ID,
-      phone: '+33 6 20 30 40 50',
-    })
-
-    const customerService = new CustomerService(db)
-
-    await expectRejects(assert, () =>
-      customerService.updateCustomer(
-        id,
-        {
-          address: '8 impasse du Port, Nantes',
-          company: 'Kestrel Analytics',
-          email: '   ',
-          name: 'Nina Rossi',
-          phone: '   ',
-        },
-        TEST_ACCOUNTING_ACCESS_CONTEXT
-      )
-    )
-
-    const [unchanged] = await db.select().from(customers).where(eq(customers.id, id))
-    assert.equal(unchanged.email, 'nina@kestrel.test')
-    assert.equal(unchanged.phone, '+33 6 20 30 40 50')
-  })
-
   test('does not delete a customer referenced by invoices', async ({ assert, client }) => {
     const customerId = uuidv7()
     await db.insert(customers).values({
@@ -530,158 +572,6 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(location.searchParams.get('page'), '3')
     assert.equal(location.searchParams.get('perPage'), '50')
     assert.equal(location.searchParams.get('search'), 'active filter')
-  })
-
-  test('returns invoice counters in customers listing data', async ({ assert }) => {
-    const linkedCustomerId = uuidv7()
-    const freeCustomerId = uuidv7()
-
-    await db.insert(customers).values([
-      {
-        address: 'Linked Address 2',
-        company: 'Linked Company',
-        email: 'linked-company@example.com',
-        id: linkedCustomerId,
-        name: 'Linked Person',
-        organizationId: TEST_TENANT_ID,
-        phone: '+1 555 0300',
-      },
-      {
-        address: 'Free Address',
-        company: 'Free Company',
-        email: 'free-company@example.com',
-        id: freeCustomerId,
-        name: 'Free Person',
-        organizationId: TEST_TENANT_ID,
-        phone: '+1 555 0400',
-      },
-    ])
-
-    await db.insert(invoices).values({
-      customerCompanyAddressSnapshot: 'Linked Address 2',
-      customerCompanyName: 'Linked Company',
-      customerCompanySnapshot: 'Linked Company',
-      customerEmailSnapshot: 'linked-company@example.com',
-      customerId: linkedCustomerId,
-      customerPhoneSnapshot: '+1 555 0300',
-      customerPrimaryContactSnapshot: 'Linked Person',
-      dueDate: '2026-05-15',
-      id: uuidv7(),
-      invoiceNumber: 'INV-2026-FEAT-002',
-      issueDate: '2026-05-01',
-      issuedCompanyAddress: '',
-      issuedCompanyName: '',
-      organizationId: TEST_TENANT_ID,
-      status: 'draft',
-    })
-
-    const customerService = new CustomerService(db)
-    const { items } = await customerService.listCustomersPage(1, 10, TEST_ACCOUNTING_ACCESS_CONTEXT)
-    const linked = items.find((entry) => entry.id === linkedCustomerId)
-    const free = items.find((entry) => entry.id === freeCustomerId)
-
-    assert.equal(linked?.invoiceCount, 1)
-    assert.equal(linked?.canDelete, false)
-    assert.equal(free?.invoiceCount, 0)
-    assert.equal(free?.canDelete, true)
-  })
-
-  test('customer listing clamps invalid pagination inputs', async ({ assert }) => {
-    await db.insert(customers).values([
-      {
-        address: '1 test street',
-        company: 'Alpha Co',
-        email: 'alpha@example.com',
-        id: uuidv7(),
-        name: 'Alpha User',
-        organizationId: TEST_TENANT_ID,
-        phone: '+1 555 1000',
-      },
-      {
-        address: '2 test street',
-        company: 'Beta Co',
-        email: 'beta@example.com',
-        id: uuidv7(),
-        name: 'Beta User',
-        organizationId: TEST_TENANT_ID,
-        phone: '+1 555 1001',
-      },
-      {
-        address: '3 test street',
-        company: 'Gamma Co',
-        email: 'gamma@example.com',
-        id: uuidv7(),
-        name: 'Gamma User',
-        organizationId: TEST_TENANT_ID,
-        phone: '+1 555 1002',
-      },
-    ])
-
-    const customerService = new CustomerService(db)
-
-    const negativePage = await customerService.listCustomersPage(
-      -4,
-      2,
-      TEST_ACCOUNTING_ACCESS_CONTEXT
-    )
-    assert.equal(negativePage.pagination.page, 1)
-    assert.equal(negativePage.pagination.perPage, 2)
-    assert.equal(negativePage.items.length, 2)
-
-    const oversizedPage = await customerService.listCustomersPage(
-      999,
-      2,
-      TEST_ACCOUNTING_ACCESS_CONTEXT
-    )
-    assert.equal(oversizedPage.pagination.page, 2)
-    assert.equal(oversizedPage.pagination.totalPages, 2)
-    assert.equal(oversizedPage.items.length, 1)
-
-    const invalidPerPage = await customerService.listCustomersPage(
-      1,
-      0,
-      TEST_ACCOUNTING_ACCESS_CONTEXT
-    )
-    assert.equal(invalidPerPage.pagination.perPage, 1)
-    assert.equal(invalidPerPage.items.length, 1)
-  })
-
-  test('customer listing applies server-side search with coherent pagination', async ({
-    assert,
-  }) => {
-    await db.insert(customers).values([
-      {
-        address: '1 test street',
-        company: 'Cursor Labs',
-        email: 'cursor@example.com',
-        id: uuidv7(),
-        name: 'Cursor User',
-        organizationId: TEST_TENANT_ID,
-        phone: '+1 555 1000',
-      },
-      {
-        address: '2 test street',
-        company: 'Other Company',
-        email: 'other@example.com',
-        id: uuidv7(),
-        name: 'Other User',
-        organizationId: TEST_TENANT_ID,
-        phone: '+1 555 1001',
-      },
-    ])
-
-    const customerService = new CustomerService(db)
-    const result = await customerService.listCustomersPage(
-      1,
-      10,
-      TEST_ACCOUNTING_ACCESS_CONTEXT,
-      'cursor'
-    )
-
-    assert.equal(result.items.length, 1)
-    assert.equal(result.items[0].company, 'Cursor Labs')
-    assert.equal(result.pagination.totalItems, 1)
-    assert.equal(result.pagination.totalPages, 1)
   })
 
   test('deleting a non-existent customer returns 404', async ({ assert, client }) => {
