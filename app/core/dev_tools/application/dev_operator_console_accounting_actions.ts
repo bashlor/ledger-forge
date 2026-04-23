@@ -1,39 +1,23 @@
 import type { CriticalAuditTrail } from '#core/accounting/application/audit/critical_audit_trail'
 import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
-import type {
-  DevOperatorScenarioContext,
-  DevOperatorScenarioMember,
-} from '#core/dev_tools/application/dev_operator_console_scenario_service'
-import type { AuthenticationPort } from '#core/user_management/domain/authentication'
+import type { DevOperatorScenarioContext } from '#core/dev_tools/application/dev_operator_console_scenario_service'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { type CustomerService } from '#core/accounting/application/customers/index'
-import { type DemoDatasetService } from '#core/accounting/application/demo/demo_dataset_service'
 import { type ExpenseService } from '#core/accounting/application/expenses/index'
 import { type InvoiceService } from '#core/accounting/application/invoices/index'
 import * as schema from '#core/common/drizzle/index'
 import { DomainError } from '#core/common/errors/domain_error'
-import { type DeferredDatabaseResetLauncher } from '#core/dev_tools/application/deferred_database_reset_launcher'
 import {
   addDays,
   dateOnlyUtc,
   shortToken,
 } from '#core/dev_tools/application/dev_operator_console_utils'
-import { type DevOperatorTenantFactoryService } from '#core/dev_tools/application/dev_operator_tenant_factory_service'
 import {
   AuthorizationDeniedError,
   type AuthorizationService,
 } from '#core/user_management/application/authorization_service'
-import { type LocalDevDestructiveToolsService } from '#core/user_management/application/local_dev_destructive_tools_service'
-import { type MemberService } from '#core/user_management/application/member_service'
 import { and, desc, eq, sql } from 'drizzle-orm'
-
-export interface DevOperatorConsoleCreateTenantInput {
-  ownerEmail: string
-  ownerPassword: string
-  seedMode: 'empty' | 'seeded'
-  tenantName: string
-}
 
 export class DevOperatorConsoleAccountingActions {
   constructor(
@@ -205,7 +189,6 @@ export class DevOperatorConsoleAccountingActions {
     requestedExpenseId?: string
   ): Promise<string> {
     authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
-
     const targetExpense = await this.findConfirmedExpenseForDeletion(
       scenario.tenantId,
       requestedExpenseId
@@ -227,7 +210,6 @@ export class DevOperatorConsoleAccountingActions {
     requestedCustomerId?: string
   ): Promise<string> {
     authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
-
     const targetCustomer = await this.findCustomerForMutation(
       scenario.tenantId,
       requestedCustomerId
@@ -249,7 +231,6 @@ export class DevOperatorConsoleAccountingActions {
     requestedExpenseId?: string
   ): Promise<string> {
     authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
-
     const targetExpense = await this.findExpenseForDeletion(scenario.tenantId, requestedExpenseId)
     if (!targetExpense) {
       throw new DomainError(
@@ -257,7 +238,6 @@ export class DevOperatorConsoleAccountingActions {
         'business_logic_error'
       )
     }
-
     await this.expenseService.deleteExpense(targetExpense.id, scenario.access)
     return `Expense ${targetExpense.label} deleted.`
   }
@@ -268,7 +248,6 @@ export class DevOperatorConsoleAccountingActions {
     requestedInvoiceId?: string
   ): Promise<string> {
     authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
-
     const targetInvoice = await this.findDraftInvoiceForMutation(
       scenario.tenantId,
       requestedInvoiceId
@@ -279,7 +258,6 @@ export class DevOperatorConsoleAccountingActions {
         'business_logic_error'
       )
     }
-
     await this.invoiceService.deleteDraft(targetInvoice.id, scenario.access)
     return `Draft invoice ${targetInvoice.invoiceNumber} deleted.`
   }
@@ -290,7 +268,6 @@ export class DevOperatorConsoleAccountingActions {
     requestedCustomerId?: string
   ): Promise<string> {
     authorizationService.authorize(scenario.actor, 'accounting.writeDrafts')
-
     const [customer] = await this.db
       .select({
         address: schema.customers.address,
@@ -419,7 +396,6 @@ export class DevOperatorConsoleAccountingActions {
       )
       .orderBy(desc(schema.invoices.createdAt))
       .limit(1)
-
     return row ?? null
   }
 
@@ -428,10 +404,7 @@ export class DevOperatorConsoleAccountingActions {
     requestedExpenseId?: string
   ): Promise<null | { id: string; label: string }> {
     const [row] = await this.db
-      .select({
-        id: schema.expenses.id,
-        label: schema.expenses.label,
-      })
+      .select({ id: schema.expenses.id, label: schema.expenses.label })
       .from(schema.expenses)
       .where(
         and(
@@ -442,7 +415,6 @@ export class DevOperatorConsoleAccountingActions {
       )
       .orderBy(desc(schema.expenses.createdAt))
       .limit(1)
-
     return row ?? null
   }
 
@@ -451,10 +423,7 @@ export class DevOperatorConsoleAccountingActions {
     requestedCustomerId?: string
   ): Promise<null | { company: string; id: string }> {
     const [row] = await this.db
-      .select({
-        company: schema.customers.company,
-        id: schema.customers.id,
-      })
+      .select({ company: schema.customers.company, id: schema.customers.id })
       .from(schema.customers)
       .where(
         and(
@@ -464,7 +433,6 @@ export class DevOperatorConsoleAccountingActions {
       )
       .orderBy(desc(schema.customers.createdAt))
       .limit(1)
-
     return row ?? null
   }
 
@@ -473,10 +441,7 @@ export class DevOperatorConsoleAccountingActions {
     requestedExpenseId?: string
   ): Promise<null | { id: string; label: string }> {
     const [row] = await this.db
-      .select({
-        id: schema.expenses.id,
-        label: schema.expenses.label,
-      })
+      .select({ id: schema.expenses.id, label: schema.expenses.label })
       .from(schema.expenses)
       .where(
         and(
@@ -487,7 +452,6 @@ export class DevOperatorConsoleAccountingActions {
       )
       .orderBy(desc(schema.expenses.createdAt))
       .limit(1)
-
     return row ?? null
   }
 
@@ -496,10 +460,7 @@ export class DevOperatorConsoleAccountingActions {
     requestedInvoiceId?: string
   ): Promise<null | { id: string; invoiceNumber: string }> {
     const [row] = await this.db
-      .select({
-        id: schema.invoices.id,
-        invoiceNumber: schema.invoices.invoiceNumber,
-      })
+      .select({ id: schema.invoices.id, invoiceNumber: schema.invoices.invoiceNumber })
       .from(schema.invoices)
       .where(
         and(
@@ -510,7 +471,6 @@ export class DevOperatorConsoleAccountingActions {
       )
       .orderBy(desc(schema.invoices.createdAt))
       .limit(1)
-
     return row ?? null
   }
 
@@ -519,10 +479,7 @@ export class DevOperatorConsoleAccountingActions {
     requestedExpenseId?: string
   ): Promise<null | { id: string; label: string }> {
     const [row] = await this.db
-      .select({
-        id: schema.expenses.id,
-        label: schema.expenses.label,
-      })
+      .select({ id: schema.expenses.id, label: schema.expenses.label })
       .from(schema.expenses)
       .where(
         and(
@@ -532,7 +489,6 @@ export class DevOperatorConsoleAccountingActions {
       )
       .orderBy(desc(schema.expenses.createdAt))
       .limit(1)
-
     return row ?? null
   }
 
@@ -544,7 +500,6 @@ export class DevOperatorConsoleAccountingActions {
       eq(schema.invoices.organizationId, tenantId),
       requestedInvoiceId ? eq(schema.invoices.id, requestedInvoiceId) : sql`true`
     )
-
     const [draft] = await this.db
       .select({
         id: schema.invoices.id,
@@ -555,11 +510,7 @@ export class DevOperatorConsoleAccountingActions {
       .where(and(baseCondition, eq(schema.invoices.status, 'draft')))
       .orderBy(desc(schema.invoices.createdAt))
       .limit(1)
-
-    if (draft) {
-      return draft
-    }
-
+    if (draft) return draft
     const [issued] = await this.db
       .select({
         id: schema.invoices.id,
@@ -570,7 +521,6 @@ export class DevOperatorConsoleAccountingActions {
       .where(and(baseCondition, eq(schema.invoices.status, 'issued')))
       .orderBy(desc(schema.invoices.createdAt))
       .limit(1)
-
     return issued ?? null
   }
 
@@ -581,11 +531,7 @@ export class DevOperatorConsoleAccountingActions {
       .where(eq(schema.customers.organizationId, access.tenantId))
       .orderBy(desc(schema.customers.createdAt))
       .limit(1)
-
-    if (existing) {
-      return existing.id
-    }
-
+    if (existing) return existing.id
     const created = await this.customerService.createCustomer(
       {
         address: '15 rue des Tests, 75010 Paris',
@@ -597,194 +543,6 @@ export class DevOperatorConsoleAccountingActions {
       },
       access
     )
-
     return created.id
   }
-}
-
-export class DevOperatorConsoleMaintenanceActions {
-  constructor(
-    private readonly demoDatasetService: DemoDatasetService,
-    private readonly databaseResetLauncher: DeferredDatabaseResetLauncher,
-    private readonly localDevDestructiveTools: LocalDevDestructiveToolsService,
-    private readonly tenantFactoryService: DevOperatorTenantFactoryService,
-    private readonly singleTenantMode: boolean
-  ) {}
-
-  async clearTenantData(
-    scenario: DevOperatorScenarioContext,
-    authorizationService: AuthorizationService
-  ): Promise<string> {
-    this.localDevDestructiveTools.ensureEnabled()
-    authorizationService.authorize(scenario.actor, 'invoice.markPaid')
-    await this.demoDatasetService.clearTenantData(scenario.tenantId)
-    return 'Selected tenant dataset cleared.'
-  }
-
-  async createTenant(
-    input: DevOperatorConsoleCreateTenantInput,
-    auth: AuthenticationPort
-  ): Promise<string> {
-    if (this.singleTenantMode) {
-      throw new DomainError('Tenant creation is unavailable in single-tenant mode.', 'forbidden')
-    }
-
-    const created = await this.tenantFactoryService.createTenant(input, auth)
-
-    return `${created.tenantName} created for ${normalizeEmail(input.ownerEmail)}.`
-  }
-
-  async generateDemoData(
-    scenario: DevOperatorScenarioContext,
-    authorizationService: AuthorizationService
-  ): Promise<string> {
-    authorizationService.authorize(scenario.actor, 'invoice.markPaid')
-    await this.demoDatasetService.seedTenant(scenario.access)
-    return 'Demo data generated for the selected tenant.'
-  }
-
-  async resetDatabase(): Promise<string> {
-    this.localDevDestructiveTools.ensureEnabled()
-    this.databaseResetLauncher.schedule(process.pid)
-    return 'Local database reset scheduled. The app will restart in a few seconds.'
-  }
-
-  async resetTenant(
-    scenario: DevOperatorScenarioContext,
-    authorizationService: AuthorizationService
-  ): Promise<string> {
-    this.localDevDestructiveTools.ensureEnabled()
-    authorizationService.authorize(scenario.actor, 'invoice.markPaid')
-    await this.demoDatasetService.resetTenant(scenario.access)
-    return 'Selected tenant dataset reset and re-seeded.'
-  }
-}
-
-export class DevOperatorConsoleMembershipActions {
-  constructor(
-    private readonly db: PostgresJsDatabase<typeof schema>,
-    private readonly memberService: MemberService,
-    private readonly auditTrail: CriticalAuditTrail,
-    private readonly queryService: {
-      loadUserLabel(userId: string): Promise<string>
-    }
-  ) {}
-
-  async changeMemberRole(
-    scenario: DevOperatorScenarioContext,
-    authorizationService: AuthorizationService,
-    requestedMemberId?: string
-  ): Promise<string> {
-    const target = await this.findTargetMember(
-      scenario.tenantId,
-      scenario.actorUserId,
-      requestedMemberId
-    )
-
-    if (!target) {
-      throw new DomainError(
-        'No other member is available in the selected tenant.',
-        'business_logic_error'
-      )
-    }
-
-    const subject = await authorizationService.membershipSubject(scenario.tenantId, target.id)
-    authorizationService.authorize(scenario.actor, 'membership.changeRole', subject ?? undefined)
-
-    const nextRole = target.role === 'admin' ? 'member' : 'admin'
-    await this.memberService.updateMemberRole(target.id, nextRole, scenario.tenantId)
-    const membershipLabel = await this.queryService.loadUserLabel(target.userId)
-
-    await this.auditTrail.record(this.db, {
-      action: 'dev_change_member_role',
-      actorId: scenario.access.actorId,
-      changes: {
-        after: { role: nextRole },
-        before: { role: target.role },
-      },
-      entityId: target.id,
-      entityType: 'member',
-      metadata: {
-        memberUserId: target.userId,
-        memberUserLabel: membershipLabel,
-        result: 'success',
-      },
-      tenantId: scenario.tenantId,
-    })
-
-    return `${membershipLabel} switched to ${nextRole}.`
-  }
-
-  async toggleMemberActive(
-    scenario: DevOperatorScenarioContext,
-    authorizationService: AuthorizationService,
-    requestedMemberId?: string
-  ): Promise<string> {
-    const target = await this.findTargetMember(
-      scenario.tenantId,
-      scenario.actorUserId,
-      requestedMemberId
-    )
-
-    if (!target) {
-      throw new DomainError(
-        'No other member is available in the selected tenant.',
-        'business_logic_error'
-      )
-    }
-
-    const subject = await authorizationService.membershipSubject(scenario.tenantId, target.id)
-    authorizationService.authorize(scenario.actor, 'membership.toggleActive', subject ?? undefined)
-
-    const nextActive = !target.isActive
-    await this.memberService.toggleMemberActive(
-      target.id,
-      nextActive,
-      scenario.tenantId,
-      scenario.actorUserId
-    )
-
-    return `${target.name} ${nextActive ? 'activated' : 'deactivated'}.`
-  }
-
-  private async findTargetMember(
-    tenantId: string,
-    actorUserId: string,
-    requestedMemberId?: string
-  ): Promise<DevOperatorScenarioMember | null> {
-    const [row] = await this.db
-      .select({
-        email: schema.user.email,
-        id: schema.member.id,
-        isActive: schema.member.isActive,
-        name: schema.user.name,
-        role: schema.member.role,
-        userId: schema.member.userId,
-      })
-      .from(schema.member)
-      .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
-      .where(
-        requestedMemberId
-          ? and(eq(schema.member.organizationId, tenantId), eq(schema.member.id, requestedMemberId))
-          : and(
-              eq(schema.member.organizationId, tenantId),
-              sql`${schema.member.userId} <> ${actorUserId}`
-            )
-      )
-      .orderBy(desc(schema.member.createdAt))
-      .limit(1)
-
-    return row
-      ? {
-          ...row,
-          role: row.role as 'admin' | 'member' | 'owner',
-        }
-      : null
-  }
-}
-
-function normalizeEmail(value: string | undefined): string {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
 }

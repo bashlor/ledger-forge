@@ -9,11 +9,9 @@ import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { DomainError } from '#core/common/errors/domain_error'
 import { DeferredDatabaseResetLauncher } from '#core/dev_tools/application/deferred_database_reset_launcher'
-import {
-  DevOperatorConsoleAccountingActions,
-  DevOperatorConsoleMaintenanceActions,
-  DevOperatorConsoleMembershipActions,
-} from '#core/dev_tools/application/dev_operator_console_action_services'
+import { DevOperatorConsoleAccountingActions } from '#core/dev_tools/application/dev_operator_console_accounting_actions'
+import { DevOperatorConsoleMaintenanceActions } from '#core/dev_tools/application/dev_operator_console_maintenance_actions'
+import { DevOperatorConsoleMembershipActions } from '#core/dev_tools/application/dev_operator_console_membership_actions'
 import { DevOperatorConsolePageService } from '#core/dev_tools/application/dev_operator_console_page_service'
 import { DevOperatorConsoleQueryService } from '#core/dev_tools/application/dev_operator_console_query_service'
 import { DevOperatorConsoleScenarioService } from '#core/dev_tools/application/dev_operator_console_scenario_service'

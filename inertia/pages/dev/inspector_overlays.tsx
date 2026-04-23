@@ -6,21 +6,25 @@ import { Modal } from '~/components/modal'
 import type { ActionTone, DevConsoleTab, Props } from './inspector_types'
 
 import {
-  buttonClass,
-  copyButtonClass,
   DetailList,
   DetailRow,
   formatTimestamp,
   humanizeAuditAction,
-  inputClass,
   JsonPreview,
+} from './inspector_display_helpers'
+import { tabs } from './inspector_types'
+import {
+  buttonClass,
+  copyButtonClass,
+  DevConsoleHeader,
+  inputClass,
   labelClass,
   RoleBadge,
   RuleList,
+  StickyTabs,
   ToneBadge,
   toneForAuditResult,
-} from './inspector_shared'
-import { tabs } from './inspector_types'
+} from './inspector_ui_primitives'
 
 export function AuditEventDrawer({
   event,
@@ -398,80 +402,5 @@ export function MemberDrawer({
         </div>
       ) : null}
     </DrawerPanel>
-  )
-}
-
-function DevConsoleHeader({
-  onRefresh,
-  operatorEmail,
-  operatorName,
-  readOnlyBadge,
-}: {
-  onRefresh: () => void
-  operatorEmail: string
-  operatorName: string
-  readOnlyBadge: string
-}) {
-  return (
-    <section className="rounded-[20px] border border-outline-variant/14 bg-surface-container-lowest px-4 py-3 shadow-ambient-tight">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-headline text-[1.75rem] font-extrabold tracking-tight text-on-surface">
-          Dev Console
-        </h1>
-        <ToneBadge label="Development" tone="info" />
-        <ToneBadge label={readOnlyBadge} tone="warning" />
-        <div className="ml-auto flex min-w-0 items-center gap-3">
-          <div className="min-w-0 rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2">
-            <p className={labelClass}>Current operator</p>
-            <p className="truncate text-sm font-semibold text-on-surface">{operatorName}</p>
-            <p className="truncate text-xs text-on-surface-variant">{operatorEmail}</p>
-          </div>
-          <button className={buttonClass('secondary')} onClick={onRefresh} type="button">
-            Refresh
-          </button>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function StickyTabs({
-  activeTab,
-  counts,
-  onChange,
-}: {
-  activeTab: DevConsoleTab
-  counts: Record<DevConsoleTab, null | number>
-  onChange: (tab: DevConsoleTab) => void
-}) {
-  return (
-    <nav className="sticky top-16 z-20 overflow-x-auto rounded-[18px] border border-outline-variant/12 bg-surface-container-lowest/95 px-2 py-1.5 shadow-ambient backdrop-blur-md">
-      <div className="grid min-w-max grid-flow-col gap-2 auto-cols-fr">
-        {tabs.map((tab) => {
-          const active = activeTab === tab.id
-          return (
-            <button
-              className={`flex min-w-[170px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-                active
-                  ? 'bg-on-surface text-background'
-                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-              }`}
-              key={tab.id}
-              onClick={() => onChange(tab.id)}
-              type="button"
-            >
-              <span>{tab.label}</span>
-              {counts[tab.id] !== null ? (
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${active ? 'bg-background/15 text-background' : 'bg-surface-container-low text-on-surface-variant'}`}
-                >
-                  {counts[tab.id]}
-                </span>
-              ) : null}
-            </button>
-          )
-        })}
-      </div>
-    </nav>
   )
 }

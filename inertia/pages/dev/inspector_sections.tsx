@@ -14,16 +14,18 @@ import type {
 
 import {
   ActivityList,
-  buttonClass,
-  CompactPanel,
   EmptyStateCopy,
   formatMoney,
   formatTimestamp,
   GeneratorCard,
   humanizeAuditAction,
+  MetricCard,
+} from './inspector_display_helpers'
+import {
+  buttonClass,
+  CompactPanel,
   inputClass,
   labelClass,
-  MetricCard,
   OperationPanel,
   PermissionChip,
   RoleBadge,
@@ -31,9 +33,8 @@ import {
   ScrollableTable,
   ToneBadge,
   toneForAuditResult,
-  WorkflowActionPanel,
-  WorkflowRecordTable,
-} from './inspector_shared'
+} from './inspector_ui_primitives'
+import { WorkflowActionPanel, WorkflowRecordTable } from './inspector_workflow_helpers'
 
 export function AuditTrailSection({
   audit,
