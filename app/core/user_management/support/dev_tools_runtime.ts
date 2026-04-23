@@ -8,8 +8,7 @@ export function isDevToolsRuntimeEnabled(
     input.nodeEnv ??
     (process.env.NODE_ENV as 'development' | 'production' | 'test' | undefined) ??
     'production'
-  const enabled =
-    input.enabled ?? parseBooleanEnv(process.env.DEV_TOOLS_ENABLED) ?? nodeEnv === 'test'
+  const enabled = input.enabled ?? parseBooleanEnv(process.env.DEV_TOOLS_ENABLED) ?? false
 
   if (nodeEnv !== 'development' && nodeEnv !== 'test') {
     return false

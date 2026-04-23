@@ -19,8 +19,20 @@ test.group('isDevToolsRuntimeEnabled', () => {
     assert.isFalse(isDevToolsRuntimeEnabled({ enabled: false, nodeEnv: 'test' }))
   })
 
-  test('defaults test runtime to enabled when the new flag is still absent', ({ assert }) => {
-    assert.isTrue(isDevToolsRuntimeEnabled({ nodeEnv: 'test' }))
+  test('defaults to disabled when the global flag is absent', ({ assert }) => {
+    const previous = process.env.DEV_TOOLS_ENABLED
+    delete process.env.DEV_TOOLS_ENABLED
+
+    try {
+      assert.isFalse(isDevToolsRuntimeEnabled({ nodeEnv: 'development' }))
+      assert.isFalse(isDevToolsRuntimeEnabled({ nodeEnv: 'test' }))
+    } finally {
+      if (previous === undefined) {
+        delete process.env.DEV_TOOLS_ENABLED
+      } else {
+        process.env.DEV_TOOLS_ENABLED = previous
+      }
+    }
   })
 
   test('is disabled in production even when the flag is on', ({ assert }) => {
