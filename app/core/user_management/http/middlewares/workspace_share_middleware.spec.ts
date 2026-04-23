@@ -428,22 +428,19 @@ test.group('WorkspaceShareMiddleware', () => {
   test('personal workspace mode keeps the provisioned active organization when demo seeding fails', async ({
     assert,
   }) => {
-    app.container.bindValue(
-      'drizzle',
-      {
-        query: {
-          organization: {
-            findFirst: async () => ({
-              id: 'org-personal',
-              logo: null,
-              metadata: JSON.stringify({ workspaceKind: 'personal' }),
-              name: 'User workspace',
-              slug: 'user-workspace',
-            }),
-          },
+    app.container.bindValue('drizzle', {
+      query: {
+        organization: {
+          findFirst: async () => ({
+            id: 'org-personal',
+            logo: null,
+            metadata: JSON.stringify({ workspaceKind: 'personal' }),
+            name: 'User workspace',
+            slug: 'user-workspace',
+          }),
         },
-      } as unknown as AppDrizzleDb
-    )
+      },
+    } as unknown as AppDrizzleDb)
 
     const auth = {
       getSession: async (token: null | string) => {
@@ -453,12 +450,12 @@ test.group('WorkspaceShareMiddleware', () => {
     } satisfies Pick<AuthenticationPort, 'getSession'>
 
     const middleware = new WorkspaceTestMiddleware(auth as unknown as AuthenticationPort, {
+      hasActiveTenantMembership: async () => true,
       isSingleTenantMode: false,
       provisionPersonalWorkspace: async () => ({
         organizationId: 'org-personal',
         wasProvisioned: true,
       }),
-      hasActiveTenantMembership: async () => true,
       seedWorkspaceDemoData: async () => {
         throw new Error('seed exploded')
       },

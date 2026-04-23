@@ -214,25 +214,21 @@ export default class WorkspaceShareMiddleware {
     return pathname === '/signin' || pathname === '/signup' || pathname === '/signin/anonymous'
   }
 
-  private logSingleTenantResolutionFailure(
+  private logPersonalWorkspaceProvisionFailure(
     ctx: HttpContext,
     pathname: string,
     error: unknown
   ): void {
-    const bindings = {
-      err: error,
-      mode: 'single',
-      orgId: ctx.authSession?.session.activeOrganizationId,
-      path: pathname,
-      userId: ctx.authSession?.user.id,
-    }
-
-    if (error instanceof Error && error.message.includes('SINGLE_TENANT_ORG_ID')) {
-      ctx.logger.error(bindings, 'single_tenant_configuration_invalid')
-      return
-    }
-
-    ctx.logger.warn(bindings, 'single_tenant_provision_failed')
+    ctx.logger.debug(
+      {
+        err: error,
+        mode: 'personal',
+        orgId: ctx.authSession?.session.activeOrganizationId,
+        path: pathname,
+        userId: ctx.authSession?.user.id,
+      },
+      'personal_workspace_provision_failed'
+    )
   }
 
   private logSeedFailure(
@@ -254,21 +250,35 @@ export default class WorkspaceShareMiddleware {
     )
   }
 
-  private logPersonalWorkspaceProvisionFailure(
+  private logSingleTenantResolutionFailure(
     ctx: HttpContext,
     pathname: string,
     error: unknown
   ): void {
-    ctx.logger.debug(
-      {
-        err: error,
-        mode: 'personal',
-        orgId: ctx.authSession?.session.activeOrganizationId,
-        path: pathname,
-        userId: ctx.authSession?.user.id,
-      },
-      'personal_workspace_provision_failed'
-    )
+    const bindings = {
+      err: error,
+      mode: 'single',
+      orgId: ctx.authSession?.session.activeOrganizationId,
+      path: pathname,
+      userId: ctx.authSession?.user.id,
+    }
+
+    if (error instanceof Error && error.message.includes('SINGLE_TENANT_ORG_ID')) {
+      ctx.logger.error(bindings, 'single_tenant_configuration_invalid')
+      return
+    }
+
+    ctx.logger.warn(bindings, 'single_tenant_provision_failed')
+  }
+
+  private normalizePathname(ctx: HttpContext): string {
+    const raw = ctx.request.url(true)
+    let path = raw.split('?')[0] ?? '/'
+    if (!path.startsWith('/')) {
+      path = `/${path}`
+    }
+    path = path.replace(/\/+$/, '') || '/'
+    return path
   }
 
   private async seedWorkspaceDemoDataBestEffort(
@@ -283,16 +293,6 @@ export default class WorkspaceShareMiddleware {
     } catch (error) {
       this.logSeedFailure(ctx, pathname, error, mode, provisioning.organizationId)
     }
-  }
-
-  private normalizePathname(ctx: HttpContext): string {
-    const raw = ctx.request.url(true)
-    let path = raw.split('?')[0] ?? '/'
-    if (!path.startsWith('/')) {
-      path = `/${path}`
-    }
-    path = path.replace(/\/+$/, '') || '/'
-    return path
   }
 
   private setActiveOrganizationId(ctx: HttpContext, organizationId: null | string): void {
