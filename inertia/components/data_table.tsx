@@ -1,5 +1,6 @@
 import type { PaginationMetaDto } from '~/lib/types'
 
+import { EmptyState } from './empty_state'
 import { Pagination } from './pagination'
 
 interface DataTableProps {
@@ -33,11 +34,7 @@ export function DataTable({
       </div>
 
       {isEmpty ? (
-        <div className="px-4 py-8">
-          <div className="rounded-lg border border-dashed border-outline-variant/35 bg-surface-container-low px-4 py-5 text-sm text-on-surface-variant">
-            {emptyMessage}
-          </div>
-        </div>
+        <EmptyState message={emptyMessage} />
       ) : (
         <>
           <div className="overflow-x-auto">{children}</div>

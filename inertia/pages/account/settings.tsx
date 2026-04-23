@@ -2,6 +2,9 @@ import { Form } from '@adonisjs/inertia/react'
 import { type Data } from '@generated/data'
 import { usePage } from '@inertiajs/react'
 
+import { PrimaryButton } from '~/components/button'
+import { FormField } from '~/components/form_field'
+
 interface SettingsProps {
   user: null | {
     email: string
@@ -127,34 +130,16 @@ export default function Settings({ user }: SettingsProps) {
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
-                        htmlFor="name"
-                      >
-                        Full name
-                      </label>
-                      <input
-                        className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-                        data-invalid={errors.name ? 'true' : undefined}
-                        defaultValue={user.name}
-                        id="name"
-                        name="name"
-                        type="text"
-                      />
-                      {errors.name ? (
-                        <p className="text-sm font-medium text-error">{errors.name}</p>
-                      ) : null}
-                    </div>
+                    <FormField error={errors.name} id="name" label="Full name" value={user.name} />
                   </div>
 
                   <div className="flex justify-end">
-                    <button
-                      className="inline-flex min-w-44 items-center justify-center rounded-xl px-4 py-3 font-headline text-sm font-bold text-on-primary milled-steel-gradient transition-all hover:opacity-95"
+                    <PrimaryButton
+                      className="min-w-44 rounded-xl py-3 font-headline font-bold"
                       type="submit"
                     >
                       Update profile
-                    </button>
+                    </PrimaryButton>
                   </div>
                 </>
               )}
@@ -195,43 +180,40 @@ export default function Settings({ user }: SettingsProps) {
                   />
 
                   <div className="grid gap-5">
-                    <Field
+                    <FormField
                       autoComplete="current-password"
                       error={errors.currentPassword}
                       id="currentPassword"
                       label="Current password"
-                      name="currentPassword"
                       type="password"
                     />
 
                     <div className="grid gap-5 md:grid-cols-2">
-                      <Field
+                      <FormField
                         autoComplete="new-password"
                         error={errors.newPassword}
                         id="newPassword"
                         label="New password"
-                        name="newPassword"
                         type="password"
                       />
 
-                      <Field
+                      <FormField
                         autoComplete="new-password"
                         error={errors.newPasswordConfirmation}
                         id="newPasswordConfirmation"
                         label="Confirm new password"
-                        name="newPasswordConfirmation"
                         type="password"
                       />
                     </div>
                   </div>
 
                   <div className="flex justify-end">
-                    <button
-                      className="inline-flex min-w-44 items-center justify-center rounded-xl px-4 py-3 font-headline text-sm font-bold text-on-primary milled-steel-gradient transition-all hover:opacity-95"
+                    <PrimaryButton
+                      className="min-w-44 rounded-xl py-3 font-headline font-bold"
                       type="submit"
                     >
                       Change password
-                    </button>
+                    </PrimaryButton>
                   </div>
                 </>
               )}
@@ -239,42 +221,6 @@ export default function Settings({ user }: SettingsProps) {
           </section>
         ) : null}
       </div>
-    </div>
-  )
-}
-
-function Field({
-  autoComplete,
-  error,
-  id,
-  label,
-  name,
-  type,
-}: {
-  autoComplete?: string
-  error?: string
-  id: string
-  label: string
-  name: string
-  type: string
-}) {
-  return (
-    <div className="space-y-2">
-      <label
-        className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
-        htmlFor={id}
-      >
-        {label}
-      </label>
-      <input
-        autoComplete={autoComplete}
-        className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-        data-invalid={error ? 'true' : undefined}
-        id={id}
-        name={name}
-        type={type}
-      />
-      {error ? <p className="text-sm font-medium text-error">{error}</p> : null}
     </div>
   )
 }

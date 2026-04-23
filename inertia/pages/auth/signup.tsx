@@ -4,6 +4,8 @@ import { Head } from '@inertiajs/react'
 import type { FormErrors } from '~/types'
 
 import { AppIcon } from '~/components/app_icon'
+import { PrimaryButton } from '~/components/button'
+import { FormField } from '~/components/form_field'
 
 export default function Signup() {
   return (
@@ -27,41 +29,40 @@ export default function Signup() {
             <Form route="signup.store">
               {({ errors }: { errors: FormErrors }) => (
                 <div className="space-y-6">
-                  <GhostField
+                  <FormField
                     autoComplete="name"
                     error={errors.fullName}
                     id="fullName"
                     label="Full name"
-                    name="fullName"
                     required
-                    type="text"
+                    variant="ghost"
                   />
-                  <GhostField
+                  <FormField
                     autoComplete="email"
                     error={errors.email}
                     id="email"
                     label="Email address"
-                    name="email"
                     required
                     type="email"
+                    variant="ghost"
                   />
-                  <GhostField
+                  <FormField
                     autoComplete="new-password"
                     error={errors.password}
                     id="password"
                     label="Password"
-                    name="password"
                     required
                     type="password"
+                    variant="ghost"
                   />
-                  <GhostField
+                  <FormField
                     autoComplete="new-password"
                     error={errors.passwordConfirmation}
                     id="passwordConfirmation"
                     label="Confirm password"
-                    name="passwordConfirmation"
                     required
                     type="password"
+                    variant="ghost"
                   />
 
                   <div className="flex items-center gap-3 rounded-lg border border-outline-variant/10 bg-surface-container-low p-3">
@@ -72,12 +73,12 @@ export default function Signup() {
                     </p>
                   </div>
 
-                  <button
-                    className="w-full rounded-lg py-4 font-headline text-sm font-bold uppercase tracking-widest text-on-primary shadow-md milled-steel-gradient transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-60"
+                  <PrimaryButton
+                    className="w-full py-4 font-headline font-bold uppercase tracking-widest"
                     type="submit"
                   >
                     Create workspace access
-                  </button>
+                  </PrimaryButton>
 
                   <div className="flex items-center justify-center gap-2 text-sm text-on-surface-variant">
                     <span>Already have an account?</span>
@@ -105,47 +106,5 @@ export default function Signup() {
         </div>
       </main>
     </>
-  )
-}
-
-function GhostField({
-  autoComplete,
-  error,
-  id,
-  label,
-  name,
-  required,
-  type,
-}: {
-  autoComplete?: string
-  error?: string
-  id: string
-  label: string
-  name: string
-  required?: boolean
-  type: string
-}) {
-  return (
-    <div className="space-y-2">
-      <label
-        className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
-        htmlFor={id}
-      >
-        {label}
-      </label>
-      <div className="group relative">
-        <input
-          autoComplete={autoComplete}
-          className="w-full border-0 bg-surface-container-lowest py-3 pl-0 pr-0 font-medium text-on-surface shadow-none outline-hidden ring-0 transition-all placeholder:text-outline/40 focus:border-primary focus:ring-0 ghost-border"
-          data-invalid={error ? 'true' : undefined}
-          id={id}
-          name={name}
-          required={required}
-          type={type}
-        />
-        <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-primary transition-all duration-300 group-focus-within:w-full" />
-      </div>
-      {error ? <p className="text-sm font-medium text-error">{error}</p> : null}
-    </div>
   )
 }
