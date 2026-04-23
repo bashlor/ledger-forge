@@ -315,8 +315,10 @@ export class DevOperatorConsolePageService {
     role: 'admin' | 'member' | 'owner'
     userId: string
   } {
+    const requestedMember = requestedMemberId?.trim() || ''
+
     return (
-      members.find((member) => member.id === requestedMemberId) ??
+      members.find((member) => member.id === requestedMember) ??
       members.find((member) => member.userId === currentUserId) ??
       members[0] ??
       null
