@@ -87,6 +87,10 @@ class FakeAuth extends AuthenticationPort {
 
 let db: PostgresJsDatabase<any>
 
+function inertiaGet(client: any, url: string) {
+  return inertiaHeaders(withAuthCookie(client.get(url)))
+}
+
 function inertiaHeaders(request: any) {
   request.header('x-inertia', 'true')
   request.header('x-inertia-version', '1')
@@ -96,10 +100,6 @@ function inertiaHeaders(request: any) {
 function withAuthCookie(request: any) {
   request.cookie(AUTH_SESSION_TOKEN_COOKIE_NAME, fakeSession.session.token)
   return request
-}
-
-function inertiaGet(client: any, url: string) {
-  return inertiaHeaders(withAuthCookie(client.get(url)))
 }
 
 test.group('Customers routes | create, update, delete rules', (group) => {
@@ -294,7 +294,10 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(updated.company, 'Kestrel Analytics Updated')
   })
 
-  test('create redirects back to the current customers query params', async ({ assert, client }) => {
+  test('create redirects back to the current customers query params', async ({
+    assert,
+    client,
+  }) => {
     const response = await withAuthCookie(client.post('/customers')).redirects(0).form({
       address: '1 rue Query, Paris',
       company: 'Query Co',
@@ -497,7 +500,10 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     assert.equal(custRows.length, 1)
   })
 
-  test('delete redirects back to the current customers query params', async ({ assert, client }) => {
+  test('delete redirects back to the current customers query params', async ({
+    assert,
+    client,
+  }) => {
     const customerId = uuidv7()
     await db.insert(customers).values({
       address: '12 avenue Redirect, Nantes',
