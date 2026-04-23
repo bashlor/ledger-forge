@@ -98,6 +98,10 @@ function withAuthCookie(request: any) {
   return request
 }
 
+function inertiaGet(client: any, url: string) {
+  return inertiaHeaders(withAuthCookie(client.get(url)))
+}
+
 test.group('Customers routes | create, update, delete rules', (group) => {
   let cleanup: () => Promise<void>
 
@@ -129,6 +133,7 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     await db.delete(journalEntries)
     await db.delete(invoices)
     await db.delete(customers)
+    await db.update(member).set({ isActive: true }).where(eq(member.userId, fakeUser.id))
   })
 
   group.teardown(async () => cleanup())
@@ -176,6 +181,89 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     response.assertStatus(403)
   })
 
+  test('GET /customers returns the Inertia page contract with filters and mutation access', async ({
+    assert,
+    client,
+  }) => {
+    const customerId = uuidv7()
+    await db.insert(customers).values({
+      address: '7 rue de la Liste, Paris',
+      company: 'Filterable Co',
+      email: 'filterable@example.com',
+      id: customerId,
+      name: 'Filter User',
+      organizationId: TEST_TENANT_ID,
+      phone: '+33 6 11 22 33 44',
+    })
+
+    const response = await inertiaGet(client, '/customers?search=Filterable&perPage=25')
+
+    response.assertStatus(200)
+    assert.equal(response.body().component, 'app/customers')
+
+    const props = response.body().props
+    assert.isFalse(props.accountingReadOnly)
+    assert.isString(props.accountingReadOnlyMessage)
+    assert.isTrue(props.canManageCustomers)
+    assert.equal(props.filters.search, 'Filterable')
+    assert.equal(props.customers.pagination.page, 1)
+    assert.equal(props.customers.pagination.perPage, 25)
+    assert.equal(props.customers.pagination.totalItems, 1)
+    assert.equal(props.customers.items.length, 1)
+    assert.equal(props.customers.items[0].id, customerId)
+    assert.equal(props.customers.items[0].company, 'Filterable Co')
+  })
+
+  test('inactive membership cannot create, update, or delete customers', async ({
+    assert,
+    client,
+  }) => {
+    await db.update(member).set({ isActive: false }).where(eq(member.userId, fakeUser.id))
+
+    const createResponse = await withAuthCookie(client.post('/customers')).redirects(0).form({
+      address: '1 rue inactive',
+      company: 'Inactive Co',
+      email: 'inactive@example.com',
+      name: 'Inactive User',
+      phone: '+33 6 00 00 00 01',
+    })
+
+    createResponse.assertStatus(302)
+    assert.lengthOf(await db.select().from(customers), 0)
+
+    const id = uuidv7()
+    await db.update(member).set({ isActive: true }).where(eq(member.userId, fakeUser.id))
+    await db.insert(customers).values({
+      address: '7 impasse du Port, Nantes',
+      company: 'Kestrel Analytics',
+      email: 'nina@kestrel.test',
+      id,
+      name: 'Nina Rossi',
+      organizationId: TEST_TENANT_ID,
+      phone: '+33 6 20 30 40 50',
+    })
+    await db.update(member).set({ isActive: false }).where(eq(member.userId, fakeUser.id))
+
+    const updateResponse = await withAuthCookie(client.put(`/customers/${id}`))
+      .redirects(0)
+      .form({
+        address: 'Updated address',
+        company: 'Updated Company',
+        email: 'nina@kestrel.test',
+        name: 'Nina Rossi',
+        phone: '+33 6 20 30 40 50',
+      })
+
+    updateResponse.assertStatus(302)
+
+    const deleteResponse = await withAuthCookie(client.delete(`/customers/${id}`)).redirects(0)
+    deleteResponse.assertStatus(302)
+
+    const [row] = await db.select().from(customers).where(eq(customers.id, id))
+    assert.equal(row.address, '7 impasse du Port, Nantes')
+    assert.equal(row.company, 'Kestrel Analytics')
+  })
+
   test('updates a customer via PUT /customers/:id', async ({ assert, client }) => {
     const id = uuidv7()
     await db.insert(customers).values({
@@ -204,6 +292,27 @@ test.group('Customers routes | create, update, delete rules', (group) => {
     const [updated] = await db.select().from(customers).where(eq(customers.id, id))
     assert.equal(updated.address, '7 impasse du Port, Nantes')
     assert.equal(updated.company, 'Kestrel Analytics Updated')
+  })
+
+  test('create redirects back to the current customers query params', async ({ assert, client }) => {
+    const response = await withAuthCookie(client.post('/customers')).redirects(0).form({
+      address: '1 rue Query, Paris',
+      company: 'Query Co',
+      email: 'query@example.com',
+      name: 'Query User',
+      page: 2,
+      perPage: 25,
+      phone: '+33 6 55 44 33 22',
+      search: 'cursor',
+    })
+
+    response.assertStatus(302)
+
+    const location = new URL(`http://localhost${response.header('location')}`)
+    assert.equal(location.pathname, '/customers')
+    assert.equal(location.searchParams.get('page'), '2')
+    assert.equal(location.searchParams.get('perPage'), '25')
+    assert.equal(location.searchParams.get('search'), 'cursor')
   })
 
   test('rejects PUT /customers/:id when customer does not exist', async ({ assert, client }) => {
@@ -386,6 +495,35 @@ test.group('Customers routes | create, update, delete rules', (group) => {
 
     const custRows = await db.select().from(customers).where(eq(customers.id, customerId))
     assert.equal(custRows.length, 1)
+  })
+
+  test('delete redirects back to the current customers query params', async ({ assert, client }) => {
+    const customerId = uuidv7()
+    await db.insert(customers).values({
+      address: '12 avenue Redirect, Nantes',
+      company: 'Redirect Co',
+      email: 'redirect@example.com',
+      id: customerId,
+      name: 'Redirect User',
+      organizationId: TEST_TENANT_ID,
+      phone: '+33 6 77 88 99 00',
+    })
+
+    const response = await withAuthCookie(client.delete(`/customers/${customerId}`))
+      .redirects(0)
+      .form({
+        page: 3,
+        perPage: 50,
+        search: 'active filter',
+      })
+
+    response.assertStatus(302)
+
+    const location = new URL(`http://localhost${response.header('location')}`)
+    assert.equal(location.pathname, '/customers')
+    assert.equal(location.searchParams.get('page'), '3')
+    assert.equal(location.searchParams.get('perPage'), '50')
+    assert.equal(location.searchParams.get('search'), 'active filter')
   })
 
   test('returns invoice counters in customers listing data', async ({ assert }) => {
