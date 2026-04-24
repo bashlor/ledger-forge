@@ -70,7 +70,8 @@ export default [
         {
           message:
             'Use userManagementHttpLogger/recordUserManagementHttpEvent instead of direct ctx.logger.* calls.',
-          selector: "MemberExpression[object.type='MemberExpression'][object.object.name='ctx'][object.property.name='logger']",
+          selector:
+            "MemberExpression[object.type='MemberExpression'][object.object.name='ctx'][object.property.name='logger']",
         },
       ],
     },
