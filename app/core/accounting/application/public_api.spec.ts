@@ -99,4 +99,14 @@ test.group('Accounting application public API', () => {
     assert.isUndefined((invoiceApi as Record<string, unknown>).getInvoiceById)
     assert.isUndefined((invoiceApi as Record<string, unknown>).assertInvoiceCanBeSent)
   })
+
+  test('customers and expenses indexes hide internal persistence helpers', async ({ assert }) => {
+    const customersApi = await import('#core/accounting/application/customers/index')
+    const expensesApi = await import('#core/accounting/application/expenses/index')
+
+    assert.isUndefined((customersApi as Record<string, unknown>).insertCustomer)
+    assert.isUndefined((customersApi as Record<string, unknown>).listCustomersWithAggregates)
+    assert.isUndefined((expensesApi as Record<string, unknown>).confirmDraftExpense)
+    assert.isUndefined((expensesApi as Record<string, unknown>).listExpenseRows)
+  })
 })
