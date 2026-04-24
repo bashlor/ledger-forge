@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { auditEvents, customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
+import { organization } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
@@ -224,5 +225,59 @@ test.group('Customer service integration', (group) => {
     assert.equal(result.items[0].company, 'Cursor Labs')
     assert.equal(result.pagination.totalItems, 1)
     assert.equal(result.pagination.totalPages, 1)
+  })
+
+  test('deletes customer when invoices exist only for other tenant customers', async ({
+    assert,
+  }) => {
+    const tenantAId = TEST_TENANT_ID
+    const tenantBId = uuidv7()
+    const tenantACustomerId = uuidv7()
+    const tenantBCustomerId = uuidv7()
+    await db
+      .insert(organization)
+      .values({ id: tenantBId, name: 'Tenant B', slug: `tenant-b-${uuidv7().slice(0, 8)}` })
+
+    await db.insert(customers).values({
+      address: '123 Scoped Street',
+      company: 'Scoped Co',
+      email: 'scoped@example.com',
+      id: tenantACustomerId,
+      name: 'Scoped Contact',
+      organizationId: tenantAId,
+      phone: '+33 1 22 33 44 55',
+    })
+    await db.insert(customers).values({
+      address: 'Other Tenant Address',
+      company: 'Other Tenant Co',
+      email: 'other@example.com',
+      id: tenantBCustomerId,
+      name: 'Other Tenant Contact',
+      organizationId: tenantBId,
+      phone: '+33 1 00 00 00 00',
+    })
+
+    await db.insert(invoices).values({
+      customerCompanyAddressSnapshot: 'Other Tenant Address',
+      customerCompanyName: 'Other Tenant Co',
+      customerCompanySnapshot: 'Other Tenant Co',
+      customerEmailSnapshot: 'other@example.com',
+      customerId: tenantBCustomerId,
+      customerPhoneSnapshot: '+33 1 00 00 00 00',
+      customerPrimaryContactSnapshot: 'Other Tenant Contact',
+      dueDate: '2026-07-10',
+      id: uuidv7(),
+      invoiceNumber: 'INV-2026-CROSS-001',
+      issueDate: '2026-07-01',
+      issuedCompanyAddress: '',
+      issuedCompanyName: '',
+      organizationId: tenantBId,
+      status: 'draft',
+    })
+
+    await service.deleteCustomer(tenantACustomerId, TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    const [remaining] = await db.select().from(customers).where(eq(customers.id, tenantACustomerId))
+    assert.isUndefined(remaining)
   })
 })
