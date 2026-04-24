@@ -55,7 +55,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
       })
 
       if (!session) {
-        this.recordAuthEvent('auth_session_not_found', 'failure', 'unknown', null, 'trace')
+        this.recordAuthEvent('auth_session_not_found', 'failure', 'unknown', null, 'warn')
         return null
       }
 
@@ -65,7 +65,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
           'failure',
           String(session.userId),
           null,
-          'trace'
+          'warn'
         )
         return null
       }
@@ -80,7 +80,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
           'failure',
           String(session.userId),
           null,
-          'trace'
+          'warn'
         )
         return null
       }
@@ -96,7 +96,9 @@ export class BetterAuthAdapter extends AuthenticationPort {
         'unknown',
         null,
         'error',
-        err instanceof Error ? { errorMessage: err.message, errorName: err.name } : undefined
+        err instanceof Error
+          ? { errorCode: 'auth_session_database_error', errorName: err.name }
+          : { errorCode: 'auth_session_database_error', errorName: 'UnknownError' }
       )
       return null
     }
