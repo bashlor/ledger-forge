@@ -46,7 +46,11 @@ export default class AnonymousSigninController {
           }
         } catch (error) {
           // Best-effort side-effect: anonymous sign-in should still complete.
-          ctx.logger.warn({ err: error }, 'workspace_provision_on_anonymous_signin_failed')
+          authLog.failure('workspace_provision_on_anonymous_signin_failure', error, {
+            entityId: authentication.user.id,
+            entityType: 'user',
+            metadata: { phase: 'workspace_provision' },
+          })
         }
 
         writeSessionToken(ctx, {
