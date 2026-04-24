@@ -61,4 +61,18 @@ export default [
       'perfectionist/sort-objects': 'warn',
     },
   },
+  {
+    files: ['app/core/user_management/http/**/*.ts'],
+    ignores: ['app/core/user_management/http/helpers/activity_log.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          message:
+            'Use userManagementHttpLogger/recordUserManagementHttpEvent instead of direct ctx.logger.* calls.',
+          selector: "MemberExpression[object.type='MemberExpression'][object.object.name='ctx'][object.property.name='logger']",
+        },
+      ],
+    },
+  },
 ]
