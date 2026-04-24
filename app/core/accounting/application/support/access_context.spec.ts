@@ -64,4 +64,11 @@ test.group('Accounting access context', () => {
       tenantId: 'my-org-id',
     })
   })
+
+  test('systemAccessContext rejects empty tenant ids', ({ assert }) => {
+    assert.throws(
+      () => systemAccessContext('   '),
+      'Missing tenant id — system access contexts must explicitly target one tenant.'
+    )
+  })
 })
