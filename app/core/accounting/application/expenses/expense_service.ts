@@ -7,7 +7,13 @@ import {
   DatabaseCriticalAuditTrail,
 } from '#core/accounting/application/audit/critical_audit_trail'
 import { type AccountingAccessContext } from '#core/accounting/application/support/access_context'
-import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
+import {
+  clampInteger,
+  DEFAULT_LIST_PER_PAGE,
+  MAX_LIST_PER_PAGE,
+  MIN_LIST_PER_PAGE,
+} from '#core/accounting/application/support/pagination'
+import { DomainError } from '#core/common/errors/domain_error'
 
 export { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
 export type { ExpenseCategory } from '#core/accounting/expense_categories'
@@ -20,12 +26,15 @@ import type {
   ExpenseSummary,
 } from './types.js'
 
-import { confirmExpenseUseCase } from './application/confirm_expense.js'
-import { createExpenseUseCase } from './application/create_expense.js'
-import { deleteExpenseUseCase } from './application/delete_expense.js'
-import { getExpenseSummaryUseCase } from './application/get_expense_summary.js'
-import { listExpensesUseCase } from './application/list_expenses.js'
-import { createDrizzleExpenseStore } from './drizzle_expense_store.js'
+import {
+  confirmDraftExpense,
+  deleteDraftExpense,
+  insertDraftExpense,
+  insertExpenseJournalEntry,
+} from './commands.js'
+import { toExpenseDto } from './mappers.js'
+import { findExpenseById, getExpenseSummary, listExpenseRows } from './queries.js'
+import { normalizeExpenseInput } from './validation.js'
 
 export class ExpenseService {
   private readonly activitySink?: AccountingActivitySink
@@ -44,37 +53,89 @@ export class ExpenseService {
     access: AccountingAccessContext,
     hooks?: ExpenseConcurrencyHooks
   ): Promise<ExpenseDto> {
-    return this.db.transaction((tx) =>
-      confirmExpenseUseCase(
-        {
-          activitySink: this.activitySink,
-          auditExecutor: tx,
-          auditTrail: this.auditTrail,
-          store: createDrizzleExpenseStore(tx),
-        },
-        id,
-        access,
-        hooks
-      )
-    )
+    const result = await this.db.transaction(async (tx) => {
+      const existing = await findExpenseById(tx, id, access.tenantId)
+      if (!existing) {
+        throw new DomainError('Expense not found.', 'not_found')
+      }
+      await hooks?.afterRead?.()
+
+      const updated = await confirmDraftExpense(tx, id, access.tenantId)
+
+      if (!updated) {
+        const again = await findExpenseById(tx, id, access.tenantId)
+        if (!again) {
+          throw new DomainError('Expense not found.', 'not_found')
+        }
+        throw new DomainError('Only draft expenses can be confirmed.', 'business_logic_error')
+      }
+
+      await insertExpenseJournalEntry(tx, {
+        amountCents: updated.amountCents,
+        date: updated.date,
+        expenseId: updated.id,
+        label: updated.label,
+        organizationId: access.tenantId,
+      })
+
+      await this.auditTrail.record(tx, {
+        action: 'confirm',
+        actorId: access.actorId,
+        changes: { after: { status: 'confirmed' }, before: { status: existing.status } },
+        entityId: updated.id,
+        entityType: 'expense',
+        tenantId: access.tenantId,
+      })
+
+      return toExpenseDto(updated)
+    })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'confirm_expense',
+      outcome: 'success',
+      resourceId: id,
+      resourceType: 'expense',
+    })
+
+    return result
   }
 
   async createExpense(
     input: CreateExpenseInput,
     access: AccountingAccessContext
   ): Promise<ExpenseDto> {
-    return this.db.transaction((tx) =>
-      createExpenseUseCase(
-        {
-          activitySink: this.activitySink,
-          auditExecutor: tx,
-          auditTrail: this.auditTrail,
-          store: createDrizzleExpenseStore(tx),
-        },
-        input,
-        access
-      )
-    )
+    const normalized = normalizeExpenseInput(input)
+    const row = await this.db.transaction(async (tx) => {
+      const created = await insertDraftExpense(tx, normalized, {
+        createdBy: access.actorId ?? null,
+        organizationId: access.tenantId,
+      })
+
+      await this.auditTrail.record(tx, {
+        action: 'create',
+        actorId: access.actorId,
+        entityId: created.id,
+        entityType: 'expense',
+        tenantId: access.tenantId,
+      })
+
+      return created
+    })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'create_expense',
+      outcome: 'success',
+      resourceId: row.id,
+      resourceType: 'expense',
+    })
+
+    return toExpenseDto(row)
   }
 
   async deleteExpense(
@@ -82,26 +143,48 @@ export class ExpenseService {
     access: AccountingAccessContext,
     hooks?: ExpenseConcurrencyHooks
   ): Promise<void> {
-    await this.db.transaction((tx) =>
-      deleteExpenseUseCase(
-        {
-          activitySink: this.activitySink,
-          auditExecutor: tx,
-          auditTrail: this.auditTrail,
-          store: createDrizzleExpenseStore(tx),
-        },
-        id,
-        access,
-        hooks
-      )
-    )
+    await this.db.transaction(async (tx) => {
+      const existing = await findExpenseById(tx, id, access.tenantId)
+      if (!existing) {
+        throw new DomainError('Expense not found.', 'not_found')
+      }
+      await hooks?.afterRead?.()
+
+      const deleted = await deleteDraftExpense(tx, id, access.tenantId)
+
+      if (!deleted) {
+        const again = await findExpenseById(tx, id, access.tenantId)
+        if (!again) {
+          throw new DomainError('Expense not found.', 'not_found')
+        }
+        throw new DomainError('Only draft expenses can be deleted.', 'business_logic_error')
+      }
+
+      await this.auditTrail.record(tx, {
+        action: 'delete',
+        actorId: access.actorId,
+        entityId: id,
+        entityType: 'expense',
+        tenantId: access.tenantId,
+      })
+    })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'delete_expense',
+      outcome: 'success',
+      resourceId: id,
+      resourceType: 'expense',
+    })
   }
 
   async getSummary(
     access: AccountingAccessContext,
     dateFilter?: DateFilter
   ): Promise<ExpenseSummary> {
-    return getExpenseSummaryUseCase(createDrizzleExpenseStore(this.db), access, dateFilter)
+    return getExpenseSummary(this.db, access.tenantId, dateFilter)
   }
 
   async listExpenses(
@@ -111,13 +194,20 @@ export class ExpenseService {
     dateFilter?: DateFilter,
     search?: string
   ): Promise<ExpenseListResult> {
-    return listExpensesUseCase(
-      createDrizzleExpenseStore(this.db),
-      page,
-      perPage,
-      access,
+    const safePerPage = clampInteger(perPage, MIN_LIST_PER_PAGE, MAX_LIST_PER_PAGE)
+    const requestedPage = clampInteger(page, 1, Number.MAX_SAFE_INTEGER)
+    const { pagination, rows } = await listExpenseRows(
+      this.db,
+      requestedPage,
+      safePerPage,
+      access.tenantId,
       dateFilter,
       search
     )
+
+    return {
+      items: rows.map(toExpenseDto),
+      pagination,
+    }
   }
 }
