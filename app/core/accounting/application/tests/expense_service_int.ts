@@ -1,6 +1,7 @@
 import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { listAuditEventsForEntity } from '#core/accounting/application/audit/audit_queries'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { auditEvents, expenses, journalEntries } from '#core/accounting/drizzle/schema'
 import { DomainError } from '#core/common/errors/domain_error'
@@ -315,6 +316,41 @@ test.group('ExpenseService | deleteExpense', (group) => {
 
     const rows = await db.select().from(expenses).where(eq(expenses.id, created.id))
     assert.equal(rows.length, 0)
+  })
+
+  test('audit:create/confirm/delete expense events are emitted on happy path', async ({
+    assert,
+  }) => {
+    const created = await service.createExpense(
+      makeInput({ amount: 25, label: 'Audit happy path' }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.confirmExpense(created.id, TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    const confirmedEvents = await listAuditEventsForEntity(db, {
+      entityId: created.id,
+      entityType: 'expense',
+      tenantId: TEST_TENANT_ID,
+    })
+    assert.deepEqual(
+      confirmedEvents.map((event) => event.action),
+      ['confirm', 'create']
+    )
+
+    const draft = await service.createExpense(
+      makeInput({ amount: 11, label: 'Audit delete path' }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.deleteExpense(draft.id, TEST_ACCOUNTING_ACCESS_CONTEXT)
+    const deleteEvents = await listAuditEventsForEntity(db, {
+      entityId: draft.id,
+      entityType: 'expense',
+      tenantId: TEST_TENANT_ID,
+    })
+    assert.deepEqual(
+      deleteEvents.map((event) => event.action),
+      ['delete', 'create']
+    )
   })
 })
 
