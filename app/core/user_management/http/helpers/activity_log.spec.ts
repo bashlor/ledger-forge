@@ -115,4 +115,63 @@ test.group('User management HTTP activity logger', () => {
       outcome: 'failure',
     })
   })
+
+  test('uses info for success and supports explicit error level for infra failures', ({
+    assert,
+  }) => {
+    const { calls, ctx } = createContext()
+    const logger = userManagementHttpLogger(ctx as never, {
+      entityId: 'workspace-provision',
+      entityType: 'workspace',
+    })
+
+    logger.success('workspace_provision_success')
+    logger.failure('workspace_provision_failure', new Error('db unavailable'), { level: 'error' })
+
+    assert.lengthOf(calls, 2)
+    assert.deepInclude(calls[0]!.bindings, {
+      entityId: 'workspace-provision',
+      entityType: 'workspace',
+      event: 'workspace_provision_success',
+      level: 'info',
+      outcome: 'success',
+    })
+    assert.deepInclude(calls[1]!.bindings, {
+      entityId: 'workspace-provision',
+      entityType: 'workspace',
+      event: 'workspace_provision_failure',
+      level: 'error',
+      outcome: 'failure',
+    })
+  })
+
+  test('records critical structured fields for warning events', ({ assert }) => {
+    const { calls, ctx } = createContext()
+    const logger = userManagementHttpLogger(ctx as never, {
+      entityId: 'authentication',
+      entityType: 'auth',
+    })
+
+    logger.warn('authentication_policy_failure', {
+      metadata: { policy: 'password_rotation' },
+      tenantId: 'tenant-1',
+    })
+
+    assert.lengthOf(calls, 1)
+    assert.deepInclude(calls[0]!.bindings, {
+      context: 'UserManagement',
+      entityId: 'authentication',
+      entityType: 'auth',
+      event: 'authentication_policy_failure',
+      level: 'warn',
+      outcome: 'failure',
+      requestId: 'req-1',
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+    })
+    assert.property(calls[0]!.bindings, 'timestamp')
+    assert.deepEqual(calls[0]!.bindings.metadata, {
+      policy: 'password_rotation',
+    })
+  })
 })
