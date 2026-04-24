@@ -33,6 +33,10 @@ import { and, count, eq, ne } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 import {
+  dateOnlyUtcFromDate,
+  withInertiaHeaders,
+} from '../../../../../tests/helpers/routes_test_support.js'
+import {
   seedTestMember,
   seedTestOrganization,
   seedTestUser,
@@ -47,8 +51,7 @@ import {
   TEST_ACCOUNTING_USER_EMAIL,
   TEST_ACCOUNTING_USER_ID,
   TEST_ACCOUNTING_USER_PUBLIC_ID,
-} from './accounting_test_support.js'
-import { inertiaHeaders } from './invoices_test_support.js'
+} from '../../../accounting/routes/tests/accounting_test_support.js'
 
 const TENANT_B = 'dev-console-tenant-b'
 const TENANT_C = 'dev-console-tenant-c'
@@ -281,7 +284,7 @@ test.group('Dev operator console routes', (group) => {
   group.teardown(async () => cleanup())
 
   test('GET /_dev/inspector is forbidden when dev tools are disabled', async ({ client }) => {
-    const response = await inertiaHeaders(client.get('/_dev/inspector'))
+    const response = await withInertiaHeaders(client.get('/_dev/inspector'))
       .header('cookie', authCookie())
       .redirects(0)
 
@@ -294,7 +297,7 @@ test.group('Dev operator console routes', (group) => {
   }) => {
     await enableDevOperatorMode(db)
 
-    const response = await inertiaHeaders(client.get('/_dev/inspector'))
+    const response = await withInertiaHeaders(client.get('/_dev/inspector'))
       .header('cookie', authCookie())
       .redirects(0)
 
@@ -318,7 +321,7 @@ test.group('Dev operator console routes', (group) => {
   }) => {
     await enableSingleTenantDevOperatorMode(db)
 
-    const response = await inertiaHeaders(client.get('/_dev/inspector'))
+    const response = await withInertiaHeaders(client.get('/_dev/inspector'))
       .header('cookie', authCookie())
       .redirects(0)
 
@@ -354,7 +357,7 @@ test.group('Dev operator console routes', (group) => {
       },
     ])
 
-    const response = await inertiaHeaders(client.get('/_dev/inspector'))
+    const response = await withInertiaHeaders(client.get('/_dev/inspector'))
       .qs({ auditSearch: 'search_target', tab: 'audit-trail', tenantId: TEST_TENANT_ID })
       .header('cookie', authCookie())
       .redirects(0)
@@ -371,7 +374,7 @@ test.group('Dev operator console routes', (group) => {
   }) => {
     await enableDevOperatorMode(db)
 
-    const memberResponse = await inertiaHeaders(client.get('/_dev/inspector'))
+    const memberResponse = await withInertiaHeaders(client.get('/_dev/inspector'))
       .qs({
         memberId: 'dev-console-member-c',
         tab: 'members-permissions',
@@ -392,7 +395,7 @@ test.group('Dev operator console routes', (group) => {
       membershipToggleActive: false,
     })
 
-    const adminResponse = await inertiaHeaders(client.get('/_dev/inspector'))
+    const adminResponse = await withInertiaHeaders(client.get('/_dev/inspector'))
       .qs({
         memberId: 'dev-console-member-a',
         tab: 'members-permissions',
@@ -415,7 +418,7 @@ test.group('Dev operator console routes', (group) => {
 
     await db.update(member).set({ role: 'owner' }).where(eq(member.id, 'dev-console-member-a'))
 
-    const ownerResponse = await inertiaHeaders(client.get('/_dev/inspector'))
+    const ownerResponse = await withInertiaHeaders(client.get('/_dev/inspector'))
       .qs({
         memberId: 'dev-console-member-a',
         tab: 'members-permissions',
@@ -438,7 +441,7 @@ test.group('Dev operator console routes', (group) => {
 
     await db.update(member).set({ isActive: false }).where(eq(member.id, 'dev-console-member-c'))
 
-    const inactiveResponse = await inertiaHeaders(client.get('/_dev/inspector'))
+    const inactiveResponse = await withInertiaHeaders(client.get('/_dev/inspector'))
       .qs({
         memberId: 'dev-console-member-c',
         tab: 'members-permissions',
@@ -1194,9 +1197,5 @@ async function seedDraftInvoice() {
 }
 
 function todayUtc(): string {
-  const date = new Date()
-  const year = date.getUTCFullYear()
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(date.getUTCDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return dateOnlyUtcFromDate(new Date())
 }

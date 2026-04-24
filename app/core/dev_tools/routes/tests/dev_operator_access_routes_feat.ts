@@ -16,8 +16,8 @@ import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
+import { withInertiaHeaders } from '../../../../../tests/helpers/routes_test_support.js'
 import { setupIsolatedTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
-import { inertiaHeaders } from './invoices_test_support.js'
 
 class DevOperatorAccessAuth extends AuthenticationPort {
   constructor(private readonly db: PostgresJsDatabase<typeof schema>) {
@@ -237,7 +237,7 @@ test.group('Dev operator access routes', (group) => {
     assert,
     client,
   }) => {
-    const response = await inertiaHeaders(client.get('/_dev/access')).redirects(0)
+    const response = await withInertiaHeaders(client.get('/_dev/access')).redirects(0)
 
     response.assertStatus(200)
     assert.equal(response.body().component, 'dev/access')
@@ -308,7 +308,7 @@ test.group('Dev operator access routes', (group) => {
     assert.equal(grant?.userId, user?.id)
 
     const cookieHeader = cookieHeaderFromRouteResponse(response.headers()['set-cookie'])
-    const inspectorResponse = await inertiaHeaders(client.get('/_dev/inspector'))
+    const inspectorResponse = await withInertiaHeaders(client.get('/_dev/inspector'))
       .header('cookie', cookieHeader)
       .redirects(0)
 
@@ -404,7 +404,7 @@ test.group('Dev operator access routes', (group) => {
       userId,
     })
 
-    const response = await inertiaHeaders(client.get('/dashboard'))
+    const response = await withInertiaHeaders(client.get('/dashboard'))
       .cookie(AUTH_SESSION_TOKEN_COOKIE_NAME, sessionToken)
       .redirects(0)
 
