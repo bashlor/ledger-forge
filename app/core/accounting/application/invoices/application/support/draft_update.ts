@@ -28,7 +28,10 @@ export async function loadDraftUpdateContext(
 ) {
   const normalized = normalizeSaveInvoiceDraftInput(input)
   const existing = await loadInvoiceForMutationOrThrow(tx, id, requestContext)
-  const existingLineRows = await listInvoiceLinesForInvoice(tx, id)
+  const existingLineRows = await listInvoiceLinesForInvoice(tx, {
+    invoiceId: id,
+    tenantId: requestContext.tenantId,
+  })
   const createdAt = deps.businessCalendar.dateFromTimestamp(existing.createdAt)
 
   assertDraftCanBeUpdated({

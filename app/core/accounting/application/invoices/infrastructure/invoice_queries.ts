@@ -136,20 +136,41 @@ export async function listCustomersForSelect(db: DrizzleDb, tenantId: string) {
     .orderBy(customers.company)
 }
 
-export async function listInvoiceLinesForInvoice(db: InvoiceDbExecutor, invoiceId: string) {
+export async function listInvoiceLinesForInvoice(
+  db: InvoiceDbExecutor,
+  input: { invoiceId: string; tenantId: string }
+) {
   return db
     .select()
     .from(invoiceLines)
-    .where(eq(invoiceLines.invoiceId, invoiceId))
+    .innerJoin(invoices, eq(invoices.id, invoiceLines.invoiceId))
+    .where(
+      and(eq(invoiceLines.invoiceId, input.invoiceId), eq(invoices.organizationId, input.tenantId))
+    )
     .orderBy(invoiceLines.lineNumber)
+    .then((rows) => rows.map((row) => row.invoice_lines))
 }
 
-export async function listInvoiceLinesForInvoiceIds(db: DrizzleDb, invoiceIds: string[]) {
+export async function listInvoiceLinesForInvoiceIds(
+  db: DrizzleDb,
+  input: { invoiceIds: string[]; tenantId: string }
+) {
+  if (input.invoiceIds.length === 0) {
+    return []
+  }
+
   return db
     .select()
     .from(invoiceLines)
-    .where(inArray(invoiceLines.invoiceId, invoiceIds))
+    .innerJoin(invoices, eq(invoices.id, invoiceLines.invoiceId))
+    .where(
+      and(
+        inArray(invoiceLines.invoiceId, input.invoiceIds),
+        eq(invoices.organizationId, input.tenantId)
+      )
+    )
     .orderBy(invoiceLines.invoiceId, invoiceLines.lineNumber)
+    .then((rows) => rows.map((row) => row.invoice_lines))
 }
 
 export async function listInvoicesByTenant(

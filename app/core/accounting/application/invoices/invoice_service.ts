@@ -91,7 +91,10 @@ export class InvoiceService {
     const requestContext = toInvoiceRequestContext(access)
     const row = await getInvoiceById(this.db, { id, tenantId: requestContext.tenantId })
     if (!row) return null
-    const lines = await listInvoiceLinesForInvoice(this.db, id)
+    const lines = await listInvoiceLinesForInvoice(this.db, {
+      invoiceId: id,
+      tenantId: requestContext.tenantId,
+    })
     return toInvoiceDto(
       row,
       lines.map(toLineDto),
@@ -111,7 +114,10 @@ export class InvoiceService {
       tenantId: requestContext.tenantId,
     })
     if (!row) return null
-    const lines = await listInvoiceLinesForInvoice(this.db, id)
+    const lines = await listInvoiceLinesForInvoice(this.db, {
+      invoiceId: id,
+      tenantId: requestContext.tenantId,
+    })
     return toInvoiceDto(
       row,
       lines.map(toLineDto),
@@ -205,7 +211,10 @@ export class InvoiceService {
     }
 
     const ids = rows.map((row) => row.id)
-    const lineRows = await listInvoiceLinesForInvoiceIds(this.db, ids)
+    const lineRows = await listInvoiceLinesForInvoiceIds(this.db, {
+      invoiceIds: ids,
+      tenantId: requestContext.tenantId,
+    })
     const items = rows.map((invoice) =>
       toInvoiceDto(
         invoice,
