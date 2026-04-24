@@ -1,10 +1,12 @@
 import { test } from '@japa/runner'
 
+import type { UserManagementActivityEvent } from '../../support/activity_log.js'
+
 import { BetterAuthAdapter } from './better_auth_adapter.js'
 
 test.group('BetterAuthAdapter logging behavior', () => {
   test('records missing sessions as warn events', async ({ assert }) => {
-    const events: Record<string, unknown>[] = []
+    const events: UserManagementActivityEvent[] = []
     const adapter = new BetterAuthAdapter(
       {} as never,
       {
@@ -37,7 +39,7 @@ test.group('BetterAuthAdapter logging behavior', () => {
   })
 
   test('sanitizes database failure metadata', async ({ assert }) => {
-    const events: Record<string, unknown>[] = []
+    const events: UserManagementActivityEvent[] = []
     const adapter = new BetterAuthAdapter(
       {} as never,
       {
