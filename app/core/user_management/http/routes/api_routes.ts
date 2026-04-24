@@ -55,7 +55,23 @@ router
       try {
         const body = (await webResponse.json()) as Record<string, unknown>
         code = body?.code as string | undefined
-      } catch {}
+      } catch (error) {
+        const defaults = getDefaultStructuredLogFields()
+        logger.warn(
+          {
+            context: 'UserManagement',
+            entityId: 'authentication',
+            entityType: 'auth',
+            event: 'better_auth_error_payload_unparseable',
+            level: 'warn',
+            requestId: defaults.requestId ?? request.header('x-request-id') ?? 'unknown',
+            tenantId: defaults.tenantId ?? null,
+            timestamp: toIsoTimestamp(),
+            userId: defaults.userId ?? null,
+          },
+          error instanceof Error ? error.name : 'Could not parse Better Auth error payload'
+        )
+      }
 
       for (const cookie of webResponse.headers.getSetCookie()) {
         response.append('Set-Cookie', cookie)

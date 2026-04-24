@@ -146,13 +146,23 @@ function createAuthSession(activeOrganizationId: null | string): AuthResult {
   }
 }
 
-function createContext(input: { authSession: AuthResult; cookie?: string; path: string }) {
+function createContext(input: {
+  accept?: string
+  authSession: AuthResult
+  cookie?: string
+  path: string
+}) {
   const redirects: string[] = []
+  const jsonResponses: unknown[] = []
+  const headers: Record<string, string> = {}
+  let responseStatus: null | number = null
   const { errors, logger, warnings } = createLogger()
 
   return {
     authSession: input.authSession,
     errors,
+    headers,
+    jsonResponses,
     logger,
     redirects,
     request: {
@@ -160,6 +170,9 @@ function createContext(input: { authSession: AuthResult; cookie?: string; path: 
         return input.cookie ?? null
       },
       header(name: string) {
+        if (name.toLowerCase() === 'accept') {
+          return input.accept ?? null
+        }
         if (name.toLowerCase() === 'cookie' && input.cookie) {
           return `__Secure-better-auth.session_token=${input.cookie}`
         }
@@ -170,10 +183,22 @@ function createContext(input: { authSession: AuthResult; cookie?: string; path: 
       },
     },
     response: {
+      header(key: string, value: string) {
+        headers[key] = value
+      },
+      json(payload: unknown) {
+        jsonResponses.push(payload)
+      },
       redirect(path: string) {
         redirects.push(path)
         return path
       },
+      status(code: number) {
+        responseStatus = code
+      },
+    },
+    responseStatus() {
+      return responseStatus
     },
     warnings,
     workspaceShare: undefined,
@@ -227,6 +252,41 @@ test.group('WorkspaceShareMiddleware', () => {
     assert.isTrue(nextCalled)
     assert.deepEqual(ctx.redirects, [])
     assert.isUndefined(ctx.workspaceShare)
+  })
+
+  test('returns a problem+json response when no active organization is available for JSON clients', async ({
+    assert,
+  }) => {
+    app.container.bindValue('drizzle', {} as unknown as AppDrizzleDb)
+
+    const auth = {
+      getSession: async () => createAuthSession(null),
+    } satisfies Pick<AuthenticationPort, 'getSession'>
+
+    const middleware = new WorkspaceShareMiddleware(auth as unknown as AuthenticationPort)
+    const ctx = createContext({
+      accept: 'application/json',
+      authSession: createAuthSession(null),
+      path: '/dashboard',
+    })
+    let nextCalled = false
+
+    await middleware.handle(ctx as never, async () => {
+      nextCalled = true
+    })
+
+    assert.isFalse(nextCalled)
+    assert.equal(ctx.responseStatus(), 401)
+    assert.equal(ctx.headers['Content-Type'], 'application/problem+json')
+    assert.deepEqual(ctx.jsonResponses[0], {
+      code: 'auth.active_workspace_required',
+      detail: 'An active workspace is required for this request.',
+      instance: undefined,
+      status: 401,
+      title: 'Unauthorized',
+      type: 'urn:accounting-app:error:active-workspace-required',
+    })
+    assert.deepEqual(ctx.redirects, [])
   })
 
   test('clears a stale active organization before continuing on Better Auth routes', async ({
