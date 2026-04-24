@@ -92,6 +92,27 @@ test.group('Auth API proxy routes', () => {
     })
   })
 
+  test('falls back to generic mapping when better-auth error payload is not JSON', async ({
+    assert,
+    client,
+  }) => {
+    bindBetterAuth(async () => {
+      return new Response('upstream unavailable', { status: 502 })
+    })
+
+    const response = await client.get('/api/auth/plain-error')
+
+    response.assertStatus(500)
+    assert.match(response.header('content-type') ?? '', /application\/problem\+json/)
+    assert.deepEqual(response.body(), {
+      code: 'auth.provider_failure',
+      detail: 'An unexpected error occurred. Please try again.',
+      status: 500,
+      title: 'Internal Server Error',
+      type: 'urn:accounting-app:better-auth:unknown',
+    })
+  })
+
   test('returns an authentication HttpProblem when the handler throws', async ({
     assert,
     client,

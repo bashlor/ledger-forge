@@ -3,6 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { HttpProblem } from '#core/common/resources/http_problem'
 import { seedProvisionedWorkspaceDemoData } from '#core/user_management/application/demo_workspace_bootstrap'
 import {
   clearActiveOrganizationForSession,
@@ -125,7 +126,22 @@ export default class WorkspaceShareMiddleware {
     }
 
     if (!ctx.authSession.session.activeOrganizationId) {
-      if (app.nodeEnvironment === 'test' || this.isBetterAuthPath(pathname)) {
+      if (this.isBetterAuthPath(pathname)) {
+        ctx.workspaceShare = undefined
+        return next()
+      }
+      if (this.wantsJson(ctx)) {
+        new HttpProblem(
+          401,
+          'Unauthorized',
+          'An active workspace is required for this request.',
+          'urn:accounting-app:error:active-workspace-required',
+          undefined,
+          { code: 'auth.active_workspace_required' }
+        ).toResponse(ctx.response)
+        return
+      }
+      if (app.nodeEnvironment === 'test') {
         ctx.workspaceShare = undefined
         return next()
       }
@@ -304,5 +320,10 @@ export default class WorkspaceShareMiddleware {
       ...ctx.authSession,
       session: { ...ctx.authSession.session, activeOrganizationId: organizationId },
     }
+  }
+
+  private wantsJson(ctx: HttpContext): boolean {
+    const accept = ctx.request.header('accept') ?? ''
+    return accept.includes('application/json') || accept.includes('application/problem+json')
   }
 }
