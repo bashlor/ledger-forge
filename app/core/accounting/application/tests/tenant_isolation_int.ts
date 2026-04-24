@@ -1,6 +1,7 @@
 import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { listAuditEventsForEntity } from '#core/accounting/application/audit/audit_queries'
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { DashboardService } from '#core/accounting/application/dashboard/index'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
@@ -355,5 +356,40 @@ test.group('Cross-tenant isolation', (group) => {
     // Both tenants should start at INV-2099-001
     assert.equal(draftA.invoiceNumber, 'INV-2099-001')
     assert.equal(draftB.invoiceNumber, 'INV-2099-001')
+  })
+
+  // -------------------------------------------------------------------------
+  // Audit trail isolation
+  // -------------------------------------------------------------------------
+
+  test('tenant B cannot query audit events from another tenant', async ({ assert }) => {
+    const customerIdB = 'audit-iso-cust-b'
+    await db.insert(customers).values({
+      address: 'B street',
+      company: 'Co B',
+      email: 'b@b.com',
+      id: customerIdB,
+      name: 'B',
+      organizationId: TENANT_B_ID,
+      phone: '+33 1 00 00 00 02',
+    })
+
+    const serviceB = new InvoiceService(db)
+    const invoiceB = await serviceB.createDraft(
+      {
+        customerId: customerIdB,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'B work', quantity: 1, unitPrice: 50, vatRate: 20 }],
+      },
+      { ...accessA, tenantId: TENANT_B_ID }
+    )
+
+    const crossLeak = await listAuditEventsForEntity(db, {
+      entityId: invoiceB.id,
+      entityType: 'invoice',
+      tenantId: TENANT_A_ID,
+    })
+    assert.lengthOf(crossLeak, 0)
   })
 })

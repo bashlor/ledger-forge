@@ -574,8 +574,7 @@ test.group('Workspace provisioning (integration)', (group) => {
     assert.equal(auditCounts.member, 1)
     assert.equal(
       Number(customerAuditCount?.value ?? 0),
-      1 +
-        DEMO_CUSTOMER_COUNT +
+      DEMO_CUSTOMER_COUNT +
         (DEMO_EXPENSE_COUNT + DEMO_CONFIRMED_EXPENSE_COUNT) +
         (DEMO_INVOICE_COUNT + DEMO_ISSUED_INVOICE_COUNT + DEMO_PAID_INVOICE_COUNT * 2) +
         1
