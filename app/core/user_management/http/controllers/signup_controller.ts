@@ -57,7 +57,11 @@ export default class SignupController {
           }
         } catch (error) {
           // Best-effort side-effect: account creation should still succeed.
-          ctx.logger.warn({ err: error }, 'workspace_provision_on_signup_failed')
+          authLog.failure('workspace_provision_on_signup_failure', error, {
+            entityId: authentication.user.id,
+            entityType: 'user',
+            metadata: { phase: 'workspace_provision' },
+          })
         }
 
         writeSessionToken(ctx, {
