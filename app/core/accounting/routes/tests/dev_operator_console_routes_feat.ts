@@ -281,6 +281,10 @@ test.group('Dev operator console routes', (group) => {
   group.teardown(async () => cleanup())
 
   test('GET /_dev/inspector is forbidden when dev tools are disabled', async ({ client }) => {
+    app.container.swap(DevToolsEnvironmentService, async () => {
+      return new DevToolsEnvironmentService(false)
+    })
+
     const response = await inertiaHeaders(client.get('/_dev/inspector'))
       .header('cookie', authCookie())
       .redirects(0)
