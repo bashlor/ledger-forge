@@ -482,7 +482,13 @@ test.group('WorkspaceShareMiddleware', () => {
     assert.deepEqual(synchronized, ['session-token'])
     assert.deepEqual(ctx.redirects, [])
     assert.lengthOf(ctx.warnings, 1)
-    assert.equal(ctx.warnings[0]!.message, 'single_workspace_demo_seed_failed')
+    assert.deepInclude(ctx.warnings[0]!.bindings, {
+      entityId: 'org-single',
+      entityType: 'workspace',
+      event: 'single_workspace_demo_seed_failure',
+      level: 'warn',
+      outcome: 'failure',
+    })
   })
 
   test('personal workspace mode keeps the provisioned active organization when demo seeding fails', async ({
@@ -536,7 +542,13 @@ test.group('WorkspaceShareMiddleware', () => {
     assert.equal(ctx.authSession.session.activeOrganizationId, 'org-personal')
     assert.deepEqual(ctx.redirects, [])
     assert.lengthOf(ctx.warnings, 1)
-    assert.equal(ctx.warnings[0]!.message, 'personal_workspace_demo_seed_failed')
+    assert.deepInclude(ctx.warnings[0]!.bindings, {
+      entityId: 'org-personal',
+      entityType: 'workspace',
+      event: 'personal_workspace_demo_seed_failure',
+      level: 'warn',
+      outcome: 'failure',
+    })
   })
 
   test('single-tenant mode logs a visible configuration error and clears the active organization', async ({
@@ -576,6 +588,12 @@ test.group('WorkspaceShareMiddleware', () => {
     assert.isNull(ctx.authSession.session.activeOrganizationId)
     assert.deepEqual(ctx.redirects, [])
     assert.lengthOf(ctx.errors, 1)
-    assert.equal(ctx.errors[0]!.message, 'single_tenant_configuration_invalid')
+    assert.deepInclude(ctx.errors[0]!.bindings, {
+      entityId: 'unknown',
+      entityType: 'workspace',
+      event: 'single_tenant_configuration_invalid',
+      level: 'error',
+      outcome: 'failure',
+    })
   })
 })
