@@ -7,7 +7,10 @@ import {
 } from '#core/common/logging/structured_log'
 import appLogger from '@adonisjs/core/services/logger'
 
-export interface UserManagementActivityEvent extends MinimalStructuredLogEvent {
+export interface UserManagementActivityEvent extends Omit<
+  MinimalStructuredLogEvent,
+  'context' | 'level'
+> {
   context: 'UserManagement'
   level?: StructuredLogLevel
   metadata?: Record<string, unknown>
