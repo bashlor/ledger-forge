@@ -6,7 +6,6 @@ import type { AuditEventInput } from '#core/accounting/application/audit/types'
 import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import { listAuditEventsForEntity } from '#core/accounting/application/audit/audit_queries'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import {
@@ -17,7 +16,6 @@ import {
   invoices,
   journalEntries,
 } from '#core/accounting/drizzle/schema'
-import { organization } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
@@ -127,5 +125,3 @@ test.group('Audit trail | critical rollback and atomicity', (group) => {
     assert.equal(entries.length, 1)
   })
 })
-
-
