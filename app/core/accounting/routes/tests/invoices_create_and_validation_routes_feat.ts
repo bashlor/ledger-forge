@@ -1,6 +1,5 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { invoiceLines, invoices } from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
@@ -8,17 +7,12 @@ import { eq } from 'drizzle-orm'
 
 import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcontainers_db.js'
 import {
-  addDaysDateOnlyUtc,
   authCookie,
   bindInvoiceAuth,
-  createDraftViaHttp,
-  dateOffsetFromTodayUtc,
-  dateOnlyUtcFromDate,
   resetInvoiceAuthContext,
   resetInvoiceFixtures,
   seedInvoiceActor,
   seedTestOrganization,
-  TEST_ACCOUNTING_ACCESS_CONTEXT,
   TEST_CUSTOMER_ID,
 } from './invoices_test_support.js'
 
@@ -43,10 +37,7 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
 
   group.teardown(async () => cleanup())
 
-  test('contract:POST /invoices happy path returns redirect', async ({
-    assert,
-    client,
-  }) => {
+  test('contract:POST /invoices happy path returns redirect', async ({ assert, client }) => {
     const response = await client
       .post('/invoices')
       .header('cookie', authCookie())
@@ -74,5 +65,4 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
     assert.equal(lines[0].lineTotalVatCents, 20_000)
     assert.equal(lines[0].lineTotalInclTaxCents, 120_000)
   })
-
 })

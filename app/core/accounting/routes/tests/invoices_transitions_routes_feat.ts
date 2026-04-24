@@ -1,7 +1,6 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import { CustomerService } from '#core/accounting/application/customers/index'
-import { customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
+import { invoices } from '#core/accounting/drizzle/schema'
 import { member } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
@@ -60,10 +59,7 @@ test.group(
       assert.equal(rows.length, 0)
     })
 
-    test('contract:POST /invoices/:id/mark-paid happy path', async ({
-      assert,
-      client,
-    }) => {
+    test('contract:POST /invoices/:id/mark-paid happy path', async ({ assert, client }) => {
       const draft = await createDraftViaHttp(db, client)
 
       await client
@@ -215,6 +211,5 @@ test.group(
       const [issued] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
       assert.equal(issued.status, 'issued')
     })
-
   }
 )
