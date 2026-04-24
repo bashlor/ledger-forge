@@ -108,4 +108,42 @@ test.group('Structured user management activity sink', () => {
       userId: 'user-ctx',
     })
   })
+
+  test('derives level from outcome when level is omitted', ({ assert }) => {
+    const calls: { bindings: Record<string, unknown>; message: string }[] = []
+    const sink = new StructuredUserManagementActivitySink({
+      info(bindings, message) {
+        calls.push({ bindings, message })
+      },
+      warn(bindings, message) {
+        calls.push({ bindings, message })
+      },
+    })
+
+    sink.record({
+      context: 'UserManagement',
+      entityId: 'user-1',
+      entityType: 'user',
+      event: 'sign_in_success',
+      outcome: 'success',
+      requestId: 'req-success',
+      timestamp: '2026-01-01T00:00:00.000Z',
+      userId: 'user-1',
+    })
+
+    sink.record({
+      context: 'UserManagement',
+      entityId: 'authentication',
+      entityType: 'auth',
+      event: 'sign_in_failure',
+      outcome: 'failure',
+      requestId: 'req-failure',
+      timestamp: '2026-01-01T00:00:00.000Z',
+      userId: 'user-1',
+    })
+
+    assert.lengthOf(calls, 2)
+    assert.equal(calls[0]!.bindings.level, 'info')
+    assert.equal(calls[1]!.bindings.level, 'warn')
+  })
 })
