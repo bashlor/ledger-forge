@@ -6,6 +6,10 @@ import { member } from '#core/user_management/drizzle/schema'
 import { eq } from 'drizzle-orm'
 
 import {
+  dateOnlyUtcFromDate as sharedDateOnlyUtcFromDate,
+  withInertiaHeaders,
+} from '../../../../../tests/helpers/routes_test_support.js'
+import {
   seedTestMember,
   seedTestOrganization,
   seedTestUser,
@@ -102,10 +106,7 @@ export function dateOffsetFromTodayUtc(days: number): string {
 }
 
 export function dateOnlyUtcFromDate(date: Date): string {
-  const year = date.getUTCFullYear()
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(date.getUTCDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return sharedDateOnlyUtcFromDate(date)
 }
 
 export function inertiaGet(client: any, url: string) {
@@ -117,9 +118,7 @@ export function inertiaGet(client: any, url: string) {
 }
 
 export function inertiaHeaders(request: any) {
-  request.header('x-inertia', 'true')
-  request.header('x-inertia-version', '1')
-  return request
+  return withInertiaHeaders(request)
 }
 
 export function inertiaProps(response: any) {
