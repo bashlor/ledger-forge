@@ -2,6 +2,7 @@ import type { AccountingAccessContext } from '#core/accounting/application/suppo
 import type { AccountingBusinessCalendar } from '#core/accounting/application/support/business_calendar'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { listAuditEventsForEntity } from '#core/accounting/application/audit/audit_queries'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import {
   auditEvents,
@@ -12,7 +13,9 @@ import {
 } from '#core/accounting/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
+import { eq } from 'drizzle-orm'
 
+import { runSimultaneously } from '../../../../../tests/helpers/concurrency_barrier.js'
 import {
   seedTestOrganization,
   setupTestDatabaseForGroup,
@@ -199,5 +202,181 @@ test.group('Invoice service integration', (group) => {
     assert.equal(summary.draftCount, 2)
     assert.equal(summary.issuedCount, 0)
     assert.equal(summary.overdueCount, 0)
+  })
+
+  test('txn:issueInvoice has a single winner under concurrent execution', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    const draft = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'Concurrent issue', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const results = await runSimultaneously([
+      (waitAtBarrier) =>
+        service.issueInvoice(
+          draft.id,
+          { issuedCompanyAddress: '1 rue Test', issuedCompanyName: 'Test Inc.' },
+          TEST_ACCOUNTING_ACCESS_CONTEXT,
+          { afterRead: waitAtBarrier }
+        ),
+      (waitAtBarrier) =>
+        service.issueInvoice(
+          draft.id,
+          { issuedCompanyAddress: '1 rue Test', issuedCompanyName: 'Test Inc.' },
+          TEST_ACCOUNTING_ACCESS_CONTEXT,
+          { afterRead: waitAtBarrier }
+        ),
+    ])
+
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1)
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(row.status, 'issued')
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.invoiceId, draft.id))
+    assert.equal(entries.length, 1)
+  })
+
+  test('txn:markInvoicePaid has a single winner under concurrent execution', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    const draft = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'Concurrent paid', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.issueInvoice(
+      draft.id,
+      { issuedCompanyAddress: '1 rue Test', issuedCompanyName: 'Test Inc.' },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const results = await runSimultaneously([
+      (waitAtBarrier) =>
+        service.markInvoicePaid(draft.id, TEST_ACCOUNTING_ACCESS_CONTEXT, {
+          afterRead: waitAtBarrier,
+        }),
+      (waitAtBarrier) =>
+        service.markInvoicePaid(draft.id, TEST_ACCOUNTING_ACCESS_CONTEXT, {
+          afterRead: waitAtBarrier,
+        }),
+    ])
+
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1)
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(row.status, 'paid')
+  })
+
+  test('txn:updateDraft concurrent updates converge to one consistent state', async ({
+    assert,
+  }) => {
+    const service = new InvoiceService(db)
+    const draft = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'Initial line', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const results = await runSimultaneously([
+      (waitAtBarrier) =>
+        service.updateDraft(
+          draft.id,
+          {
+            customerId: TEST_CUSTOMER_ID,
+            dueDate: '2099-05-12',
+            issueDate: '2099-04-03',
+            lines: [
+              { description: 'Concurrent update A', quantity: 1, unitPrice: 200, vatRate: 20 },
+            ],
+          },
+          TEST_ACCOUNTING_ACCESS_CONTEXT,
+          { afterRead: waitAtBarrier }
+        ),
+      (waitAtBarrier) =>
+        service.updateDraft(
+          draft.id,
+          {
+            customerId: TEST_CUSTOMER_ID,
+            dueDate: '2099-05-20',
+            issueDate: '2099-04-05',
+            lines: [
+              { description: 'Concurrent update B', quantity: 3, unitPrice: 150, vatRate: 10 },
+            ],
+          },
+          TEST_ACCOUNTING_ACCESS_CONTEXT,
+          { afterRead: waitAtBarrier }
+        ),
+    ])
+
+    assert.isTrue(
+      results.some((result) => result.status === 'fulfilled'),
+      'at least one concurrent update should commit'
+    )
+
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
+    assert.equal(row.status, 'draft')
+    assert.include(['2099-05-12', '2099-05-20'], row.dueDate)
+
+    const lines = await db
+      .select()
+      .from(invoiceLines)
+      .where(eq(invoiceLines.invoiceId, draft.id))
+      .orderBy(invoiceLines.lineNumber)
+    assert.equal(lines.length, 1)
+    assert.include(['Concurrent update A', 'Concurrent update B'], lines[0].description)
+  })
+
+  test('audit:create/update/issue/mark_paid events are emitted on happy path', async ({
+    assert,
+  }) => {
+    const service = new InvoiceService(db)
+    const created = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'Audit invoice', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.updateDraft(
+      created.id,
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-03',
+        issueDate: '2099-04-02',
+        lines: [{ description: 'Audit invoice updated', quantity: 2, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.issueInvoice(
+      created.id,
+      { issuedCompanyAddress: '1 rue Test', issuedCompanyName: 'Test Inc.' },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.markInvoicePaid(created.id, TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    const events = await listAuditEventsForEntity(db, {
+      entityId: created.id,
+      entityType: 'invoice',
+      tenantId: TEST_TENANT_ID,
+    })
+    assert.deepEqual(
+      events.map((event) => event.action),
+      ['mark_paid', 'issue', 'update_draft', 'create_draft']
+    )
   })
 })
