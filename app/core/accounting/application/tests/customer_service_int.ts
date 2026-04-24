@@ -1,6 +1,7 @@
 import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { listAuditEventsForEntity } from '#core/accounting/application/audit/audit_queries'
 import { CustomerService } from '#core/accounting/application/customers/index'
 import { auditEvents, customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { organization } from '#core/user_management/drizzle/schema'
@@ -279,5 +280,44 @@ test.group('Customer service integration', (group) => {
 
     const [remaining] = await db.select().from(customers).where(eq(customers.id, tenantACustomerId))
     assert.isUndefined(remaining)
+  })
+
+  test('audit:create/update/delete customer events are emitted on happy path', async ({
+    assert,
+  }) => {
+    const created = await service.createCustomer(
+      {
+        address: '1 rue Customer',
+        company: 'Customer Audit Co',
+        email: 'customer-audit@test.com',
+        name: 'Customer Tester',
+        note: 'Initial note',
+        phone: '+33 1 00 00 00 03',
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.updateCustomer(
+      created.id,
+      {
+        address: '1 rue Customer',
+        company: 'Customer Audit Co 2',
+        email: 'customer-audit@test.com',
+        name: 'Customer Tester',
+        note: 'Updated note',
+        phone: '+33 1 00 00 00 03',
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.deleteCustomer(created.id, TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    const events = await listAuditEventsForEntity(db, {
+      entityId: created.id,
+      entityType: 'customer',
+      tenantId: TEST_TENANT_ID,
+    })
+    assert.deepEqual(
+      events.map((event) => event.action),
+      ['delete', 'update', 'create']
+    )
   })
 })
