@@ -1,9 +1,18 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import {
+  type CriticalAuditTrail,
+  DatabaseCriticalAuditTrail,
+} from '#core/accounting/application/audit/critical_audit_trail'
 import * as schema from '#core/common/drizzle/index'
 import { and, eq, sql } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 import { v7 as uuidv7 } from 'uuid'
+
+import {
+  recordUserManagementActivityEvent,
+  type UserManagementActivitySink,
+} from '../support/activity_log.js'
 
 export type WorkspaceKind = 'anonymous' | 'personal'
 
@@ -51,8 +60,14 @@ export async function ensureSingleTenantMembership(
     isAnonymous: boolean
     orgId: string
     userId: string
-  }
+  },
+  options: {
+    activitySink?: UserManagementActivitySink
+    auditTrail?: CriticalAuditTrail
+  } = {}
 ): Promise<WorkspaceProvisioningResult> {
+  const activitySink = options.activitySink
+  const auditTrail = options.auditTrail ?? new DatabaseCriticalAuditTrail()
   const desiredWorkspace = buildWorkspaceLabel({
     displayName: input.displayName,
     email: input.email,
@@ -106,6 +121,7 @@ export async function ensureSingleTenantMembership(
       .limit(1)
 
     if (!existing) {
+      const memberId = uuidv7()
       const [organizationMemberCount] = await tx
         .select({ value: sql<number>`count(*)` })
         .from(schema.member)
@@ -117,18 +133,71 @@ export async function ensureSingleTenantMembership(
         .insert(schema.member)
         .values({
           createdAt: new Date(),
-          id: uuidv7(),
+          id: memberId,
           organizationId: input.orgId,
           role: isFirstOrganizationMember ? 'owner' : 'member',
           userId: input.userId,
         })
         .onConflictDoNothing()
+      await auditTrail.record(tx, {
+        action: 'member_workspace_provisioned',
+        actorId: input.userId,
+        changes: {
+          after: { isActive: true, role: isFirstOrganizationMember ? 'owner' : 'member' },
+          before: { isActive: null, role: null },
+        },
+        entityId: memberId,
+        entityType: 'member',
+        metadata: { source: 'workspace_provisioning', workspaceMode: 'single_tenant' },
+        tenantId: input.orgId,
+      })
+      recordUserManagementActivityEvent(
+        {
+          entityId: memberId,
+          entityType: 'member',
+          event: 'single_tenant_membership_provision_success',
+          level: 'info',
+          metadata: {
+            role: isFirstOrganizationMember ? 'owner' : 'member',
+            workspaceMode: 'single_tenant',
+          },
+          outcome: 'success',
+          tenantId: input.orgId,
+          userId: input.userId,
+        },
+        activitySink
+      )
       wasProvisioned = true
     } else if (existing.isActive === false) {
       await tx
         .update(schema.member)
         .set({ isActive: true })
         .where(eq(schema.member.id, existing.id))
+      await auditTrail.record(tx, {
+        action: 'member_workspace_membership_reactivated',
+        actorId: input.userId,
+        changes: {
+          after: { isActive: true },
+          before: { isActive: false },
+        },
+        entityId: existing.id,
+        entityType: 'member',
+        metadata: { source: 'workspace_provisioning', workspaceMode: 'single_tenant' },
+        tenantId: input.orgId,
+      })
+      recordUserManagementActivityEvent(
+        {
+          entityId: existing.id,
+          entityType: 'member',
+          event: 'single_tenant_membership_reactivated_success',
+          level: 'info',
+          metadata: { workspaceMode: 'single_tenant' },
+          outcome: 'success',
+          tenantId: input.orgId,
+          userId: input.userId,
+        },
+        activitySink
+      )
       wasProvisioned = true
     }
 
@@ -169,8 +238,14 @@ export async function provisionPersonalWorkspace(
     isAnonymous: boolean
     sessionToken: string
     userId: string
-  }
+  },
+  options: {
+    activitySink?: UserManagementActivitySink
+    auditTrail?: CriticalAuditTrail
+  } = {}
 ): Promise<WorkspaceProvisioningResult> {
+  const activitySink = options.activitySink
+  const auditTrail = options.auditTrail ?? new DatabaseCriticalAuditTrail()
   const { metadata, name } = buildWorkspaceLabel({
     displayName: input.displayName,
     email: input.email,
@@ -230,11 +305,49 @@ export async function provisionPersonalWorkspace(
       role: 'owner',
       userId: input.userId,
     })
+    await auditTrail.record(tx, {
+      action: 'member_workspace_provisioned',
+      actorId: input.userId,
+      changes: {
+        after: { isActive: true, role: 'owner' },
+        before: { isActive: null, role: null },
+      },
+      entityId: memberId,
+      entityType: 'member',
+      metadata: { source: 'workspace_provisioning', workspaceMode: 'personal' },
+      tenantId: organizationId,
+    })
+    recordUserManagementActivityEvent(
+      {
+        entityId: memberId,
+        entityType: 'member',
+        event: 'personal_workspace_owner_membership_provision_success',
+        level: 'info',
+        metadata: { workspaceMode: 'personal' },
+        outcome: 'success',
+        tenantId: organizationId,
+        userId: input.userId,
+      },
+      activitySink
+    )
 
     await tx
       .update(schema.session)
       .set({ activeOrganizationId: organizationId })
       .where(eq(schema.session.token, input.sessionToken))
+    recordUserManagementActivityEvent(
+      {
+        entityId: organizationId,
+        entityType: 'workspace',
+        event: 'session_active_organization_set_success',
+        level: 'info',
+        metadata: { source: 'workspace_provisioning' },
+        outcome: 'success',
+        tenantId: organizationId,
+        userId: input.userId,
+      },
+      activitySink
+    )
 
     return { organizationId, wasProvisioned: true }
   })
@@ -243,12 +356,29 @@ export async function provisionPersonalWorkspace(
 export async function setActiveOrganizationForSession(
   db: PostgresJsDatabase<typeof schema>,
   sessionToken: string,
-  organizationId: string
+  organizationId: string,
+  options: {
+    activitySink?: UserManagementActivitySink
+    userId?: null | string
+  } = {}
 ): Promise<void> {
   await db
     .update(schema.session)
     .set({ activeOrganizationId: organizationId })
     .where(eq(schema.session.token, sessionToken))
+  recordUserManagementActivityEvent(
+    {
+      entityId: organizationId,
+      entityType: 'workspace',
+      event: 'session_active_organization_set_success',
+      level: 'info',
+      metadata: { source: 'workspace_session' },
+      outcome: 'success',
+      tenantId: organizationId,
+      userId: options.userId ?? null,
+    },
+    options.activitySink
+  )
 }
 
 function buildSingleTenantOrganizationPatch(

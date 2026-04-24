@@ -1,7 +1,10 @@
 import { runWithRequestStructuredLogContext } from '#core/common/logging/request_log_context'
 import { test } from '@japa/runner'
 
-import { StructuredUserManagementActivitySink } from './activity_log.js'
+import {
+  recordUserManagementActivityEvent,
+  StructuredUserManagementActivitySink,
+} from './activity_log.js'
 
 test.group('Structured user management activity sink', () => {
   test('logs a complete structured user management event', ({ assert }) => {
@@ -145,5 +148,47 @@ test.group('Structured user management activity sink', () => {
     assert.lengthOf(calls, 2)
     assert.equal(calls[0]!.bindings.level, 'info')
     assert.equal(calls[1]!.bindings.level, 'warn')
+  })
+
+  test('records app events with request-scoped defaults', ({ assert }) => {
+    const calls: { bindings: Record<string, unknown>; message: string }[] = []
+    const sink = new StructuredUserManagementActivitySink({
+      info(bindings, message) {
+        calls.push({ bindings, message })
+      },
+    })
+
+    runWithRequestStructuredLogContext(
+      {
+        context: 'UserManagement',
+        requestId: 'req-system',
+        tenantId: 'tenant-system',
+        userId: 'user-system',
+      },
+      () =>
+        recordUserManagementActivityEvent(
+          {
+            entityId: 'member-1',
+            entityType: 'member',
+            event: 'workspace_membership_provision_success',
+            outcome: 'success',
+          },
+          sink
+        )
+    )
+
+    assert.lengthOf(calls, 1)
+    assert.deepInclude(calls[0]!.bindings, {
+      context: 'UserManagement',
+      entityId: 'member-1',
+      entityType: 'member',
+      event: 'workspace_membership_provision_success',
+      level: 'info',
+      outcome: 'success',
+      requestId: 'req-system',
+      tenantId: 'tenant-system',
+      userId: 'user-system',
+    })
+    assert.property(calls[0]!.bindings, 'timestamp')
   })
 })
