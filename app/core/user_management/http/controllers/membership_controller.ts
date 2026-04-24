@@ -1,6 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
-import { flashAction } from '#core/accounting/http/helpers/flash_action'
+import { flashAction } from '#core/common/http/helpers/flash_action'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
