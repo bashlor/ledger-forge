@@ -123,6 +123,16 @@ test.group('Workspace provisioning (integration)', (group) => {
     })
     assert.isNotNull(member)
     assert.equal(member!.role, 'owner')
+
+    const auditRows = await context.db.query.auditEvents.findMany({
+      where: (event, { and: a, eq: e }) =>
+        a(
+          e(event.action, 'member_workspace_provisioned'),
+          e(event.entityId, member!.id),
+          e(event.organizationId, orgId!)
+        ),
+    })
+    assert.lengthOf(auditRows, 1)
   })
 
   test('provisionPersonalWorkspace creates anonymous workspace after anonymous sign-in', async ({
@@ -288,6 +298,16 @@ test.group('Workspace provisioning (integration)', (group) => {
     assert.lengthOf(memberships, 1)
     assert.equal(memberships[0]!.role, 'owner')
     assert.equal(memberships[0]!.userId, signedUp.user.id)
+
+    const auditRows = await context.db.query.auditEvents.findMany({
+      where: (event, { and: a, eq: e }) =>
+        a(
+          e(event.action, 'member_workspace_provisioned'),
+          e(event.entityId, memberships[0]!.id),
+          e(event.organizationId, 'org-single-test')
+        ),
+    })
+    assert.lengthOf(auditRows, 1)
   })
 
   test('ensureSingleTenantMembership reuses the single-tenant org and keeps later users as members', async ({

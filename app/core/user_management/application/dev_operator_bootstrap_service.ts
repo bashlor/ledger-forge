@@ -3,6 +3,10 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import * as schema from '#core/common/drizzle/index'
 import { provisionPersonalWorkspace } from '#core/user_management/application/workspace_provisioning'
+import {
+  recordUserManagementActivityEvent,
+  type UserManagementActivitySink,
+} from '#core/user_management/support/activity_log'
 import { readDevOperatorBootstrapDefaults } from '#core/user_management/support/dev_operator'
 import { and, eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
@@ -14,7 +18,10 @@ export interface DevOperatorBootstrapInput {
 }
 
 export class DevOperatorBootstrapService {
-  constructor(private readonly db: PostgresJsDatabase<typeof schema>) {}
+  constructor(
+    private readonly db: PostgresJsDatabase<typeof schema>,
+    private readonly dependencies: { activitySink?: UserManagementActivitySink } = {}
+  ) {}
 
   async bootstrap(input: DevOperatorBootstrapInput, auth: AuthenticationPort): Promise<AuthResult> {
     const email = input.email.trim().toLowerCase()
@@ -36,14 +43,30 @@ export class DevOperatorBootstrapService {
       .insert(schema.devOperatorAccess)
       .values({ userId: persisted.user.id })
       .onConflictDoNothing()
+    recordUserManagementActivityEvent(
+      {
+        entityId: persisted.user.id,
+        entityType: 'user',
+        event: 'dev_operator_access_grant_success',
+        level: 'warn',
+        metadata: { source: 'dev_operator_bootstrap' },
+        outcome: 'success',
+        userId: persisted.user.id,
+      },
+      this.dependencies.activitySink
+    )
 
-    await provisionPersonalWorkspace(this.db, {
-      displayName: fullName ?? persisted.user.name ?? undefined,
-      email,
-      isAnonymous: false,
-      sessionToken: persisted.session.token,
-      userId: persisted.user.id,
-    })
+    await provisionPersonalWorkspace(
+      this.db,
+      {
+        displayName: fullName ?? persisted.user.name ?? undefined,
+        email,
+        isAnonymous: false,
+        sessionToken: persisted.session.token,
+        userId: persisted.user.id,
+      },
+      { activitySink: this.dependencies.activitySink }
+    )
 
     return (await auth.getSession(persisted.session.token)) ?? persisted
   }

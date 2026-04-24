@@ -17,6 +17,15 @@ export interface UserManagementActivityEvent extends Omit<
   outcome: 'failure' | 'success'
 }
 
+export type UserManagementActivityEventInput = Omit<
+  UserManagementActivityEvent,
+  'context' | 'requestId' | 'timestamp' | 'userId'
+> & {
+  requestId?: string
+  timestamp?: string
+  userId?: null | string
+}
+
 export interface UserManagementActivitySink {
   record(event: UserManagementActivityEvent): Promise<void> | void
 }
@@ -53,4 +62,20 @@ export class StructuredUserManagementActivitySink implements UserManagementActiv
     const loggerMethod = this.logger[level] ?? this.logger.info
     loggerMethod.call(this.logger, bindings, `UserManagement ${event.event} ${event.outcome}`)
   }
+}
+
+export function recordUserManagementActivityEvent(
+  event: UserManagementActivityEventInput,
+  sink: UserManagementActivitySink = new StructuredUserManagementActivitySink()
+): void {
+  const defaults = getDefaultStructuredLogFields()
+
+  sink.record({
+    ...event,
+    context: 'UserManagement',
+    requestId: toRequestId(event.requestId ?? defaults.requestId),
+    tenantId: event.tenantId ?? defaults.tenantId ?? null,
+    timestamp: event.timestamp ?? toIsoTimestamp(),
+    userId: event.userId ?? defaults.userId ?? null,
+  })
 }
