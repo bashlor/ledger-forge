@@ -290,7 +290,7 @@ test.group('Workspace provisioning (integration)', (group) => {
     assert.equal(memberships[0]!.userId, signedUp.user.id)
   })
 
-  test('ensureSingleTenantMembership reuses the single-tenant org and upgrades later users to owners', async ({
+  test('ensureSingleTenantMembership reuses the single-tenant org and keeps later users as members', async ({
     assert,
   }) => {
     const firstRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
@@ -355,12 +355,12 @@ test.group('Workspace provisioning (integration)', (group) => {
 
     assert.lengthOf(memberships, 2)
     assert.equal(memberships[0]!.role, 'owner')
-    assert.equal(memberships[1]!.role, 'owner')
+    assert.equal(memberships[1]!.role, 'member')
     assert.equal(memberships[0]!.userId, first.user.id)
     assert.equal(memberships[1]!.userId, second.user.id)
   })
 
-  test('demo mode seeds a single-tenant workspace while keeping all joined users as owners', async ({
+  test('demo mode seeds a single-tenant workspace with first owner and later members', async ({
     assert,
   }) => {
     const firstRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
@@ -398,7 +398,7 @@ test.group('Workspace provisioning (integration)', (group) => {
 
     assert.lengthOf(memberships, 2)
     assert.equal(memberships[0]!.role, 'owner')
-    assert.equal(memberships[1]!.role, 'owner')
+    assert.equal(memberships[1]!.role, 'member')
 
     const seeded = await seedProvisionedWorkspaceDemoData(
       context.db,
@@ -421,7 +421,7 @@ test.group('Workspace provisioning (integration)', (group) => {
 
     assert.lengthOf(membershipsAfterSeed, 2)
     assert.equal(membershipsAfterSeed[0]!.role, 'owner')
-    assert.equal(membershipsAfterSeed[1]!.role, 'owner')
+    assert.equal(membershipsAfterSeed[1]!.role, 'member')
 
     const [customerCount] = await context.db
       .select({ value: count() })
@@ -471,7 +471,7 @@ test.group('Workspace provisioning (integration)', (group) => {
     })
     assert.lengthOf(memberships, 2)
     assert.equal(memberships[0]!.role, 'owner')
-    assert.equal(memberships[1]!.role, 'owner')
+    assert.equal(memberships[1]!.role, 'member')
   })
 
   test('demo workspace bootstrap seeds newly provisioned workspaces only once', async ({

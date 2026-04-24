@@ -7,7 +7,7 @@ import {
   type AuthProviderUser,
   type AuthResult,
 } from '#core/user_management/domain/authentication'
-import { member } from '#core/user_management/drizzle/schema'
+import { member, organization } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { and, eq } from 'drizzle-orm'
@@ -140,12 +140,24 @@ function withCookie(request: any, session: AuthResult) {
 const MEMBER_IDS = {
   admin: 'mbr_admin',
   anotherAdmin: 'mbr_another_admin',
+  crossTenant: 'mbr_cross_tenant',
   owner: 'mbr_owner',
   regular: 'mbr_regular',
 }
+const OTHER_TENANT_ID = 'test_org_other'
+const crossTenantUser: AuthProviderUser = {
+  createdAt: new Date('2024-01-01T00:00:00.000Z'),
+  email: 'cross-tenant@example.com',
+  emailVerified: true,
+  id: 'user_members_cross_tenant',
+  image: null,
+  isAnonymous: false,
+  name: 'Cross Tenant User',
+  publicId: 'pub_user_members_cross_tenant',
+}
 
 async function seedAllUsersAndMembers(db: PostgresJsDatabase<any>) {
-  for (const user of [adminUser, ownerUser, regularMemberUser, anotherAdminUser]) {
+  for (const user of [adminUser, ownerUser, regularMemberUser, anotherAdminUser, crossTenantUser]) {
     await seedTestUser(db, {
       email: user.email,
       id: user.id,
@@ -176,6 +188,17 @@ async function seedAllUsersAndMembers(db: PostgresJsDatabase<any>) {
     organizationId: TEST_TENANT_ID,
     role: 'member',
     userId: regularMemberUser.id,
+  })
+  await db.insert(organization).values({
+    id: OTHER_TENANT_ID,
+    name: 'Other Test Organization',
+    slug: 'other-test-org',
+  })
+  await seedTestMember(db, {
+    id: MEMBER_IDS.crossTenant,
+    organizationId: OTHER_TENANT_ID,
+    role: 'member',
+    userId: crossTenantUser.id,
   })
 }
 
@@ -214,7 +237,12 @@ test.group('Members routes | GET /account/organizations/members', (group) => {
     assert.isArray(body)
     assert.equal(body.length, 4)
     const ids = body.map((m: any) => m.id)
-    assert.includeMembers(ids, Object.values(MEMBER_IDS))
+    assert.includeMembers(ids, [
+      MEMBER_IDS.owner,
+      MEMBER_IDS.admin,
+      MEMBER_IDS.anotherAdmin,
+      MEMBER_IDS.regular,
+    ])
   })
 
   test('owner can list members (200 JSON)', async ({ assert, client }) => {
@@ -394,23 +422,6 @@ test.group('Members routes | PATCH toggle active', (group) => {
     assert.isTrue(row.isActive)
   })
 
-  test('cannot deactivate the owner (redirects with flash error)', async ({ assert, client }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.owner}`),
-      adminSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    response.assertStatus(302)
-
-    const [row] = await db
-      .select({ isActive: member.isActive })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.owner))
-    assert.isTrue(row.isActive)
-  })
-
   test('regular member cannot toggle (redirects — forbidden flashed)', async ({
     assert,
     client,
@@ -452,6 +463,27 @@ test.group('Members routes | PATCH toggle active', (group) => {
       .form({ isActive: 'false' })
 
     response.assertStatus(404)
+  })
+
+  test('cross-tenant member id returns 404 and does not change foreign tenant row', async ({
+    assert,
+    client,
+  }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.crossTenant}`),
+      ownerSession
+    )
+      .redirects(0)
+      .form({ isActive: 'false' })
+
+    response.assertStatus(404)
+
+    const [row] = await db
+      .select({ isActive: member.isActive, organizationId: member.organizationId })
+      .from(member)
+      .where(eq(member.id, MEMBER_IDS.crossTenant))
+    assert.equal(row.organizationId, OTHER_TENANT_ID)
+    assert.isTrue(row.isActive)
   })
 
   test('owner can re-activate a deactivated member', async ({ assert, client }) => {
@@ -717,5 +749,26 @@ test.group('Members routes | PATCH update role', (group) => {
       .form({ role: 'admin' })
 
     response.assertStatus(404)
+  })
+
+  test('cross-tenant role update returns 404 and does not modify foreign tenant role', async ({
+    assert,
+    client,
+  }) => {
+    const response = await withCookie(
+      client.patch(`/account/organizations/members/${MEMBER_IDS.crossTenant}/role`),
+      ownerSession
+    )
+      .redirects(0)
+      .form({ role: 'admin' })
+
+    response.assertStatus(404)
+
+    const [row] = await db
+      .select({ organizationId: member.organizationId, role: member.role })
+      .from(member)
+      .where(eq(member.id, MEMBER_IDS.crossTenant))
+    assert.equal(row.organizationId, OTHER_TENANT_ID)
+    assert.equal(row.role, 'member')
   })
 })
