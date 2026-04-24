@@ -25,7 +25,13 @@ export async function customerStateForDelete(
       invoiceCount: count(invoices.id),
     })
     .from(customers)
-    .leftJoin(invoices, eq(invoices.customerId, customers.id))
+    .leftJoin(
+      invoices,
+      and(
+        eq(invoices.customerId, customers.id),
+        eq(invoices.organizationId, customers.organizationId)
+      )
+    )
     .where(where)
     .groupBy(customers.id)
   return state
