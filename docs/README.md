@@ -5,6 +5,7 @@ This folder contains lightweight technical documentation for the accounting demo
 ## Contents
 
 - `architecture.md`: layering, module boundaries, request lifecycle, and rule ownership
+- `accounting_authorization_boundary.md`: authorization boundary and tenant contract for HTTP/non-HTTP accounting entry points
 - `roadmap.md`: short-, mid-, and long-term evolution priorities
 - `rbac-membership.md`: roles, abilities, authorization flow, and membership safeguards
 - `adr/`: Architecture Decision Records for key technical trade-offs

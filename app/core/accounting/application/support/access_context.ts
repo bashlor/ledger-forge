@@ -33,10 +33,15 @@ export function systemAccessContext(
   tenantId: string,
   requestId = 'system'
 ): AccountingAccessContext {
+  const normalizedTenantId = tenantId.trim()
+  if (!normalizedTenantId) {
+    throw new Error('Missing tenant id — system access contexts must explicitly target one tenant.')
+  }
+
   return {
     actorId: null,
     isAnonymous: false,
     requestId,
-    tenantId,
+    tenantId: normalizedTenantId,
   }
 }
