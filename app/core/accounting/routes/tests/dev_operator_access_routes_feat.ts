@@ -211,6 +211,11 @@ test.group('Dev operator access routes', (group) => {
       return new DevToolsEnvironmentService(true)
     })
 
+    await db.delete(schema.auditEvents)
+    await db.delete(schema.journalEntries)
+    await db.delete(schema.invoices)
+    await db.delete(schema.expenses)
+    await db.delete(schema.customers)
     await db.delete(schema.devOperatorAccess)
     await db.delete(schema.member)
     await db.delete(schema.session)

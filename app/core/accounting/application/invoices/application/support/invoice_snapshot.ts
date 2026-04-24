@@ -44,7 +44,10 @@ export async function loadInvoiceDto(
 
   assertInvoiceBelongsToTenant(getInvoiceTenantId(invoice), requestContext.tenantId)
 
-  const lines = await listInvoiceLinesForInvoice(db, input.invoiceId)
+  const lines = await listInvoiceLinesForInvoice(db, {
+    invoiceId: input.invoiceId,
+    tenantId: requestContext.tenantId,
+  })
 
   return toInvoiceDto(
     invoice,

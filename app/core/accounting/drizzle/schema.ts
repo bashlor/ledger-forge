@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm'
 import {
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -19,20 +20,24 @@ export const mainSchema = pgSchema('main')
 // Customers
 // ---------------------------------------------------------------------------
 
-export const customers = mainSchema.table('customers', {
-  address: text('address').notNull().default(''),
-  company: text('company').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  createdBy: text('created_by'),
-  email: text('email').notNull(),
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  note: text('note'),
-  organizationId: text('organization_id')
-    .notNull()
-    .references(() => organization.id, { onDelete: 'restrict' }),
-  phone: text('phone').notNull(),
-})
+export const customers = mainSchema.table(
+  'customers',
+  {
+    address: text('address').notNull().default(''),
+    company: text('company').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by'),
+    email: text('email').notNull(),
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    note: text('note'),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+    phone: text('phone').notNull(),
+  },
+  (table) => [unique('customers_org_id_unique').on(table.organizationId, table.id)]
+)
 
 // ---------------------------------------------------------------------------
 // Invoices
@@ -78,7 +83,13 @@ export const invoices = mainSchema.table(
   },
   (table) => [
     check('invoices_status_check', sql`${table.status} IN ('draft', 'issued', 'paid')`),
+    unique('invoices_org_id_unique').on(table.organizationId, table.id),
     unique('invoices_org_invoice_number_unique').on(table.organizationId, table.invoiceNumber),
+    foreignKey({
+      columns: [table.organizationId, table.customerId],
+      foreignColumns: [customers.organizationId, customers.id],
+      name: 'invoices_org_customer_fk',
+    }).onDelete('restrict'),
   ]
 )
 
@@ -127,6 +138,7 @@ export const expenses = mainSchema.table(
       .default('draft'),
   },
   (table) => [
+    unique('expenses_org_id_unique').on(table.organizationId, table.id),
     check('expenses_status_check', sql`${table.status} IN ('draft', 'confirmed')`),
     check('expenses_amount_positive', sql`${table.amountCents} > 0`),
     check(
@@ -164,6 +176,16 @@ export const journalEntries = mainSchema.table(
       'journal_entries_source_xor',
       sql`(${table.expenseId} IS NOT NULL)::int + (${table.invoiceId} IS NOT NULL)::int = 1`
     ),
+    foreignKey({
+      columns: [table.organizationId, table.invoiceId],
+      foreignColumns: [invoices.organizationId, invoices.id],
+      name: 'journal_entries_org_invoice_fk',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.organizationId, table.expenseId],
+      foreignColumns: [expenses.organizationId, expenses.id],
+      name: 'journal_entries_org_expense_fk',
+    }).onDelete('restrict'),
   ]
 )
 

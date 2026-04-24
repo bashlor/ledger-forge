@@ -25,6 +25,7 @@ export async function deleteCustomerIfUnlinked(
           select 1
           from ${invoices}
           where ${invoices.customerId} = ${customers.id}
+            and ${invoices.organizationId} = ${customers.organizationId}
         )`
       )
     )
