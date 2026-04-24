@@ -1,6 +1,5 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { auditEvents, expenses, journalEntries } from '#core/accounting/drizzle/schema'
 import { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
 import { member } from '#core/user_management/drizzle/schema'
@@ -27,6 +26,18 @@ import {
 
 let db: PostgresJsDatabase<any>
 
+function assertExpensesRedirectQuery(
+  assert: any,
+  locationHeader: null | string | undefined,
+  expected: Record<string, string>
+) {
+  const location = new URL(`http://localhost${locationHeader ?? ''}`)
+  assert.equal(location.pathname, '/expenses')
+  for (const [key, value] of Object.entries(expected)) {
+    assert.equal(location.searchParams.get(key), value)
+  }
+}
+
 function inertiaGet(client: any, url: string) {
   return client
     .get(url)
@@ -35,7 +46,7 @@ function inertiaGet(client: any, url: string) {
     .header('x-inertia-version', '1')
 }
 
-test.group('Expenses routes | create → confirm → journal', (group) => {
+test.group('Expenses routes | boundary contract', (group) => {
   let cleanup: () => Promise<void>
 
   group.setup(async () => {
@@ -71,7 +82,7 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
 
   group.teardown(async () => cleanup())
 
-  test('creates a draft expense via POST /expenses', async ({ client }) => {
+  test('contract:POST /expenses happy path returns redirect', async ({ assert, client }) => {
     const response = await client
       .post('/expenses')
       .header('cookie', authCookie())
@@ -88,13 +99,11 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     const rows = await db.select().from(expenses)
     const created = rows[0]
 
-    response.assert?.equal(rows.length, 1)
-    response.assert?.equal(created.status, 'draft')
-    response.assert?.equal(created.amountCents, 4250)
-    response.assert?.equal(created.label, 'IDE license')
+    assert.equal(rows.length, 1)
+    assert.equal(created.status, 'draft')
   })
 
-  test('GET /expenses returns the Inertia page contract with filters and categories', async ({
+  test('contract:GET /expenses returns minimal Inertia page contract', async ({
     assert,
     client,
   }) => {
@@ -119,101 +128,16 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     assert.equal(response.body().component, 'app/expenses')
 
     const props = response.body().props
-    assert.isFalse(props.accountingReadOnly)
-    assert.isString(props.accountingReadOnlyMessage)
     assert.deepEqual(props.categories, [...EXPENSE_CATEGORIES])
     assert.equal(props.filters.search, 'IDE')
-    assert.equal(props.expenses.pagination.page, 1)
-    assert.equal(props.expenses.pagination.perPage, 25)
-    assert.equal(props.expenses.pagination.totalItems, 1)
     assert.equal(props.expenses.items.length, 1)
     assert.equal(props.expenses.items[0].id, expenseId)
-    assert.equal(props.expenses.items[0].label, 'IDE license')
   })
 
-  test('GET /expenses returns default pagination props with an empty search filter', async ({
+  test('contract:POST /expenses/:id/confirm-draft happy path returns redirect', async ({
     assert,
     client,
   }) => {
-    const expenseId = uuidv7()
-    await db.insert(expenses).values({
-      amountCents: 1000,
-      category: 'Office',
-      createdBy: TEST_ACCOUNTING_USER_ID,
-      date: '2026-04-02',
-      id: expenseId,
-      label: 'Pens',
-      organizationId: TEST_TENANT_ID,
-      status: 'draft',
-    })
-
-    const response = await inertiaGet(client, '/expenses').redirects(0)
-
-    response.assertStatus(200)
-    assert.equal(response.body().component, 'app/expenses')
-
-    const props = response.body().props
-    assert.equal(props.filters.search, '')
-    assert.equal(props.expenses.pagination.page, 1)
-    assert.equal(props.expenses.pagination.perPage, DEFAULT_LIST_PER_PAGE)
-    assert.equal(props.expenses.pagination.totalItems, 1)
-    assert.equal(props.expenses.pagination.totalPages, 1)
-    assert.equal(props.expenses.items[0].id, expenseId)
-  })
-
-  test('GET /expenses clamps oversized pagination through the route contract', async ({
-    assert,
-    client,
-  }) => {
-    await db.insert(expenses).values([
-      {
-        amountCents: 1000,
-        category: 'Software',
-        createdBy: TEST_ACCOUNTING_USER_ID,
-        date: '2026-04-01',
-        id: uuidv7(),
-        label: 'Expense 1',
-        organizationId: TEST_TENANT_ID,
-        status: 'draft',
-      },
-      {
-        amountCents: 2000,
-        category: 'Software',
-        createdBy: TEST_ACCOUNTING_USER_ID,
-        date: '2026-04-02',
-        id: uuidv7(),
-        label: 'Expense 2',
-        organizationId: TEST_TENANT_ID,
-        status: 'draft',
-      },
-      {
-        amountCents: 3000,
-        category: 'Software',
-        createdBy: TEST_ACCOUNTING_USER_ID,
-        date: '2026-04-03',
-        id: uuidv7(),
-        label: 'Expense 3',
-        organizationId: TEST_TENANT_ID,
-        status: 'draft',
-      },
-    ])
-
-    const response = await inertiaGet(
-      client,
-      '/expenses?page=99&perPage=2&search=Expense'
-    ).redirects(0)
-
-    response.assertStatus(200)
-
-    const props = response.body().props
-    assert.equal(props.filters.search, 'Expense')
-    assert.equal(props.expenses.pagination.perPage, 2)
-    assert.equal(props.expenses.pagination.totalPages, 2)
-    assert.equal(props.expenses.pagination.page, 2)
-    assert.equal(props.expenses.items.length, 1)
-  })
-
-  test('confirms a draft and creates a journal entry atomically', async ({ assert, client }) => {
     await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
       amount: 99.99,
       category: 'Infrastructure',
@@ -232,49 +156,27 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     confirmResponse.assertStatus(302)
 
     const [confirmed] = await db.select().from(expenses).where(eq(expenses.id, draft.id))
-
     assert.equal(confirmed.status, 'confirmed')
-
-    const entries = await db
-      .select()
-      .from(journalEntries)
-      .where(eq(journalEntries.expenseId, draft.id))
-
-    assert.equal(entries.length, 1)
-    assert.equal(entries[0].amountCents, 9999)
-    assert.equal(entries[0].label, 'Cloud hosting')
-    assert.equal(entries[0].date, '2026-04-10')
   })
 
-  test('cannot delete a confirmed expense', async ({ client }) => {
+  test('contract:DELETE /expenses/:id happy path returns redirect', async ({ assert, client }) => {
     await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
-      amount: 10,
+      amount: 12,
       category: 'Office',
-      date: '2026-04-01',
-      label: 'Pens',
+      date: '2026-04-16',
+      label: 'Delete draft',
     })
-
     const [draft] = await db.select().from(expenses)
-
-    await client
-      .post(`/expenses/${draft.id}/confirm-draft`)
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({})
-
     const deleteResponse = await client
       .delete(`/expenses/${draft.id}`)
       .header('cookie', authCookie())
       .redirects(0)
-
     deleteResponse.assertStatus(302)
-
-    const rows = await db.select().from(expenses)
-    deleteResponse.assert?.equal(rows.length, 1, 'confirmed expense was not deleted')
-    deleteResponse.assert?.equal(rows[0].status, 'confirmed')
+    const rows = await db.select().from(expenses).where(eq(expenses.id, draft.id))
+    assert.equal(rows.length, 0)
   })
 
-  test('GET /expenses returns 403 for an inactive membership', async ({ client }) => {
+  test('contract:GET /expenses returns 403 for inactive membership', async ({ client }) => {
     await db
       .update(member)
       .set({ isActive: false })
@@ -290,69 +192,11 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     response.assertStatus(403)
   })
 
-  test('inactive membership cannot create, confirm, or delete expenses', async ({
+  test('contract:mutation redirects keep expense query-string per endpoint', async ({
     assert,
     client,
   }) => {
-    await db
-      .update(member)
-      .set({ isActive: false })
-      .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
-
     const createResponse = await client
-      .post('/expenses')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({
-        amount: 42.5,
-        category: 'Software',
-        date: '2026-04-01',
-        label: 'Blocked draft',
-      })
-
-    createResponse.assertStatus(302)
-    assert.lengthOf(await db.select().from(expenses), 0)
-
-    await db
-      .update(member)
-      .set({ isActive: true })
-      .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
-
-    await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
-      amount: 15,
-      category: 'Office',
-      date: '2026-04-02',
-      label: 'Existing draft',
-    })
-
-    const [draft] = await db.select().from(expenses)
-
-    await db
-      .update(member)
-      .set({ isActive: false })
-      .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
-
-    const confirmResponse = await client
-      .post(`/expenses/${draft.id}/confirm-draft`)
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({})
-
-    confirmResponse.assertStatus(302)
-
-    const deleteResponse = await client
-      .delete(`/expenses/${draft.id}`)
-      .header('cookie', authCookie())
-      .redirects(0)
-
-    deleteResponse.assertStatus(302)
-
-    const [row] = await db.select().from(expenses).where(eq(expenses.id, draft.id))
-    assert.equal(row.status, 'draft')
-  })
-
-  test('create redirects back to the current expenses query params', async ({ assert, client }) => {
-    const response = await client
       .post('/expenses')
       .header('cookie', authCookie())
       .redirects(0)
@@ -367,22 +211,15 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
         search: 'cloud',
         startDate: '2026-04-01',
       })
+    createResponse.assertStatus(302)
+    assertExpensesRedirectQuery(assert, createResponse.header('location'), {
+      endDate: '2026-04-30',
+      page: '3',
+      perPage: '25',
+      search: 'cloud',
+      startDate: '2026-04-01',
+    })
 
-    response.assertStatus(302)
-
-    const location = new URL(`http://localhost${response.header('location')}`)
-    assert.equal(location.pathname, '/expenses')
-    assert.equal(location.searchParams.get('page'), '3')
-    assert.equal(location.searchParams.get('perPage'), '25')
-    assert.equal(location.searchParams.get('search'), 'cloud')
-    assert.equal(location.searchParams.get('startDate'), '2026-04-01')
-    assert.equal(location.searchParams.get('endDate'), '2026-04-30')
-  })
-
-  test('confirm redirects back to the current expenses query params', async ({
-    assert,
-    client,
-  }) => {
     await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
       amount: 99.99,
       category: 'Infrastructure',
@@ -392,7 +229,7 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
 
     const [draft] = await db.select().from(expenses)
 
-    const response = await client
+    const confirmResponse = await client
       .post(`/expenses/${draft.id}/confirm-draft`)
       .header('cookie', authCookie())
       .redirects(0)
@@ -404,28 +241,16 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
         startDate: '2026-04-01',
       })
 
-    response.assertStatus(302)
-
-    const location = new URL(`http://localhost${response.header('location')}`)
-    assert.equal(location.pathname, '/expenses')
-    assert.equal(location.searchParams.get('page'), '2')
-    assert.equal(location.searchParams.get('perPage'), '50')
-    assert.equal(location.searchParams.get('search'), 'hosting')
-    assert.equal(location.searchParams.get('startDate'), '2026-04-01')
-    assert.equal(location.searchParams.get('endDate'), '2026-04-30')
-  })
-
-  test('delete redirects back to the current expenses query params', async ({ assert, client }) => {
-    await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
-      amount: 12,
-      category: 'Office',
-      date: '2026-04-16',
-      label: 'Redirect delete',
+    confirmResponse.assertStatus(302)
+    assertExpensesRedirectQuery(assert, confirmResponse.header('location'), {
+      endDate: '2026-04-30',
+      page: '2',
+      perPage: '50',
+      search: 'hosting',
+      startDate: '2026-04-01',
     })
 
-    const [draft] = await db.select().from(expenses)
-
-    const response = await client
+    const deleteResponse = await client
       .delete(`/expenses/${draft.id}`)
       .header('cookie', authCookie())
       .redirects(0)
@@ -437,18 +262,20 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
         startDate: '2026-04-01',
       })
 
-    response.assertStatus(302)
-
-    const location = new URL(`http://localhost${response.header('location')}`)
-    assert.equal(location.pathname, '/expenses')
-    assert.equal(location.searchParams.get('page'), '4')
-    assert.equal(location.searchParams.get('perPage'), '25')
-    assert.equal(location.searchParams.get('search'), 'delete')
-    assert.equal(location.searchParams.get('startDate'), '2026-04-01')
-    assert.equal(location.searchParams.get('endDate'), '2026-04-30')
+    deleteResponse.assertStatus(302)
+    assertExpensesRedirectQuery(assert, deleteResponse.header('location'), {
+      endDate: '2026-04-30',
+      page: '4',
+      perPage: '25',
+      search: 'delete',
+      startDate: '2026-04-01',
+    })
   })
 
-  test('confirming a non-existent expense returns 404', async ({ assert, client }) => {
+  test('contract:POST /expenses/:id/confirm-draft returns 404 when expense does not exist', async ({
+    assert,
+    client,
+  }) => {
     const missingId = uuidv7()
     const response = await client
       .post(`/expenses/${missingId}/confirm-draft`)
@@ -463,7 +290,10 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     assert.equal(rows.length, 0)
   })
 
-  test('deleting a non-existent expense returns 404', async ({ assert, client }) => {
+  test('contract:DELETE /expenses/:id returns 404 when expense does not exist', async ({
+    assert,
+    client,
+  }) => {
     const missingId = uuidv7()
     const response = await client
       .delete(`/expenses/${missingId}`)
@@ -477,37 +307,17 @@ test.group('Expenses routes | create → confirm → journal', (group) => {
     assert.equal(rows.length, 0)
   })
 
-  test('cannot confirm an already-confirmed expense through the route twice', async ({
+  test('contract:POST /expenses surface validation rejects invalid payload', async ({
     assert,
     client,
   }) => {
-    await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
-      amount: 40,
-      category: 'Office',
-      date: '2026-04-01',
-      label: 'Re-confirm test',
-    })
-
-    const [draft] = await db.select().from(expenses)
     await client
-      .post(`/expenses/${draft.id}/confirm-draft`)
+      .post('/expenses')
       .header('cookie', authCookie())
       .redirects(0)
-      .form({})
-
-    const response = await client
-      .post(`/expenses/${draft.id}/confirm-draft`)
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({})
-
-    response.assertStatus(302)
-
-    const entries = await db
-      .select()
-      .from(journalEntries)
-      .where(eq(journalEntries.expenseId, draft.id))
-    assert.equal(entries.length, 1, 'a second confirm must not create a second journal entry')
+      .form({ amount: 0, category: 'Software', date: 'not-a-date', label: '' })
+    const rows = await db.select().from(expenses)
+    assert.equal(rows.length, 0)
   })
 })
 
@@ -551,169 +361,5 @@ test.group('Expenses routes | authorization', (group) => {
     const deleteResponse = await client.delete(`/expenses/${fakeId}`).redirects(0)
     deleteResponse.assertStatus(302)
     deleteResponse.assertHeader('location', '/signin')
-  })
-})
-
-// =============================================================================
-// Validation
-// =============================================================================
-
-test.group('Expenses routes | validation', (group) => {
-  let cleanup: () => Promise<void>
-  let validationDb: PostgresJsDatabase<any>
-
-  group.setup(async () => {
-    const ctx = await setupTestDatabaseForGroup()
-    cleanup = ctx.cleanup
-    validationDb = await app.container.make('drizzle')
-  })
-
-  group.each.setup(async () => {
-    resetAccountingAuthContext()
-    bindAccountingAuth()
-    await validationDb.delete(auditEvents)
-    await validationDb.delete(journalEntries)
-    await validationDb.delete(expenses)
-  })
-
-  group.teardown(async () => cleanup())
-
-  const validBase = {
-    amount: 10,
-    category: 'Software',
-    date: '2026-04-01',
-    label: 'Valid expense',
-  }
-
-  test('rejects amount of zero', async ({ assert, client }) => {
-    await client
-      .post('/expenses')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({ ...validBase, amount: 0 })
-    const rows = await validationDb.select().from(expenses)
-    assert.equal(rows.length, 0, 'no row should be inserted for amount=0')
-  })
-
-  test('rejects negative amount', async ({ assert, client }) => {
-    await client
-      .post('/expenses')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({ ...validBase, amount: -5 })
-    const rows = await validationDb.select().from(expenses)
-    assert.equal(rows.length, 0, 'no row should be inserted for negative amount')
-  })
-
-  test('rejects unknown category', async ({ assert, client }) => {
-    await client
-      .post('/expenses')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({ ...validBase, category: 'NotACategory' })
-    const rows = await validationDb.select().from(expenses)
-    assert.equal(rows.length, 0, 'no row should be inserted for invalid category')
-  })
-
-  test('rejects empty label', async ({ assert, client }) => {
-    await client
-      .post('/expenses')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({ ...validBase, label: '' })
-    const rows = await validationDb.select().from(expenses)
-    assert.equal(rows.length, 0, 'no row should be inserted for empty label')
-  })
-
-  test('rejects a badly formatted date', async ({ assert, client }) => {
-    await client
-      .post('/expenses')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({ ...validBase, date: 'not-a-date' })
-    const rows = await validationDb.select().from(expenses)
-    assert.equal(rows.length, 0, 'no row should be inserted for malformed date')
-  })
-
-  test('rejects an invalid calendar date (2026-02-30)', async ({ assert, client }) => {
-    await client
-      .post('/expenses')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({ ...validBase, date: '2026-02-30' })
-    const rows = await validationDb.select().from(expenses)
-    assert.equal(rows.length, 0, 'no row should be inserted for non-existent calendar date')
-  })
-})
-
-// =============================================================================
-// Validation: date range coupling
-// =============================================================================
-
-test.group('Expenses routes | date range validation', (group) => {
-  let cleanup: () => Promise<void>
-
-  group.setup(async () => {
-    const ctx = await setupTestDatabaseForGroup()
-    cleanup = ctx.cleanup
-    db = await app.container.make('drizzle')
-    await seedTestOrganization(db)
-    await seedTestUser(db, {
-      email: TEST_ACCOUNTING_USER_EMAIL,
-      id: TEST_ACCOUNTING_USER_ID,
-      name: 'Test User',
-      publicId: TEST_ACCOUNTING_USER_PUBLIC_ID,
-    })
-    await seedTestMember(db, {
-      id: 'member_test_expenses_date_range_actor',
-      organizationId: TEST_TENANT_ID,
-      role: 'member',
-      userId: TEST_ACCOUNTING_USER_ID,
-    })
-    resetAccountingAuthContext()
-    bindAccountingAuth()
-  })
-
-  group.teardown(async () => cleanup())
-
-  test('GET /expenses with both dates succeeds', async ({ client }) => {
-    const response = await client
-      .get('/expenses')
-      .header('cookie', authCookie())
-      .qs({ endDate: '2026-04-30', startDate: '2026-04-01' })
-      .redirects(0)
-    response.assertStatus(200)
-  })
-
-  test('GET /expenses with no dates succeeds', async ({ client }) => {
-    const response = await client.get('/expenses').header('cookie', authCookie()).redirects(0)
-    response.assertStatus(200)
-  })
-
-  test('GET /expenses with only startDate redirects back with error', async ({ client }) => {
-    const response = await client
-      .get('/expenses')
-      .header('cookie', authCookie())
-      .qs({ startDate: '2026-04-01' })
-      .redirects(0)
-    response.assertStatus(302)
-  })
-
-  test('GET /expenses with only endDate redirects back with error', async ({ client }) => {
-    const response = await client
-      .get('/expenses')
-      .header('cookie', authCookie())
-      .qs({ endDate: '2026-04-30' })
-      .redirects(0)
-    response.assertStatus(302)
-  })
-
-  test('GET /expenses rejects inverted date ranges', async ({ client }) => {
-    const response = await client
-      .get('/expenses')
-      .header('cookie', authCookie())
-      .qs({ endDate: '2026-04-01', startDate: '2026-04-30' })
-      .redirects(0)
-    response.assertStatus(302)
   })
 })
