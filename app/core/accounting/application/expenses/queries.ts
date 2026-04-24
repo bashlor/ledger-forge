@@ -12,28 +12,29 @@ import type { DateFilter, ExpenseListResult, ExpenseRow, ExpenseSummary } from '
 import { requireTenantScope } from '../support/tenant_scope.js'
 
 type DrizzleDb = PostgresJsDatabase<any>
+type DrizzleExecutor = DrizzleDb | Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 
 export function dateCondition(filter?: DateFilter) {
   return buildDateFilterCondition(expenses.date, filter)
 }
 
 export async function findExpenseById(
-  db: DrizzleDb,
+  executor: DrizzleExecutor,
   id: string,
   tenantId: string
 ): Promise<ExpenseRow | undefined> {
   const where = applyExpenseTenantScope(eq(expenses.id, id), tenantId)
-  const [existing] = await db.select().from(expenses).where(where)
+  const [existing] = await executor.select().from(expenses).where(where)
   return existing
 }
 
 export async function getExpenseSummary(
-  db: DrizzleDb,
+  executor: DrizzleExecutor,
   tenantId: string,
   filter?: DateFilter
 ): Promise<ExpenseSummary> {
   const where = applyExpenseTenantScope(dateCondition(filter), tenantId)
-  const [row] = await db
+  const [row] = await executor
     .select({
       confirmedCount: sql<number>`count(*) filter (where ${expenses.status} = 'confirmed')`.mapWith(
         Number
@@ -56,7 +57,7 @@ export async function getExpenseSummary(
 }
 
 export async function listExpenseRows(
-  db: DrizzleDb,
+  executor: DrizzleExecutor,
   page: number,
   perPage: number,
   tenantId: string,
@@ -64,11 +65,11 @@ export async function listExpenseRows(
   search?: string
 ): Promise<{ pagination: ExpenseListResult['pagination']; rows: ExpenseRow[] }> {
   const where = applyExpenseTenantScope(combineExpenseFilters(filter, search), tenantId)
-  const [countRow] = await db.select({ total: count() }).from(expenses).where(where)
+  const [countRow] = await executor.select({ total: count() }).from(expenses).where(where)
   const totalCount = countRow?.total ?? 0
   const paginationWindow = computePaginationWindow(totalCount, perPage, page)
 
-  const rows = await db
+  const rows = await executor
     .select({
       amountCents: expenses.amountCents,
       category: expenses.category,

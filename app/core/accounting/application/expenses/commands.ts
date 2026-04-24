@@ -7,10 +7,15 @@ import { v7 as uuidv7 } from 'uuid'
 import type { NormalizedExpenseInput } from './types.js'
 
 type DrizzleDb = PostgresJsDatabase<any>
+type DrizzleExecutor = DrizzleDb | DrizzleTx
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 
-export async function confirmDraftExpense(tx: DrizzleTx, id: string, organizationId: string) {
-  const [updated] = await tx
+export async function confirmDraftExpense(
+  executor: DrizzleExecutor,
+  id: string,
+  organizationId: string
+) {
+  const [updated] = await executor
     .update(expenses)
     .set({ status: 'confirmed' })
     .where(
@@ -25,11 +30,11 @@ export async function confirmDraftExpense(tx: DrizzleTx, id: string, organizatio
 }
 
 export async function deleteDraftExpense(
-  tx: DrizzleTx,
+  executor: DrizzleExecutor,
   id: string,
   organizationId: string
 ): Promise<undefined | { id: string }> {
-  const [deleted] = await tx
+  const [deleted] = await executor
     .delete(expenses)
     .where(
       and(
@@ -43,11 +48,11 @@ export async function deleteDraftExpense(
 }
 
 export async function insertDraftExpense(
-  tx: DrizzleDb | DrizzleTx,
+  executor: DrizzleExecutor,
   input: NormalizedExpenseInput,
   actor: { createdBy: null | string; organizationId: string }
 ) {
-  const [row] = await tx
+  const [row] = await executor
     .insert(expenses)
     .values({
       amountCents: input.amountCents,
@@ -64,7 +69,7 @@ export async function insertDraftExpense(
 }
 
 export async function insertExpenseJournalEntry(
-  tx: DrizzleTx,
+  executor: DrizzleExecutor,
   input: {
     amountCents: number
     date: string
@@ -73,7 +78,7 @@ export async function insertExpenseJournalEntry(
     organizationId: string
   }
 ) {
-  await tx.insert(journalEntries).values({
+  await executor.insert(journalEntries).values({
     amountCents: input.amountCents,
     date: input.date,
     expenseId: input.expenseId,
