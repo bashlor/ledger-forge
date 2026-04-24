@@ -13,7 +13,7 @@ export default class AuthMiddleware {
   constructor(protected auth: AuthenticationPort) {}
 
   async handle(ctx: HttpContext, next: NextFn) {
-    const result = await this.auth.getSession(readSessionToken(ctx))
+    const result = ctx.authSession ?? (await this.auth.getSession(readSessionToken(ctx)))
 
     if (!result) {
       return ctx.response.redirect(this.redirectTo)

@@ -31,13 +31,14 @@ export async function clearActiveOrganizationForSession(
 
 /**
  * Ensures the shared single-tenant organization exists and that the given user
- * is an active owner within it.
+ * has an active membership within it.
  *
  * - Upserts the organization row when missing.
  * - Updates the workspace label/metadata when a generic or anonymous bootstrap
  *   should be replaced by the current user-facing workspace label.
- * - Creates the membership when missing or upgrades an existing membership to an
- *   active `owner` role.
+ * - Creates the membership when missing. The very first member becomes `owner`,
+ *   later members join as `member`.
+ * - Reactivates an existing membership when needed, without auto-elevating role.
  *
  * Returns the shared organization id plus whether any provisioning change was
  * applied. Idempotent: safe to call on every request.
@@ -105,21 +106,28 @@ export async function ensureSingleTenantMembership(
       .limit(1)
 
     if (!existing) {
+      const [organizationMemberCount] = await tx
+        .select({ value: sql<number>`count(*)` })
+        .from(schema.member)
+        .where(eq(schema.member.organizationId, input.orgId))
+        .limit(1)
+
+      const isFirstOrganizationMember = Number(organizationMemberCount?.value ?? 0) === 0
       await tx
         .insert(schema.member)
         .values({
           createdAt: new Date(),
           id: uuidv7(),
           organizationId: input.orgId,
-          role: 'owner',
+          role: isFirstOrganizationMember ? 'owner' : 'member',
           userId: input.userId,
         })
         .onConflictDoNothing()
       wasProvisioned = true
-    } else if (existing.role !== 'owner' || existing.isActive === false) {
+    } else if (existing.isActive === false) {
       await tx
         .update(schema.member)
-        .set({ isActive: true, role: 'owner' })
+        .set({ isActive: true })
         .where(eq(schema.member.id, existing.id))
       wasProvisioned = true
     }

@@ -4,7 +4,11 @@ import { flashAction } from '#core/accounting/http/helpers/flash_action'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
-import { MemberNotFoundError, MemberService } from '../../application/member_service.js'
+import {
+  type MemberMutationTarget,
+  MemberNotFoundError,
+  MemberService,
+} from '../../application/member_service.js'
 import { toggleMemberStatusValidator, updateMemberRoleValidator } from '../validators/member.js'
 
 export default class MembershipController {
@@ -49,13 +53,19 @@ export default class MembershipController {
     if (!target) {
       throw new MemberNotFoundError()
     }
+    const targetMember: MemberMutationTarget = {
+      id: target.id,
+      isActive: target.isActive,
+      role: target.role,
+      userId: target.userId,
+    }
 
     await flashAction(
       ctx,
       async () => {
         authorizationService.authorize(actor, 'membership.toggleActive', target)
 
-        await memberService.toggleMemberActive(memberId, isActive, tenantId, actorId)
+        await memberService.toggleMemberActive(memberId, isActive, tenantId, actorId, targetMember)
       },
       isActive ? 'Member activated.' : 'Member deactivated.'
     )
@@ -78,13 +88,25 @@ export default class MembershipController {
     if (!target) {
       throw new MemberNotFoundError()
     }
+    const targetMember: MemberMutationTarget = {
+      id: target.id,
+      isActive: target.isActive,
+      role: target.role,
+      userId: target.userId,
+    }
 
     await flashAction(
       ctx,
       async () => {
         authorizationService.authorize(actor, 'membership.changeRole', target)
 
-        await memberService.updateMemberRole(memberId, role, tenantId, ctx.authSession!.user.id)
+        await memberService.updateMemberRole(
+          memberId,
+          role,
+          tenantId,
+          ctx.authSession!.user.id,
+          targetMember
+        )
       },
       role === 'admin' ? 'Member promoted to admin.' : 'Admin demoted to member.'
     )

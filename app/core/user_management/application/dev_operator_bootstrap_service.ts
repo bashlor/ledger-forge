@@ -182,7 +182,11 @@ export class DevOperatorBootstrapService {
       .from(schema.member)
       .innerJoin(schema.organization, eq(schema.member.organizationId, schema.organization.id))
       .where(
-        and(eq(schema.member.userId, userId), eq(schema.member.organizationId, organizationId))
+        and(
+          eq(schema.member.userId, userId),
+          eq(schema.member.organizationId, organizationId),
+          eq(schema.member.isActive, true)
+        )
       )
       .limit(1)
 

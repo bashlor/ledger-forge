@@ -17,34 +17,21 @@ export interface MemberDto {
   userId: string
 }
 
-export type MemberRole = 'admin' | 'member' | 'owner'
-
-type MemberMutationExecutor = PostgresJsDatabase<typeof schema>
-
-interface MemberMutationTarget {
+export interface MemberMutationTarget {
   id: string
   isActive: boolean
   role: MemberRole
   userId: string
 }
 
+export type MemberRole = 'admin' | 'member' | 'owner'
+
+type MemberMutationExecutor = PostgresJsDatabase<typeof schema>
+
 type MemberMutationTx = Parameters<Parameters<MemberMutationExecutor['transaction']>[0]>[0]
 
 interface MemberServiceDependencies {
   auditTrail?: CriticalAuditTrail
-}
-
-/**
- * Raised when an admin attempts to modify another admin (owner-only operation).
- */
-export class AdminCannotModifyAdminError extends DomainError {
-  constructor() {
-    super(
-      'Only the organization owner can deactivate another admin.',
-      'forbidden',
-      'AdminCannotModifyAdminError'
-    )
-  }
 }
 
 /**
@@ -137,10 +124,11 @@ export class MemberService {
     memberId: string,
     isActive: boolean,
     tenantId: string,
-    actorId: string
+    actorId: string,
+    targetOverride?: MemberMutationTarget
   ): Promise<void> {
     await this.db.transaction(async (tx) => {
-      const target = await this.findTargetMember(tx, memberId, tenantId)
+      const target = targetOverride ?? (await this.findTargetMember(tx, memberId, tenantId))
 
       this.assertCanToggleMember(target, actorId, isActive)
 
@@ -180,14 +168,15 @@ export class MemberService {
     memberId: string,
     role: MemberRole,
     tenantId: string,
-    actorId: string
+    actorId: string,
+    targetOverride?: MemberMutationTarget
   ): Promise<void> {
     if (role === 'owner') {
       throw new CannotAssignOwnerRoleError()
     }
 
     await this.db.transaction(async (tx) => {
-      const target = await this.findTargetMember(tx, memberId, tenantId)
+      const target = targetOverride ?? (await this.findTargetMember(tx, memberId, tenantId))
 
       if (target.role === 'owner') {
         throw new CannotModifyOwnerError()
