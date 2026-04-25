@@ -13,9 +13,9 @@ the same structured conventions as `accounting`.
 
 2. Security and activity events
    - Authentication anomalies, authorization denials, and privileged workflow outcomes.
-   - Owned by `user_management` seams:
-     - `userManagementHttpLogger` for HTTP context.
-     - `recordUserManagementActivityEvent` for non-HTTP/application context.
+   - Owned by `user_management` application seams:
+     - `recordUserManagementActivityEvent` for one-off security/activity events.
+     - `UserManagementActivitySink` for injected service dependencies.
 
 3. Immutable business audit
    - Privilege-changing member mutations and critical state transitions requiring forensic history.
@@ -57,5 +57,6 @@ Use `debug`/`trace` only for non-security diagnostics that are safe to lose in p
 ## Guardrails
 
 - Avoid direct `ctx.logger.*` calls inside `app/core/user_management/http/**`.
-- Prefer seam helpers for stable metadata shape and level policy.
+- Prefer `recordUserManagementActivityEvent` or an injected `UserManagementActivitySink` for stable
+  metadata shape and level policy.
 - Keep sensitive details sanitized in metadata (avoid raw DB/internal messages).
