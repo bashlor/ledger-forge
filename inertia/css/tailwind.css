@@ -159,6 +159,46 @@
   border-bottom: 1px solid rgba(169, 180, 185, 0.15);
 }
 
+@utility eyebrow {
+  color: var(--color-on-surface-variant);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@utility form-label-caps {
+  color: var(--color-on-surface-variant);
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+}
+
+@utility panel-elevated {
+  background: var(--color-surface-container-lowest);
+  border: 1px solid rgba(169, 180, 185, 0.2);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-ambient-tight);
+}
+
+@utility table-head-row {
+  background: var(--color-surface-container-low);
+  border-bottom: 1px solid rgba(169, 180, 185, 0.15);
+  color: var(--color-on-surface-variant);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+@utility table-head-cell {
+  font-weight: 500;
+  padding: 0.625rem 1rem;
+}
+
 @utility glass-panel {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(20px);

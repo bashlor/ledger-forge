@@ -21,7 +21,7 @@ function wrapPage(name: string, page: ReactElement<Data.SharedProps>) {
 
 createInertiaApp({
   progress: {
-    color: '#4B5563',
+    color: 'var(--color-primary-dim)',
     delay: 200,
     showSpinner: false,
   },
