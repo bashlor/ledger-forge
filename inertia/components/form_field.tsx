@@ -2,6 +2,8 @@ import { FormLabel } from './ui'
 
 interface FormFieldProps {
   autoComplete?: string
+  /** When `value` is omitted, the field is uncontrolled and uses this initial value. */
+  defaultValue?: number | string
   disabled?: boolean
   error?: string
   id: string
@@ -27,6 +29,7 @@ const INPUT_GHOST =
 
 export function FormField({
   autoComplete,
+  defaultValue,
   disabled,
   error,
   id,
@@ -46,6 +49,7 @@ export function FormField({
   const inputClassName = variant === 'ghost' ? INPUT_GHOST : INPUT_BORDERED
   const fieldName = name ?? id
   const isGhost = variant === 'ghost'
+  const isControlled = value !== undefined
 
   const sharedProps = {
     autoComplete,
@@ -59,7 +63,7 @@ export function FormField({
       : undefined,
     placeholder,
     required,
-    value,
+    ...(isControlled ? { value } : defaultValue !== undefined ? { defaultValue } : {}),
   }
 
   return (
