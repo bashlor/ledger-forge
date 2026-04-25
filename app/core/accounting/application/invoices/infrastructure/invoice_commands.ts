@@ -1,7 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 import type { InvoiceStatus } from '../types.js'
@@ -70,9 +70,19 @@ export async function insertInvoiceLines(tx: DrizzleTx, values: InvoiceLineInser
 export async function replaceInvoiceLines(
   tx: DrizzleTx,
   invoiceId: string,
+  organizationId: string,
   values: Omit<InvoiceLineInsert, 'id' | 'invoiceId'>[]
 ) {
-  await tx.delete(invoiceLines).where(eq(invoiceLines.invoiceId, invoiceId))
+  await tx.delete(invoiceLines).where(
+    and(
+      eq(invoiceLines.invoiceId, invoiceId),
+      sql`exists (
+          select 1 from ${invoices}
+          where ${invoices.id} = ${invoiceLines.invoiceId}
+            and ${invoices.organizationId} = ${organizationId}
+        )`
+    )
+  )
   if (values.length === 0) return []
 
   const rows = values.map((line) => ({
@@ -83,8 +93,17 @@ export async function replaceInvoiceLines(
   return tx.insert(invoiceLines).values(rows).returning()
 }
 
-export async function updateInvoice(tx: DrizzleTx, id: string, values: InvoiceUpdate) {
-  const [row] = await tx.update(invoices).set(values).where(eq(invoices.id, id)).returning()
+export async function updateInvoice(
+  tx: DrizzleTx,
+  id: string,
+  values: InvoiceUpdate,
+  organizationId: string
+) {
+  const [row] = await tx
+    .update(invoices)
+    .set(values)
+    .where(and(eq(invoices.id, id), eq(invoices.organizationId, organizationId)))
+    .returning()
   return row
 }
 

@@ -56,13 +56,18 @@ export async function persistInvoiceIssue(
     assertInvoiceCanBeIssuedToday(again.status, again.dueDate, context.today)
   }
 
-  const invoice = await updateInvoice(tx, id, {
-    ...buildInvoiceIssueMutation({
-      customer: context.customer,
-      issuedCompanyAddress: context.normalized.issuedCompanyAddress,
-      issuedCompanyName: context.normalized.issuedCompanyName,
-    }),
-  })
+  const invoice = await updateInvoice(
+    tx,
+    id,
+    {
+      ...buildInvoiceIssueMutation({
+        customer: context.customer,
+        issuedCompanyAddress: context.normalized.issuedCompanyAddress,
+        issuedCompanyName: context.normalized.issuedCompanyName,
+      }),
+    },
+    requestContext.tenantId
+  )
   if (!invoice) throw new DomainError('Invoice not found.', 'not_found')
 
   await insertInvoiceJournalEntry(tx, {
