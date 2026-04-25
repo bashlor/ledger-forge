@@ -352,9 +352,18 @@ test.group('WorkspaceShareMiddleware', () => {
   test('single-tenant mode forces the configured organization and synchronizes the session', async ({
     assert,
   }) => {
+    const auditRows: Record<string, unknown>[] = []
     const synchronized: string[] = []
     const seeded: string[] = []
     const db = {
+      insert() {
+        return {
+          values(payload: Record<string, unknown>) {
+            auditRows.push(payload)
+            return Promise.resolve()
+          },
+        }
+      },
       query: {
         organization: {
           findFirst: async () => ({
@@ -366,6 +375,20 @@ test.group('WorkspaceShareMiddleware', () => {
           }),
         },
       },
+      select() {
+        return {
+          from() {
+            return {
+              where() {
+                return {
+                  limit: async () => [{ activeOrganizationId: 'org-stale', id: 'session-id-1' }],
+                }
+              },
+            }
+          },
+        }
+      },
+      transaction: async (cb: any) => cb(db),
       update() {
         return {
           set(payload: Record<string, unknown>) {
@@ -417,6 +440,10 @@ test.group('WorkspaceShareMiddleware', () => {
     assert.equal(ctx.authSession.session.activeOrganizationId, 'org-single')
     assert.deepEqual(synchronized, ['session-token'])
     assert.deepEqual(seeded, ['org-single'])
+    assert.equal(auditRows[0]?.action, 'session_active_organization_changed')
+    assert.equal(auditRows[0]?.actorId, 'user-1')
+    assert.equal(auditRows[0]?.entityId, 'session-id-1')
+    assert.notEqual(auditRows[0]?.entityId, 'session-token')
     assert.deepEqual(ctx.redirects, [])
   })
 
@@ -425,6 +452,13 @@ test.group('WorkspaceShareMiddleware', () => {
   }) => {
     const synchronized: string[] = []
     const db = {
+      insert() {
+        return {
+          values() {
+            return Promise.resolve()
+          },
+        }
+      },
       query: {
         organization: {
           findFirst: async () => ({
@@ -436,6 +470,20 @@ test.group('WorkspaceShareMiddleware', () => {
           }),
         },
       },
+      select() {
+        return {
+          from() {
+            return {
+              where() {
+                return {
+                  limit: async () => [{ activeOrganizationId: 'org-stale', id: 'session-id-1' }],
+                }
+              },
+            }
+          },
+        }
+      },
+      transaction: async (cb: any) => cb(db),
       update() {
         return {
           set(payload: Record<string, unknown>) {

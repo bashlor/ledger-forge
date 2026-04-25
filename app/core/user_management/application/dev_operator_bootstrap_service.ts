@@ -1,6 +1,10 @@
 import type { AuthenticationPort, AuthResult } from '#core/user_management/domain/authentication'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import {
+  type CriticalAuditTrail,
+  DatabaseCriticalAuditTrail,
+} from '#core/accounting/application/audit/critical_audit_trail'
 import * as schema from '#core/common/drizzle/index'
 import { provisionPersonalWorkspace } from '#core/user_management/application/workspace_provisioning'
 import {
@@ -20,7 +24,10 @@ export interface DevOperatorBootstrapInput {
 export class DevOperatorBootstrapService {
   constructor(
     private readonly db: PostgresJsDatabase<typeof schema>,
-    private readonly dependencies: { activitySink?: UserManagementActivitySink } = {}
+    private readonly dependencies: {
+      activitySink?: UserManagementActivitySink
+      auditTrail?: CriticalAuditTrail
+    } = {}
   ) {}
 
   async bootstrap(input: DevOperatorBootstrapInput, auth: AuthenticationPort): Promise<AuthResult> {
@@ -39,10 +46,30 @@ export class DevOperatorBootstrapService {
 
     const persisted = await this.ensurePersistedAuthArtifacts(authentication, { email, fullName })
 
-    await this.db
-      .insert(schema.devOperatorAccess)
-      .values({ userId: persisted.user.id })
-      .onConflictDoNothing()
+    const auditTrail = this.dependencies.auditTrail ?? new DatabaseCriticalAuditTrail()
+
+    await this.db.transaction(async (tx) => {
+      const insertedGrants = await tx
+        .insert(schema.devOperatorAccess)
+        .values({ userId: persisted.user.id })
+        .onConflictDoNothing()
+        .returning({ userId: schema.devOperatorAccess.userId })
+
+      if (insertedGrants.length > 0) {
+        await auditTrail.record(tx, {
+          action: 'dev_operator_access_granted',
+          actorId: persisted.user.id,
+          changes: {
+            after: { hasDevOperatorAccess: true },
+            before: { hasDevOperatorAccess: false },
+          },
+          entityId: persisted.user.id,
+          entityType: 'user',
+          metadata: { source: 'dev_operator_bootstrap' },
+          tenantId: null,
+        })
+      }
+    })
     recordUserManagementActivityEvent(
       {
         entityId: persisted.user.id,
@@ -65,7 +92,7 @@ export class DevOperatorBootstrapService {
         sessionToken: persisted.session.token,
         userId: persisted.user.id,
       },
-      { activitySink: this.dependencies.activitySink }
+      { activitySink: this.dependencies.activitySink, auditTrail: this.dependencies.auditTrail }
     )
 
     return (await auth.getSession(persisted.session.token)) ?? persisted

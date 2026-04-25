@@ -133,6 +133,17 @@ test.group('Workspace provisioning (integration)', (group) => {
         ),
     })
     assert.lengthOf(auditRows, 1)
+
+    const sessionAuditRows = await context.db.query.auditEvents.findMany({
+      where: (event, { and: a, eq: e }) =>
+        a(
+          e(event.action, 'session_active_organization_changed'),
+          e(event.entityId, sessionBefore!.id),
+          e(event.organizationId, orgId!)
+        ),
+    })
+    assert.lengthOf(sessionAuditRows, 1)
+    assert.notEqual(sessionAuditRows[0]!.entityId, sessionBefore!.token)
   })
 
   test('provisionPersonalWorkspace creates anonymous workspace after anonymous sign-in', async ({
@@ -572,12 +583,13 @@ test.group('Workspace provisioning (integration)', (group) => {
       DEMO_INVOICE_COUNT + DEMO_ISSUED_INVOICE_COUNT + DEMO_PAID_INVOICE_COUNT * 2
     )
     assert.equal(auditCounts.member, 1)
+    assert.equal(auditCounts.session, 1)
     assert.equal(
       Number(customerAuditCount?.value ?? 0),
       DEMO_CUSTOMER_COUNT +
         (DEMO_EXPENSE_COUNT + DEMO_CONFIRMED_EXPENSE_COUNT) +
         (DEMO_INVOICE_COUNT + DEMO_ISSUED_INVOICE_COUNT + DEMO_PAID_INVOICE_COUNT * 2) +
-        1
+        2
     )
   })
 

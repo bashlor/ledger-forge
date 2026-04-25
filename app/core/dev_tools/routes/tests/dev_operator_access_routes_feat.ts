@@ -13,7 +13,7 @@ import {
 } from '#core/user_management/domain/authentication'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 import { withInertiaHeaders } from '../../../../../tests/helpers/routes_test_support.js'
@@ -339,6 +339,61 @@ test.group('Dev operator access routes', (group) => {
     assert.lengthOf(tenantMemberships, 1)
     assert.equal(tenantMemberships[0]?.userId, user!.id)
     assert.equal(tenantMemberships[0]?.role, 'owner')
+
+    const grantAuditRows = await db
+      .select({
+        action: schema.auditEvents.action,
+        entityId: schema.auditEvents.entityId,
+        organizationId: schema.auditEvents.organizationId,
+      })
+      .from(schema.auditEvents)
+      .where(
+        and(
+          eq(schema.auditEvents.action, 'dev_operator_access_granted'),
+          eq(schema.auditEvents.entityId, user!.id)
+        )
+      )
+
+    assert.lengthOf(grantAuditRows, 1)
+    assert.isNull(grantAuditRows[0]?.organizationId)
+  })
+
+  test('POST /_dev/access does not duplicate dev operator grant audit for existing access', async ({
+    assert,
+    client,
+  }) => {
+    const payload = {
+      email: 'repeat-dev@example.local',
+      fullName: 'Repeat Dev Operator',
+      password: 'SecureP@ss123',
+      passwordConfirmation: 'SecureP@ss123',
+    }
+
+    const firstResponse = await client.post('/_dev/access').redirects(0).form(payload)
+    firstResponse.assertStatus(302)
+
+    const secondResponse = await client.post('/_dev/access').redirects(0).form(payload)
+    secondResponse.assertStatus(302)
+
+    const [user] = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, 'repeat-dev@example.local'))
+      .limit(1)
+
+    assert.exists(user)
+
+    const grantAuditRows = await db
+      .select({ id: schema.auditEvents.id })
+      .from(schema.auditEvents)
+      .where(
+        and(
+          eq(schema.auditEvents.action, 'dev_operator_access_granted'),
+          eq(schema.auditEvents.entityId, user!.id)
+        )
+      )
+
+    assert.lengthOf(grantAuditRows, 1)
   })
 
   test('POST /_dev/access does not retry bootstrap after a failure', async ({ assert, client }) => {

@@ -30,8 +30,8 @@ export interface DevInspectorAuditEventDto {
   entityType: string
   errorCode: null | string
   id: string
-  organizationId: string
-  organizationName: string
+  organizationId: null | string
+  organizationName: null | string
   result: 'denied' | 'error' | 'success'
   timestamp: Date
 }

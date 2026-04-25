@@ -204,14 +204,14 @@ export const auditEvents = mainSchema.table(
     entityType: text('entity_type').notNull(),
     id: text('id').primaryKey(),
     metadata: jsonb('metadata'),
-    organizationId: text('organization_id')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'restrict' }),
+    organizationId: text('organization_id').references(() => organization.id, {
+      onDelete: 'restrict',
+    }),
   },
   (table) => [
     check(
       'audit_events_entity_type_check',
-      sql`${table.entityType} IN ('invoice', 'expense', 'customer', 'member')`
+      sql`${table.entityType} IN ('invoice', 'expense', 'customer', 'member', 'session', 'user')`
     ),
     index('audit_events_entity_history_idx').on(
       table.entityType,
