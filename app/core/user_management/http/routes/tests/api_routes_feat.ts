@@ -133,4 +133,24 @@ test.group('Auth API proxy routes', () => {
       type: 'urn:accounting-app:error:unspecified_internal_error',
     })
   })
+
+  test('blocks direct access to better-auth organization endpoints', async ({ assert, client }) => {
+    bindBetterAuth(async () => {
+      return Response.json({ ok: true }, { status: 200 })
+    })
+
+    const response = await client.post('/api/auth/organization/create').json({
+      name: 'Bypass Org',
+    })
+
+    response.assertStatus(403)
+    assert.match(response.header('content-type') ?? '', /application\/problem\+json/)
+    assert.deepEqual(response.body(), {
+      code: 'auth.forbidden',
+      detail: 'Organization endpoints are disabled.',
+      status: 403,
+      title: 'Forbidden',
+      type: 'urn:accounting-app:error:forbidden',
+    })
+  })
 })
