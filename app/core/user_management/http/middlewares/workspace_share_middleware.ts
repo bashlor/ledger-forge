@@ -59,7 +59,9 @@ export default class WorkspaceShareMiddleware {
         })
 
         if (token && ctx.authSession.session.activeOrganizationId !== orgId) {
-          await setActiveOrganizationForSession(db, token, orgId)
+          await setActiveOrganizationForSession(db, token, orgId, {
+            userId: ctx.authSession.user.id,
+          })
         }
 
         this.setActiveOrganizationId(ctx, orgId)

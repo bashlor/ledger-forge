@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import {
+  type AuditDbExecutor,
   type CriticalAuditTrail,
   DatabaseCriticalAuditTrail,
 } from '#core/accounting/application/audit/critical_audit_trail'
@@ -335,6 +336,13 @@ export async function provisionPersonalWorkspace(
       .update(schema.session)
       .set({ activeOrganizationId: organizationId })
       .where(eq(schema.session.token, input.sessionToken))
+    await recordSessionActiveOrganizationChanged(tx, auditTrail, {
+      actorId: input.userId,
+      afterOrganizationId: organizationId,
+      beforeOrganizationId: sessionRow.activeOrganizationId,
+      sessionId: sessionRow.id,
+      source: 'workspace_provisioning',
+    })
     recordUserManagementActivityEvent(
       {
         entityId: organizationId,
@@ -359,13 +367,46 @@ export async function setActiveOrganizationForSession(
   organizationId: string,
   options: {
     activitySink?: UserManagementActivitySink
+    auditTrail?: CriticalAuditTrail
     userId?: null | string
   } = {}
 ): Promise<void> {
-  await db
-    .update(schema.session)
-    .set({ activeOrganizationId: organizationId })
-    .where(eq(schema.session.token, sessionToken))
+  const auditTrail = options.auditTrail ?? new DatabaseCriticalAuditTrail()
+
+  const didChange = await db.transaction(async (tx) => {
+    const [sessionRow] = await tx
+      .select({
+        activeOrganizationId: schema.session.activeOrganizationId,
+        id: schema.session.id,
+      })
+      .from(schema.session)
+      .where(eq(schema.session.token, sessionToken))
+      .limit(1)
+
+    if (!sessionRow || sessionRow.activeOrganizationId === organizationId) {
+      return false
+    }
+
+    await tx
+      .update(schema.session)
+      .set({ activeOrganizationId: organizationId })
+      .where(eq(schema.session.token, sessionToken))
+
+    await recordSessionActiveOrganizationChanged(tx, auditTrail, {
+      actorId: options.userId ?? 'system',
+      afterOrganizationId: organizationId,
+      beforeOrganizationId: sessionRow.activeOrganizationId,
+      sessionId: sessionRow.id,
+      source: 'workspace_session',
+    })
+
+    return true
+  })
+
+  if (!didChange) {
+    return
+  }
+
   recordUserManagementActivityEvent(
     {
       entityId: organizationId,
@@ -451,4 +492,29 @@ function parseWorkspaceKind(metadata: null | string | undefined): null | Workspa
     return null
   }
   return null
+}
+
+async function recordSessionActiveOrganizationChanged(
+  tx: AuditDbExecutor,
+  auditTrail: CriticalAuditTrail,
+  input: {
+    actorId: string
+    afterOrganizationId: string
+    beforeOrganizationId: null | string
+    sessionId: string
+    source: 'workspace_provisioning' | 'workspace_session'
+  }
+): Promise<void> {
+  await auditTrail.record(tx, {
+    action: 'session_active_organization_changed',
+    actorId: input.actorId,
+    changes: {
+      after: { activeOrganizationId: input.afterOrganizationId },
+      before: { activeOrganizationId: input.beforeOrganizationId },
+    },
+    entityId: input.sessionId,
+    entityType: 'session',
+    metadata: { source: input.source },
+    tenantId: input.afterOrganizationId,
+  })
 }
