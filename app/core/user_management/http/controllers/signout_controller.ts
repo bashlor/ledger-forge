@@ -19,40 +19,48 @@ export default class SignoutController {
       if (sessionToken) {
         await auth.signOut(sessionToken)
       } else {
-        recordUserManagementActivityEvent(
-          {
-            entityId: 'authentication',
-            entityType: 'auth',
-            event: 'sign_out_missing_session',
-            level: 'warn',
-            metadata: { isAnonymous },
-            outcome: 'failure',
-            tenantId: ctx.authSession?.session.activeOrganizationId ?? null,
-            userId: ctx.authSession?.user.id ?? null,
-          },
-          new StructuredUserManagementActivitySink(ctx.logger)
-        )
+        recordSignOutMissingSession(ctx, isAnonymous)
       }
     } catch (error) {
-      recordUserManagementActivityEvent(
-        {
-          entityId: ctx.authSession?.user.id ?? 'authentication',
-          entityType: 'auth',
-          event: 'sign_out_failure',
-          level: 'error',
-          metadata: {
-            errorName: error instanceof Error ? error.name : 'UnknownError',
-            isAnonymous,
-          },
-          outcome: 'failure',
-          tenantId: ctx.authSession?.session.activeOrganizationId ?? null,
-          userId: ctx.authSession?.user.id ?? null,
-        },
-        new StructuredUserManagementActivitySink(ctx.logger)
-      )
+      recordSignOutFailure(ctx, error, isAnonymous)
     }
 
     clearSessionToken(ctx)
     return ctx.response.redirect('/')
   }
+}
+
+function recordSignOutFailure(ctx: HttpContext, error: unknown, isAnonymous: boolean) {
+  recordUserManagementActivityEvent(
+    {
+      entityId: ctx.authSession?.user.id ?? 'authentication',
+      entityType: 'auth',
+      event: 'sign_out_failure',
+      level: 'error',
+      metadata: {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+        isAnonymous,
+      },
+      outcome: 'failure',
+      tenantId: ctx.authSession?.session.activeOrganizationId ?? null,
+      userId: ctx.authSession?.user.id ?? null,
+    },
+    new StructuredUserManagementActivitySink(ctx.logger)
+  )
+}
+
+function recordSignOutMissingSession(ctx: HttpContext, isAnonymous: boolean) {
+  recordUserManagementActivityEvent(
+    {
+      entityId: 'authentication',
+      entityType: 'auth',
+      event: 'sign_out_missing_session',
+      level: 'warn',
+      metadata: { isAnonymous },
+      outcome: 'failure',
+      tenantId: ctx.authSession?.session.activeOrganizationId ?? null,
+      userId: ctx.authSession?.user.id ?? null,
+    },
+    new StructuredUserManagementActivitySink(ctx.logger)
+  )
 }

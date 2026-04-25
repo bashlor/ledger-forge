@@ -7,18 +7,12 @@ import {
 } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
+import { MemberNotFoundError, MemberService } from '../../application/member_service.js'
 import {
-  CannotAssignOwnerRoleError,
-  CannotDeactivateSelfError,
-  CannotModifyOwnerError,
-  type MemberMutationTarget,
-  MemberNotFoundError,
-  MemberService,
-} from '../../application/member_service.js'
-import {
-  recordUserManagementActivityEvent,
-  StructuredUserManagementActivitySink,
-} from '../../support/activity_log.js'
+  recordMembershipSecurityEvent,
+  runMemberMutationWithGuards,
+  toMemberMutationTarget,
+} from '../helpers/membership_mutation_guards.js'
 import { toggleMemberStatusValidator, updateMemberRoleValidator } from '../validators/member.js'
 
 export default class MembershipController {
@@ -84,20 +78,15 @@ export default class MembershipController {
       })
       throw new MemberNotFoundError()
     }
-    const targetMember: MemberMutationTarget = {
-      id: target.id,
-      isActive: target.isActive,
-      role: target.role,
-      userId: target.userId,
-    }
+    const targetMember = toMemberMutationTarget(target)
 
     await flashAction(
       ctx,
       async () => {
-        try {
-          authorizationService.authorize(actor, 'membership.toggleActive', target)
-        } catch (error) {
-          if (error instanceof AuthorizationDeniedError) {
+        await runMemberMutationWithGuards({
+          assertAuthorized: () =>
+            authorizationService.authorize(actor, 'membership.toggleActive', target),
+          onAuthorizationDenied: () =>
             recordMembershipSecurityEvent(ctx, 'membership_toggle_denied', {
               entityId: memberId,
               metadata: {
@@ -109,37 +98,24 @@ export default class MembershipController {
               },
               tenantId,
               userId: actorId,
-            })
-          }
-          throw error
-        }
-
-        try {
-          await memberService.toggleMemberActive(
-            memberId,
-            isActive,
-            tenantId,
-            actorId,
-            targetMember
-          )
-        } catch (error) {
-          if (isExpectedMemberMutationError(error)) {
+            }),
+          onExpectedMutationRejection: (error) =>
             recordMembershipSecurityEvent(ctx, 'membership_toggle_rejected', {
               entityId: memberId,
               metadata: {
                 actorRole: actor.membershipRole,
                 actorUserId: actor.userId,
-                errorName: error.name,
+                errorName: error instanceof Error ? error.name : 'UnknownError',
                 requestedIsActive: isActive,
                 targetRole: target.role,
                 targetUserId: target.userId,
               },
               tenantId,
               userId: actorId,
-            })
-          }
-          throw error
-        }
+            }),
+          runMutation: () =>
+            memberService.toggleMemberActive(memberId, isActive, tenantId, actorId, targetMember),
+        })
       },
       isActive ? 'Member activated.' : 'Member deactivated.'
     )
@@ -172,20 +148,16 @@ export default class MembershipController {
       })
       throw new MemberNotFoundError()
     }
-    const targetMember: MemberMutationTarget = {
-      id: target.id,
-      isActive: target.isActive,
-      role: target.role,
-      userId: target.userId,
-    }
+    const targetMember = toMemberMutationTarget(target)
+    const actorId = ctx.authSession!.user.id
 
     await flashAction(
       ctx,
       async () => {
-        try {
-          authorizationService.authorize(actor, 'membership.changeRole', target)
-        } catch (error) {
-          if (error instanceof AuthorizationDeniedError) {
+        await runMemberMutationWithGuards({
+          assertAuthorized: () =>
+            authorizationService.authorize(actor, 'membership.changeRole', target),
+          onAuthorizationDenied: () =>
             recordMembershipSecurityEvent(ctx, 'membership_change_role_denied', {
               entityId: memberId,
               metadata: {
@@ -196,82 +168,29 @@ export default class MembershipController {
                 targetUserId: target.userId,
               },
               tenantId,
-              userId: ctx.authSession!.user.id,
-            })
-          }
-          throw error
-        }
-
-        try {
-          await memberService.updateMemberRole(
-            memberId,
-            role,
-            tenantId,
-            ctx.authSession!.user.id,
-            targetMember
-          )
-        } catch (error) {
-          if (isExpectedMemberMutationError(error)) {
+              userId: actorId,
+            }),
+          onExpectedMutationRejection: (error) =>
             recordMembershipSecurityEvent(ctx, 'membership_change_role_rejected', {
               entityId: memberId,
               metadata: {
                 actorRole: actor.membershipRole,
                 actorUserId: actor.userId,
-                errorName: error.name,
+                errorName: error instanceof Error ? error.name : 'UnknownError',
                 requestedRole: role,
                 targetRole: target.role,
                 targetUserId: target.userId,
               },
               tenantId,
-              userId: ctx.authSession!.user.id,
-            })
-          }
-          throw error
-        }
+              userId: actorId,
+            }),
+          runMutation: () =>
+            memberService.updateMemberRole(memberId, role, tenantId, actorId, targetMember),
+        })
       },
       role === 'admin' ? 'Member promoted to admin.' : 'Admin demoted to member.'
     )
 
     return ctx.response.redirect().toRoute('members.index')
   }
-}
-
-function isExpectedMemberMutationError(
-  error: unknown
-): error is
-  | CannotAssignOwnerRoleError
-  | CannotDeactivateSelfError
-  | CannotModifyOwnerError
-  | MemberNotFoundError {
-  return (
-    error instanceof CannotAssignOwnerRoleError ||
-    error instanceof CannotDeactivateSelfError ||
-    error instanceof CannotModifyOwnerError ||
-    error instanceof MemberNotFoundError
-  )
-}
-
-function recordMembershipSecurityEvent(
-  ctx: HttpContext,
-  event: string,
-  options: {
-    entityId: string
-    metadata: Record<string, unknown>
-    tenantId: string
-    userId?: string
-  }
-): void {
-  recordUserManagementActivityEvent(
-    {
-      entityId: options.entityId,
-      entityType: 'member',
-      event,
-      level: 'warn',
-      metadata: options.metadata,
-      outcome: 'failure',
-      tenantId: options.tenantId,
-      userId: options.userId ?? ctx.authSession?.user.id ?? null,
-    },
-    new StructuredUserManagementActivitySink(ctx.logger)
-  )
 }
