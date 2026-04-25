@@ -1,4 +1,4 @@
-export type AuditEntityType = 'customer' | 'expense' | 'invoice' | 'member'
+export type AuditEntityType = 'customer' | 'expense' | 'invoice' | 'member' | 'session' | 'user'
 
 export interface AuditEventDto {
   action: string
@@ -9,7 +9,7 @@ export interface AuditEventDto {
   entityType: string
   id: string
   metadata: unknown
-  organizationId: string
+  organizationId: null | string
 }
 
 export interface AuditEventInput {
@@ -19,5 +19,5 @@ export interface AuditEventInput {
   entityId: string
   entityType: AuditEntityType
   metadata?: null | Record<string, unknown>
-  tenantId: string
+  tenantId: null | string
 }
