@@ -4,27 +4,26 @@ import type { UserManagementActivityEvent } from '../../support/activity_log.js'
 
 import { BetterAuthAdapter } from './better_auth_adapter.js'
 
+type BetterAuthDrizzle = ConstructorParameters<typeof BetterAuthAdapter>[1]
+
 test.group('BetterAuthAdapter logging behavior', () => {
   test('records missing sessions as warn events', async ({ assert }) => {
     const events: UserManagementActivityEvent[] = []
-    const adapter = new BetterAuthAdapter(
-      {} as never,
-      {
-        query: {
-          session: {
-            findFirst: async () => null,
-          },
-          user: {
-            findFirst: async () => null,
-          },
+    const drizzle = {
+      query: {
+        session: {
+          findFirst: async () => null,
+        },
+        user: {
+          findFirst: async () => null,
         },
       },
-      {
-        record(event) {
-          events.push(event)
-        },
-      }
-    )
+    } as unknown as BetterAuthDrizzle
+    const adapter = new BetterAuthAdapter({} as never, drizzle, {
+      record(event) {
+        events.push(event)
+      },
+    })
 
     const result = await adapter.getSession('missing-token')
 
@@ -40,26 +39,23 @@ test.group('BetterAuthAdapter logging behavior', () => {
 
   test('sanitizes database failure metadata', async ({ assert }) => {
     const events: UserManagementActivityEvent[] = []
-    const adapter = new BetterAuthAdapter(
-      {} as never,
-      {
-        query: {
-          session: {
-            findFirst: async () => {
-              throw new Error('SQL timeout on table session')
-            },
+    const drizzle = {
+      query: {
+        session: {
+          findFirst: async () => {
+            throw new Error('SQL timeout on table session')
           },
-          user: {
-            findFirst: async () => null,
-          },
+        },
+        user: {
+          findFirst: async () => null,
         },
       },
-      {
-        record(event) {
-          events.push(event)
-        },
-      }
-    )
+    } as unknown as BetterAuthDrizzle
+    const adapter = new BetterAuthAdapter({} as never, drizzle, {
+      record(event) {
+        events.push(event)
+      },
+    })
 
     const result = await adapter.getSession('broken-token')
 

@@ -1,4 +1,6 @@
+import type * as schema from '#core/common/drizzle/index'
 import type { StructuredLogLevel } from '#core/common/logging/structured_log'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { getDefaultStructuredLogFields, toIsoTimestamp } from '#core/common/logging/structured_log'
 import env from '#start/env'
@@ -15,54 +17,67 @@ import * as authTables from '../../drizzle/schema.js'
 
 export type BetterAuthInstance = Awaited<ReturnType<typeof createBetterAuth>>
 
-export async function createBetterAuth(
-  drizzle: any,
-  options: {
-    activitySink?: UserManagementActivitySink
-    emailAndPassword?: {
-      enabled: boolean
-      maxPasswordLength?: number
-      minPasswordLength?: number
-      requireEmailVerification?: boolean
-      sendResetPassword?: (data: { url: string; user: any }) => Promise<void>
-    }
-    secret?: string
-    session?: {
-      cookieCache?: {
-        enabled?: boolean
-        maxAge?: number
-      }
-      expiresIn?: number
-      updateAge?: number
-    }
-  } = {}
-) {
-  function recordActivity(
-    event: string,
-    level: StructuredLogLevel,
-    outcome: 'failure' | 'success',
-    metadata?: Record<string, unknown>,
-    entityId = 'authentication',
-    entityType = 'auth',
-    userId?: null | string
-  ) {
-    const defaults = getDefaultStructuredLogFields()
-
-    activitySink?.record({
-      context: 'UserManagement',
-      entityId,
-      entityType,
-      event,
-      level,
-      metadata,
-      outcome,
-      requestId: defaults.requestId ?? 'system',
-      tenantId: defaults.tenantId ?? null,
-      timestamp: toIsoTimestamp(),
-      userId: userId ?? defaults.userId ?? null,
-    })
+interface BetterAuthFactoryOptions {
+  activitySink?: UserManagementActivitySink
+  emailAndPassword?: {
+    enabled: boolean
+    maxPasswordLength?: number
+    minPasswordLength?: number
+    requireEmailVerification?: boolean
+    sendResetPassword?: (data: {
+      url: string
+      user: { email?: unknown; id?: unknown }
+    }) => Promise<void>
   }
+  secret?: string
+  session?: {
+    cookieCache?: {
+      enabled?: boolean
+      maxAge?: number
+    }
+    expiresIn?: number
+    updateAge?: number
+  }
+}
 
+const BETTER_AUTH_ACTIVITY_EVENTS: Record<string, { event: string; level: StructuredLogLevel }> = {
+  '/change-password': { event: 'user_change_password', level: 'info' },
+  '/delete-user': { event: 'user_delete_account', level: 'warn' },
+  '/forget-password': { event: 'user_forget_password', level: 'info' },
+  '/reset-password': { event: 'user_reset_password', level: 'info' },
+  '/sign-in/anonymous': { event: 'anonymous_sign_in', level: 'info' },
+  '/sign-in/email': { event: 'user_sign_in', level: 'info' },
+  '/sign-in/social': { event: 'user_social_sign_in', level: 'info' },
+  '/sign-out': { event: 'user_sign_out', level: 'info' },
+  '/sign-up/email': { event: 'user_sign_up', level: 'info' },
+  '/update-user': { event: 'user_update_profile', level: 'info' },
+  '/verify-email': { event: 'user_verify_email', level: 'info' },
+}
+
+const DISABLED_ORGANIZATION_PATHS = [
+  '/organization/create',
+  '/organization/update',
+  '/organization/delete',
+  '/organization/set-active',
+  '/organization/get-full-organization',
+  '/organization/list',
+  '/organization/invite-member',
+  '/organization/list-invitations',
+  '/organization/list-user-invitations',
+  '/organization/list-members',
+  '/organization/update-member-role',
+  '/organization/remove-member',
+  '/organization/leave',
+  '/organization/accept-invitation',
+  '/organization/reject-invitation',
+  '/organization/cancel-invitation',
+  '/organization/get-invitation',
+] as const
+
+export async function createBetterAuth(
+  drizzle: PostgresJsDatabase<typeof schema>,
+  options: BetterAuthFactoryOptions = {}
+) {
   const requireEmailVerification = env.get('REQUIRE_EMAIL_VERIFICATION')
 
   const {
@@ -74,7 +89,8 @@ export async function createBetterAuth(
       requireEmailVerification,
       sendResetPassword: async ({ url, user }) => {
         void url
-        recordActivity(
+        recordBetterAuthActivity(
+          activitySink,
           'password_reset_email_requested',
           'info',
           'success',
@@ -130,32 +146,19 @@ export async function createBetterAuth(
         },
       },
     },
+    disabledPaths: [...DISABLED_ORGANIZATION_PATHS],
     emailAndPassword,
     hooks: {
       after: createAuthMiddleware(async (ctx) => {
         const path = ctx.path
         const returned = ctx.context.returned
-        const isError = returned instanceof Error || (returned as any)?.status >= 400
+        const isError = returned instanceof Error || hasErrorStatus(returned)
         const outcome: 'failure' | 'success' = isError ? 'failure' : 'success'
-
-        const eventMap: Record<string, { event: string; level: StructuredLogLevel }> = {
-          '/change-password': { event: 'user_change_password', level: 'info' },
-          '/delete-user': { event: 'user_delete_account', level: 'warn' },
-          '/forget-password': { event: 'user_forget_password', level: 'info' },
-          '/reset-password': { event: 'user_reset_password', level: 'info' },
-          '/sign-in/anonymous': { event: 'anonymous_sign_in', level: 'info' },
-          '/sign-in/email': { event: 'user_sign_in', level: 'info' },
-          '/sign-in/social': { event: 'user_social_sign_in', level: 'info' },
-          '/sign-out': { event: 'user_sign_out', level: 'info' },
-          '/sign-up/email': { event: 'user_sign_up', level: 'info' },
-          '/update-user': { event: 'user_update_profile', level: 'info' },
-          '/verify-email': { event: 'user_verify_email', level: 'info' },
-        }
-
-        const mapped = eventMap[path]
+        const mapped = BETTER_AUTH_ACTIVITY_EVENTS[path]
         if (mapped) {
           const actor = resolveBetterAuthHookActor(ctx.context)
-          recordActivity(
+          recordBetterAuthActivity(
+            activitySink,
             mapped.event,
             isError ? 'warn' : mapped.level,
             outcome,
@@ -175,6 +178,43 @@ export async function createBetterAuth(
     ],
     secret,
     session,
+  })
+}
+
+function hasErrorStatus(returned: unknown): boolean {
+  return (
+    typeof returned === 'object' &&
+    returned !== null &&
+    'status' in returned &&
+    typeof returned.status === 'number' &&
+    returned.status >= 400
+  )
+}
+
+function recordBetterAuthActivity(
+  activitySink: undefined | UserManagementActivitySink,
+  event: string,
+  level: StructuredLogLevel,
+  outcome: 'failure' | 'success',
+  metadata?: Record<string, unknown>,
+  entityId = 'authentication',
+  entityType = 'auth',
+  userId?: null | string
+) {
+  const defaults = getDefaultStructuredLogFields()
+
+  activitySink?.record({
+    context: 'UserManagement',
+    entityId,
+    entityType,
+    event,
+    level,
+    metadata,
+    outcome,
+    requestId: defaults.requestId ?? 'system',
+    tenantId: defaults.tenantId ?? null,
+    timestamp: toIsoTimestamp(),
+    userId: userId ?? defaults.userId ?? null,
   })
 }
 
