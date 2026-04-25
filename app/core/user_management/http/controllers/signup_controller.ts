@@ -9,7 +9,10 @@ import { inject } from '@adonisjs/core'
 import app from '@adonisjs/core/services/app'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
-import { userManagementHttpLogger } from '../helpers/activity_log.js'
+import {
+  recordUserManagementActivityEvent,
+  StructuredUserManagementActivitySink,
+} from '../../support/activity_log.js'
 import { runInertiaFormMutation } from '../helpers/error_surface.js'
 import { writeSessionToken } from '../session/session_token.js'
 import { signupValidator } from '../validators/user.js'
@@ -22,26 +25,11 @@ export default class SignupController {
   @inject()
   async store(ctx: HttpContext, auth: AuthenticationPort) {
     const { email, fullName, password } = await ctx.request.validateUsing(signupValidator)
-    const authLog = userManagementHttpLogger(ctx)
 
     return runInertiaFormMutation(
       ctx,
       async () => {
-        const authentication = await authLog.run(
-          () => auth.signUp(email, password, fullName ?? undefined),
-          {
-            failure: {
-              entityId: 'authentication',
-              entityType: 'auth',
-              event: 'sign_up_failure',
-            },
-            success: (result) => ({
-              entityId: result.user.id,
-              entityType: 'user',
-              event: 'sign_up_success',
-            }),
-          }
-        )
+        const authentication = await auth.signUp(email, password, fullName ?? undefined)
 
         try {
           if (!isSingleTenantMode()) {
@@ -57,11 +45,22 @@ export default class SignupController {
           }
         } catch (error) {
           // Best-effort side-effect: account creation should still succeed.
-          authLog.failure('workspace_provision_on_signup_failure', error, {
-            entityId: authentication.user.id,
-            entityType: 'user',
-            metadata: { phase: 'workspace_provision' },
-          })
+          recordUserManagementActivityEvent(
+            {
+              entityId: authentication.user.id,
+              entityType: 'user',
+              event: 'workspace_provision_on_signup_failure',
+              level: 'warn',
+              metadata: {
+                errorName: error instanceof Error ? error.name : 'UnknownError',
+                phase: 'workspace_provision',
+              },
+              outcome: 'failure',
+              tenantId: authentication.session.activeOrganizationId ?? null,
+              userId: authentication.user.id,
+            },
+            new StructuredUserManagementActivitySink(ctx.logger)
+          )
         }
 
         writeSessionToken(ctx, {

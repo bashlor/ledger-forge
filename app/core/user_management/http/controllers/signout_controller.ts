@@ -3,7 +3,10 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { inject } from '@adonisjs/core'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
-import { userManagementHttpLogger } from '../helpers/activity_log.js'
+import {
+  recordUserManagementActivityEvent,
+  StructuredUserManagementActivitySink,
+} from '../../support/activity_log.js'
 import { clearSessionToken, readSessionToken } from '../session/session_token.js'
 
 export default class SignoutController {
@@ -11,27 +14,45 @@ export default class SignoutController {
   async store(ctx: HttpContext, auth: AuthenticationPort) {
     const sessionToken = readSessionToken(ctx)
     const isAnonymous = ctx.authSession?.user.isAnonymous ?? false
-    const authLog = userManagementHttpLogger(ctx, {
-      entityId: ctx.authSession?.user.id ?? 'anonymous',
-      entityType: 'auth',
-      metadata: { isAnonymous },
-    })
 
     try {
       if (sessionToken) {
         await auth.signOut(sessionToken)
-        authLog.success('sign_out_success')
       } else {
-        authLog.warn('sign_out_missing_session', {
-          entityId: 'authentication',
-        })
+        recordUserManagementActivityEvent(
+          {
+            entityId: 'authentication',
+            entityType: 'auth',
+            event: 'sign_out_missing_session',
+            level: 'warn',
+            metadata: { isAnonymous },
+            outcome: 'failure',
+            tenantId: ctx.authSession?.session.activeOrganizationId ?? null,
+            userId: ctx.authSession?.user.id ?? null,
+          },
+          new StructuredUserManagementActivitySink(ctx.logger)
+        )
       }
     } catch (error) {
-      authLog.failure('sign_out_failure', error, { level: 'error' })
+      recordUserManagementActivityEvent(
+        {
+          entityId: ctx.authSession?.user.id ?? 'authentication',
+          entityType: 'auth',
+          event: 'sign_out_failure',
+          level: 'error',
+          metadata: {
+            errorName: error instanceof Error ? error.name : 'UnknownError',
+            isAnonymous,
+          },
+          outcome: 'failure',
+          tenantId: ctx.authSession?.session.activeOrganizationId ?? null,
+          userId: ctx.authSession?.user.id ?? null,
+        },
+        new StructuredUserManagementActivitySink(ctx.logger)
+      )
     }
 
     clearSessionToken(ctx)
-    authLog.success('session_cookie_cleared')
     return ctx.response.redirect('/')
   }
 }

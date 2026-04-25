@@ -4,7 +4,6 @@ import { inject } from '@adonisjs/core'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
 import { SessionExpiredError } from '../../domain/errors.js'
-import { userManagementHttpLogger } from '../helpers/activity_log.js'
 import { runInertiaFormMutation } from '../helpers/error_surface.js'
 import { rejectAnonymousAccountMutation } from '../helpers/reject_anonymous_account_mutation.js'
 import { readSessionToken } from '../session/session_token.js'
@@ -24,9 +23,6 @@ export default class UpdatePasswordController {
     const { currentPassword, newPassword } =
       await ctx.request.validateUsing(changePasswordValidator)
     const sessionToken = readSessionToken(ctx)
-    const authLog = userManagementHttpLogger(ctx, {
-      entityId: ctx.authSession?.user.id ?? 'authentication',
-    })
 
     return runInertiaFormMutation(
       ctx,
@@ -35,16 +31,7 @@ export default class UpdatePasswordController {
           throw new SessionExpiredError()
         }
 
-        await authLog.run(() => auth.changePassword(sessionToken, currentPassword, newPassword), {
-          failure: {
-            entityType: 'auth',
-            event: 'password_change_failure',
-          },
-          success: {
-            entityType: 'user',
-            event: 'password_change_success',
-          },
-        })
+        await auth.changePassword(sessionToken, currentPassword, newPassword)
         ctx.session.flash('success', 'Password changed successfully.')
         return ctx.response.redirect().toPath('/account')
       },

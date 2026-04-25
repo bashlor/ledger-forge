@@ -15,7 +15,10 @@ import {
   MemberNotFoundError,
   MemberService,
 } from '../../application/member_service.js'
-import { userManagementHttpLogger } from '../helpers/activity_log.js'
+import {
+  recordUserManagementActivityEvent,
+  StructuredUserManagementActivitySink,
+} from '../../support/activity_log.js'
 import { toggleMemberStatusValidator, updateMemberRoleValidator } from '../validators/member.js'
 
 export default class MembershipController {
@@ -32,18 +35,15 @@ export default class MembershipController {
   ) {
     const tenantId = ctx.authSession!.session.activeOrganizationId!
     const actor = await authorizationService.actorFromSession(ctx.authSession)
-    const membershipLog = userManagementHttpLogger(ctx, {
-      entityId: actor.userId ?? 'unknown',
-      entityType: 'member',
-      tenantId,
-    })
 
     try {
       authorizationService.authorize(actor, 'membership.list')
     } catch (error) {
       if (error instanceof AuthorizationDeniedError) {
-        membershipLog.warn('membership_list_denied', {
+        recordMembershipSecurityEvent(ctx, 'membership_list_denied', {
+          entityId: actor.userId ?? 'unknown',
           metadata: { actorRole: actor.membershipRole, actorUserId: actor.userId, tenantId },
+          tenantId,
         })
       }
       throw error
@@ -67,23 +67,20 @@ export default class MembershipController {
     const memberId = ctx.params.memberId as string
     const tenantId = ctx.authSession!.session.activeOrganizationId!
     const actorId = ctx.authSession!.user.id
-    const membershipLog = userManagementHttpLogger(ctx, {
-      entityId: memberId,
-      entityType: 'member',
-      tenantId,
-      userId: actorId,
-    })
     const { isActive } = await ctx.request.validateUsing(toggleMemberStatusValidator)
     const actor = await authorizationService.actorFromSession(ctx.authSession)
     const target = await authorizationService.membershipSubject(tenantId, memberId)
 
     if (!target) {
-      membershipLog.warn('membership_toggle_target_not_found', {
+      recordMembershipSecurityEvent(ctx, 'membership_toggle_target_not_found', {
+        entityId: memberId,
         metadata: {
           actorRole: actor.membershipRole,
           actorUserId: actor.userId,
           requestedIsActive: isActive,
         },
+        tenantId,
+        userId: actorId,
       })
       throw new MemberNotFoundError()
     }
@@ -101,7 +98,8 @@ export default class MembershipController {
           authorizationService.authorize(actor, 'membership.toggleActive', target)
         } catch (error) {
           if (error instanceof AuthorizationDeniedError) {
-            membershipLog.warn('membership_toggle_denied', {
+            recordMembershipSecurityEvent(ctx, 'membership_toggle_denied', {
+              entityId: memberId,
               metadata: {
                 actorRole: actor.membershipRole,
                 actorUserId: actor.userId,
@@ -109,6 +107,8 @@ export default class MembershipController {
                 targetRole: target.role,
                 targetUserId: target.userId,
               },
+              tenantId,
+              userId: actorId,
             })
           }
           throw error
@@ -124,7 +124,8 @@ export default class MembershipController {
           )
         } catch (error) {
           if (isExpectedMemberMutationError(error)) {
-            membershipLog.warn('membership_toggle_rejected', {
+            recordMembershipSecurityEvent(ctx, 'membership_toggle_rejected', {
+              entityId: memberId,
               metadata: {
                 actorRole: actor.membershipRole,
                 actorUserId: actor.userId,
@@ -133,6 +134,8 @@ export default class MembershipController {
                 targetRole: target.role,
                 targetUserId: target.userId,
               },
+              tenantId,
+              userId: actorId,
             })
           }
           throw error
@@ -153,22 +156,19 @@ export default class MembershipController {
     const memberId = ctx.params.memberId as string
     const tenantId = ctx.authSession!.session.activeOrganizationId!
     const actor = await authorizationService.actorFromSession(ctx.authSession)
-    const membershipLog = userManagementHttpLogger(ctx, {
-      entityId: memberId,
-      entityType: 'member',
-      tenantId,
-      userId: ctx.authSession!.user.id,
-    })
     const { role } = await ctx.request.validateUsing(updateMemberRoleValidator)
     const target = await authorizationService.membershipSubject(tenantId, memberId)
 
     if (!target) {
-      membershipLog.warn('membership_change_role_target_not_found', {
+      recordMembershipSecurityEvent(ctx, 'membership_change_role_target_not_found', {
+        entityId: memberId,
         metadata: {
           actorRole: actor.membershipRole,
           actorUserId: actor.userId,
           requestedRole: role,
         },
+        tenantId,
+        userId: ctx.authSession!.user.id,
       })
       throw new MemberNotFoundError()
     }
@@ -186,7 +186,8 @@ export default class MembershipController {
           authorizationService.authorize(actor, 'membership.changeRole', target)
         } catch (error) {
           if (error instanceof AuthorizationDeniedError) {
-            membershipLog.warn('membership_change_role_denied', {
+            recordMembershipSecurityEvent(ctx, 'membership_change_role_denied', {
+              entityId: memberId,
               metadata: {
                 actorRole: actor.membershipRole,
                 actorUserId: actor.userId,
@@ -194,6 +195,8 @@ export default class MembershipController {
                 targetRole: target.role,
                 targetUserId: target.userId,
               },
+              tenantId,
+              userId: ctx.authSession!.user.id,
             })
           }
           throw error
@@ -209,7 +212,8 @@ export default class MembershipController {
           )
         } catch (error) {
           if (isExpectedMemberMutationError(error)) {
-            membershipLog.warn('membership_change_role_rejected', {
+            recordMembershipSecurityEvent(ctx, 'membership_change_role_rejected', {
+              entityId: memberId,
               metadata: {
                 actorRole: actor.membershipRole,
                 actorUserId: actor.userId,
@@ -218,6 +222,8 @@ export default class MembershipController {
                 targetRole: target.role,
                 targetUserId: target.userId,
               },
+              tenantId,
+              userId: ctx.authSession!.user.id,
             })
           }
           throw error
@@ -242,5 +248,30 @@ function isExpectedMemberMutationError(
     error instanceof CannotDeactivateSelfError ||
     error instanceof CannotModifyOwnerError ||
     error instanceof MemberNotFoundError
+  )
+}
+
+function recordMembershipSecurityEvent(
+  ctx: HttpContext,
+  event: string,
+  options: {
+    entityId: string
+    metadata: Record<string, unknown>
+    tenantId: string
+    userId?: string
+  }
+): void {
+  recordUserManagementActivityEvent(
+    {
+      entityId: options.entityId,
+      entityType: 'member',
+      event,
+      level: 'warn',
+      metadata: options.metadata,
+      outcome: 'failure',
+      tenantId: options.tenantId,
+      userId: options.userId ?? ctx.authSession?.user.id ?? null,
+    },
+    new StructuredUserManagementActivitySink(ctx.logger)
   )
 }

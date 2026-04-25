@@ -30,7 +30,7 @@ export interface UserManagementActivitySink {
   record(event: UserManagementActivityEvent): Promise<void> | void
 }
 
-interface UserManagementLoggerLike {
+export interface UserManagementLoggerLike {
   debug?(bindings: Record<string, unknown>, message: string): void
   error?(bindings: Record<string, unknown>, message: string): void
   fatal?(bindings: Record<string, unknown>, message: string): void

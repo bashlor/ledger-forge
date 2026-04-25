@@ -12,12 +12,15 @@ import {
   provisionPersonalWorkspace,
   setActiveOrganizationForSession,
 } from '#core/user_management/application/workspace_provisioning'
+import {
+  recordUserManagementActivityEvent,
+  StructuredUserManagementActivitySink,
+} from '#core/user_management/support/activity_log'
 import { userIsMemberOfOrganization } from '#core/user_management/support/tenant_membership'
 import { getSingleTenantOrgId, isSingleTenantMode } from '#core/user_management/support/tenant_mode'
 import app from '@adonisjs/core/services/app'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
-import { userManagementHttpLogger } from '../helpers/activity_log.js'
 import { readSessionToken } from '../session/session_token.js'
 import '../types/workspace_context.js'
 
@@ -105,16 +108,14 @@ export default class WorkspaceShareMiddleware {
       )
 
       if (!hasMembership) {
-        this.createWorkspaceLogger(ctx).warn(
-          'workspace_membership_missing_for_active_organization',
-          {
-            entityId: ctx.authSession.session.activeOrganizationId,
-            metadata: {
-              organizationId: ctx.authSession.session.activeOrganizationId,
-              path: pathname,
-            },
-          }
-        )
+        this.recordWorkspaceActivity(ctx, 'workspace_membership_missing_for_active_organization', {
+          entityId: ctx.authSession.session.activeOrganizationId,
+          level: 'warn',
+          metadata: {
+            organizationId: ctx.authSession.session.activeOrganizationId,
+            path: pathname,
+          },
+        })
 
         await clearActiveOrganizationForSession(db, token)
 
@@ -150,7 +151,8 @@ export default class WorkspaceShareMiddleware {
         ctx.workspaceShare = undefined
         return next()
       }
-      this.createWorkspaceLogger(ctx).warn('workspace_ensure_failed_without_active_organization', {
+      this.recordWorkspaceActivity(ctx, 'workspace_ensure_failed_without_active_organization', {
+        level: 'warn',
         metadata: { path: pathname },
       })
       return ctx.response.redirect('/signin')
@@ -221,19 +223,15 @@ export default class WorkspaceShareMiddleware {
       const share = await loadWorkspaceShare(db, activeOrganizationId)
       ctx.workspaceShare = share ?? undefined
     } catch (error) {
-      this.createWorkspaceLogger(ctx).failure('workspace_share_load_failure', error, {
+      this.recordWorkspaceActivity(ctx, 'workspace_share_load_failure', {
         entityId: activeOrganizationId,
         level: 'debug',
+        metadata: {
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        },
       })
       ctx.workspaceShare = undefined
     }
-  }
-
-  private createWorkspaceLogger(ctx: HttpContext) {
-    return userManagementHttpLogger(ctx, {
-      entityId: ctx.authSession?.session.activeOrganizationId ?? 'unknown',
-      entityType: 'workspace',
-    })
   }
 
   private isBetterAuthPath(pathname: string): boolean {
@@ -249,10 +247,11 @@ export default class WorkspaceShareMiddleware {
     pathname: string,
     error: unknown
   ): void {
-    this.createWorkspaceLogger(ctx).failure('personal_workspace_provision_failure', error, {
+    this.recordWorkspaceActivity(ctx, 'personal_workspace_provision_failure', {
       entityId: ctx.authSession?.session.activeOrganizationId ?? 'unknown',
       level: 'debug',
       metadata: {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
         mode: 'personal',
         orgId: ctx.authSession?.session.activeOrganizationId,
         path: pathname,
@@ -267,10 +266,11 @@ export default class WorkspaceShareMiddleware {
     mode: 'personal' | 'single',
     organizationId: null | string
   ): void {
-    this.createWorkspaceLogger(ctx).failure(`${mode}_workspace_demo_seed_failure`, error, {
+    this.recordWorkspaceActivity(ctx, `${mode}_workspace_demo_seed_failure`, {
       entityId: organizationId ?? 'unknown',
       level: 'warn',
       metadata: {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
         mode,
         orgId: organizationId,
         path: pathname,
@@ -290,18 +290,21 @@ export default class WorkspaceShareMiddleware {
     }
 
     if (error instanceof Error && error.message.includes('SINGLE_TENANT_ORG_ID')) {
-      this.createWorkspaceLogger(ctx).failure('single_tenant_configuration_invalid', error, {
+      this.recordWorkspaceActivity(ctx, 'single_tenant_configuration_invalid', {
         entityId: ctx.authSession?.session.activeOrganizationId ?? 'unknown',
         level: 'error',
-        metadata,
+        metadata: { ...metadata, errorName: error.name },
       })
       return
     }
 
-    this.createWorkspaceLogger(ctx).failure('single_tenant_provision_failure', error, {
+    this.recordWorkspaceActivity(ctx, 'single_tenant_provision_failure', {
       entityId: ctx.authSession?.session.activeOrganizationId ?? 'unknown',
       level: 'warn',
-      metadata,
+      metadata: {
+        ...metadata,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      },
     })
   }
 
@@ -313,6 +316,30 @@ export default class WorkspaceShareMiddleware {
     }
     path = path.replace(/\/+$/, '') || '/'
     return path
+  }
+
+  private recordWorkspaceActivity(
+    ctx: HttpContext,
+    event: string,
+    options: {
+      entityId?: string
+      level: 'debug' | 'error' | 'warn'
+      metadata?: Record<string, unknown>
+    }
+  ): void {
+    recordUserManagementActivityEvent(
+      {
+        entityId: options.entityId ?? ctx.authSession?.session.activeOrganizationId ?? 'unknown',
+        entityType: 'workspace',
+        event,
+        level: options.level,
+        metadata: options.metadata,
+        outcome: 'failure',
+        tenantId: ctx.authSession?.session.activeOrganizationId ?? null,
+        userId: ctx.authSession?.user.id ?? null,
+      },
+      new StructuredUserManagementActivitySink(ctx.logger)
+    )
   }
 
   private async seedWorkspaceDemoDataBestEffort(

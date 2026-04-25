@@ -9,30 +9,20 @@ import { inject } from '@adonisjs/core'
 import app from '@adonisjs/core/services/app'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
-import { userManagementHttpLogger } from '../helpers/activity_log.js'
+import {
+  recordUserManagementActivityEvent,
+  StructuredUserManagementActivitySink,
+} from '../../support/activity_log.js'
 import { runInertiaFormMutation } from '../helpers/error_surface.js'
 import { writeSessionToken } from '../session/session_token.js'
 
 export default class AnonymousSigninController {
   @inject()
   async store(ctx: HttpContext, auth: AuthenticationPort) {
-    const authLog = userManagementHttpLogger(ctx)
-
     return runInertiaFormMutation(
       ctx,
       async () => {
-        const authentication = await authLog.run(() => auth.signInAnonymously(), {
-          failure: {
-            entityId: 'authentication',
-            entityType: 'auth',
-            event: 'anonymous_sign_in_failure',
-          },
-          success: (result) => ({
-            entityId: result.user.id,
-            entityType: 'user',
-            event: 'anonymous_sign_in_success',
-          }),
-        })
+        const authentication = await auth.signInAnonymously()
 
         try {
           if (!isSingleTenantMode()) {
@@ -46,11 +36,22 @@ export default class AnonymousSigninController {
           }
         } catch (error) {
           // Best-effort side-effect: anonymous sign-in should still complete.
-          authLog.failure('workspace_provision_on_anonymous_signin_failure', error, {
-            entityId: authentication.user.id,
-            entityType: 'user',
-            metadata: { phase: 'workspace_provision' },
-          })
+          recordUserManagementActivityEvent(
+            {
+              entityId: authentication.user.id,
+              entityType: 'user',
+              event: 'workspace_provision_on_anonymous_signin_failure',
+              level: 'warn',
+              metadata: {
+                errorName: error instanceof Error ? error.name : 'UnknownError',
+                phase: 'workspace_provision',
+              },
+              outcome: 'failure',
+              tenantId: authentication.session.activeOrganizationId ?? null,
+              userId: authentication.user.id,
+            },
+            new StructuredUserManagementActivitySink(ctx.logger)
+          )
         }
 
         writeSessionToken(ctx, {

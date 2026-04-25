@@ -2,24 +2,22 @@ import type { HttpContext } from '@adonisjs/core/http'
 
 import { HttpProblem } from '#core/common/resources/http_problem'
 import { AuthenticationError } from '#core/user_management/domain/errors'
+import {
+  recordUserManagementActivityEvent,
+  StructuredUserManagementActivitySink,
+} from '#core/user_management/support/activity_log'
 import app from '@adonisjs/core/services/app'
 import router from '@adonisjs/core/services/router'
-
-import { userManagementHttpLogger } from '../helpers/activity_log.js'
 
 router
   .any('/api/auth/*', async (ctx: HttpContext) => {
     const { request, response } = ctx
-    const authLog = userManagementHttpLogger(ctx, {
-      entityId: 'authentication',
-      entityType: 'auth',
-    })
     const auth = await app.container.make('betterAuth')
 
     const url = new URL(request.url(true), request.completeUrl(true))
 
     if (url.pathname.startsWith('/api/auth/organization')) {
-      authLog.failure('better_auth_org_surface_blocked', null, {
+      recordAuthProxyEvent(ctx, 'better_auth_org_surface_blocked', {
         level: 'warn',
         metadata: { path: url.pathname },
       })
@@ -53,7 +51,12 @@ router
     try {
       webResponse = await auth.handler(webRequest)
     } catch (error) {
-      authLog.failure('better_auth_handler_error', error, { level: 'error' })
+      recordAuthProxyEvent(ctx, 'better_auth_handler_error', {
+        level: 'error',
+        metadata: {
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        },
+      })
       HttpProblem.fromError(new AuthenticationError()).toResponse(response)
       return
     }
@@ -64,7 +67,12 @@ router
         const body = (await webResponse.json()) as Record<string, unknown>
         code = body?.code as string | undefined
       } catch (error) {
-        authLog.failure('better_auth_error_payload_unparseable', error)
+        recordAuthProxyEvent(ctx, 'better_auth_error_payload_unparseable', {
+          level: 'warn',
+          metadata: {
+            errorName: error instanceof Error ? error.name : 'UnknownError',
+          },
+        })
       }
 
       for (const cookie of webResponse.headers.getSetCookie()) {
@@ -85,3 +93,26 @@ router
     if (body) response.send(body)
   })
   .as('better-auth.handler')
+
+function recordAuthProxyEvent(
+  ctx: HttpContext,
+  event: string,
+  options: {
+    level: 'error' | 'warn'
+    metadata?: Record<string, unknown>
+  }
+): void {
+  recordUserManagementActivityEvent(
+    {
+      entityId: 'authentication',
+      entityType: 'auth',
+      event,
+      level: options.level,
+      metadata: options.metadata,
+      outcome: 'failure',
+      tenantId: ctx.authSession?.session.activeOrganizationId ?? null,
+      userId: ctx.authSession?.user.id ?? null,
+    },
+    new StructuredUserManagementActivitySink(ctx.logger)
+  )
+}
