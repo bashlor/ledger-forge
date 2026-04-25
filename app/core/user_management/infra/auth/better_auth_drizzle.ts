@@ -143,6 +143,7 @@ export async function createBetterAuth(
           '/delete-user': { event: 'user_delete_account', level: 'warn' },
           '/forget-password': { event: 'user_forget_password', level: 'info' },
           '/reset-password': { event: 'user_reset_password', level: 'info' },
+          '/sign-in/anonymous': { event: 'anonymous_sign_in', level: 'info' },
           '/sign-in/email': { event: 'user_sign_in', level: 'info' },
           '/sign-in/social': { event: 'user_social_sign_in', level: 'info' },
           '/sign-out': { event: 'user_sign_out', level: 'info' },
@@ -153,15 +154,15 @@ export async function createBetterAuth(
 
         const mapped = eventMap[path]
         if (mapped) {
-          const newSession = ctx.context.newSession
+          const actor = resolveBetterAuthHookActor(ctx.context)
           recordActivity(
             mapped.event,
             isError ? 'warn' : mapped.level,
             outcome,
             { path },
-            newSession?.user?.id ?? 'unknown',
-            'user',
-            newSession?.user?.id ?? null
+            actor.entityId,
+            actor.entityType,
+            actor.userId
           )
         }
       }),
@@ -175,4 +176,31 @@ export async function createBetterAuth(
     secret,
     session,
   })
+}
+
+/**
+ * `newSession` is set on flows that create/replace a session (e.g. sign-in).
+ * Session-scoped routes (sign-out, change-password, update-user) still expose the
+ * current user on `context.session` — without this, the hook would log
+ * `entityId: "unknown"` for those events.
+ */
+function resolveBetterAuthHookActor(context: {
+  newSession?: null | { user?: { id?: unknown } }
+  session?: null | { user?: { id?: unknown } }
+}): { entityId: string; entityType: 'auth' | 'user'; userId: null | string } {
+  const fromNew = context.newSession?.user?.id
+  if (fromNew !== undefined && fromNew !== null && String(fromNew) !== '') {
+    const id = String(fromNew)
+    return { entityId: id, entityType: 'user', userId: id }
+  }
+  const fromCurrentSession = context.session?.user?.id
+  if (
+    fromCurrentSession !== undefined &&
+    fromCurrentSession !== null &&
+    String(fromCurrentSession) !== ''
+  ) {
+    const id = String(fromCurrentSession)
+    return { entityId: id, entityType: 'user', userId: id }
+  }
+  return { entityId: 'authentication', entityType: 'auth', userId: null }
 }
