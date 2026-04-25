@@ -55,7 +55,7 @@ class RouteAuthenticationStub extends AuthenticationPort {
     this.changePasswordCalls += 1
   }
   getOAuthUrl(): string {
-    return '/api/auth/sign-in/social'
+    return ''
   }
   async getSession(_sessionToken: null | string): Promise<AuthResult | null> {
     return this.session
