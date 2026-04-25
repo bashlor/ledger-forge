@@ -2,10 +2,11 @@ import type { HttpContext } from '@adonisjs/core/http'
 
 import { getAccountingReadOnlyState } from '#core/accounting/application/audit/accounting_readonly_policy'
 import { CustomerService } from '#core/accounting/application/customers/index'
-import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
+import { accountingAccessFromActiveTenant } from '#core/accounting/application/support/access_context'
 import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
+import { resolveActiveTenantContext } from '#core/user_management/application/active_tenant_context'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
@@ -24,13 +25,13 @@ export default class CustomersController {
     customerService: CustomerService
   ) {
     const { params } = await ctx.request.validateUsing(customerParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
       () => {
-        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
         return customerService.deleteCustomer(params.id, access)
       },
       'Customer deleted.'
@@ -46,10 +47,10 @@ export default class CustomersController {
     customerService: CustomerService
   ) {
     const { page, perPage, search } = await ctx.request.validateUsing(customerIndexValidator)
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
-    authorizationService.authorize(actor, 'accounting.read')
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    authorizationService.authorize(activeTenant.actor, 'accounting.read')
 
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
     const customers = await customerService.listCustomersPage(
       page ?? 1,
       perPage ?? DEFAULT_LIST_PER_PAGE,
@@ -61,7 +62,7 @@ export default class CustomersController {
     return renderInertiaPage(ctx.inertia, 'app/customers', {
       accountingReadOnly: readOnlyState.enabled,
       accountingReadOnlyMessage: readOnlyState.message,
-      canManageCustomers: authorizationService.allows(actor, 'accounting.writeDrafts'),
+      canManageCustomers: authorizationService.allows(activeTenant.actor, 'accounting.writeDrafts'),
       customers,
       filters: { search: search ?? '' },
     })
@@ -74,13 +75,13 @@ export default class CustomersController {
     customerService: CustomerService
   ) {
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
       () => {
-        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
         return customerService.createCustomer(payload, access)
       },
       'Customer created.'
@@ -97,13 +98,13 @@ export default class CustomersController {
   ) {
     const { params } = await ctx.request.validateUsing(customerParamsValidator)
     const payload = await ctx.request.validateUsing(saveCustomerValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
       () => {
-        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
         return customerService.updateCustomer(params.id, payload, access)
       },
       'Customer updated.'

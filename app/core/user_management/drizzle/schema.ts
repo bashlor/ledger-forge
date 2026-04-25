@@ -76,6 +76,7 @@ export const member = authSchema.table(
       table.organizationId,
       table.userId
     ),
+    roleCheck: check('auth_member_role_check', sql`${table.role} IN ('owner', 'admin', 'member')`),
   })
 )
 

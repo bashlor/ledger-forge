@@ -88,7 +88,7 @@ export async function persistDraftUpdate(
     })
   }
 
-  await replaceInvoiceLines(tx, id, preparedLines.lineValues)
+  await replaceInvoiceLines(tx, id, requestContext.tenantId, preparedLines.lineValues)
 
   await deps.auditTrail.record(tx, {
     action: 'update_draft',

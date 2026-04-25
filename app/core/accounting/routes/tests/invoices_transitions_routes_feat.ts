@@ -153,7 +153,7 @@ test.group(
           'lines[0][vatRate]': 20,
         })
 
-      createResponse.assertStatus(302)
+      createResponse.assertStatus(403)
       assert.lengthOf(await db.select().from(invoices), 0)
 
       await setInvoiceActorRole(db, 'admin')
@@ -174,14 +174,14 @@ test.group(
           'lines[0][vatRate]': 20,
         })
 
-      updateResponse.assertStatus(302)
+      updateResponse.assertStatus(403)
 
       const deleteResponse = await client
         .delete(`/invoices/${draft.id}`)
         .header('cookie', authCookie())
         .redirects(0)
 
-      deleteResponse.assertStatus(302)
+      deleteResponse.assertStatus(403)
 
       const [row] = await db.select().from(invoices).where(eq(invoices.id, draft.id))
       assert.equal(row.issueDate, draft.issueDate)

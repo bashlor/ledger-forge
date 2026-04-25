@@ -19,6 +19,7 @@ import {
   authCookie,
   bindAccountingAuth,
   resetAccountingAuthContext,
+  setAccountingAuthContext,
   TEST_ACCOUNTING_USER_EMAIL,
   TEST_ACCOUNTING_USER_ID,
   TEST_ACCOUNTING_USER_PUBLIC_ID,
@@ -181,6 +182,22 @@ test.group('Expenses routes | boundary contract', (group) => {
       .update(member)
       .set({ isActive: false })
       .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+
+    const response = await client
+      .get('/expenses')
+      .header('cookie', authCookie())
+      .header('x-inertia', 'true')
+      .header('x-inertia-version', '1')
+      .redirects(0)
+
+    response.assertStatus(403)
+  })
+
+  test('contract:GET /expenses returns 403 for active tenant without membership', async ({
+    client,
+  }) => {
+    setAccountingAuthContext({ organizationId: 'tenant_without_membership' })
+    bindAccountingAuth()
 
     const response = await client
       .get('/expenses')

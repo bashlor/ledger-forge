@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
 import { flashAction } from '#core/common/http/helpers/flash_action'
+import { resolveActiveTenantContext } from '#core/user_management/application/active_tenant_context'
 import {
   AuthorizationDeniedError,
   AuthorizationService,
@@ -27,8 +28,8 @@ export default class MembershipController {
     authorizationService: AuthorizationService,
     memberService: MemberService
   ) {
-    const tenantId = ctx.authSession!.session.activeOrganizationId!
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const { actor, tenantId } = activeTenant
 
     try {
       authorizationService.authorize(actor, 'membership.list')
@@ -59,10 +60,10 @@ export default class MembershipController {
     memberService: MemberService
   ) {
     const memberId = ctx.params.memberId as string
-    const tenantId = ctx.authSession!.session.activeOrganizationId!
-    const actorId = ctx.authSession!.user.id
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const { actor, tenantId } = activeTenant
+    const actorId = activeTenant.userId
     const { isActive } = await ctx.request.validateUsing(toggleMemberStatusValidator)
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
     const target = await authorizationService.membershipSubject(tenantId, memberId)
 
     if (!target) {
@@ -130,8 +131,8 @@ export default class MembershipController {
     memberService: MemberService
   ) {
     const memberId = ctx.params.memberId as string
-    const tenantId = ctx.authSession!.session.activeOrganizationId!
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const { actor, tenantId } = activeTenant
     const { role } = await ctx.request.validateUsing(updateMemberRoleValidator)
     const target = await authorizationService.membershipSubject(tenantId, memberId)
 
@@ -144,12 +145,12 @@ export default class MembershipController {
           requestedRole: role,
         },
         tenantId,
-        userId: ctx.authSession!.user.id,
+        userId: activeTenant.userId,
       })
       throw new MemberNotFoundError()
     }
     const targetMember = toMemberMutationTarget(target)
-    const actorId = ctx.authSession!.user.id
+    const actorId = activeTenant.userId
 
     await flashAction(
       ctx,

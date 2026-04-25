@@ -3,9 +3,10 @@ import type { HttpContext } from '@adonisjs/core/http'
 
 import { getAccountingReadOnlyState } from '#core/accounting/application/audit/accounting_readonly_policy'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
-import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
+import { accountingAccessFromActiveTenant } from '#core/accounting/application/support/access_context'
 import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
+import { resolveActiveTenantContext } from '#core/user_management/application/active_tenant_context'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
@@ -25,13 +26,13 @@ export default class ExpensesController {
     expenseService: ExpenseService
   ) {
     const { params } = await ctx.request.validateUsing(expenseParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
       () => {
-        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
         return expenseService.confirmExpense(params.id, access)
       },
       'Expense confirmed.'
@@ -47,13 +48,13 @@ export default class ExpensesController {
     expenseService: ExpenseService
   ) {
     const { params } = await ctx.request.validateUsing(expenseParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
       () => {
-        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
         return expenseService.deleteExpense(params.id, access)
       },
       'Draft expense deleted.'
@@ -70,12 +71,12 @@ export default class ExpensesController {
   ) {
     const { endDate, page, perPage, search, startDate } =
       await ctx.request.validateUsing(expenseIndexValidator)
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
-    authorizationService.authorize(actor, 'accounting.read')
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    authorizationService.authorize(activeTenant.actor, 'accounting.read')
 
     const dateFilter: DateFilter | undefined =
       startDate && endDate ? { endDate, startDate } : undefined
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
     const readOnlyState = await getAccountingReadOnlyState()
 
     return ctx.inertia.render(
@@ -107,13 +108,13 @@ export default class ExpensesController {
     expenseService: ExpenseService
   ) {
     const payload = await ctx.request.validateUsing(createExpenseValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
       () => {
-        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
         return expenseService.createExpense(payload, access)
       },
       'Expense saved as draft.'

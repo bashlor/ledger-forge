@@ -57,3 +57,5 @@ The application is fundamentally multi-tenant (SaaS). Isolation does not rely so
 
 - **Defense in Depth**: The `tenantId` (or `organizationId`) is systematically enforced at the boundaries (middlewares) and explicitly passed down into execution contexts (`AccountingAccessContext`).
 - **Schema Constraints**: The database reinforces these invariants with composite foreign keys and `CHECK` constraints to make it impossible to insert orphaned cross-tenant rows (e.g., linking a tenant A invoice to a tenant B customer).
+- **Access vs. Provenance**: `organizationId` is the authorization boundary. `createdBy` and audit `actorId` are provenance metadata and may be nullable for system/bootstrap actions.
+- **Active Membership Gate**: HTTP routes must only construct accounting access after the session's active organization has been validated against an active `member` row.

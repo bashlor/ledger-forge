@@ -218,5 +218,11 @@ export const auditEvents = mainSchema.table(
       table.entityId,
       table.createdAt.desc()
     ),
+    index('audit_events_tenant_entity_history_idx').on(
+      table.organizationId,
+      table.entityType,
+      table.entityId,
+      table.createdAt.desc()
+    ),
   ]
 )
