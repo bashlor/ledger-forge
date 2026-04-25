@@ -4,6 +4,7 @@ import { AppIcon } from '~/components/app_icon'
 import { ErrorBanner } from '~/components/error_banner'
 import { InvoiceTotals } from '~/components/invoice_totals'
 import { StatusBadge } from '~/components/status_badge'
+import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatCurrency } from '~/lib/format'
 import { calculateInvoiceLine, canDeleteInvoice, canIssueInvoice } from '~/lib/invoices'
 
@@ -177,14 +178,14 @@ export function InvoiceDraftEditor({
             <div className="overflow-x-auto">
               <table className="min-w-[740px]">
                 <thead>
-                  <tr className="bg-surface-container-low text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                    <th className="px-4 py-3">Description</th>
-                    <th className="px-4 py-3">Qty</th>
-                    <th className="px-4 py-3">Unit price</th>
-                    <th className="px-4 py-3">VAT</th>
-                    <th className="px-4 py-3 text-right">Line total</th>
-                    <th className="px-4 py-3 text-right">Action</th>
-                  </tr>
+                  <TableHeadRow className="text-[11px] tracking-[0.18em]">
+                    <TableHeaderCell className="py-3">Description</TableHeaderCell>
+                    <TableHeaderCell className="py-3">Qty</TableHeaderCell>
+                    <TableHeaderCell className="py-3">Unit price</TableHeaderCell>
+                    <TableHeaderCell className="py-3">VAT</TableHeaderCell>
+                    <TableHeaderCell className="py-3 text-right">Line total</TableHeaderCell>
+                    <TableHeaderCell className="py-3 text-right">Action</TableHeaderCell>
+                  </TableHeadRow>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/15 bg-white">
                   {form.lines.map((line) => {

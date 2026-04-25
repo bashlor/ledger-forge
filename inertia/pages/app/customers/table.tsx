@@ -1,5 +1,6 @@
 import type { CustomerListItemDto } from '~/lib/types'
 
+import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatCurrency } from '~/lib/format'
 
 interface CustomerTableProps {
@@ -24,15 +25,15 @@ export function CustomerTable({
   return (
     <table className="w-full min-w-[860px] border-collapse text-left text-sm">
       <thead>
-        <tr className="border-b border-outline-variant/15 bg-surface-container-low text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
-          <th className="px-4 py-2.5 font-medium">Company</th>
-          <th className="px-4 py-2.5 font-medium">Contact</th>
-          <th className="px-4 py-2.5 font-medium">Email</th>
-          <th className="px-4 py-2.5 font-medium">Phone</th>
-          <th className="px-4 py-2.5 text-right font-medium">Invoices</th>
-          <th className="px-4 py-2.5 text-right font-medium">Invoiced</th>
-          <th className="px-4 py-2.5 text-right font-medium">Actions</th>
-        </tr>
+        <TableHeadRow>
+          <TableHeaderCell>Company</TableHeaderCell>
+          <TableHeaderCell>Contact</TableHeaderCell>
+          <TableHeaderCell>Email</TableHeaderCell>
+          <TableHeaderCell>Phone</TableHeaderCell>
+          <TableHeaderCell className="text-right">Invoices</TableHeaderCell>
+          <TableHeaderCell className="text-right">Invoiced</TableHeaderCell>
+          <TableHeaderCell className="text-right">Actions</TableHeaderCell>
+        </TableHeadRow>
       </thead>
       <tbody className="divide-y divide-outline-variant/10">
         {items.map((customer) => (

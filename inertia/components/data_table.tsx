@@ -2,6 +2,7 @@ import type { PaginationMetaDto } from '~/lib/types'
 
 import { EmptyState } from './empty_state'
 import { Pagination } from './pagination'
+import { Panel } from './ui'
 
 interface DataTableProps {
   children: React.ReactNode
@@ -25,7 +26,7 @@ export function DataTable({
   title,
 }: DataTableProps) {
   return (
-    <section className="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-ambient-tight">
+    <Panel className="overflow-hidden">
       <div className="border-b border-outline-variant/10 px-4 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-base font-semibold text-on-surface">{title}</h2>
@@ -47,6 +48,6 @@ export function DataTable({
           )}
         </>
       )}
-    </section>
+    </Panel>
   )
 }

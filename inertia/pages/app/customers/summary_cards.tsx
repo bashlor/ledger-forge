@@ -1,5 +1,6 @@
 import type { CustomerSummaryDto } from '~/lib/types'
 
+import { Eyebrow } from '~/components/ui'
 import { formatCurrency } from '~/lib/format'
 
 interface SummaryCardsProps {
@@ -19,9 +20,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
-        {label}
-      </p>
+      <Eyebrow>{label}</Eyebrow>
       <p className="text-sm font-bold tabular-nums text-on-surface">{value}</p>
     </div>
   )
