@@ -100,6 +100,8 @@ export class DevOperatorConsoleScenarioService {
       )
     }
 
-    await setActiveOrganizationForSession(this.db, sessionToken, tenantId)
+    await setActiveOrganizationForSession(this.db, sessionToken, tenantId, {
+      userId: authSession.user.id,
+    })
   }
 }
