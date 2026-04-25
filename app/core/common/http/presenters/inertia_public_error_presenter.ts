@@ -31,7 +31,8 @@ export function flashResolvedPublicError(ctx: HttpContext, resolved: ResolvedPub
 export function presentPublicError(
   ctx: HttpContext,
   error: unknown,
-  options?: Pick<PublicErrorOptions, 'errorKey'> & PresentResolvedPublicErrorOptions
+  options?: Pick<PublicErrorOptions, 'errorKey' | 'fallbackErrorMessage'> &
+    PresentResolvedPublicErrorOptions
 ) {
   const resolved = resolvePublicError(error, options)
   return presentResolvedPublicError(ctx, resolved, options)
