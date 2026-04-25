@@ -3,11 +3,12 @@ import type { HttpContext } from '@adonisjs/core/http'
 
 import { getAccountingReadOnlyState } from '#core/accounting/application/audit/accounting_readonly_policy'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
-import { accountingAccessFromSession } from '#core/accounting/application/support/access_context'
+import { accountingAccessFromActiveTenant } from '#core/accounting/application/support/access_context'
 import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
 import { DomainError } from '#core/common/errors/domain_error'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
+import { resolveActiveTenantContext } from '#core/user_management/application/active_tenant_context'
 import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
@@ -27,13 +28,13 @@ export default class InvoicesController {
     invoiceService: InvoiceService
   ) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
       async () => {
-        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
         await invoiceService.deleteDraft(params.id, access)
       },
       'Draft invoice deleted.'
@@ -49,10 +50,10 @@ export default class InvoicesController {
     invoiceService: InvoiceService
   ) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
-    authorizationService.authorize(actor, 'auditTrail.view')
+    authorizationService.authorize(activeTenant.actor, 'auditTrail.view')
 
     const invoice = await invoiceService.getInvoiceById(params.id, access)
     if (!invoice) {
@@ -71,9 +72,9 @@ export default class InvoicesController {
     invoiceService: InvoiceService
   ) {
     const { inertia, request } = ctx
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
-    authorizationService.authorize(actor, 'accounting.read')
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
+    authorizationService.authorize(activeTenant.actor, 'accounting.read')
 
     const {
       customer,
@@ -123,7 +124,7 @@ export default class InvoicesController {
     return renderInertiaPage(inertia, 'app/invoices', {
       accountingReadOnly: readOnlyState.enabled,
       accountingReadOnlyMessage: readOnlyState.message,
-      canViewAuditHistory: authorizationService.allows(actor, 'auditTrail.view'),
+      canViewAuditHistory: authorizationService.allows(activeTenant.actor, 'auditTrail.view'),
       customers: await invoiceService.listCustomersForSelect(access),
       filters: { search: search ?? '' },
       initialCustomerId: customer ?? null,
@@ -145,13 +146,13 @@ export default class InvoicesController {
   ) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const payload = await ctx.request.validateUsing(issueInvoiceValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
       async () => {
-        authorizationService.authorize(actor, 'invoice.issue')
+        authorizationService.authorize(activeTenant.actor, 'invoice.issue')
         await invoiceService.issueInvoice(params.id, payload, access)
       },
       'Invoice issued.'
@@ -167,13 +168,13 @@ export default class InvoicesController {
     invoiceService: InvoiceService
   ) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
       async () => {
-        authorizationService.authorize(actor, 'invoice.markPaid')
+        authorizationService.authorize(activeTenant.actor, 'invoice.markPaid')
         await invoiceService.markInvoicePaid(params.id, access)
       },
       'Invoice marked as paid.'
@@ -189,15 +190,15 @@ export default class InvoicesController {
     invoiceService: InvoiceService
   ) {
     const payload = await ctx.request.validateUsing(saveInvoiceDraftValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     let createdId: string | undefined
 
     await flashAction(
       ctx,
       async () => {
-        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
         const created = await invoiceService.createDraft(payload, access)
         createdId = created.id
       },
@@ -217,13 +218,13 @@ export default class InvoicesController {
   ) {
     const { params } = await ctx.request.validateUsing(invoiceParamsValidator)
     const payload = await ctx.request.validateUsing(saveInvoiceDraftValidator)
-    const access = accountingAccessFromSession(ctx.authSession, getRequestIdFromHttpContext(ctx))
-    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
 
     await flashAction(
       ctx,
       async () => {
-        authorizationService.authorize(actor, 'accounting.writeDrafts')
+        authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
         await invoiceService.updateDraft(params.id, payload, access)
       },
       'Draft invoice updated.'
