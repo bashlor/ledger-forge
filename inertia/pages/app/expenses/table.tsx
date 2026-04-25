@@ -3,6 +3,7 @@ import type { KeyboardEvent } from 'react'
 import type { ExpenseDto } from '~/lib/types'
 
 import { StatusBadge } from '~/components/status_badge'
+import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatShortDate, formatSignedCurrency } from '~/lib/format'
 
 interface ExpenseTableProps {
@@ -32,14 +33,14 @@ export function ExpenseTable({
   return (
     <table className="w-full min-w-[760px] border-collapse text-left text-sm">
       <thead>
-        <tr className="border-b border-outline-variant/15 bg-surface-container-low text-xs font-medium tracking-normal text-on-surface-variant">
-          <th className="w-[28%] px-4 py-3">Label</th>
-          <th className="w-[18%] px-4 py-3">Category</th>
-          <th className="w-[14%] px-4 py-3">Date</th>
-          <th className="w-[14%] px-4 py-3">Status</th>
-          <th className="w-[14%] px-4 py-3 text-right">Amount</th>
-          <th className="w-[12%] px-4 py-3 text-center">Actions</th>
-        </tr>
+        <TableHeadRow className="text-xs normal-case tracking-normal">
+          <TableHeaderCell className="w-[28%] py-3">Label</TableHeaderCell>
+          <TableHeaderCell className="w-[18%] py-3">Category</TableHeaderCell>
+          <TableHeaderCell className="w-[14%] py-3">Date</TableHeaderCell>
+          <TableHeaderCell className="w-[14%] py-3">Status</TableHeaderCell>
+          <TableHeaderCell className="w-[14%] py-3 text-right">Amount</TableHeaderCell>
+          <TableHeaderCell className="w-[12%] py-3 text-center">Actions</TableHeaderCell>
+        </TableHeadRow>
       </thead>
       <tbody className="divide-y divide-outline-variant/10">
         {items.map((expense) => {

@@ -3,6 +3,7 @@ import type { InvoiceDto, InvoiceSummaryDto, PaginatedList } from '~/lib/types'
 import { DataTable } from '~/components/data_table'
 import { SearchForm } from '~/components/search_form'
 import { StatusBadge } from '~/components/status_badge'
+import { Eyebrow, TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatCurrency, formatShortDate } from '~/lib/format'
 import { canDeleteInvoice } from '~/lib/invoices'
 
@@ -44,27 +45,21 @@ export function InvoiceList({
       {summary ? (
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-lg bg-surface-container-low px-3 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-              Drafts
-            </p>
+            <Eyebrow className="text-[10px] tracking-[0.18em]">Drafts</Eyebrow>
             <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-on-surface">
               {draftCount}
             </p>
             <p className="mt-0.5 text-xs text-on-surface-variant">Before issue</p>
           </div>
           <div className="rounded-lg bg-surface-container-low px-3 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-              Issued
-            </p>
+            <Eyebrow className="text-[10px] tracking-[0.18em]">Issued</Eyebrow>
             <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-on-surface">
               {issuedCount}
             </p>
             <p className="mt-0.5 text-xs text-on-surface-variant">Awaiting payment</p>
           </div>
           <div className="rounded-lg bg-surface-container-low px-3 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-              Overdue
-            </p>
+            <Eyebrow className="text-[10px] tracking-[0.18em]">Overdue</Eyebrow>
             <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-error">
               {overdueCount}
             </p>
@@ -98,26 +93,18 @@ export function InvoiceList({
       >
         <table className="w-full min-w-[640px] border-collapse text-left text-sm">
           <thead>
-            <tr className="border-b border-outline-variant/15 bg-surface-container-low text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
-              <th className="px-4 py-2 font-medium" scope="col">
-                Invoice
-              </th>
-              <th className="px-4 py-2 font-medium" scope="col">
-                Customer
-              </th>
-              <th className="px-4 py-2 font-medium" scope="col">
-                Status
-              </th>
-              <th className="px-4 py-2 font-medium" scope="col">
-                Due
-              </th>
-              <th className="px-4 py-2 text-right font-medium tabular-nums" scope="col">
+            <TableHeadRow>
+              <TableHeaderCell className="py-2">Invoice</TableHeaderCell>
+              <TableHeaderCell className="py-2">Customer</TableHeaderCell>
+              <TableHeaderCell className="py-2">Status</TableHeaderCell>
+              <TableHeaderCell className="py-2">Due</TableHeaderCell>
+              <TableHeaderCell className="py-2 text-right tabular-nums">
                 Amount <span className="font-normal text-on-surface-variant">(incl. VAT)</span>
-              </th>
-              <th className="w-px px-2 py-2 text-right" scope="col">
+              </TableHeaderCell>
+              <TableHeaderCell className="w-px px-2 py-2 text-right">
                 <span className="sr-only">Actions</span>
-              </th>
-            </tr>
+              </TableHeaderCell>
+            </TableHeadRow>
           </thead>
           <tbody className="divide-y divide-outline-variant/10">
             {invoices.items.map((invoice) => (
