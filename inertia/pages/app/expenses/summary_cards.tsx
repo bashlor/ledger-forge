@@ -1,5 +1,6 @@
 import type { ExpenseSummaryDto } from '~/lib/types'
 
+import { Caption, Eyebrow, Panel } from '~/components/ui'
 import { formatCurrency } from '~/lib/format'
 
 interface SummaryCardsProps {
@@ -42,14 +43,12 @@ export function SummaryCardsSkeleton() {
 
 function Card({ caption, label, value }: { caption: string; label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-4 shadow-ambient-tight">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant">
-        {label}
-      </p>
+    <Panel as="div" className="bg-surface-container-low p-4">
+      <Eyebrow className="tracking-[0.16em]">{label}</Eyebrow>
       <p className="mt-2 text-3xl font-headline font-extrabold leading-tight tabular-nums text-on-surface sm:text-[2rem]">
         {value}
       </p>
-      <p className="mt-1 text-sm leading-5 text-on-surface-variant">{caption}</p>
-    </div>
+      <Caption className="mt-1">{caption}</Caption>
+    </Panel>
   )
 }

@@ -1,9 +1,12 @@
+import { FormLabel } from './ui'
+
 interface FormFieldProps {
   autoComplete?: string
   disabled?: boolean
   error?: string
   id: string
   label: string
+  labelAction?: React.ReactNode
   min?: string
   name?: string
   onChange?: (value: string) => void
@@ -28,6 +31,7 @@ export function FormField({
   error,
   id,
   label,
+  labelAction,
   min,
   name,
   onChange,
@@ -60,12 +64,14 @@ export function FormField({
 
   return (
     <div className="space-y-2">
-      <label
-        className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
-        htmlFor={id}
-      >
-        {label}
-      </label>
+      {labelAction ? (
+        <div className="flex items-end justify-between gap-2">
+          <FormLabel htmlFor={id}>{label}</FormLabel>
+          {labelAction}
+        </div>
+      ) : (
+        <FormLabel htmlFor={id}>{label}</FormLabel>
+      )}
       {isGhost ? (
         <div className="group relative">
           {rows ? (
