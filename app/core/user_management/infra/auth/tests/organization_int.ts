@@ -1,8 +1,8 @@
 import * as schema from '#core/common/drizzle/index'
-import { userIsMemberOfOrganization } from '#core/user_management/support/tenant_membership'
 import env from '#start/env'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
+import { v7 as uuidv7 } from 'uuid'
 
 import {
   bindTestServices,
@@ -77,7 +77,7 @@ test.group('Better Auth organization (tenant) integration', (group) => {
     await context.cleanup()
   })
 
-  test('createOrganization adds owner member and sets active organization on session', async ({
+  test('keeps organization plugin endpoints out of the Better Auth HTTP surface', async ({
     assert,
   }) => {
     const signUpRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
@@ -85,9 +85,6 @@ test.group('Better Auth organization (tenant) integration', (group) => {
       name: 'Owner',
       password: 'SecureP@ss123',
     })
-
-    const signedUp = await assertOkJson<{ user: { id: string } }>(signUpRes)
-
     const jar = cookieHeaderFromAuthResponse(signUpRes)
     assert.isTrue(jar.length > 0)
 
@@ -95,149 +92,54 @@ test.group('Better Auth organization (tenant) integration', (group) => {
       context.betterAuth,
       '/api/auth/organization/create',
       {
-        name: 'Acme Corp',
-        slug: 'acme-corp-org-test',
+        name: 'Bypass Org',
+        slug: 'bypass-org',
       },
       jar
     )
 
-    const created = await assertOkJson<{ id: string }>(createRes)
-    const orgId = created.id
-    assert.isString(orgId)
+    assert.isFalse(createRes.ok)
+
+    const organization = await context.db.query.organization.findFirst({
+      where: eq(schema.organization.slug, 'bypass-org'),
+    })
+    assert.isUndefined(organization)
+  })
+
+  test('adapter maps active organization from the persisted session row', async ({ assert }) => {
+    const signUpRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'tenant-session@example.com',
+      name: 'Tenant Session',
+      password: 'SecureP@ss123',
+    })
+    const signedUp = await assertOkJson<{ user: { id: string } }>(signUpRes)
     const userId = signedUp.user.id
 
-    const member = await context.db.query.member.findFirst({
-      where: (m, { and: a, eq: e }) => a(e(m.userId, userId), e(m.organizationId, orgId)),
-    })
-
-    assert.isNotNull(member)
-    assert.equal(member!.role, 'owner')
-
     const sessionRow = await context.db.query.session.findFirst({
-      where: (s, { eq: e }) => e(s.userId, userId),
+      where: eq(schema.session.userId, userId),
     })
-
     assert.isNotNull(sessionRow)
-    assert.equal(sessionRow!.activeOrganizationId, orgId)
 
-    const token = sessionRow!.token
-    const viaAdapter = await context.authAdapter.getSession(token)
+    const organizationId = uuidv7()
+    await context.db.insert(schema.organization).values({
+      id: organizationId,
+      name: 'Tenant Session Workspace',
+      slug: `tenant-session-${organizationId}`,
+    })
+    await context.db.insert(schema.member).values({
+      id: uuidv7(),
+      organizationId,
+      role: 'owner',
+      userId,
+    })
+    await context.db
+      .update(schema.session)
+      .set({ activeOrganizationId: organizationId })
+      .where(eq(schema.session.id, sessionRow!.id))
+
+    const viaAdapter = await context.authAdapter.getSession(sessionRow!.token)
+
     assert.isNotNull(viaAdapter)
-    assert.equal(viaAdapter!.session.activeOrganizationId, orgId)
-  })
-
-  test('setActiveOrganization switches tenant when user is a member', async ({ assert }) => {
-    const signUpRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
-      email: 'multi-a@example.com',
-      name: 'Multi A',
-      password: 'SecureP@ss123',
-    })
-    const signUpBody = await assertOkJson<{ user: { id: string } }>(signUpRes)
-    let jar = cookieHeaderFromAuthResponse(signUpRes)
-
-    const org1Res = await postAuth(
-      context.betterAuth,
-      '/api/auth/organization/create',
-      {
-        name: 'Org One',
-        slug: 'org-one-mt',
-      },
-      jar
-    )
-    const org1 = await assertOkJson<{ id: string }>(org1Res)
-    jar = cookieHeaderFromAuthResponse(org1Res) || jar
-
-    const org2Res = await postAuth(
-      context.betterAuth,
-      '/api/auth/organization/create',
-      {
-        keepCurrentActiveOrganization: true,
-        name: 'Org Two',
-        slug: 'org-two-mt',
-      },
-      jar
-    )
-    await assertOkJson(org2Res)
-    jar = cookieHeaderFromAuthResponse(org2Res) || jar
-
-    const org2Row = await context.db.query.organization.findFirst({
-      where: eq(schema.organization.slug, 'org-two-mt'),
-    })
-    assert.isNotNull(org2Row)
-
-    let activeRes = await postAuth(
-      context.betterAuth,
-      '/api/auth/organization/set-active',
-      {
-        organizationId: org1.id,
-      },
-      jar
-    )
-    await assertOkJson(activeRes)
-    jar = cookieHeaderFromAuthResponse(activeRes) || jar
-
-    let sessionRow = await context.db.query.session.findFirst({
-      where: (s, { eq: e }) => e(s.userId, signUpBody.user.id),
-    })
-    assert.equal(sessionRow!.activeOrganizationId, org1.id)
-
-    activeRes = await postAuth(
-      context.betterAuth,
-      '/api/auth/organization/set-active',
-      {
-        organizationId: org2Row!.id,
-      },
-      jar
-    )
-    await assertOkJson(activeRes)
-
-    sessionRow = await context.db.query.session.findFirst({
-      where: (s, { eq: e }) => e(s.userId, signUpBody.user.id),
-    })
-    assert.equal(sessionRow!.activeOrganizationId, org2Row!.id)
-  })
-
-  test('non-member cannot activate another user organization', async ({ assert }) => {
-    const resA = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
-      email: 'iso-a@example.com',
-      name: 'Iso A',
-      password: 'SecureP@ss123',
-    })
-    await assertOkJson(resA)
-    const jarA = cookieHeaderFromAuthResponse(resA)
-
-    const createdRes = await postAuth(
-      context.betterAuth,
-      '/api/auth/organization/create',
-      {
-        name: 'Private Org',
-        slug: 'private-org-iso',
-      },
-      jarA
-    )
-    const created = await assertOkJson<{ id: string }>(createdRes)
-    const orgId = created.id
-
-    const resB = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
-      email: 'iso-b@example.com',
-      name: 'Iso B',
-      password: 'SecureP@ss123',
-    })
-    const bodyB = await assertOkJson<{ user: { id: string } }>(resB)
-    const jarB = cookieHeaderFromAuthResponse(resB)
-
-    const failRes = await postAuth(
-      context.betterAuth,
-      '/api/auth/organization/set-active',
-      {
-        organizationId: orgId,
-      },
-      jarB
-    )
-
-    assert.isFalse(failRes.ok)
-
-    const memberCheck = await userIsMemberOfOrganization(context.db, bodyB.user.id, orgId)
-    assert.isFalse(memberCheck)
+    assert.equal(viaAdapter!.session.activeOrganizationId, organizationId)
   })
 })

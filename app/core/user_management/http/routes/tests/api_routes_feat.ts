@@ -31,7 +31,7 @@ test.group('Auth API proxy routes', () => {
       })
     })
 
-    const response = await client.post('/api/auth/test-endpoint').json({
+    const response = await client.post('/api/auth/sign-up/email').json({
       email: 'sam@example.com',
     })
 
@@ -46,7 +46,7 @@ test.group('Auth API proxy routes', () => {
     assert.deepEqual(captured, {
       body: JSON.stringify({ email: 'sam@example.com' }),
       method: 'POST',
-      pathname: '/api/auth/test-endpoint',
+      pathname: '/api/auth/sign-up/email',
     })
   })
 
@@ -55,7 +55,7 @@ test.group('Auth API proxy routes', () => {
       return Response.json({ code: 'INVALID_EMAIL_OR_PASSWORD' }, { status: 400 })
     })
 
-    const response = await client.post('/api/auth/sign-in').json({
+    const response = await client.post('/api/auth/sign-in/email').json({
       email: 'sam@example.com',
       password: 'wrong-password',
     })
@@ -79,7 +79,7 @@ test.group('Auth API proxy routes', () => {
       return Response.json({ code: 'SOMETHING_NEW' }, { status: 418 })
     })
 
-    const response = await client.get('/api/auth/unknown-code')
+    const response = await client.get('/api/auth/ok')
 
     response.assertStatus(500)
     assert.match(response.header('content-type') ?? '', /application\/problem\+json/)
@@ -100,7 +100,7 @@ test.group('Auth API proxy routes', () => {
       return new Response('upstream unavailable', { status: 502 })
     })
 
-    const response = await client.get('/api/auth/plain-error')
+    const response = await client.get('/api/auth/ok')
 
     response.assertStatus(500)
     assert.match(response.header('content-type') ?? '', /application\/problem\+json/)
@@ -121,7 +121,7 @@ test.group('Auth API proxy routes', () => {
       throw new Error('upstream crashed')
     })
 
-    const response = await client.get('/api/auth/throws')
+    const response = await client.get('/api/auth/ok')
 
     response.assertStatus(500)
     assert.match(response.header('content-type') ?? '', /application\/problem\+json/)
@@ -135,7 +135,9 @@ test.group('Auth API proxy routes', () => {
   })
 
   test('blocks direct access to better-auth organization endpoints', async ({ assert, client }) => {
+    let called = false
     bindBetterAuth(async () => {
+      called = true
       return Response.json({ ok: true }, { status: 200 })
     })
 
@@ -144,6 +146,7 @@ test.group('Auth API proxy routes', () => {
     })
 
     response.assertStatus(403)
+    assert.isFalse(called)
     assert.match(response.header('content-type') ?? '', /application\/problem\+json/)
     assert.deepEqual(response.body(), {
       code: 'auth.forbidden',
@@ -152,5 +155,20 @@ test.group('Auth API proxy routes', () => {
       title: 'Forbidden',
       type: 'urn:accounting-app:error:forbidden',
     })
+  })
+
+  test('does not proxy unknown better-auth routes', async ({ assert, client }) => {
+    let called = false
+    bindBetterAuth(async () => {
+      called = true
+      return Response.json({ ok: true }, { status: 200 })
+    })
+
+    const response = await client.post('/api/auth/test-endpoint').json({
+      email: 'sam@example.com',
+    })
+
+    response.assertStatus(404)
+    assert.isFalse(called)
   })
 })
