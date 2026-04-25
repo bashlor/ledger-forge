@@ -17,6 +17,23 @@ router
     const auth = await app.container.make('betterAuth')
 
     const url = new URL(request.url(true), request.completeUrl(true))
+
+    if (url.pathname.startsWith('/api/auth/organization')) {
+      authLog.failure('better_auth_org_surface_blocked', null, {
+        level: 'warn',
+        metadata: { path: url.pathname },
+      })
+      new HttpProblem(
+        403,
+        'Forbidden',
+        'Organization endpoints are disabled.',
+        'urn:accounting-app:error:forbidden',
+        undefined,
+        { code: 'auth.forbidden' }
+      ).toResponse(response)
+      return
+    }
+
     const headers = new Headers()
     for (const [key, value] of Object.entries(request.headers())) {
       if (value) {
