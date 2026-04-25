@@ -13,7 +13,7 @@ import {
   recordUserManagementActivityEvent,
   StructuredUserManagementActivitySink,
 } from '../../support/activity_log.js'
-import { runInertiaFormMutation } from '../helpers/error_surface.js'
+import { resolveInertiaMutation } from '../helpers/error_surface.js'
 import { writeSessionToken } from '../session/session_token.js'
 import { signupValidator } from '../validators/user.js'
 
@@ -26,9 +26,8 @@ export default class SignupController {
   async store(ctx: HttpContext, auth: AuthenticationPort) {
     const { email, fullName, password } = await ctx.request.validateUsing(signupValidator)
 
-    return runInertiaFormMutation(
-      ctx,
-      async () => {
+    return resolveInertiaMutation(ctx, {
+      action: async () => {
         const authentication = await auth.signUp(email, password, fullName ?? undefined)
 
         try {
@@ -67,10 +66,10 @@ export default class SignupController {
           expiresAt: authentication.session.expiresAt,
           token: authentication.session.token,
         })
-
-        return ctx.response.redirect('/dashboard')
       },
-      { errorKey: 'E_SIGNUP_ERROR', flashAll: true }
-    )
+      errorKey: 'E_SIGNUP_ERROR',
+      flashAll: true,
+      redirectTo: '/dashboard',
+    })
   }
 }

@@ -12,6 +12,7 @@ export type PublicErrorKey =
 export interface PublicErrorOptions {
   errorKey?: PublicErrorKey
   exposeInternalMessage?: boolean
+  fallbackErrorMessage?: string
   statusOverride?: number
 }
 

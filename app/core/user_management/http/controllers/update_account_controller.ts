@@ -4,7 +4,7 @@ import { inject } from '@adonisjs/core'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
 import { SessionExpiredError } from '../../domain/errors.js'
-import { runInertiaFormMutation } from '../helpers/error_surface.js'
+import { resolveInertiaMutation } from '../helpers/error_surface.js'
 import { rejectAnonymousAccountMutation } from '../helpers/reject_anonymous_account_mutation.js'
 import { readSessionToken } from '../session/session_token.js'
 import { updateProfileValidator } from '../validators/user.js'
@@ -36,21 +36,17 @@ export default class UpdateAccountController {
     const { name } = await ctx.request.validateUsing(updateProfileValidator)
     const sessionToken = readSessionToken(ctx)
 
-    return runInertiaFormMutation(
-      ctx,
-      async () => {
+    return resolveInertiaMutation(ctx, {
+      action: async () => {
         if (!sessionToken) {
           throw new SessionExpiredError()
         }
 
         await auth.updateUser(sessionToken, { name })
-        ctx.session.flash('success', 'Profile updated successfully.')
-        return ctx.response.redirect().toPath(ctx.request.url())
       },
-      {
-        errorKey: 'E_UPDATE_PROFILE',
-        flashAll: true,
-      }
-    )
+      errorKey: 'E_UPDATE_PROFILE',
+      flashAll: true,
+      successMessage: 'Profile updated successfully.',
+    })
   }
 }

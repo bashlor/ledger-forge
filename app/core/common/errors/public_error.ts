@@ -73,7 +73,9 @@ export function resolvePublicError(
 
   const status = options?.statusOverride ?? 500
   const message =
-    options?.exposeInternalMessage && error instanceof Error ? error.message : GENERIC_ERROR_MESSAGE
+    options?.exposeInternalMessage && error instanceof Error
+      ? error.message
+      : (options?.fallbackErrorMessage ?? GENERIC_ERROR_MESSAGE)
 
   return publicError('app.unexpected_error', message, status, undefined, 'notification')
 }

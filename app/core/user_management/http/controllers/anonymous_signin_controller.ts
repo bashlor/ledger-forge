@@ -13,15 +13,14 @@ import {
   recordUserManagementActivityEvent,
   StructuredUserManagementActivitySink,
 } from '../../support/activity_log.js'
-import { runInertiaFormMutation } from '../helpers/error_surface.js'
+import { resolveInertiaMutation } from '../helpers/error_surface.js'
 import { writeSessionToken } from '../session/session_token.js'
 
 export default class AnonymousSigninController {
   @inject()
   async store(ctx: HttpContext, auth: AuthenticationPort) {
-    return runInertiaFormMutation(
-      ctx,
-      async () => {
+    return resolveInertiaMutation(ctx, {
+      action: async () => {
         const authentication = await auth.signInAnonymously()
 
         try {
@@ -58,10 +57,9 @@ export default class AnonymousSigninController {
           expiresAt: authentication.session.expiresAt,
           token: authentication.session.token,
         })
-
-        return ctx.response.redirect('/dashboard')
       },
-      { flashAll: true }
-    )
+      flashAll: true,
+      redirectTo: '/dashboard',
+    })
   }
 }
