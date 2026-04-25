@@ -392,4 +392,23 @@ test.group('Cross-tenant isolation', (group) => {
     })
     assert.lengthOf(crossLeak, 0)
   })
+
+  test('tenant audit history does not include global audit events', async ({ assert }) => {
+    await db.insert(auditEvents).values({
+      action: 'session_active_organization_changed',
+      actorId: 'actor-a',
+      entityId: 'session-global',
+      entityType: 'session',
+      id: 'audit-global-session',
+      organizationId: null,
+    })
+
+    const events = await listAuditEventsForEntity(db, {
+      entityId: 'session-global',
+      entityType: 'session',
+      tenantId: TENANT_A_ID,
+    })
+
+    assert.lengthOf(events, 0)
+  })
 })
