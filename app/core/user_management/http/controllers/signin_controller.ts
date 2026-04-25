@@ -4,6 +4,7 @@ import { inject } from '@adonisjs/core'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
 import { resolveInertiaMutation } from '../helpers/error_surface.js'
+import { tryProvisionWorkspaceAfterAuth } from '../helpers/post_auth_workspace_bootstrap.js'
 import { writeSessionToken } from '../session/session_token.js'
 import { loginValidator } from '../validators/user.js'
 
@@ -19,6 +20,19 @@ export default class SigninController {
     return resolveInertiaMutation(ctx, {
       action: async () => {
         const authentication = await auth.signIn(email, password)
+
+        await tryProvisionWorkspaceAfterAuth(
+          ctx,
+          {
+            displayName: authentication.user.name ?? undefined,
+            email: authentication.user.email,
+            isAnonymous: authentication.user.isAnonymous,
+            sessionToken: authentication.session.token,
+            userId: authentication.user.id,
+          },
+          authentication.session.activeOrganizationId ?? null,
+          'workspace_provision_on_signin_failure'
+        )
 
         writeSessionToken(ctx, {
           expiresAt: authentication.session.expiresAt,
