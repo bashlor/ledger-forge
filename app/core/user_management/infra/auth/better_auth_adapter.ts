@@ -1,7 +1,12 @@
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+
+import * as schema from '#core/common/drizzle/index'
 import { DomainError } from '#core/common/errors/domain_error'
 import { getDefaultStructuredLogFields, toIsoTimestamp } from '#core/common/logging/structured_log'
+import { eq } from 'drizzle-orm'
 
 import type { AuthProviderUser, AuthResult, AuthSession } from '../../domain/authentication.js'
+import type { SelectSession, SelectUser } from '../../drizzle/schema.js'
 import type { UserManagementActivitySink } from '../../support/activity_log.js'
 import type { BetterAuthInstance } from './better_auth_drizzle.js'
 
@@ -13,7 +18,7 @@ import { mapBetterAuthError } from './map_better_auth_error.js'
 export class BetterAuthAdapter extends AuthenticationPort {
   public constructor(
     private auth: BetterAuthInstance,
-    private drizzle: any,
+    private drizzle: PostgresJsDatabase<typeof schema>,
     private readonly activitySink?: UserManagementActivitySink
   ) {
     super()
@@ -50,45 +55,9 @@ export class BetterAuthAdapter extends AuthenticationPort {
       // Query directly via Drizzle to avoid Better Auth internal cookie parsing
       // expectations. The browser stores the raw session token and we validate it
       // against the persisted session row.
-      const session = await this.drizzle.query.session.findFirst({
-        where: (s: any, { eq }: any) => eq(s.token, sessionToken),
+      return await this.loadAuthResultBySessionToken(sessionToken, {
+        logExpectedFailures: true,
       })
-
-      if (!session) {
-        this.recordAuthEvent('auth_session_not_found', 'failure', 'unknown', null, 'warn')
-        return null
-      }
-
-      if (new Date(session.expiresAt) < new Date()) {
-        this.recordAuthEvent(
-          'auth_session_expired',
-          'failure',
-          String(session.userId),
-          null,
-          'warn'
-        )
-        return null
-      }
-
-      const user = await this.drizzle.query.user.findFirst({
-        where: (u: any, { eq }: any) => eq(u.id, session.userId),
-      })
-
-      if (!user) {
-        this.recordAuthEvent(
-          'auth_session_user_not_found',
-          'failure',
-          String(session.userId),
-          null,
-          'warn'
-        )
-        return null
-      }
-
-      return {
-        session: this.mapSessionRow(session),
-        user: this.mapToAuthProviderUser(user),
-      }
     } catch (err) {
       this.recordAuthEvent(
         'auth_session_database_error',
@@ -107,7 +76,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
   async getUserById(externalId: string): Promise<AuthProviderUser | null> {
     try {
       const row = await this.drizzle.query.user.findFirst({
-        where: (u: any, { eq }: any) => eq(u.id, externalId),
+        where: eq(schema.user.id, externalId),
       })
 
       if (!row) {
@@ -161,26 +130,10 @@ export class BetterAuthAdapter extends AuthenticationPort {
       throw mapBetterAuthError(error)
     }
 
-    const session = await this.drizzle.query.session.findFirst({
-      where: (s: any, { eq }: any) => eq(s.token, response.token),
-    })
-
-    if (!session) {
-      throw AuthenticationError.linkingFailed('Session not found after sign-in')
-    }
-
-    const user = await this.drizzle.query.user.findFirst({
-      where: (u: any, { eq }: any) => eq(u.id, session.userId),
-    })
-
-    if (!user) {
-      throw AuthenticationError.linkingFailed('User not found after sign-in')
-    }
-
-    return {
-      session: this.mapSessionRow(session),
-      user: this.mapToAuthProviderUser(user),
-    }
+    return this.loadRequiredAuthResultBySessionToken(
+      response.token,
+      'Session not found after sign-in'
+    )
   }
 
   async signInAnonymously(): Promise<AuthResult> {
@@ -205,26 +158,10 @@ export class BetterAuthAdapter extends AuthenticationPort {
       throw mapBetterAuthError(error)
     }
 
-    const session = await this.drizzle.query.session.findFirst({
-      where: (s: any, { eq }: any) => eq(s.token, response.token),
-    })
-
-    if (!session) {
-      throw AuthenticationError.linkingFailed('Session not found after anonymous sign-in')
-    }
-
-    const user = await this.drizzle.query.user.findFirst({
-      where: (u: any, { eq }: any) => eq(u.id, session.userId),
-    })
-
-    if (!user) {
-      throw AuthenticationError.linkingFailed('User not found after anonymous sign-in')
-    }
-
-    return {
-      session: this.mapSessionRow(session),
-      user: this.mapToAuthProviderUser(user),
-    }
+    return this.loadRequiredAuthResultBySessionToken(
+      response.token,
+      'Session not found after anonymous sign-in'
+    )
   }
 
   async signOut(sessionToken: string): Promise<void> {
@@ -256,26 +193,10 @@ export class BetterAuthAdapter extends AuthenticationPort {
       throw AuthenticationError.linkingFailed('No session token returned after sign-up')
     }
 
-    const session = await this.drizzle.query.session.findFirst({
-      where: (s: any, { eq }: any) => eq(s.token, response.token),
-    })
-
-    if (!session) {
-      throw AuthenticationError.linkingFailed('Session not found after sign-up')
-    }
-
-    const user = await this.drizzle.query.user.findFirst({
-      where: (u: any, { eq }: any) => eq(u.id, session.userId),
-    })
-
-    if (!user) {
-      throw AuthenticationError.linkingFailed('User not found after sign-up')
-    }
-
-    return {
-      session: this.mapSessionRow(session),
-      user: this.mapToAuthProviderUser(user),
-    }
+    return this.loadRequiredAuthResultBySessionToken(
+      response.token,
+      'Session not found after sign-up'
+    )
   }
 
   async updateUser(
@@ -325,12 +246,80 @@ export class BetterAuthAdapter extends AuthenticationPort {
     return headers
   }
 
-  private mapSessionRow(session: {
-    activeOrganizationId?: null | string
-    expiresAt: Date | string
-    token: string
-    userId: string
-  }): AuthSession {
+  private async loadAuthResultBySessionToken(
+    sessionToken: string,
+    options: {
+      logExpectedFailures?: boolean
+    } = {}
+  ): Promise<AuthResult | null> {
+    const session = await this.drizzle.query.session.findFirst({
+      where: eq(schema.session.token, sessionToken),
+    })
+
+    if (!session) {
+      if (options.logExpectedFailures) {
+        this.recordAuthEvent('auth_session_not_found', 'failure', 'unknown', null, 'warn')
+      }
+      return null
+    }
+
+    if (new Date(session.expiresAt) < new Date()) {
+      if (options.logExpectedFailures) {
+        this.recordAuthEvent(
+          'auth_session_expired',
+          'failure',
+          String(session.userId),
+          null,
+          'warn'
+        )
+      }
+      return null
+    }
+
+    const user = await this.drizzle.query.user.findFirst({
+      where: eq(schema.user.id, session.userId),
+    })
+
+    if (!user) {
+      if (options.logExpectedFailures) {
+        this.recordAuthEvent(
+          'auth_session_user_not_found',
+          'failure',
+          String(session.userId),
+          null,
+          'warn'
+        )
+      }
+      return null
+    }
+
+    return this.toAuthResult(session, user)
+  }
+
+  private async loadRequiredAuthResultBySessionToken(
+    sessionToken: string,
+    missingSessionMessage: string
+  ): Promise<AuthResult> {
+    const session = await this.drizzle.query.session.findFirst({
+      where: eq(schema.session.token, sessionToken),
+    })
+
+    if (!session) {
+      throw AuthenticationError.linkingFailed(missingSessionMessage)
+    }
+
+    const user = await this.drizzle.query.user.findFirst({
+      where: eq(schema.user.id, session.userId),
+    })
+
+    if (!user) {
+      throw AuthenticationError.linkingFailed('User not found for authenticated session')
+    }
+
+    return this.toAuthResult(session, user)
+  }
+
+  private mapSessionRow(session: SelectSession): AuthSession {
     const expiresAt =
       session.expiresAt instanceof Date ? session.expiresAt : new Date(session.expiresAt)
     return {
@@ -341,16 +330,7 @@ export class BetterAuthAdapter extends AuthenticationPort {
     }
   }
 
-  private mapToAuthProviderUser(user: {
-    createdAt: Date
-    email: string
-    emailVerified: boolean
-    id: string
-    image?: null | string
-    isAnonymous?: boolean | null
-    name: string
-    publicId: string
-  }): AuthProviderUser {
+  private mapToAuthProviderUser(user: SelectUser): AuthProviderUser {
     return {
       createdAt: new Date(user.createdAt),
       email: user.email,
@@ -386,5 +366,12 @@ export class BetterAuthAdapter extends AuthenticationPort {
       timestamp: toIsoTimestamp(),
       userId: userId ?? defaults.userId ?? null,
     })
+  }
+
+  private toAuthResult(session: SelectSession, user: SelectUser): AuthResult {
+    return {
+      session: this.mapSessionRow(session),
+      user: this.mapToAuthProviderUser(user),
+    }
   }
 }
