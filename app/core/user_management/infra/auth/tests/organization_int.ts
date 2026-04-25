@@ -8,6 +8,38 @@ import {
   bindTestServices,
   createTestPostgresContext,
 } from '../../../../../../tests/helpers/test_postgres.js'
+import { type DISABLED_ORGANIZATION_PATHS } from '../better_auth_drizzle.js'
+
+const DISABLED_ORGANIZATION_ROUTE_CASES: readonly {
+  body?: Record<string, unknown>
+  method: 'GET' | 'POST'
+  path: (typeof DISABLED_ORGANIZATION_PATHS)[number]
+}[] = [
+  {
+    body: { name: 'Bypass Org', slug: 'bypass-org' },
+    method: 'POST',
+    path: '/organization/create',
+  },
+  {
+    body: { organizationId: 'org-forbidden' },
+    method: 'POST',
+    path: '/organization/set-active',
+  },
+  {
+    method: 'GET',
+    path: '/organization/list-members',
+  },
+  {
+    body: { memberId: 'member-forbidden', role: 'admin' },
+    method: 'POST',
+    path: '/organization/update-member-role',
+  },
+  {
+    body: { memberIdOrEmail: 'member-forbidden' },
+    method: 'POST',
+    path: '/organization/remove-member',
+  },
+]
 
 async function assertOkJson<T>(res: Response): Promise<T> {
   const text = await res.text()
@@ -15,6 +47,33 @@ async function assertOkJson<T>(res: Response): Promise<T> {
     throw new Error(`Expected OK, got ${res.status}: ${text}`)
   }
   return JSON.parse(text) as T
+}
+
+async function authRequest(
+  betterAuth: { handler: (request: Request) => Promise<Response> },
+  path: string,
+  options: {
+    body?: Record<string, unknown>
+    cookieHeader?: string
+    method: 'GET' | 'POST'
+  }
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    origin: env.get('APP_URL'),
+  }
+  if (options.body) {
+    headers['content-type'] = 'application/json'
+  }
+  if (options.cookieHeader) {
+    headers.cookie = options.cookieHeader
+  }
+  return betterAuth.handler(
+    new Request(authUrl(path), {
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      headers,
+      method: options.method,
+    })
+  )
 }
 
 function authUrl(path: string): URL {
@@ -45,20 +104,11 @@ async function postAuth(
   body: Record<string, unknown>,
   cookieHeader?: string
 ): Promise<Response> {
-  const headers: Record<string, string> = {
-    'content-type': 'application/json',
-    origin: env.get('APP_URL'),
-  }
-  if (cookieHeader) {
-    headers.cookie = cookieHeader
-  }
-  return betterAuth.handler(
-    new Request(authUrl(path), {
-      body: JSON.stringify(body),
-      headers,
-      method: 'POST',
-    })
-  )
+  return authRequest(betterAuth, path, {
+    body,
+    cookieHeader,
+    method: 'POST',
+  })
 }
 
 test.group('Better Auth organization (tenant) integration', (group) => {
@@ -88,17 +138,15 @@ test.group('Better Auth organization (tenant) integration', (group) => {
     const jar = cookieHeaderFromAuthResponse(signUpRes)
     assert.isTrue(jar.length > 0)
 
-    const createRes = await postAuth(
-      context.betterAuth,
-      '/api/auth/organization/create',
-      {
-        name: 'Bypass Org',
-        slug: 'bypass-org',
-      },
-      jar
-    )
+    for (const route of DISABLED_ORGANIZATION_ROUTE_CASES) {
+      const response = await authRequest(context.betterAuth, `/api/auth${route.path}`, {
+        body: route.body,
+        cookieHeader: jar,
+        method: route.method,
+      })
 
-    assert.isFalse(createRes.ok)
+      assert.isFalse(response.ok, `${route.method} ${route.path} should be disabled`)
+    }
 
     const organization = await context.db.query.organization.findFirst({
       where: eq(schema.organization.slug, 'bypass-org'),

@@ -6,6 +6,7 @@ import {
   DatabaseCriticalAuditTrail,
 } from '#core/accounting/application/audit/critical_audit_trail'
 import * as schema from '#core/common/drizzle/index'
+import { DomainError } from '#core/common/errors/domain_error'
 import { and, eq, sql } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 import { v7 as uuidv7 } from 'uuid'
@@ -373,6 +374,14 @@ export async function setActiveOrganizationForSession(
 ): Promise<void> {
   const auditTrail = options.auditTrail ?? new DatabaseCriticalAuditTrail()
 
+  if (!options.userId) {
+    throw new DomainError(
+      'A user id is required to activate a workspace for a session.',
+      'forbidden',
+      'ActiveOrganizationUserRequiredError'
+    )
+  }
+
   const didChange = await db.transaction(async (tx) => {
     const [sessionRow] = await tx
       .select({
@@ -385,6 +394,26 @@ export async function setActiveOrganizationForSession(
 
     if (!sessionRow || sessionRow.activeOrganizationId === organizationId) {
       return false
+    }
+
+    const [membership] = await tx
+      .select({ id: schema.member.id })
+      .from(schema.member)
+      .where(
+        and(
+          eq(schema.member.userId, options.userId!),
+          eq(schema.member.organizationId, organizationId),
+          eq(schema.member.isActive, true)
+        )
+      )
+      .limit(1)
+
+    if (!membership) {
+      throw new DomainError(
+        'Active workspace membership is required to activate this workspace.',
+        'forbidden',
+        'ActiveOrganizationMembershipRequiredError'
+      )
     }
 
     await tx

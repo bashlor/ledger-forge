@@ -42,8 +42,12 @@ export class BetterAuthAdapter extends AuthenticationPort {
     }
   }
 
-  getOAuthUrl(_provider: 'github' | 'google'): string {
-    return '/api/auth/sign-in/social'
+  getOAuthUrl(provider: 'github' | 'google'): string {
+    throw new DomainError(
+      `OAuth provider "${provider}" is not enabled for this demo.`,
+      'forbidden',
+      'OAuthProviderDisabledError'
+    )
   }
 
   async getSession(sessionToken: null | string): Promise<AuthResult | null> {
@@ -130,6 +134,10 @@ export class BetterAuthAdapter extends AuthenticationPort {
       throw mapBetterAuthError(error)
     }
 
+    if (!response.token) {
+      throw AuthenticationError.linkingFailed('No session token returned after sign-in')
+    }
+
     return this.loadRequiredAuthResultBySessionToken(
       response.token,
       'Session not found after sign-in'
@@ -156,6 +164,10 @@ export class BetterAuthAdapter extends AuthenticationPort {
       response = await (this.auth.api as unknown as AnonymousApi).signInAnonymous()
     } catch (error) {
       throw mapBetterAuthError(error)
+    }
+
+    if (!response.token) {
+      throw AuthenticationError.linkingFailed('No session token returned after anonymous sign-in')
     }
 
     return this.loadRequiredAuthResultBySessionToken(
@@ -300,23 +312,12 @@ export class BetterAuthAdapter extends AuthenticationPort {
     sessionToken: string,
     missingSessionMessage: string
   ): Promise<AuthResult> {
-    const session = await this.drizzle.query.session.findFirst({
-      where: eq(schema.session.token, sessionToken),
-    })
-
-    if (!session) {
+    const result = await this.loadAuthResultBySessionToken(sessionToken)
+    if (!result) {
       throw AuthenticationError.linkingFailed(missingSessionMessage)
     }
 
-    const user = await this.drizzle.query.user.findFirst({
-      where: eq(schema.user.id, session.userId),
-    })
-
-    if (!user) {
-      throw AuthenticationError.linkingFailed('User not found for authenticated session')
-    }
-
-    return this.toAuthResult(session, user)
+    return result
   }
 
   private mapSessionRow(session: SelectSession): AuthSession {

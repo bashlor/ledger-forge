@@ -47,14 +47,13 @@ const BETTER_AUTH_ACTIVITY_EVENTS: Record<string, { event: string; level: Struct
   '/reset-password': { event: 'user_reset_password', level: 'info' },
   '/sign-in/anonymous': { event: 'anonymous_sign_in', level: 'info' },
   '/sign-in/email': { event: 'user_sign_in', level: 'info' },
-  '/sign-in/social': { event: 'user_social_sign_in', level: 'info' },
   '/sign-out': { event: 'user_sign_out', level: 'info' },
   '/sign-up/email': { event: 'user_sign_up', level: 'info' },
   '/update-user': { event: 'user_update_profile', level: 'info' },
   '/verify-email': { event: 'user_verify_email', level: 'info' },
 }
 
-const DISABLED_ORGANIZATION_PATHS = [
+export const DISABLED_ORGANIZATION_PATHS = [
   '/organization/create',
   '/organization/update',
   '/organization/delete',

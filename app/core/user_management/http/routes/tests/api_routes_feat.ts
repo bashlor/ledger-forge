@@ -1,6 +1,13 @@
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 
+const SENSITIVE_ORGANIZATION_ROUTES = [
+  '/api/auth/organization/set-active',
+  '/api/auth/organization/list-members',
+  '/api/auth/organization/update-member-role',
+  '/api/auth/organization/remove-member',
+] as const
+
 function bindBetterAuth(handler: (request: Request) => Promise<Response>) {
   app.container.bindValue('betterAuth' as any, { handler } as any)
 }
@@ -170,5 +177,20 @@ test.group('Auth API proxy routes', () => {
 
     response.assertStatus(404)
     assert.isFalse(called)
+  })
+
+  test('does not proxy sensitive organization routes', async ({ assert, client }) => {
+    for (const path of SENSITIVE_ORGANIZATION_ROUTES) {
+      let called = false
+      bindBetterAuth(async () => {
+        called = true
+        return Response.json({ ok: true }, { status: 200 })
+      })
+
+      const response = await client.post(path).json({ organizationId: 'org_test' })
+
+      response.assertStatus(404)
+      assert.isFalse(called, `${path} should not reach Better Auth`)
+    }
   })
 })
