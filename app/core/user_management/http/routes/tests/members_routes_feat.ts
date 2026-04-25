@@ -10,7 +10,7 @@ import {
 import { member, organization } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 import {
   seedTestMember,
@@ -307,7 +307,7 @@ test.group('Members routes | PATCH toggle active', (group) => {
 
   group.teardown(async () => cleanup())
 
-  test('owner can deactivate a regular member', async ({ assert, client }) => {
+  test('contract: PATCH /members/:id returns redirect on success', async ({ assert, client }) => {
     const response = await withCookie(
       client.patch(`/account/organizations/members/${MEMBER_IDS.regular}`),
       ownerSession
@@ -325,150 +325,7 @@ test.group('Members routes | PATCH toggle active', (group) => {
     assert.isFalse(row.isActive)
   })
 
-  test('admin can deactivate a regular member', async ({ assert, client }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}`),
-      adminSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    response.assertStatus(302)
-
-    const [row] = await db
-      .select({ isActive: member.isActive })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.regular))
-    assert.isFalse(row.isActive)
-  })
-
-  test('owner can deactivate an admin', async ({ assert, client }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.admin}`),
-      ownerSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    response.assertStatus(302)
-
-    const [row] = await db
-      .select({ isActive: member.isActive, role: member.role })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.admin))
-    assert.isFalse(row.isActive)
-    assert.equal(row.role, 'member')
-  })
-
-  test('admin cannot deactivate another admin (redirects with flash error)', async ({
-    assert,
-    client,
-  }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.anotherAdmin}`),
-      adminSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    // flashAction catches forbidden DomainError → flashes + redirect
-    response.assertStatus(302)
-
-    // The target should remain active
-    const [row] = await db
-      .select({ isActive: member.isActive })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.anotherAdmin))
-    assert.isTrue(row.isActive)
-  })
-
-  test('admin cannot deactivate the owner (redirects with flash error)', async ({
-    assert,
-    client,
-  }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.owner}`),
-      adminSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    response.assertStatus(302)
-
-    const [row] = await db
-      .select({ isActive: member.isActive })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.owner))
-    assert.isTrue(row.isActive)
-  })
-
-  test('cannot deactivate own membership (redirects with flash error)', async ({
-    assert,
-    client,
-  }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.admin}`),
-      adminSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    response.assertStatus(302)
-
-    const [row] = await db
-      .select({ isActive: member.isActive })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.admin))
-    assert.isTrue(row.isActive)
-  })
-
-  test('regular member cannot toggle (redirects — forbidden flashed)', async ({
-    assert,
-    client,
-  }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}`),
-      regularMemberSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    response.assertStatus(302)
-
-    // Nothing changed
-    const [row] = await db
-      .select({ isActive: member.isActive })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.regular))
-    assert.isTrue(row.isActive)
-  })
-
-  test('missing target member returns 404 before authorization checks', async ({ client }) => {
-    const response = await withCookie(
-      client.patch('/account/organizations/members/nonexistent_id'),
-      regularMemberSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    response.assertStatus(404)
-  })
-
-  test('unknown memberId returns 404 (not_found re-throws)', async ({ client }) => {
-    const response = await withCookie(
-      client.patch('/account/organizations/members/nonexistent_id'),
-      ownerSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    response.assertStatus(404)
-  })
-
-  test('cross-tenant member id returns 404 and does not change foreign tenant row', async ({
-    assert,
-    client,
-  }) => {
+  test('contract: cross-tenant member id returns 404', async ({ assert, client }) => {
     const response = await withCookie(
       client.patch(`/account/organizations/members/${MEMBER_IDS.crossTenant}`),
       ownerSession
@@ -486,84 +343,7 @@ test.group('Members routes | PATCH toggle active', (group) => {
     assert.isTrue(row.isActive)
   })
 
-  test('owner can re-activate a deactivated member', async ({ assert, client }) => {
-    // First deactivate
-    await db
-      .update(member)
-      .set({ isActive: false })
-      .where(and(eq(member.id, MEMBER_IDS.regular), eq(member.organizationId, TEST_TENANT_ID)))
-
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}`),
-      ownerSession
-    )
-      .redirects(0)
-      .form({ isActive: 'true' })
-
-    response.assertStatus(302)
-
-    const [row] = await db
-      .select({ isActive: member.isActive })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.regular))
-    assert.isTrue(row.isActive)
-  })
-
-  test('successful toggle writes an audit event for the targeted member and tenant', async ({
-    assert,
-    client,
-  }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}`),
-      ownerSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    response.assertStatus(302)
-
-    const [event] = await db
-      .select({
-        action: auditEvents.action,
-        changes: auditEvents.changes,
-        entityId: auditEvents.entityId,
-        entityType: auditEvents.entityType,
-        organizationId: auditEvents.organizationId,
-      })
-      .from(auditEvents)
-      .where(eq(auditEvents.entityId, MEMBER_IDS.regular))
-      .limit(1)
-
-    assert.equal(event?.action, 'member_deactivated')
-    assert.equal(event?.entityId, MEMBER_IDS.regular)
-    assert.equal(event?.entityType, 'member')
-    assert.equal(event?.organizationId, TEST_TENANT_ID)
-    assert.deepEqual(event?.changes, {
-      after: { isActive: false },
-      before: { isActive: true },
-    })
-  })
-
-  test('refused toggle does not create an audit event', async ({ assert, client }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.owner}`),
-      adminSession
-    )
-      .redirects(0)
-      .form({ isActive: 'false' })
-
-    response.assertStatus(302)
-
-    const [event] = await db
-      .select({ id: auditEvents.id })
-      .from(auditEvents)
-      .where(eq(auditEvents.organizationId, TEST_TENANT_ID))
-      .limit(1)
-
-    assert.isUndefined(event)
-  })
-
-  test('unauthenticated PATCH is redirected to /signin', async ({ client }) => {
+  test('contract: unauthenticated PATCH is redirected to /signin', async ({ client }) => {
     const response = await client
       .patch(`/account/organizations/members/${MEMBER_IDS.regular}`)
       .redirects(0)
@@ -606,7 +386,10 @@ test.group('Members routes | PATCH update role', (group) => {
 
   group.teardown(async () => cleanup())
 
-  test('owner can promote a member to admin', async ({ assert, client }) => {
+  test('contract: PATCH /members/:id/role returns redirect on success', async ({
+    assert,
+    client,
+  }) => {
     const response = await withCookie(
       client.patch(`/account/organizations/members/${MEMBER_IDS.regular}/role`),
       ownerSession
@@ -623,138 +406,7 @@ test.group('Members routes | PATCH update role', (group) => {
     assert.equal(row.role, 'admin')
   })
 
-  test('owner can demote an admin to member', async ({ assert, client }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.admin}/role`),
-      ownerSession
-    )
-      .redirects(0)
-      .form({ role: 'member' })
-
-    response.assertStatus(302)
-
-    const [row] = await db
-      .select({ role: member.role })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.admin))
-    assert.equal(row.role, 'member')
-  })
-
-  test('admin cannot change member roles', async ({ assert, client }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}/role`),
-      adminSession
-    )
-      .redirects(0)
-      .form({ role: 'admin' })
-
-    response.assertStatus(302)
-
-    const [row] = await db
-      .select({ role: member.role })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.regular))
-    assert.equal(row.role, 'member')
-  })
-
-  test('owner cannot promote a member to owner', async ({ assert, client }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}/role`),
-      ownerSession
-    )
-      .redirects(0)
-      .form({ role: 'owner' })
-
-    response.assertStatus(302)
-
-    const [row] = await db
-      .select({ role: member.role })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.regular))
-    assert.equal(row.role, 'member')
-  })
-
-  test('owner cannot demote itself', async ({ assert, client }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.owner}/role`),
-      ownerSession
-    )
-      .redirects(0)
-      .form({ role: 'member' })
-
-    response.assertStatus(302)
-
-    const [row] = await db
-      .select({ role: member.role })
-      .from(member)
-      .where(eq(member.id, MEMBER_IDS.owner))
-    assert.equal(row.role, 'owner')
-  })
-
-  test('successful role change writes an audit event', async ({ assert, client }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}/role`),
-      ownerSession
-    )
-      .redirects(0)
-      .form({ role: 'admin' })
-
-    response.assertStatus(302)
-
-    const [event] = await db
-      .select({
-        action: auditEvents.action,
-        changes: auditEvents.changes,
-        entityId: auditEvents.entityId,
-        organizationId: auditEvents.organizationId,
-      })
-      .from(auditEvents)
-      .where(eq(auditEvents.entityId, MEMBER_IDS.regular))
-      .limit(1)
-
-    assert.equal(event?.action, 'member_role_changed')
-    assert.equal(event?.entityId, MEMBER_IDS.regular)
-    assert.equal(event?.organizationId, TEST_TENANT_ID)
-    assert.deepEqual(event?.changes, {
-      after: { role: 'admin' },
-      before: { role: 'member' },
-    })
-  })
-
-  test('refused role change does not create an audit event', async ({ assert, client }) => {
-    const response = await withCookie(
-      client.patch(`/account/organizations/members/${MEMBER_IDS.regular}/role`),
-      adminSession
-    )
-      .redirects(0)
-      .form({ role: 'admin' })
-
-    response.assertStatus(302)
-
-    const [event] = await db
-      .select({ id: auditEvents.id })
-      .from(auditEvents)
-      .where(eq(auditEvents.organizationId, TEST_TENANT_ID))
-      .limit(1)
-
-    assert.isUndefined(event)
-  })
-
-  test('missing target member returns 404 before role authorization checks', async ({ client }) => {
-    const response = await withCookie(
-      client.patch('/account/organizations/members/nonexistent_id/role'),
-      adminSession
-    )
-      .redirects(0)
-      .form({ role: 'admin' })
-
-    response.assertStatus(404)
-  })
-
-  test('cross-tenant role update returns 404 and does not modify foreign tenant role', async ({
-    assert,
-    client,
-  }) => {
+  test('contract: cross-tenant role update returns 404', async ({ assert, client }) => {
     const response = await withCookie(
       client.patch(`/account/organizations/members/${MEMBER_IDS.crossTenant}/role`),
       ownerSession

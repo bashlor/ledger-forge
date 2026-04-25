@@ -379,4 +379,338 @@ test.group('Invoice service integration', (group) => {
       ['mark_paid', 'issue', 'update_draft', 'create_draft']
     )
   })
+
+  test('listInvoices returns the first page ordered by issueDate desc then invoiceNumber desc', async ({
+    assert,
+  }) => {
+    const service = new InvoiceService(db)
+    const draftA = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    const draftB = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-02',
+        issueDate: '2099-04-02',
+        lines: [{ description: 'B', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    const draftC = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-03',
+        issueDate: '2099-04-03',
+        lines: [{ description: 'C', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    const draftD = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-04',
+        issueDate: '2099-04-04',
+        lines: [{ description: 'D', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    const draftE = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-05',
+        issueDate: '2099-04-05',
+        lines: [{ description: 'E', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    const draftF = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-06',
+        issueDate: '2099-04-06',
+        lines: [{ description: 'F', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const result = await service.listInvoices(1, 10, TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    assert.equal(result.pagination.page, 1)
+    assert.equal(result.pagination.perPage, 10)
+    assert.equal(result.pagination.totalItems, 6)
+    assert.equal(result.pagination.totalPages, 1)
+    assert.deepEqual(
+      result.items.map((item) => item.id),
+      [draftF.id, draftE.id, draftD.id, draftC.id, draftB.id, draftA.id]
+    )
+  })
+
+  test('listInvoices clamps page when requested page exceeds total pages', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    const draftA = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-06-01',
+        issueDate: '2099-05-01',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-06-02',
+        issueDate: '2099-05-02',
+        lines: [{ description: 'B', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-06-03',
+        issueDate: '2099-05-03',
+        lines: [{ description: 'C', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-06-04',
+        issueDate: '2099-05-04',
+        lines: [{ description: 'D', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-06-05',
+        issueDate: '2099-05-05',
+        lines: [{ description: 'E', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-06-06',
+        issueDate: '2099-05-06',
+        lines: [{ description: 'F', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const result = await service.listInvoices(99, 10, TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    assert.equal(result.pagination.page, 1)
+    assert.equal(result.pagination.totalPages, 1)
+    assert.lengthOf(result.items, 6)
+    assert.include(
+      result.items.map((item) => item.id),
+      draftA.id
+    )
+  })
+
+  test('listInvoices accepts custom perPage and reflects it in pagination', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    for (let i = 1; i <= 6; i++) {
+      await service.createDraft(
+        {
+          customerId: TEST_CUSTOMER_ID,
+          dueDate: `2099-05-0${i}`,
+          issueDate: `2099-04-0${i}`,
+          lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+        },
+        TEST_ACCOUNTING_ACCESS_CONTEXT
+      )
+    }
+
+    const result = await service.listInvoices(1, 3, TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    assert.equal(result.pagination.perPage, 3)
+    assert.equal(result.pagination.totalPages, 2)
+    assert.lengthOf(result.items, 3)
+  })
+
+  test('listInvoices filters items by issueDate range', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    const outsideBefore = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-04-30',
+        issueDate: '2099-03-31',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    const insideA = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    const insideB = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-15',
+        issueDate: '2099-04-15',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    const outsideAfter = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-06-01',
+        issueDate: '2099-05-01',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const result = await service.listInvoices(1, 10, TEST_ACCOUNTING_ACCESS_CONTEXT, {
+      endDate: '2099-04-30',
+      startDate: '2099-04-01',
+    })
+
+    assert.equal(result.pagination.totalItems, 2)
+    assert.deepEqual(
+      result.items.map((item) => item.id),
+      [insideB.id, insideA.id]
+    )
+    assert.notInclude(
+      result.items.map((item) => item.id),
+      outsideBefore.id
+    )
+    assert.notInclude(
+      result.items.map((item) => item.id),
+      outsideAfter.id
+    )
+  })
+
+  test('listInvoices filters items by search with coherent pagination', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    const matching = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-10',
+        issueDate: '2099-04-10',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createDraft(
+      {
+        customerId: SECOND_CUSTOMER_ID,
+        dueDate: '2099-05-11',
+        issueDate: '2099-04-11',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const result = await service.listInvoices(
+      1,
+      10,
+      TEST_ACCOUNTING_ACCESS_CONTEXT,
+      undefined,
+      undefined,
+      'Test Company'
+    )
+
+    assert.include(
+      result.items.map((item) => item.id),
+      matching.id
+    )
+    assert.isTrue(
+      result.items.every((item) => item.customerCompanyName.toLowerCase().includes('test company'))
+    )
+    assert.equal(result.pagination.totalItems, result.items.length)
+  })
+
+  test('listInvoices filters items by customer scope', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-20',
+        issueDate: '2099-04-20',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createDraft(
+      {
+        customerId: SECOND_CUSTOMER_ID,
+        dueDate: '2099-05-25',
+        issueDate: '2099-04-25',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const result = await service.listInvoices(
+      1,
+      10,
+      TEST_ACCOUNTING_ACCESS_CONTEXT,
+      undefined,
+      TEST_CUSTOMER_ID
+    )
+
+    assert.isTrue(result.items.every((item) => item.customerId === TEST_CUSTOMER_ID))
+  })
+
+  test('listInvoices with customer and date filter returns empty list when no invoice matches the scope', async ({
+    assert,
+  }) => {
+    const service = new InvoiceService(db)
+    await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-04-15',
+        issueDate: '2099-03-15',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.createDraft(
+      {
+        customerId: SECOND_CUSTOMER_ID,
+        dueDate: '2099-05-10',
+        issueDate: '2099-04-10',
+        lines: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const result = await service.listInvoices(
+      1,
+      10,
+      TEST_ACCOUNTING_ACCESS_CONTEXT,
+      { endDate: '2099-04-30', startDate: '2099-04-01' },
+      TEST_CUSTOMER_ID
+    )
+
+    assert.deepEqual(result.items, [])
+  })
 })
