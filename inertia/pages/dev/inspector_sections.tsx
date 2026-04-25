@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { DataTable } from '~/components/data_table'
 import { StatusBadge } from '~/components/status_badge'
+import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 
 import type {
   ActionTone,
@@ -105,15 +106,17 @@ export function AuditTrailSection({
         <ScrollableTable maxHeightClass="max-h-[34rem]">
           <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
             <thead className="sticky top-0 z-20">
-              <tr className="border-b border-outline-variant/12 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
-                <th className="sticky left-0 z-10 bg-surface-container-low px-3 py-2">Timestamp</th>
-                <th className="px-3 py-2">Actor</th>
-                <th className="px-3 py-2">Tenant</th>
-                <th className="px-3 py-2">Action</th>
-                <th className="px-3 py-2">Entity</th>
-                <th className="px-3 py-2">Result</th>
-                <th className="px-3 py-2">Error code</th>
-              </tr>
+              <TableHeadRow className="tracking-[0.14em]">
+                <TableHeaderCell className="sticky left-0 z-10 bg-surface-container-low py-2">
+                  Timestamp
+                </TableHeaderCell>
+                <TableHeaderCell className="py-2">Actor</TableHeaderCell>
+                <TableHeaderCell className="py-2">Tenant</TableHeaderCell>
+                <TableHeaderCell className="py-2">Action</TableHeaderCell>
+                <TableHeaderCell className="py-2">Entity</TableHeaderCell>
+                <TableHeaderCell className="py-2">Result</TableHeaderCell>
+                <TableHeaderCell className="py-2">Error code</TableHeaderCell>
+              </TableHeadRow>
             </thead>
             <tbody>
               {visibleEvents.map((event, index) => (
@@ -224,7 +227,7 @@ export function DataGeneratorSection({
             </button>
           </label>
 
-          <div className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+          <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
             Batch generators stay isolated from live probes. Use them to prepare realistic manual
             scenarios quickly.
           </div>
@@ -338,18 +341,18 @@ export function MembersPermissionsSection({
         <ScrollableTable maxHeightClass="max-h-[38rem]">
           <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
             <thead className="sticky top-0 z-20">
-              <tr className="border-b border-outline-variant/12 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Email</th>
-                <th className="px-3 py-2">Role</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Tenant</th>
-                <th className="px-3 py-2">Scenario actor</th>
-                <th className="px-3 py-2">Last action</th>
-                <th className="sticky right-0 bg-surface-container-low px-3 py-2 text-right">
+              <TableHeadRow className="tracking-[0.14em]">
+                <TableHeaderCell className="py-2">Name</TableHeaderCell>
+                <TableHeaderCell className="py-2">Email</TableHeaderCell>
+                <TableHeaderCell className="py-2">Role</TableHeaderCell>
+                <TableHeaderCell className="py-2">Status</TableHeaderCell>
+                <TableHeaderCell className="py-2">Tenant</TableHeaderCell>
+                <TableHeaderCell className="py-2">Scenario actor</TableHeaderCell>
+                <TableHeaderCell className="py-2">Last action</TableHeaderCell>
+                <TableHeaderCell className="sticky right-0 bg-surface-container-low py-2 text-right">
                   Actions
-                </th>
-              </tr>
+                </TableHeaderCell>
+              </TableHeadRow>
             </thead>
             <tbody>
               {filteredMembers.slice(0, visibleCount).map((member, index) => (
@@ -437,7 +440,7 @@ export function OverviewSection({
     <div className="grid gap-3 xl:grid-cols-[minmax(0,1.25fr)_360px]">
       <CompactPanel title="Active Context">
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-xl border border-outline-variant/12 bg-surface-container-low">
+          <div className="overflow-hidden rounded-xl border border-outline-variant/15 bg-surface-container-low">
             <div className="grid grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)] gap-4 border-b border-outline-variant/10 px-3 py-2.5 last:border-b-0">
               <div className={labelClass}>Session tenant</div>
               <div className="text-right text-sm font-medium text-on-surface">
@@ -635,7 +638,7 @@ export function TenantFactorySection({
               {singleTenantMode ? 'Unavailable' : 'Create tenant'}
             </button>
           </div>
-          <div className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+          <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
             {singleTenantMode
               ? 'Single-tenant mode is active. Only the default tenant and the private dev-operator tenant are allowed, so tenant creation is blocked here.'
               : 'Provisioning and destructive tenant operations stay isolated here so they never compete with member, probe, or audit work.'}
@@ -766,13 +769,13 @@ export function WorkflowProbesSection({
               {processingAction === createAction.action ? 'Running...' : createAction.label}
             </button>
           </div>
-          <div className="flex items-end rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+          <div className="flex items-end rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
             Run mutations as the selected scenario actor inside the selected tenant.
           </div>
         </div>
       </CompactPanel>
 
-      <nav className="sticky top-[8.2rem] z-10 flex gap-2 overflow-x-auto rounded-2xl border border-outline-variant/12 bg-surface-container-lowest/95 p-2 backdrop-blur-md">
+      <nav className="sticky top-[8.2rem] z-10 flex gap-2 overflow-x-auto rounded-xl border border-outline-variant/15 bg-surface-container-lowest/95 p-2 backdrop-blur-md">
         {(
           [
             ['invoices', 'Invoices'],
