@@ -127,7 +127,15 @@ export function GeneratorCard({
 }
 
 export function humanizeAuditAction(action: string) {
-  return action.replaceAll('_', ' ')
+  const labels: Record<string, string> = {
+    session_active_organization_changed: 'session workspace selected',
+    sign_in_failure: 'sign in failed',
+    sign_in_success: 'sign in succeeded',
+    sign_out_failure: 'sign out failed',
+    sign_out_success: 'sign out succeeded',
+  }
+
+  return labels[action] ?? action.replaceAll('_', ' ')
 }
 
 export function JsonPreview({ title, value }: { title: string; value: unknown }) {
