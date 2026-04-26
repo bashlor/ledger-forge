@@ -91,6 +91,7 @@ function buildProps(
       image: null,
       initials: 'PU',
       isAnonymous: false,
+      isDevOperator: false,
     },
     workspace: undefined,
     ...overrides,
