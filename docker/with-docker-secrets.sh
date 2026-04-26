@@ -25,6 +25,14 @@ load_secret BETTER_AUTH_SECRET better_auth_secret
 load_secret DB_PASSWORD db_password
 load_secret REDIS_PASSWORD redis_password
 
+# Empty values are not usable for app startup; the runtime may set VAR= with no payload.
+# Apply the same build-time default strings as the production Dockerfile/compose when still empty.
+: "${APP_KEY:=00000000000000000000000000000000}"
+: "${BETTER_AUTH_SECRET:=build-time-better-auth-secret}"
+: "${DB_PASSWORD:=build-time-db-password}"
+: "${REDIS_PASSWORD:=build-time-redis-password}"
+export APP_KEY BETTER_AUTH_SECRET DB_PASSWORD REDIS_PASSWORD
+
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 
 if [ -z "$NODE_BIN" ]; then
