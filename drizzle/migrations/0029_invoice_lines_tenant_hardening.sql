@@ -31,7 +31,7 @@ ALTER TABLE "main"."invoice_lines"
 ALTER TABLE "main"."invoice_lines"
   ADD CONSTRAINT "invoice_lines_organization_id_organization_id_fk"
   FOREIGN KEY ("organization_id")
-  REFERENCES "main"."organization"("id")
+  REFERENCES "auth"."organization"("id")
   ON DELETE RESTRICT ON UPDATE NO ACTION;
 --> statement-breakpoint
 
