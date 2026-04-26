@@ -272,6 +272,56 @@ export async function provisionPersonalWorkspace(
       }
     }
 
+    if (!input.isAnonymous) {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${`personal-workspace:${input.userId}`}))`
+      )
+
+      const [existingPersonalWorkspace] = await tx
+        .select({ organizationId: schema.member.organizationId })
+        .from(schema.member)
+        .innerJoin(schema.organization, eq(schema.member.organizationId, schema.organization.id))
+        .where(
+          and(
+            eq(schema.member.userId, input.userId),
+            eq(schema.member.isActive, true),
+            eq(schema.member.role, 'owner'),
+            eq(schema.organization.metadata, JSON.stringify({ workspaceKind: 'personal' }))
+          )
+        )
+        .orderBy(schema.organization.createdAt)
+        .limit(1)
+
+      if (existingPersonalWorkspace) {
+        await tx
+          .update(schema.session)
+          .set({ activeOrganizationId: existingPersonalWorkspace.organizationId })
+          .where(eq(schema.session.token, input.sessionToken))
+        await recordSessionActiveOrganizationChanged(tx, auditTrail, {
+          actorId: input.userId,
+          afterOrganizationId: existingPersonalWorkspace.organizationId,
+          beforeOrganizationId: sessionRow.activeOrganizationId,
+          sessionId: sessionRow.id,
+          source: 'workspace_provisioning',
+        })
+        recordUserManagementActivityEvent(
+          {
+            entityId: existingPersonalWorkspace.organizationId,
+            entityType: 'workspace',
+            event: 'personal_workspace_reused_success',
+            level: 'info',
+            metadata: { workspaceMode: 'personal' },
+            outcome: 'success',
+            tenantId: existingPersonalWorkspace.organizationId,
+            userId: input.userId,
+          },
+          activitySink
+        )
+
+        return { organizationId: existingPersonalWorkspace.organizationId, wasProvisioned: false }
+      }
+    }
+
     let slug = newSlugCandidate()
     for (let attempt = 0; attempt < 8; attempt++) {
       const clash = await tx
