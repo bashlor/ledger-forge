@@ -145,7 +145,11 @@ export async function listInvoiceLinesForInvoice(
     .from(invoiceLines)
     .innerJoin(invoices, eq(invoices.id, invoiceLines.invoiceId))
     .where(
-      and(eq(invoiceLines.invoiceId, input.invoiceId), eq(invoices.organizationId, input.tenantId))
+      and(
+        eq(invoiceLines.invoiceId, input.invoiceId),
+        eq(invoiceLines.organizationId, input.tenantId),
+        eq(invoices.organizationId, input.tenantId)
+      )
     )
     .orderBy(invoiceLines.lineNumber)
     .then((rows) => rows.map((row) => row.invoice_lines))
@@ -166,6 +170,7 @@ export async function listInvoiceLinesForInvoiceIds(
     .where(
       and(
         inArray(invoiceLines.invoiceId, input.invoiceIds),
+        eq(invoiceLines.organizationId, input.tenantId),
         eq(invoices.organizationId, input.tenantId)
       )
     )

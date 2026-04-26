@@ -102,18 +102,30 @@ export const invoiceLines = mainSchema.table(
   {
     description: text('description').notNull(),
     id: text('id').primaryKey(),
-    invoiceId: text('invoice_id')
-      .notNull()
-      .references(() => invoices.id, { onDelete: 'cascade' }),
+    invoiceId: text('invoice_id').notNull(),
     lineNumber: integer('line_number').notNull(),
     lineTotalExclTaxCents: integer('line_total_excl_tax_cents').notNull(),
     lineTotalInclTaxCents: integer('line_total_incl_tax_cents').notNull(),
     lineTotalVatCents: integer('line_total_vat_cents').notNull(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
     quantityCents: integer('quantity_cents').notNull(),
     unitPriceCents: integer('unit_price_cents').notNull(),
     vatRateCents: integer('vat_rate_cents').notNull(),
   },
-  (table) => [unique('invoice_lines_invoice_line_unique').on(table.invoiceId, table.lineNumber)]
+  (table) => [
+    unique('invoice_lines_org_invoice_line_unique').on(
+      table.organizationId,
+      table.invoiceId,
+      table.lineNumber
+    ),
+    foreignKey({
+      columns: [table.organizationId, table.invoiceId],
+      foreignColumns: [invoices.organizationId, invoices.id],
+      name: 'invoice_lines_org_invoice_fk',
+    }).onDelete('cascade'),
+  ]
 )
 
 // ---------------------------------------------------------------------------

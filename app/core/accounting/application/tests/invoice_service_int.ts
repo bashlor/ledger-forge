@@ -167,6 +167,54 @@ test.group('Invoice service integration', (group) => {
     assert.equal(accepted.dueDate, '2099-04-10')
   })
 
+  test('createDraft stores invoice lines with the active tenant id', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    const draft = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'Tenant-scoped line', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const lines = await db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, draft.id))
+
+    assert.lengthOf(lines, 1)
+    assert.equal(lines[0].organizationId, TEST_TENANT_ID)
+  })
+
+  test('updateDraft preserves tenant ownership on replaced invoice lines', async ({ assert }) => {
+    const service = new InvoiceService(db)
+    const draft = await service.createDraft(
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'Initial line', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    await service.updateDraft(
+      draft.id,
+      {
+        customerId: TEST_CUSTOMER_ID,
+        dueDate: '2099-05-02',
+        issueDate: '2099-04-02',
+        lines: [{ description: 'Replacement line', quantity: 2, unitPrice: 100, vatRate: 20 }],
+      },
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const lines = await db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, draft.id))
+
+    assert.lengthOf(lines, 1)
+    assert.equal(lines[0].description, 'Replacement line')
+    assert.equal(lines[0].organizationId, TEST_TENANT_ID)
+  })
+
   test('getInvoiceSummary remains global when list search is active', async ({ assert }) => {
     const service = new InvoiceService(db)
     await service.createDraft(
@@ -337,6 +385,7 @@ test.group('Invoice service integration', (group) => {
       .orderBy(invoiceLines.lineNumber)
     assert.equal(lines.length, 1)
     assert.include(['Concurrent update A', 'Concurrent update B'], lines[0].description)
+    assert.equal(lines[0].organizationId, TEST_TENANT_ID)
   })
 
   test('audit:create/update/issue/mark_paid events are emitted on happy path', async ({

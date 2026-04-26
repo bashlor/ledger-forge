@@ -1,7 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { invoiceLines, invoices, journalEntries } from '#core/accounting/drizzle/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 import type { InvoiceStatus } from '../types.js'
@@ -71,24 +71,20 @@ export async function replaceInvoiceLines(
   tx: DrizzleTx,
   invoiceId: string,
   organizationId: string,
-  values: Omit<InvoiceLineInsert, 'id' | 'invoiceId'>[]
+  values: Omit<InvoiceLineInsert, 'id' | 'invoiceId' | 'organizationId'>[]
 ) {
-  await tx.delete(invoiceLines).where(
-    and(
-      eq(invoiceLines.invoiceId, invoiceId),
-      sql`exists (
-          select 1 from ${invoices}
-          where ${invoices.id} = ${invoiceLines.invoiceId}
-            and ${invoices.organizationId} = ${organizationId}
-        )`
+  await tx
+    .delete(invoiceLines)
+    .where(
+      and(eq(invoiceLines.invoiceId, invoiceId), eq(invoiceLines.organizationId, organizationId))
     )
-  )
   if (values.length === 0) return []
 
   const rows = values.map((line) => ({
     ...line,
     id: uuidv7(),
     invoiceId,
+    organizationId,
   }))
   return tx.insert(invoiceLines).values(rows).returning()
 }

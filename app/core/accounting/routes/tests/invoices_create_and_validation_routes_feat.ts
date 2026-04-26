@@ -13,6 +13,7 @@ import {
   resetInvoiceFixtures,
   seedInvoiceActor,
   seedTestOrganization,
+  TEST_ACCOUNTING_ACCESS_CONTEXT,
   TEST_CUSTOMER_ID,
 } from './invoices_test_support.js'
 
@@ -61,6 +62,7 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
 
     const lines = await db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, invoice.id))
     assert.equal(lines.length, 1)
+    assert.equal(lines[0].organizationId, TEST_ACCOUNTING_ACCESS_CONTEXT.tenantId)
     assert.equal(lines[0].lineTotalExclTaxCents, 100_000)
     assert.equal(lines[0].lineTotalVatCents, 20_000)
     assert.equal(lines[0].lineTotalInclTaxCents, 120_000)

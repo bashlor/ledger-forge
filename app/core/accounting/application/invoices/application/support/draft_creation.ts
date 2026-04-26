@@ -65,6 +65,7 @@ export async function persistDraftCreation(
     preparedLines.lineValues.map((line) => ({
       id: uuidv7(),
       invoiceId: context.invoiceId,
+      organizationId: requestContext.tenantId,
       ...line,
     }))
   )

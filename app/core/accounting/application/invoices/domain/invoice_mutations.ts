@@ -11,7 +11,7 @@ type InvoiceLineInsert =
   (typeof import('#core/accounting/drizzle/schema'))['invoiceLines']['$inferInsert']
 
 export function buildDraftInvoiceLinesMutation(lines: NormalizedSaveInvoiceDraftInput['lines']): {
-  lineValues: Omit<InvoiceLineInsert, 'id' | 'invoiceId'>[]
+  lineValues: Omit<InvoiceLineInsert, 'id' | 'invoiceId' | 'organizationId'>[]
   totals: Pick<InvoiceInsert, 'subtotalExclTaxCents' | 'totalInclTaxCents' | 'totalVatCents'>
 } {
   const normalizedLines = lines.map(fromDisplayUnits)
