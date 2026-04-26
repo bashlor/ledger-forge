@@ -78,6 +78,7 @@ export type Props = InertiaProps<{
         slug: string
       }
       singleTenantMode: boolean
+      warnings: string[]
     }
     customers: {
       company: string
@@ -111,6 +112,14 @@ export type Props = InertiaProps<{
       isSessionTenant: boolean
       name: string
       slug: string
+      source:
+        | 'dev_console'
+        | 'operator_membership'
+        | 'other'
+        | 'personal_workspace'
+        | 'session_tenant'
+        | 'single_tenant'
+      sourceLabel: string
     }[]
     invoices: {
       createdAt: string

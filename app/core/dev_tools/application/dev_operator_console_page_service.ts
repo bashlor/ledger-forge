@@ -78,7 +78,8 @@ export class DevOperatorConsolePageService {
         authSession,
         authorizationService,
         tenantSelection,
-        selectedMember
+        selectedMember,
+        this.buildWorkspaceWarnings(tenantSelection.inspectableTenants)
       ),
       customers,
       expenses,
@@ -183,7 +184,8 @@ export class DevOperatorConsolePageService {
       name: string
       role: 'admin' | 'member' | 'owner'
       userId: string
-    }
+    },
+    warnings: string[]
   ): DevInspectorPageDto['context'] {
     const selectedTenantName =
       tenantSelection.selectedTenant?.organizationName ?? tenantSelection.selectedTenantOption.name
@@ -232,6 +234,7 @@ export class DevOperatorConsolePageService {
       userEmail: authSession.user.email,
       userName: authSession.user.name ?? authSession.user.email,
       userPublicId: authSession.user.publicId,
+      warnings,
     }
   }
 
@@ -294,6 +297,33 @@ export class DevOperatorConsolePageService {
       probeType: resolveProbeType(filters.probeType),
       selectedRecordId: filters.selectedRecordId?.trim() ?? '',
     }
+  }
+
+  private buildWorkspaceWarnings(
+    inspectableTenants: DevInspectorPageDto['inspectableTenants']
+  ): string[] {
+    const personalWorkspacesByName = new Map<string, number>()
+
+    for (const tenant of inspectableTenants) {
+      if (tenant.source !== 'personal_workspace' && tenant.source !== 'session_tenant') {
+        continue
+      }
+
+      const count = personalWorkspacesByName.get(tenant.name) ?? 0
+      personalWorkspacesByName.set(tenant.name, count + 1)
+    }
+
+    const duplicateNames = [...personalWorkspacesByName.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([name]) => name)
+
+    if (duplicateNames.length === 0) {
+      return []
+    }
+
+    return [
+      `Multiple personal workspaces share the same name: ${duplicateNames.join(', ')}. They may be legacy local provisioning rows.`,
+    ]
   }
 
   private resolveSelectedMember(

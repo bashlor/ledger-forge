@@ -97,11 +97,21 @@ export function resolveProbeType(value?: string): 'customers' | 'expenses' | 'in
 }
 
 export function selectedTenantOptions(
-  tenants: { id: string; isSessionTenant: boolean; name: string; slug: string }[]
+  tenants: {
+    id: string
+    isSessionTenant: boolean
+    name: string
+    slug: string
+    sourceLabel?: string
+  }[]
 ) {
   return tenants.map((tenant) => ({
     id: tenant.id,
-    label: tenant.isSessionTenant ? `${tenant.name} (session)` : tenant.name,
+    label: tenant.sourceLabel
+      ? `${tenant.name} (${tenant.sourceLabel})`
+      : tenant.isSessionTenant
+        ? `${tenant.name} (session)`
+        : tenant.name,
   }))
 }
 

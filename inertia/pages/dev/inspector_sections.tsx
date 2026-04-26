@@ -440,6 +440,14 @@ export function OverviewSection({
     <div className="grid gap-3 xl:grid-cols-[minmax(0,1.25fr)_360px]">
       <CompactPanel title="Active Context">
         <div className="space-y-4">
+          {context.warnings.length > 0 ? (
+            <div className="space-y-2 rounded-xl border border-warning/25 bg-warning-container/35 p-3 text-sm text-on-warning-container">
+              {context.warnings.map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </div>
+          ) : null}
+
           <div className="overflow-hidden rounded-xl border border-outline-variant/15 bg-surface-container-low">
             <div className="grid grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)] gap-4 border-b border-outline-variant/10 px-3 py-2.5 last:border-b-0">
               <div className={labelClass}>Session tenant</div>
@@ -622,8 +630,7 @@ export function TenantFactorySection({
             >
               {inspectableTenants.map((tenant) => (
                 <option key={tenant.id} value={tenant.id}>
-                  {tenant.name}
-                  {tenant.isSessionTenant ? ' (session)' : ''}
+                  {tenantOptionLabel(tenant)}
                 </option>
               ))}
             </select>
@@ -743,8 +750,7 @@ export function WorkflowProbesSection({
             >
               {inspectableTenants.map((tenant) => (
                 <option key={tenant.id} value={tenant.id}>
-                  {tenant.name}
-                  {tenant.isSessionTenant ? ' (session)' : ''}
+                  {tenantOptionLabel(tenant)}
                 </option>
               ))}
             </select>
@@ -836,4 +842,8 @@ export function WorkflowProbesSection({
       </div>
     </div>
   )
+}
+
+function tenantOptionLabel(tenant: Props['inspector']['inspectableTenants'][number]): string {
+  return `${tenant.name} (${tenant.sourceLabel})`
 }
