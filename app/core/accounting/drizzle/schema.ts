@@ -233,7 +233,7 @@ export const auditEvents = mainSchema.table(
   (table) => [
     check(
       'audit_events_entity_type_check',
-      sql`${table.entityType} IN ('invoice', 'expense', 'customer', 'member', 'session', 'user')`
+      sql`${table.entityType} IN ('invoice', 'expense', 'customer', 'auth', 'member', 'session', 'user', 'workspace')`
     ),
     check(
       'audit_events_accounting_tenant_check',
