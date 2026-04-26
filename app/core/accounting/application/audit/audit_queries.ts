@@ -1,6 +1,10 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { auditEvents } from '#core/accounting/drizzle/schema'
+import {
+  type AuditBoundedContext,
+  auditBoundedContextForEntity,
+} from '#core/common/audit/audit_bounded_context'
 import * as schema from '#core/common/drizzle/index'
 import { and, desc, eq } from 'drizzle-orm'
 
@@ -11,6 +15,7 @@ export interface TenantAuditEventDto {
   actorEmail: null | string
   actorId: null | string
   actorName: null | string
+  boundedContext: AuditBoundedContext
   changes: unknown
   entityId: string
   entityType: string
@@ -68,5 +73,8 @@ export async function listRecentAuditEventsForTenant(
     .orderBy(desc(schema.auditEvents.createdAt))
     .limit(input.limit ?? 20)
 
-  return rows
+  return rows.map((row) => ({
+    ...row,
+    boundedContext: auditBoundedContextForEntity(row.entityType),
+  }))
 }
