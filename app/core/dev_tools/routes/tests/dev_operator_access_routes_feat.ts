@@ -358,6 +358,54 @@ test.group('Dev operator access routes', (group) => {
     assert.isNull(grantAuditRows[0]?.organizationId)
   })
 
+  test('POST /_dev/access reuses the configured workspace in single-tenant mode', async ({
+    assert,
+    client,
+  }) => {
+    const singleTenantOrgId = 'local-dev-single-tenant'
+
+    app.container.swap(DevOperatorBootstrapService, async () => {
+      return new DevOperatorBootstrapService(db, {
+        getSingleTenantOrgId: () => singleTenantOrgId,
+        isSingleTenantMode: () => true,
+      })
+    })
+
+    const response = await client.post('/_dev/access').redirects(0).form({
+      email: 'single-local-dev@example.local',
+      fullName: 'Dev Operator',
+      password: 'SecureP@ss123',
+      passwordConfirmation: 'SecureP@ss123',
+    })
+
+    response.assertStatus(302)
+    response.assertHeader('location', '/_dev/inspector')
+
+    const [user] = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, 'single-local-dev@example.local'))
+      .limit(1)
+
+    assert.exists(user)
+
+    const organizations = await db
+      .select({ id: schema.organization.id, name: schema.organization.name })
+      .from(schema.organization)
+
+    assert.lengthOf(organizations, 1)
+    assert.equal(organizations[0]?.id, singleTenantOrgId)
+    assert.equal(organizations[0]?.name, 'Dev Operator workspace')
+
+    const [persistedSession] = await db
+      .select({ activeOrganizationId: schema.session.activeOrganizationId })
+      .from(schema.session)
+      .where(eq(schema.session.userId, user!.id))
+      .limit(1)
+
+    assert.equal(persistedSession?.activeOrganizationId, singleTenantOrgId)
+  })
+
   test('POST /_dev/access does not duplicate dev operator grant audit for existing access', async ({
     assert,
     client,
@@ -394,6 +442,19 @@ test.group('Dev operator access routes', (group) => {
       )
 
     assert.lengthOf(grantAuditRows, 1)
+
+    const personalWorkspaces = await db
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .innerJoin(schema.member, eq(schema.member.organizationId, schema.organization.id))
+      .where(
+        and(
+          eq(schema.member.userId, user!.id),
+          eq(schema.organization.metadata, JSON.stringify({ workspaceKind: 'personal' }))
+        )
+      )
+
+    assert.lengthOf(personalWorkspaces, 1)
   })
 
   test('POST /_dev/access does not retry bootstrap after a failure', async ({ assert, client }) => {
