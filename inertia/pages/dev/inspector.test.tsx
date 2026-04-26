@@ -212,6 +212,7 @@ function buildProps(
       image: null,
       initials: 'DO',
       isAnonymous: false,
+      isDevOperator: true,
     },
     workspace: undefined,
   }

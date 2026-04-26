@@ -20,12 +20,12 @@ export function isActive(currentUrl: string, href: string) {
 }
 
 export function pageLabelForUrl(url: string) {
-  if (url.startsWith('/_dev/access')) {
-    return 'Dev Tools'
+  if (isActive(url, '/_dev/inspector')) {
+    return 'Dev Console'
   }
 
-  if (url.startsWith('/_dev/inspector')) {
-    return 'Dev Console'
+  if (isActive(url, '/_dev')) {
+    return 'Dev Tools'
   }
 
   if (url.startsWith('/account')) {

@@ -1,9 +1,13 @@
 import { isDevToolsRuntimeEnabled } from '#core/user_management/support/dev_tools_runtime'
+import env from '#start/env'
 import { defineConfig } from '@adonisjs/core/app'
 import { indexPages } from '@adonisjs/inertia'
 import { generateRegistry } from '@tuyau/core/hooks'
 
-const enableDevToolsRuntime = isDevToolsRuntimeEnabled()
+const enableDevToolsRuntime = isDevToolsRuntimeEnabled({
+  enabled: env.get('DEV_TOOLS_ENABLED', false),
+  nodeEnv: env.get('NODE_ENV'),
+})
 
 export default defineConfig({
   /*
