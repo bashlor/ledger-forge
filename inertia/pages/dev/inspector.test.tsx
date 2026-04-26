@@ -96,6 +96,7 @@ function buildProps(
           slug: 'dev-tenant',
         },
         singleTenantMode: false,
+        warnings: [],
         ...contextOverrides,
       },
       customers: [
@@ -137,12 +138,16 @@ function buildProps(
           isSessionTenant: false,
           name: 'Tenant One',
           slug: 'tenant-one',
+          source: 'dev_console',
+          sourceLabel: 'dev console',
         },
         {
           id: 'tenant-dev',
           isSessionTenant: true,
           name: 'Dev Operator Tenant',
           slug: 'dev-tenant',
+          source: 'session_tenant',
+          sourceLabel: 'session',
         },
       ],
       invoices: [

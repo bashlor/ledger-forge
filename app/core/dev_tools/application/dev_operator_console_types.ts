@@ -179,6 +179,7 @@ export interface DevInspectorPageDto {
     userEmail: string
     userName: string
     userPublicId: string
+    warnings: string[]
   }
   customers: DevInspectorCustomerDto[]
   expenses: DevInspectorExpenseDto[]
@@ -227,6 +228,14 @@ export interface DevInspectorTenantOptionDto {
   isSessionTenant: boolean
   name: string
   slug: string
+  source:
+    | 'dev_console'
+    | 'operator_membership'
+    | 'other'
+    | 'personal_workspace'
+    | 'session_tenant'
+    | 'single_tenant'
+  sourceLabel: string
 }
 
 export interface DevOperatorActionInput {

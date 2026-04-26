@@ -9,6 +9,7 @@ import {
   type DevInspectorExpenseDto,
   type DevInspectorMembershipDto,
   type DevInspectorMetricsDto,
+  type DevInspectorTenantOptionDto,
 } from '#core/dev_tools/application/dev_operator_console_types'
 import {
   auditEventDetails,
@@ -379,29 +380,28 @@ export class DevOperatorConsoleQueryService {
     }))
   }
 
-  async listInspectableTenants(authSession: AuthResult): Promise<
-    {
-      id: string
-      isSessionTenant: boolean
-      name: string
-      slug: string
-    }[]
-  > {
+  async listInspectableTenants(authSession: AuthResult): Promise<DevInspectorTenantOptionDto[]> {
     const sessionTenantId = authSession.session.activeOrganizationId
     const rows = await this.db
       .select({
         id: schema.organization.id,
+        metadata: schema.organization.metadata,
         name: schema.organization.name,
         slug: schema.organization.slug,
       })
       .from(schema.organization)
       .orderBy(schema.organization.createdAt)
+    const accessibleTenantIds = new Set(await this.listAccessibleTenantIds(authSession.user.id))
 
     const tenants = rows.map((row) => ({
       id: row.id,
       isSessionTenant: row.id === sessionTenantId,
       name: row.name,
       slug: row.slug,
+      ...tenantSource(row, {
+        hasOperatorMembership: accessibleTenantIds.has(row.id),
+        isSessionTenant: row.id === sessionTenantId,
+      }),
     }))
 
     return tenants.sort((left, right) => {
@@ -591,4 +591,44 @@ export class DevOperatorConsoleQueryService {
 
     return Number(row?.value ?? 0)
   }
+}
+
+function parseOrganizationMetadata(value: null | string): Record<string, unknown> {
+  if (!value) {
+    return {}
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function tenantSource(
+  organization: { metadata: null | string; slug: string },
+  flags: { hasOperatorMembership: boolean; isSessionTenant: boolean }
+): Pick<DevInspectorTenantOptionDto, 'source' | 'sourceLabel'> {
+  if (flags.isSessionTenant) {
+    return { source: 'session_tenant', sourceLabel: 'session' }
+  }
+
+  const metadata = parseOrganizationMetadata(organization.metadata)
+  if (metadata.createdBy === 'dev_operator_console') {
+    return { source: 'dev_console', sourceLabel: 'dev console' }
+  }
+  if (metadata.workspaceKind === 'personal') {
+    return { source: 'personal_workspace', sourceLabel: 'personal workspace' }
+  }
+  if (flags.hasOperatorMembership) {
+    return { source: 'operator_membership', sourceLabel: 'operator membership' }
+  }
+  if (organization.slug.startsWith('single-')) {
+    return { source: 'single_tenant', sourceLabel: 'single tenant' }
+  }
+
+  return { source: 'other', sourceLabel: 'other' }
 }
