@@ -98,6 +98,7 @@ services:
         - source: db_password
           target: db_password
     environment:
+      ACCOUNTING_RUNTIME_DIR: /var/lib/accounting-secrets
       DB_DATABASE: accounting-test
       DB_PORT: 5432
       DB_USER: accounting
@@ -150,6 +151,7 @@ services:
         bind:
           create_host_path: false
           selinux: z
+      - app_test_runtime_secrets:/var/lib/accounting-secrets
     networks:
       - accounting_test_internal
 
@@ -178,6 +180,7 @@ services:
         - source: db_password
           target: db_password
     environment:
+      ACCOUNTING_RUNTIME_DIR: /var/lib/accounting-secrets
       DB_DATABASE: accounting-test
       DB_PORT: 5432
       DB_USER: accounting
@@ -230,10 +233,12 @@ services:
         bind:
           create_host_path: false
           selinux: z
+      - app_test_runtime_secrets:/var/lib/accounting-secrets
     networks:
       - accounting_test_internal
 
 volumes:
+  app_test_runtime_secrets:
   pg_test_data:
   redis_test_data:
 
