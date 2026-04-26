@@ -83,6 +83,11 @@ export const invoices = mainSchema.table(
   },
   (table) => [
     check('invoices_status_check', sql`${table.status} IN ('draft', 'issued', 'paid')`),
+    index('invoices_org_issue_date_number_idx').on(
+      table.organizationId,
+      table.issueDate.desc(),
+      table.invoiceNumber.desc()
+    ),
     unique('invoices_org_id_unique').on(table.organizationId, table.id),
     unique('invoices_org_invoice_number_unique').on(table.organizationId, table.invoiceNumber),
     foreignKey({

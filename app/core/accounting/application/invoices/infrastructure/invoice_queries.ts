@@ -13,6 +13,24 @@ import { requireTenantScope } from '../../support/tenant_scope.js'
 type DrizzleDb = PostgresJsDatabase<any>
 type DrizzleTx = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0]
 type InvoiceDbExecutor = DrizzleDb | DrizzleTx
+type InvoiceListFilters = {
+  customerId?: string
+  dateFilter?: DateFilter
+  search?: string
+  tenantId: string
+}
+
+export async function countInvoicesByTenant(
+  db: DrizzleDb,
+  input: InvoiceListFilters
+): Promise<number> {
+  const [{ totalCount }] = await db
+    .select({ totalCount: count() })
+    .from(invoices)
+    .where(buildScopedInvoiceListWhere(input))
+
+  return totalCount
+}
 
 export async function findFirstInvoiceIdForCustomer(
   db: DrizzleDb,
@@ -180,31 +198,19 @@ export async function listInvoiceLinesForInvoiceIds(
 
 export async function listInvoicesByTenant(
   db: DrizzleDb,
-  input: {
-    customerId?: string
-    dateFilter?: DateFilter
+  input: InvoiceListFilters & {
     page: number
     perPage: number
-    search?: string
-    tenantId: string
   }
-): Promise<{ rows: InvoiceRow[]; totalCount: number }> {
-  const where = combineInvoiceFilters(input.dateFilter, input.customerId, input.search)
-  const scopedWhere = applyInvoiceTenantScope(where, input.tenantId)
-  const [{ totalCount }] = await db
-    .select({ totalCount: count() })
-    .from(invoices)
-    .where(scopedWhere)
+): Promise<InvoiceRow[]> {
   const offset = (input.page - 1) * input.perPage
-  const rows = await db
+  return db
     .select()
     .from(invoices)
-    .where(scopedWhere)
+    .where(buildScopedInvoiceListWhere(input))
     .orderBy(desc(invoices.issueDate), desc(invoices.invoiceNumber))
     .limit(input.perPage)
     .offset(offset)
-
-  return { rows, totalCount }
 }
 
 export async function loadInvoiceForMutation(
@@ -263,6 +269,13 @@ export async function readCustomerSnapshot(
 
 function applyInvoiceTenantScope(where: SQL<unknown> | undefined, tenantId: string): SQL<unknown> {
   return requireTenantScope(where, tenantId, invoices.organizationId)
+}
+
+function buildScopedInvoiceListWhere(input: InvoiceListFilters): SQL<unknown> {
+  return applyInvoiceTenantScope(
+    combineInvoiceFilters(input.dateFilter, input.customerId, input.search),
+    input.tenantId
+  )
 }
 
 function combineInvoiceFilters(
