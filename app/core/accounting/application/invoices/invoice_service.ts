@@ -15,6 +15,7 @@ import {
 } from '#core/accounting/application/support/business_calendar'
 import {
   clampInteger,
+  computePaginationWindow,
   DEFAULT_LIST_PER_PAGE,
   MAX_LIST_PER_PAGE,
   MIN_LIST_PER_PAGE,
@@ -40,6 +41,7 @@ import { sendInvoiceUseCase } from './application/send_invoice.js'
 import { updateInvoiceDraftUseCase } from './application/update_invoice_draft.js'
 import { toInvoiceDto, toLineDto } from './infrastructure/invoice_mappers.js'
 import {
+  countInvoicesByTenant,
   findFirstInvoiceIdForCustomer,
   getInvoiceById,
   getInvoiceForListScope as getInvoiceForListScopeQuery,
@@ -179,20 +181,17 @@ export class InvoiceService {
   ): Promise<InvoiceListResult> {
     const requestContext = toInvoiceRequestContext(access)
     const safePerPage = clampInteger(perPage, MIN_LIST_PER_PAGE, MAX_LIST_PER_PAGE)
-    const { totalCount } = await listInvoicesByTenant(this.db, {
+    const totalCount = await countInvoicesByTenant(this.db, {
       customerId,
       dateFilter,
-      page: 1,
-      perPage: 1,
       search,
       tenantId: requestContext.tenantId,
     })
-    const totalPages = Math.max(1, Math.ceil(totalCount / safePerPage))
-    const safePage = clampInteger(page, 1, totalPages)
-    const { rows } = await listInvoicesByTenant(this.db, {
+    const pagination = computePaginationWindow(totalCount, safePerPage, page)
+    const rows = await listInvoicesByTenant(this.db, {
       customerId,
       dateFilter,
-      page: safePage,
+      page: pagination.page,
       perPage: safePerPage,
       search,
       tenantId: requestContext.tenantId,
@@ -202,10 +201,10 @@ export class InvoiceService {
       return {
         items: [],
         pagination: {
-          page: safePage,
+          page: pagination.page,
           perPage: safePerPage,
           totalItems: totalCount,
-          totalPages,
+          totalPages: pagination.totalPages,
         },
       }
     }
@@ -226,10 +225,10 @@ export class InvoiceService {
     return {
       items,
       pagination: {
-        page: safePage,
+        page: pagination.page,
         perPage: safePerPage,
         totalItems: totalCount,
-        totalPages,
+        totalPages: pagination.totalPages,
       },
     }
   }
