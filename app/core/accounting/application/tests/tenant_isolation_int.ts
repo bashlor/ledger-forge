@@ -180,6 +180,50 @@ test.group('Cross-tenant isolation', (group) => {
     assert.isNull(resultB)
   })
 
+  test('database rejects invoice lines whose tenant does not match the parent invoice', async ({
+    assert,
+  }) => {
+    const customerService = new CustomerService(db)
+    const invoiceService = new InvoiceService(db)
+
+    const customer = await customerService.createCustomer(
+      {
+        address: '1 rue A',
+        company: 'Line FK Co',
+        email: 'line-fk@a.com',
+        name: 'Alice',
+        phone: '111',
+      },
+      accessA
+    )
+
+    const draft = await invoiceService.createDraft(
+      {
+        customerId: customer.id,
+        dueDate: '2099-05-01',
+        issueDate: '2099-04-01',
+        lines: [{ description: 'Service', quantity: 1, unitPrice: 100, vatRate: 20 }],
+      },
+      accessA
+    )
+
+    await assert.rejects(() =>
+      db.insert(invoiceLines).values({
+        description: 'Cross-tenant line',
+        id: 'cross-tenant-invoice-line',
+        invoiceId: draft.id,
+        lineNumber: 2,
+        lineTotalExclTaxCents: 10_000,
+        lineTotalInclTaxCents: 12_000,
+        lineTotalVatCents: 2_000,
+        organizationId: TENANT_B_ID,
+        quantityCents: 100,
+        unitPriceCents: 10_000,
+        vatRateCents: 2_000,
+      })
+    )
+  })
+
   test('tenant B cannot cancel a draft invoice belonging to tenant A', async ({ assert }) => {
     const customerService = new CustomerService(db)
     const invoiceService = new InvoiceService(db)
