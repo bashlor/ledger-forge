@@ -2,7 +2,7 @@ import { Form, Link } from '@adonisjs/inertia/react'
 
 import { AppIcon } from '~/components/app_icon'
 
-import { isActive, mainNavLinks } from './config'
+import { type AppNavLink, isActive, mainNavLinks } from './config'
 
 interface AppSidebarProps {
   devToolsEnabled: boolean
@@ -10,6 +10,7 @@ interface AppSidebarProps {
   displayName: string
   email: string
   initials: string
+  navLinks?: readonly AppNavLink[]
   showAccountingNav: boolean
   url: string
 }
@@ -20,17 +21,19 @@ export function AppSidebar({
   displayName,
   email,
   initials,
+  navLinks = mainNavLinks,
   showAccountingNav,
   url,
 }: AppSidebarProps) {
   const devToolsActive = isActive(url, '/_dev')
+  const homeHref = showAccountingNav ? (navLinks[0]?.href ?? '/customers') : devToolsHref
 
   return (
     <aside className="fixed left-0 top-0 z-50 hidden h-screen w-64 flex-col bg-surface-container-highest px-4 pb-6 pt-0 lg:flex">
       <Link
-        aria-label="Precision Ledger - Overview"
+        aria-label="Precision Ledger home"
         className="-mx-2 flex min-h-16 items-center gap-2.5 rounded-xl px-2 outline-hidden transition-colors hover:bg-surface-container-lowest/40 focus-visible:ring-2 focus-visible:ring-primary/30"
-        href="/dashboard"
+        href={homeHref}
       >
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg milled-steel-gradient shadow-sm">
           <AppIcon className="text-on-primary" filled name="account_balance" size={20} />
@@ -50,7 +53,7 @@ export function AppSidebar({
         className="mt-2 flex flex-1 flex-col space-y-1 overflow-y-auto font-headline text-sm tracking-wide"
       >
         {showAccountingNav
-          ? mainNavLinks.map((link) => (
+          ? navLinks.map((link) => (
               <SidebarLink
                 active={isActive(url, link.href)}
                 href={link.href}

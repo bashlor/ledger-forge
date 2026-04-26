@@ -9,7 +9,7 @@ import { DateScopeProvider } from '~/components/date_scope_provider'
 import { todayDateOnlyUtc } from '~/lib/date'
 import { formatTopbarDate, getInitials } from '~/lib/format'
 
-import { pageLabelForUrl } from './app_shell/config'
+import { pageLabelForUrl, visibleMainNavLinks } from './app_shell/config'
 import { MobileNav } from './app_shell/mobile_nav'
 import { AppSidebar } from './app_shell/sidebar'
 import { AppTopbar } from './app_shell/topbar'
@@ -46,7 +46,8 @@ function AppShellFrame({ children }: { children: ReactNode }) {
   const devToolsEnabled = page.props.devTools?.enabled ?? false
   const devToolsHref = page.props.devTools?.accessHref ?? '/_dev/access'
   const showAccountingNav = user?.isDevOperator !== true
-  const hasMobileNav = (showAccountingNav ? 4 : 0) + (devToolsEnabled ? 1 : 0) > 0
+  const navLinks = showAccountingNav ? visibleMainNavLinks(page.props.permissions) : []
+  const hasMobileNav = navLinks.length + (devToolsEnabled ? 1 : 0) > 0
   const todayLine = formatTopbarDate(todayDateOnlyUtc())
   const showDateScopeControls =
     url === '/dashboard' || url.startsWith('/expenses') || url.startsWith('/invoices')
@@ -65,6 +66,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
         displayName={displayName}
         email={email}
         initials={initials}
+        navLinks={navLinks}
         showAccountingNav={showAccountingNav}
         url={url}
       />
@@ -92,6 +94,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
         <MobileNav
           devToolsEnabled={devToolsEnabled}
           devToolsHref={devToolsHref}
+          navLinks={navLinks}
           showAccountingNav={showAccountingNav}
           url={url}
         />
