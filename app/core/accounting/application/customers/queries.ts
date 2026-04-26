@@ -90,15 +90,9 @@ export async function listCustomersWithAggregates(
 
   const invoiceTenantWhere = eq(invoices.organizationId, tenantId)
 
-  const [{ linkedCustomers }] = await db
+  const [{ linkedCustomers, totalInvoicedCents }] = await db
     .select({
       linkedCustomers: sql<number>`count(distinct ${invoices.customerId})::int`.mapWith(Number),
-    })
-    .from(invoices)
-    .where(invoiceTenantWhere)
-
-  const [{ totalInvoicedCents }] = await db
-    .select({
       totalInvoicedCents:
         sql<number>`coalesce(sum(${invoices.totalInclTaxCents}) filter (where ${invoices.status} <> 'draft'), 0)::bigint`.mapWith(
           Number
@@ -173,6 +167,7 @@ function searchCondition(search?: string): SQL<unknown> | undefined {
     return undefined
   }
 
+  // Demo-sized contains search: tenant scoping bounds the scan; revisit pg_trgm for larger data.
   const pattern = `%${term}%`
   return or(
     sql`lower(${customers.company}) like ${pattern}`,

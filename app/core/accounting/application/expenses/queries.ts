@@ -117,6 +117,7 @@ function searchCondition(search?: string): SQL<unknown> | undefined {
     return undefined
   }
 
+  // Demo-sized contains search: tenant scoping bounds the scan; revisit pg_trgm for larger data.
   const pattern = `%${term}%`
   return sql`(lower(${expenses.label}) like ${pattern} or lower(${expenses.category}) like ${pattern})`
 }
