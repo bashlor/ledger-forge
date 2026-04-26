@@ -7,6 +7,8 @@ import type {
   SaveInvoiceLineInput,
 } from '../../types.js'
 
+import { isAllowedInvoiceVatRate } from '../../domain/invoice_vat.js'
+
 export function normalizeSaveInvoiceDraftInput(
   input: SaveInvoiceDraftInput
 ): NormalizedSaveInvoiceDraftInput {
@@ -30,7 +32,7 @@ export function normalizeSaveInvoiceDraftInput(
     throw new DomainError('Provide at least one invoice line.', 'invalid_data')
   }
 
-  const lines = input.lines.map((line) => normalizeInvoiceLine(line))
+  const lines = input.lines.map((line) => normalizeSaveInvoiceLineInput(line))
 
   return {
     customerId,
@@ -40,7 +42,7 @@ export function normalizeSaveInvoiceDraftInput(
   }
 }
 
-function normalizeInvoiceLine(input: SaveInvoiceLineInput): SaveInvoiceLineInput {
+export function normalizeSaveInvoiceLineInput(input: SaveInvoiceLineInput): SaveInvoiceLineInput {
   const description = input.description.trim()
   if (!description) {
     throw new DomainError('Invoice line description is required.', 'invalid_data')
@@ -54,8 +56,8 @@ function normalizeInvoiceLine(input: SaveInvoiceLineInput): SaveInvoiceLineInput
     throw new DomainError('Invoice line unit price cannot be negative.', 'invalid_data')
   }
 
-  if (input.vatRate < 0 || input.vatRate > 100) {
-    throw new DomainError('Invoice line VAT rate must be between 0 and 100.', 'invalid_data')
+  if (!isAllowedInvoiceVatRate(input.vatRate)) {
+    throw new DomainError('Invoice line VAT rate must be one of 0, 5.5, 10, or 20.', 'invalid_data')
   }
 
   return {

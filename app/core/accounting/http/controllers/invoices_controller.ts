@@ -5,6 +5,7 @@ import { getAccountingReadOnlyState } from '#core/accounting/application/audit/a
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { accountingAccessFromActiveTenant } from '#core/accounting/application/support/access_context'
 import { DEFAULT_LIST_PER_PAGE } from '#core/accounting/application/support/pagination'
+import { INVOICE_VAT_RATES } from '#core/accounting/invoice_vat_rates'
 import { DomainError } from '#core/common/errors/domain_error'
 import { renderInertiaPage } from '#core/common/http/types/inertia_render_props'
 import { getRequestIdFromHttpContext } from '#core/common/logging/request_id'
@@ -17,6 +18,7 @@ import {
   invoiceIndexValidator,
   invoiceParamsValidator,
   issueInvoiceValidator,
+  previewInvoiceDraftValidator,
   saveInvoiceDraftValidator,
 } from '../validators/invoice.js'
 
@@ -135,6 +137,7 @@ export default class InvoicesController {
         'invoiceSummary'
       ),
       mode: request.input('mode') === 'new' ? 'new' : 'view',
+      vatRates: INVOICE_VAT_RATES,
     })
   }
 
@@ -181,6 +184,19 @@ export default class InvoicesController {
     )
 
     return this.redirectToInvoices(ctx, { invoice: params.id })
+  }
+
+  @inject()
+  async previewDraft(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    invoiceService: InvoiceService
+  ) {
+    const payload = await ctx.request.validateUsing(previewInvoiceDraftValidator)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
+
+    return ctx.response.ok(invoiceService.previewDraftTotals(payload))
   }
 
   @inject()

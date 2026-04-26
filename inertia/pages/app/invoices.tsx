@@ -8,6 +8,7 @@ import type {
   InvoiceAuditEventDto,
   InvoiceDto,
   InvoiceLineInput,
+  InvoicePreviewDto,
   InvoiceSummaryDto,
   PaginatedList,
   PaginationMetaDto,
@@ -21,12 +22,7 @@ import { ErrorBanner } from '~/components/error_banner'
 import { PageHeader } from '~/components/page_header'
 import { addDaysDateOnlyUtc, todayDateOnlyUtc } from '~/lib/date'
 import { formatCurrency } from '~/lib/format'
-import {
-  calculateInvoiceTotals,
-  canEditInvoice,
-  canIssueInvoice,
-  createEmptyInvoiceLine,
-} from '~/lib/invoices'
+import { canEditInvoice, canIssueInvoice, createEmptyInvoiceLine } from '~/lib/invoices'
 import { DEFAULT_PAGE_SIZE } from '~/lib/pagination'
 
 import type { InertiaProps } from '../../types'
@@ -56,6 +52,7 @@ interface InvoicesPageProps {
   invoices: PaginatedList<InvoiceDto>
   invoiceSummary?: InvoiceSummaryDto
   mode: 'new' | 'view'
+  vatRates: number[]
 }
 
 const INITIAL_HISTORY_STATE: InvoiceHistoryState = {
@@ -63,6 +60,13 @@ const INITIAL_HISTORY_STATE: InvoiceHistoryState = {
   events: [],
   loading: false,
   open: false,
+}
+
+const EMPTY_INVOICE_PREVIEW: InvoicePreviewDto = {
+  lines: [],
+  subtotalExclTax: 0,
+  totalInclTax: 0,
+  totalVat: 0,
 }
 
 export default function InvoicesPage(props: InertiaProps<InvoicesPageProps>) {
@@ -84,6 +88,34 @@ function buildPayload(form: ReturnType<typeof createInitialForm>): CreateInvoice
       vatRate: Number(line.vatRate),
     })),
   }
+}
+
+function buildPreviewPayload(
+  lines: EditableInvoiceLine[]
+): null | Pick<CreateInvoiceInput, 'lines'> {
+  const normalizedLines = lines.map((line) => ({
+    description: line.description.trim(),
+    quantity: Number(line.quantity),
+    unitPrice: Number(line.unitPrice),
+    vatRate: Number(line.vatRate),
+  }))
+
+  if (
+    normalizedLines.length === 0 ||
+    normalizedLines.some(
+      (line) =>
+        !line.description ||
+        !Number.isFinite(line.quantity) ||
+        line.quantity <= 0 ||
+        !Number.isFinite(line.unitPrice) ||
+        line.unitPrice < 0 ||
+        !Number.isFinite(line.vatRate)
+    )
+  ) {
+    return null
+  }
+
+  return { lines: normalizedLines }
 }
 
 function createEditableLine(line?: InvoiceLineInput): EditableInvoiceLine {
@@ -176,6 +208,7 @@ function InvoicesContent({
   invoices,
   invoiceSummary,
   mode,
+  vatRates,
 }: InertiaProps<InvoicesPageProps>) {
   const { scope } = useDateScope()
   const cachedInvoiceSummary = useRef<InvoiceSummaryDto | null>(null)
@@ -201,6 +234,14 @@ function InvoicesContent({
   const [deleteConfirmId, setDeleteConfirmId] = useState<null | string>(null)
   const [issueForm, setIssueForm] = useState(createInitialIssueForm())
   const [historyState, setHistoryState] = useState(INITIAL_HISTORY_STATE)
+  const [invoicePreview, setInvoicePreview] = useState<InvoicePreviewDto>(() =>
+    initialState.selectedInvoiceId
+      ? invoiceToPreview(
+          invoices.items.find((invoice) => invoice.id === initialState.selectedInvoiceId)
+        )
+      : EMPTY_INVOICE_PREVIEW
+  )
+  const [invoicePreviewError, setInvoicePreviewError] = useState<null | string>(null)
   const historyAbortRef = useRef<AbortController | null>(null)
   const appliedSearch = filters?.search?.trim() ?? ''
 
@@ -233,23 +274,64 @@ function InvoicesContent({
   )
   const editingInvoice = selectedInvoice && canEditInvoice(selectedInvoice)
   const effectiveCustomerId = form.customerId || customers[0]?.id || ''
-  const totals = useMemo(
-    () =>
-      calculateInvoiceTotals(
-        form.lines.map((line) => ({
-          description: line.description,
-          quantity: Number(line.quantity) || 0,
-          unitPrice: Number(line.unitPrice) || 0,
-          vatRate: Number(line.vatRate) || 0,
-        }))
-      ),
-    [form.lines]
-  )
+  const previewPayload = useMemo(() => buildPreviewPayload(form.lines), [form.lines])
+  const displayedInvoicePreview = previewPayload ? invoicePreview : EMPTY_INVOICE_PREVIEW
+  const displayedInvoicePreviewError = previewPayload ? invoicePreviewError : null
   const summary = cachedInvoiceSummary.current
 
   useEffect(() => {
     return () => historyAbortRef.current?.abort()
   }, [])
+
+  useEffect(() => {
+    if (accountingReadOnly) {
+      return
+    }
+
+    if (!previewPayload) {
+      return
+    }
+
+    const controller = new AbortController()
+    async function refreshPreview() {
+      try {
+        const response = await fetch('/invoices/preview', {
+          body: JSON.stringify(previewPayload),
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            ...xsrfHeaders(),
+          },
+          method: 'POST',
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error('Invoice totals could not be recalculated.')
+        }
+
+        const payload = (await response.json()) as InvoicePreviewDto
+        if (!controller.signal.aborted) {
+          setInvoicePreview(payload)
+          setInvoicePreviewError(null)
+        }
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return
+        }
+
+        setInvoicePreview(EMPTY_INVOICE_PREVIEW)
+        setInvoicePreviewError(
+          error instanceof Error ? error.message : 'Invoice totals could not be recalculated.'
+        )
+      }
+    }
+
+    void refreshPreview()
+
+    return () => controller.abort()
+  }, [accountingReadOnly, previewPayload])
 
   function resetHistoryState() {
     historyAbortRef.current?.abort()
@@ -264,6 +346,8 @@ function InvoicesContent({
     setIsCreating(true)
     setSelectedInvoiceId(null)
     setForm(createInitialForm(customers[0]?.id ?? ''))
+    setInvoicePreview(EMPTY_INVOICE_PREVIEW)
+    setInvoicePreviewError(null)
     router.get(
       '/invoices',
       {
@@ -299,6 +383,8 @@ function InvoicesContent({
 
   function handleSelectInvoice(invoice: InvoiceDto) {
     resetHistoryState()
+    setInvoicePreview(invoiceToPreview(invoice))
+    setInvoicePreviewError(null)
     router.get(
       '/invoices',
       {
@@ -714,6 +800,7 @@ function InvoicesContent({
                 form={form}
                 formIsValid={Boolean(formIsValid)}
                 isCreating={isCreating}
+                linePreviews={displayedInvoicePreview.lines}
                 minDueDate={minDueDate}
                 onDeleteDraft={handleDeleteDraft}
                 onFormChange={handleFormChange}
@@ -724,7 +811,9 @@ function InvoicesContent({
                 onSaveDraft={handleSaveDraft}
                 saving={saving}
                 selectedInvoice={selectedInvoice}
-                totals={totals}
+                totals={displayedInvoicePreview}
+                totalsErrorMessage={displayedInvoicePreviewError}
+                vatRates={vatRates}
               />
             ) : selectedInvoice ? (
               <InvoiceView
@@ -795,6 +884,36 @@ function invoiceToForm(invoice: InvoiceDto) {
     issueDate: invoice.issueDate,
     lines: invoice.lines.map((line) => createEditableLine(line)),
   }
+}
+
+function invoiceToPreview(invoice?: InvoiceDto): InvoicePreviewDto {
+  if (!invoice) {
+    return EMPTY_INVOICE_PREVIEW
+  }
+
+  return {
+    lines: invoice.lines.map((line) => ({
+      description: line.description,
+      lineTotalExclTax: line.lineTotalExclTax,
+      lineTotalInclTax: line.lineTotalInclTax,
+      lineVatAmount: line.lineVatAmount,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      vatRate: line.vatRate,
+    })),
+    subtotalExclTax: invoice.subtotalExclTax,
+    totalInclTax: invoice.totalInclTax,
+    totalVat: invoice.totalVat,
+  }
+}
+
+function xsrfHeaders(): Record<string, string> {
+  const token = document.cookie
+    .split('; ')
+    .find((cookie) => cookie.startsWith('XSRF-TOKEN='))
+    ?.split('=')[1]
+
+  return token ? { 'X-XSRF-TOKEN': decodeURIComponent(token) } : {}
 }
 
 // --- Main component ---

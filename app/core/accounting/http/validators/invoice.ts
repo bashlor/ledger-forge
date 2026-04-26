@@ -1,3 +1,4 @@
+import { isAllowedInvoiceVatRate } from '#core/accounting/application/invoices/domain/invoice_vat'
 import vine from '@vinejs/vine'
 
 import {
@@ -11,7 +12,16 @@ const invoiceLineValidator = vine.object({
   description: vine.string().trim().minLength(1).maxLength(500),
   quantity: vine.number().positive(),
   unitPrice: vine.number().min(0),
-  vatRate: vine.number().min(0).max(100),
+  vatRate: vine.number().transform((value, field) => {
+    if (!isAllowedInvoiceVatRate(value)) {
+      field.report('Invoice line VAT rate must be one of 0, 5.5, 10, or 20.', 'vat_rate', field)
+    }
+    return value
+  }),
+})
+
+export const previewInvoiceDraftValidator = vine.create({
+  lines: vine.array(invoiceLineValidator).minLength(1),
 })
 
 export const saveInvoiceDraftValidator = vine.create({

@@ -33,6 +33,9 @@ router
           .delete('/expenses/:id', [ExpensesController, 'deleteDraftExpense'])
           .as('expenses.delete_draft')
 
+        router
+          .post('/invoices/preview', [InvoicesController, 'previewDraft'])
+          .as('invoices.preview')
         router.post('/invoices', [InvoicesController, 'store']).as('invoices.store')
         router
           .put('/invoices/:id/draft', [InvoicesController, 'updateDraft'])

@@ -1,29 +1,21 @@
 import { describe, expect, it } from 'vitest'
 
-import { calculateInvoiceLine, calculateInvoiceTotals } from './invoices'
+import { canEditInvoice, canIssueInvoice, createEmptyInvoiceLine } from './invoices'
 
 describe('invoice helpers', () => {
-  it('calculates line totals with rounding', () => {
-    const line = calculateInvoiceLine({
-      description: 'Service',
-      quantity: 2.5,
-      unitPrice: 19.99,
+  it('creates a default invoice line input without calculating totals', () => {
+    expect(createEmptyInvoiceLine()).toEqual({
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
       vatRate: 20,
     })
-
-    expect(line.lineTotalExclTax).toBe(49.97)
-    expect(line.lineVatAmount).toBe(9.99)
-    expect(line.lineTotalInclTax).toBe(59.96)
   })
 
-  it('aggregates totals across lines', () => {
-    const totals = calculateInvoiceTotals([
-      { description: 'Design', quantity: 1, unitPrice: 100, vatRate: 20 },
-      { description: 'Audit', quantity: 2, unitPrice: 50, vatRate: 10 },
-    ])
-
-    expect(totals.subtotalExclTax).toBe(200)
-    expect(totals.totalVat).toBe(30)
-    expect(totals.totalInclTax).toBe(230)
+  it('keeps invoice action helpers focused on status rules', () => {
+    expect(canEditInvoice({ status: 'draft' })).toBe(true)
+    expect(canIssueInvoice({ status: 'draft' })).toBe(true)
+    expect(canEditInvoice({ status: 'issued' })).toBe(false)
+    expect(canIssueInvoice({ status: 'paid' })).toBe(false)
   })
 })

@@ -68,6 +68,16 @@ export interface InvoiceLineDto {
   vatRate: number
 }
 
+export interface InvoiceLinePreviewDto {
+  description: string
+  lineTotalExclTax: number
+  lineTotalInclTax: number
+  lineVatAmount: number
+  quantity: number
+  unitPrice: number
+  vatRate: number
+}
+
 export type InvoiceLineRow =
   (typeof import('#core/accounting/drizzle/schema'))['invoiceLines']['$inferSelect']
 
@@ -84,6 +94,13 @@ export interface InvoiceListResult {
 export interface InvoiceListScopeInput {
   customerId?: null | string
   dateFilter?: DateFilter
+}
+
+export interface InvoicePreviewDto {
+  lines: InvoiceLinePreviewDto[]
+  subtotalExclTax: number
+  totalInclTax: number
+  totalVat: number
 }
 
 export interface InvoiceRequestContext extends AccountingAccessContext {
@@ -113,6 +130,10 @@ export interface NormalizedSaveInvoiceDraftInput {
   customerId: string
   dueDate: string
   issueDate: string
+  lines: SaveInvoiceLineInput[]
+}
+
+export interface PreviewInvoiceDraftInput {
   lines: SaveInvoiceLineInput[]
 }
 
