@@ -15,6 +15,7 @@
     "start": "node bin/server.js",
     "build": "rm -rf build && NODE_ENV=production node ace build",
     "check:prod-safety": "bash ./scripts/check-production-safety.sh",
+    "verify:prod-build-no-dev-tools": "node scripts/verify-prod-build-no-dev-tools.mjs",
     "postbuild": "node scripts/prune-dev-only-build-artifacts.mjs",
     "dev": "node ace migration:run && node ace serve --hmr",
     "services:up": "bash ./scripts/services.sh up",

@@ -12,6 +12,11 @@ import AppShellLayout from '~/layouts/app_shell'
 import PublicLayout from '~/layouts/public'
 
 const appName = import.meta.env.VITE_APP_NAME || 'Precision Ledger'
+const includeDevToolsPages =
+  import.meta.env.DEV || import.meta.env.VITE_INCLUDE_DEV_TOOLS === 'true'
+const pageModules = includeDevToolsPages
+  ? import.meta.glob('./pages/**/*.tsx')
+  : import.meta.glob(['./pages/**/*.tsx', '!./pages/dev/**/*.tsx'])
 
 function wrapPage(name: string, page: ReactElement<Data.SharedProps>) {
   const usesShell =
@@ -28,7 +33,7 @@ createInertiaApp({
   resolve: (name) => {
     return resolvePageComponent(
       `./pages/${name}.tsx`,
-      import.meta.glob('./pages/**/*.tsx'),
+      pageModules,
       (page: ReactElement<Data.SharedProps>) => wrapPage(name, page)
     )
   },
