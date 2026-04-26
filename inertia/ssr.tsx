@@ -10,6 +10,12 @@ import { client } from '~/client'
 import AppShellLayout from '~/layouts/app_shell'
 import PublicLayout from '~/layouts/public'
 
+const includeDevToolsPages =
+  import.meta.env.DEV || import.meta.env.VITE_INCLUDE_DEV_TOOLS === 'true'
+const pageModules = includeDevToolsPages
+  ? import.meta.glob('./pages/**/*.tsx', { eager: true })
+  : import.meta.glob(['./pages/**/*.tsx', '!./pages/dev/**/*.tsx'], { eager: true })
+
 export default function render(page: any) {
   return createInertiaApp({
     page,
@@ -17,7 +23,7 @@ export default function render(page: any) {
     resolve: (name) => {
       return resolvePageComponent(
         `./pages/${name}.tsx`,
-        import.meta.glob('./pages/**/*.tsx', { eager: true }),
+        pageModules,
         (component: ReactElement<Data.SharedProps>) => wrapPage(name, component)
       )
     },

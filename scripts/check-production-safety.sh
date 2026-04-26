@@ -240,6 +240,34 @@ echo "Checking shipped commands in image ${IMAGE_REF}..."
   done
 '
 
+echo "Checking dev-tools filesystem artifacts in image ${IMAGE_REF}..."
+"$CONTAINER_RUNTIME" run --rm --entrypoint /bin/sh "$IMAGE_REF" -lc '
+  set -eu
+
+  for path in \
+    /app/app/core/dev_tools \
+    /app/inertia/pages/dev \
+    /app/public/assets/dev \
+    /app/public/assets/pages/dev
+  do
+    if [ -e "$path" ]; then
+      echo "Dev-tools artifact is still present in production image: $path" >&2
+      exit 1
+    fi
+  done
+
+  if [ -d /app/public/assets ]; then
+    artifact="$(find /app/public/assets -type f \( \
+      -name "*dev_tools*" -o \
+      -name "*inspector*" \
+    \) -print -quit)"
+    if [ -n "$artifact" ]; then
+      echo "Possible dev-tools frontend asset is still present: $artifact" >&2
+      exit 1
+    fi
+  fi
+'
+
 CONTAINER_NAME="prod-safety-check-$$"
 
 cleanup() {
