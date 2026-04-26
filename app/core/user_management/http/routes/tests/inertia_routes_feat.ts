@@ -1,4 +1,5 @@
 import { DomainError } from '#core/common/errors/domain_error'
+import { UserManagementAuditTrail } from '#core/user_management/application/audit/user_management_audit_trail'
 import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '#core/user_management/auth_session_cookie'
 import {
   AuthenticationPort,
@@ -129,6 +130,16 @@ class RouteAuthenticationStub extends AuthenticationPort {
   async verifyEmail(_token: string): Promise<void> {}
 }
 
+class UserManagementAuditTrailStub {
+  async recordSignInFailure(): Promise<void> {}
+  async recordSignInSuccess(): Promise<void> {}
+  async recordSignOutFailure(): Promise<void> {}
+  async recordSignOutSuccess(): Promise<void> {}
+  async resolveSessionContext() {
+    return { activeOrganizationId: null, sessionId: null, userId: null }
+  }
+}
+
 function inertiaHeaders(request: any) {
   request.header('x-inertia', 'true')
   request.header('x-inertia-version', '1')
@@ -141,6 +152,10 @@ test.group('Auth inertia routes', (group) => {
 
     app.container.bindValue(AuthenticationPort, auth)
     app.container.bindValue('authAdapter', auth)
+    app.container.bindValue(
+      UserManagementAuditTrail,
+      new UserManagementAuditTrailStub() as unknown as UserManagementAuditTrail
+    )
   })
 
   test('signs a user in when auth succeeds', async ({ assert, client }) => {
