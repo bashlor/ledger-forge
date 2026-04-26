@@ -17,6 +17,8 @@ export default await Env.create(new URL('../../../../', import.meta.url), {
   APP_URL: Env.schema.string({ format: 'url', tld: false }),
   // Better Auth
   BETTER_AUTH_SECRET: Env.schema.string(),
+  // CORS (optional allowlist; see config/cors.ts)
+  CORS_ALLOWED_ORIGINS: Env.schema.string.optional(),
   DB_DATABASE: Env.schema.string(),
   // Database (PostgreSQL)
   DB_HOST: Env.schema.string({ format: 'host' }),
