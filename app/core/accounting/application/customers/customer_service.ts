@@ -97,8 +97,6 @@ export class CustomerService {
             'business_logic_error'
           )
         }
-
-        throw new DomainError('Customer not found.', 'not_found')
       }
 
       await this.auditTrail.record(tx, {
@@ -193,6 +191,7 @@ export class CustomerService {
       }
 
       if (snapshotChanged) {
+        // Draft invoices keep following customer edits; issued invoices stay legally frozen.
         await syncDraftInvoiceCustomerSnapshots(tx, id, normalized, access.tenantId)
       }
 

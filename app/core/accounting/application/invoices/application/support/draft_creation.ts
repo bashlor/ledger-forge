@@ -29,6 +29,7 @@ export async function loadDraftCreationContext(
   )
 
   return {
+    // Drafts copy the current customer data; issued invoices keep that snapshot frozen.
     customer: await loadCustomerSnapshotOrThrow(tx, normalized.customerId, requestContext.tenantId),
     invoiceId: uuidv7(),
     invoiceNumber: await nextInvoiceNumber(tx, normalized.issueDate, requestContext.tenantId),
