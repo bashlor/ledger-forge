@@ -1,5 +1,6 @@
 import { DataTable } from '~/components/data_table'
 import { StatusBadge } from '~/components/status_badge'
+import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatShortDate } from '~/lib/format'
 
 import type { ActionTone, ProbeType, Props, WorkflowActionState } from './inspector_types'
@@ -128,7 +129,7 @@ export function WorkflowActionPanel({
         </div>
 
         {!allowUnauthorizedMode ? (
-          <div className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+          <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
             Enable unauthorized mode to deliberately trigger blocked paths and verify denials.
           </div>
         ) : null}
@@ -175,13 +176,13 @@ export function WorkflowRecordTable({
         {probeType === 'invoices' ? (
           <table className="w-full min-w-[820px] border-collapse text-left text-sm">
             <thead className="sticky top-0 z-20">
-              <tr className="border-b border-outline-variant/12 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
-                <th className="px-3 py-2">Invoice</th>
-                <th className="px-3 py-2">Customer</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Window</th>
-                <th className="px-3 py-2">Total</th>
-              </tr>
+              <TableHeadRow className="tracking-[0.14em]">
+                <TableHeaderCell className="py-2">Invoice</TableHeaderCell>
+                <TableHeaderCell className="py-2">Customer</TableHeaderCell>
+                <TableHeaderCell className="py-2">Status</TableHeaderCell>
+                <TableHeaderCell className="py-2">Window</TableHeaderCell>
+                <TableHeaderCell className="py-2">Total</TableHeaderCell>
+              </TableHeadRow>
             </thead>
             <tbody>
               {invoices.map((invoice, index) => (
@@ -220,13 +221,13 @@ export function WorkflowRecordTable({
         {probeType === 'expenses' ? (
           <table className="w-full min-w-[760px] border-collapse text-left text-sm">
             <thead className="sticky top-0 z-20">
-              <tr className="border-b border-outline-variant/12 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
-                <th className="px-3 py-2">Expense</th>
-                <th className="px-3 py-2">Category</th>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Amount</th>
-              </tr>
+              <TableHeadRow className="tracking-[0.14em]">
+                <TableHeaderCell className="py-2">Expense</TableHeaderCell>
+                <TableHeaderCell className="py-2">Category</TableHeaderCell>
+                <TableHeaderCell className="py-2">Date</TableHeaderCell>
+                <TableHeaderCell className="py-2">Status</TableHeaderCell>
+                <TableHeaderCell className="py-2">Amount</TableHeaderCell>
+              </TableHeadRow>
             </thead>
             <tbody>
               {expenses.map((expense, index) => (
@@ -261,13 +262,13 @@ export function WorkflowRecordTable({
         {probeType === 'customers' ? (
           <table className="w-full min-w-[760px] border-collapse text-left text-sm">
             <thead className="sticky top-0 z-20">
-              <tr className="border-b border-outline-variant/12 bg-surface-container-low text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
-                <th className="px-3 py-2">Company</th>
-                <th className="px-3 py-2">Contact</th>
-                <th className="px-3 py-2">Email</th>
-                <th className="px-3 py-2">Phone</th>
-                <th className="px-3 py-2">Created</th>
-              </tr>
+              <TableHeadRow className="tracking-[0.14em]">
+                <TableHeaderCell className="py-2">Company</TableHeaderCell>
+                <TableHeaderCell className="py-2">Contact</TableHeaderCell>
+                <TableHeaderCell className="py-2">Email</TableHeaderCell>
+                <TableHeaderCell className="py-2">Phone</TableHeaderCell>
+                <TableHeaderCell className="py-2">Created</TableHeaderCell>
+              </TableHeadRow>
             </thead>
             <tbody>
               {customers.map((customer, index) => (

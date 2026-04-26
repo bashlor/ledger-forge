@@ -1,18 +1,24 @@
 import type { ReactNode } from 'react'
 
+import { SecondaryButton } from '~/components/button'
+import { Caption, Eyebrow, Panel } from '~/components/ui'
+
 import type { ActionTone, DevConsoleTab, Props } from './inspector_types'
 
 import { tabs } from './inspector_types'
 
-export const labelClass =
-  'text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant'
+/** @deprecated Prefer `<Eyebrow>` or the `eyebrow` Tailwind utility; kept for existing `className={labelClass}` call sites. */
+export const labelClass = 'eyebrow'
+
+const INPUT_BORDERED =
+  'w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60'
 
 export function buttonClass(tone: ActionTone = 'primary') {
   const base =
     'inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 
   if (tone === 'secondary') {
-    return `${base} border border-outline-variant/18 bg-surface-container-low text-on-surface hover:bg-surface-container`
+    return `${base} border border-outline-variant/18 bg-surface-container-highest text-on-surface hover:bg-surface-container-high`
   }
 
   if (tone === 'danger') {
@@ -24,17 +30,17 @@ export function buttonClass(tone: ActionTone = 'primary') {
 
 export function CompactPanel({ children, title }: { children: ReactNode; title: string }) {
   return (
-    <section className="rounded-2xl border border-outline-variant/12 bg-surface-container-lowest">
+    <Panel as="section" className="overflow-hidden p-0">
       <div className="border-b border-outline-variant/10 px-4 py-3">
         <h2 className="text-base font-semibold text-on-surface">{title}</h2>
       </div>
       <div className="px-4 py-4">{children}</div>
-    </section>
+    </Panel>
   )
 }
 
 export function copyButtonClass() {
-  return 'rounded-md border border-outline-variant/18 bg-surface-container-low px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface transition-colors hover:bg-surface-container'
+  return 'eyebrow rounded-md border border-outline-variant/18 bg-surface-container-low px-2 py-1 transition-colors hover:bg-surface-container'
 }
 
 export function DevConsoleHeader({
@@ -49,30 +55,30 @@ export function DevConsoleHeader({
   readOnlyBadge: string
 }) {
   return (
-    <section className="rounded-[20px] border border-outline-variant/14 bg-surface-container-lowest px-4 py-3 shadow-ambient-tight">
+    <Panel as="section" className="px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-headline text-[1.75rem] font-extrabold tracking-tight text-on-surface">
+        <h1 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface sm:text-[1.75rem]">
           Dev Console
         </h1>
         <ToneBadge label="Development" tone="info" />
         <ToneBadge label={readOnlyBadge} tone="warning" />
         <div className="ml-auto flex min-w-0 items-center gap-3">
-          <div className="min-w-0 rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2">
-            <p className={labelClass}>Current operator</p>
+          <div className="min-w-0 rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2">
+            <Eyebrow>Current operator</Eyebrow>
             <p className="truncate text-sm font-semibold text-on-surface">{operatorName}</p>
             <p className="truncate text-xs text-on-surface-variant">{operatorEmail}</p>
           </div>
-          <button className={buttonClass('secondary')} onClick={onRefresh} type="button">
+          <SecondaryButton onClick={onRefresh} type="button">
             Refresh
-          </button>
+          </SecondaryButton>
         </div>
       </div>
-    </section>
+    </Panel>
   )
 }
 
 export function inputClass() {
-  return 'w-full rounded-lg border border-outline-variant/18 bg-surface-container-low px-3 py-2 text-sm text-on-surface outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-primary/25'
+  return INPUT_BORDERED
 }
 
 export function OperationPanel({
@@ -96,12 +102,12 @@ export function OperationPanel({
   return (
     <CompactPanel title={title}>
       <div className="space-y-2">
-        <p className="text-sm text-on-surface-variant">{description}</p>
+        <Caption>{description}</Caption>
         {operations.map((operation) => {
           const tone = operation.tone === 'danger' ? 'danger' : 'secondary'
           return (
             <div
-              className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-4 py-3"
+              className="rounded-xl border border-outline-variant/15 bg-surface-container-low px-4 py-3"
               key={operation.id}
             >
               <div className="flex items-start justify-between gap-3">
@@ -162,7 +168,7 @@ export function RoleBadge({ role }: { role: 'admin' | 'member' | 'owner' }) {
 }
 
 export function rowActionButtonClass() {
-  return 'rounded-lg border border-outline-variant/18 bg-surface-container-low px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface transition-colors hover:bg-surface-container'
+  return 'eyebrow rounded-lg border border-outline-variant/18 bg-surface-container-low px-3 py-1.5 transition-colors hover:bg-surface-container'
 }
 
 export function RuleList({
@@ -174,11 +180,11 @@ export function RuleList({
 }) {
   return (
     <section className="space-y-2">
-      <p className={labelClass}>{title}</p>
+      <Eyebrow>{title}</Eyebrow>
       <div className="space-y-2">
         {rules.map((rule) => (
           <div
-            className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-3"
+            className="rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-3"
             key={rule.label}
           >
             <div className="flex items-center justify-between gap-3">
@@ -216,8 +222,8 @@ export function StickyTabs({
   onChange: (tab: DevConsoleTab) => void
 }) {
   return (
-    <nav className="sticky top-16 z-20 overflow-x-auto rounded-[18px] border border-outline-variant/12 bg-surface-container-lowest/95 px-2 py-1.5 shadow-ambient backdrop-blur-md">
-      <div className="grid min-w-max grid-flow-col gap-2 auto-cols-fr">
+    <nav className="sticky top-16 z-20 overflow-x-auto rounded-xl border border-outline-variant/15 bg-surface-container-lowest/95 px-2 py-1.5 shadow-ambient backdrop-blur-md">
+      <div className="grid min-w-max auto-cols-fr grid-flow-col gap-2">
         {tabs.map((tab) => {
           const active = activeTab === tab.id
           return (

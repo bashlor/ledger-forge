@@ -1,7 +1,10 @@
 import { Form, Link } from '@adonisjs/inertia/react'
 import { Head } from '@inertiajs/react'
 
+import { PrimaryButton } from '~/components/button'
+import { FormField } from '~/components/form_field'
 import { PageHeader } from '~/components/page_header'
+import { Caption, Panel } from '~/components/ui'
 
 import type { FormErrors, InertiaProps } from '../../types'
 
@@ -19,6 +22,9 @@ type Props = InertiaProps<{
   }
 }>
 
+const secondaryLinkClass =
+  'inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-highest px-4 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high'
+
 export default function DevAccessPage({ bootstrap }: Props) {
   return (
     <>
@@ -32,90 +38,60 @@ export default function DevAccessPage({ bootstrap }: Props) {
         />
 
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-ambient-tight">
+          <Panel as="div" className="p-6">
             <h2 className="text-base font-semibold text-on-surface">Bootstrap local access</h2>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+            <Caption className="mt-2">
               Submit the credentials below to sign in an existing local account or create it on the
               fly. The resulting account is then granted dev operator access in the local database.
-            </p>
+            </Caption>
 
             <Form action="/_dev/access" className="mt-6 space-y-5" method="post">
               {({ errors }: { errors: FormErrors }) => {
                 return (
                   <>
-                    <label className="block space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                        Full name
-                      </span>
-                      <input
-                        className="w-full rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-hidden focus-visible:ring-2 focus-visible:ring-primary/30"
-                        defaultValue={bootstrap.defaults.fullName}
-                        name="fullName"
-                        placeholder="Dev Operator"
-                      />
-                      {errors.fullName ? (
-                        <p className="text-sm text-error">{errors.fullName}</p>
-                      ) : null}
-                    </label>
-
-                    <label className="block space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                        Email
-                      </span>
-                      <input
-                        autoComplete="username"
-                        className="w-full rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-hidden focus-visible:ring-2 focus-visible:ring-primary/30"
-                        defaultValue={bootstrap.defaults.email}
-                        name="email"
-                        placeholder="dev-operator@example.local"
-                        required
-                        type="email"
-                      />
-                      {errors.email ? <p className="text-sm text-error">{errors.email}</p> : null}
-                    </label>
-
-                    <label className="block space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                        Password
-                      </span>
-                      <input
-                        autoComplete="new-password"
-                        className="w-full rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-hidden focus-visible:ring-2 focus-visible:ring-primary/30"
-                        defaultValue={bootstrap.defaults.password}
-                        name="password"
-                        required
-                        type="password"
-                      />
-                      {errors.password ? (
-                        <p className="text-sm text-error">{errors.password}</p>
-                      ) : null}
-                    </label>
-
-                    <label className="block space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                        Confirm password
-                      </span>
-                      <input
-                        autoComplete="new-password"
-                        className="w-full rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-hidden focus-visible:ring-2 focus-visible:ring-primary/30"
-                        defaultValue={bootstrap.defaults.password}
-                        name="passwordConfirmation"
-                        required
-                        type="password"
-                      />
-                    </label>
+                    <FormField
+                      defaultValue={bootstrap.defaults.fullName}
+                      error={errors.fullName}
+                      id="fullName"
+                      label="Full name"
+                      name="fullName"
+                      placeholder="Dev Operator"
+                    />
+                    <FormField
+                      autoComplete="username"
+                      defaultValue={bootstrap.defaults.email}
+                      error={errors.email}
+                      id="email"
+                      label="Email"
+                      name="email"
+                      placeholder="dev-operator@example.local"
+                      required
+                      type="email"
+                    />
+                    <FormField
+                      autoComplete="new-password"
+                      defaultValue={bootstrap.defaults.password}
+                      error={errors.password}
+                      id="password"
+                      label="Password"
+                      name="password"
+                      required
+                      type="password"
+                    />
+                    <FormField
+                      autoComplete="new-password"
+                      defaultValue={bootstrap.defaults.password}
+                      error={errors.passwordConfirmation}
+                      id="passwordConfirmation"
+                      label="Confirm password"
+                      name="passwordConfirmation"
+                      required
+                      type="password"
+                    />
 
                     <div className="flex flex-wrap gap-3 pt-2">
-                      <button
-                        className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold text-on-primary milled-steel-gradient"
-                        type="submit"
-                      >
-                        Provision dev operator
-                      </button>
-                      <Link
-                        className="inline-flex items-center justify-center rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-sm font-semibold text-on-surface"
-                        href="/signin"
-                      >
+                      <PrimaryButton type="submit">Provision dev operator</PrimaryButton>
+                      <Link className={secondaryLinkClass} href="/signin">
                         Open standard sign-in
                       </Link>
                     </div>
@@ -123,10 +99,10 @@ export default function DevAccessPage({ bootstrap }: Props) {
                 )
               }}
             </Form>
-          </div>
+          </Panel>
 
           <div className="space-y-6">
-            <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-ambient-tight">
+            <Panel as="section" className="p-6">
               <h2 className="text-base font-semibold text-on-surface">Current session</h2>
               {bootstrap.currentUser ? (
                 <div className="mt-4 space-y-2 text-sm text-on-surface-variant">
@@ -139,14 +115,14 @@ export default function DevAccessPage({ bootstrap }: Props) {
                   <p>{bootstrap.currentUser.email}</p>
                 </div>
               ) : (
-                <p className="mt-4 text-sm leading-6 text-on-surface-variant">
+                <Caption className="mt-4">
                   No active session was detected. Submitting the form will create or sign in the
                   local dev operator and redirect directly to the Dev Inspector.
-                </p>
+                </Caption>
               )}
-            </section>
+            </Panel>
 
-            <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-ambient-tight">
+            <Panel as="section" className="p-6">
               <h2 className="text-base font-semibold text-on-surface">How it works</h2>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-on-surface-variant">
                 <li>The page is available only when development tools are enabled.</li>
@@ -158,7 +134,7 @@ export default function DevAccessPage({ bootstrap }: Props) {
                   reopened later.
                 </li>
               </ul>
-            </section>
+            </Panel>
           </div>
         </section>
       </div>

@@ -21,7 +21,7 @@ export function ActivityList({
     <div className="space-y-2">
       {items.map((item) => (
         <div
-          className="flex items-start justify-between gap-3 rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5"
+          className="flex items-start justify-between gap-3 rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2.5"
           key={item.id}
         >
           <div className="min-w-0">
@@ -37,7 +37,7 @@ export function ActivityList({
 
 export function DetailList({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-outline-variant/12 bg-surface-container-low">
+    <div className="overflow-hidden rounded-xl border border-outline-variant/15 bg-surface-container-low">
       {children}
     </div>
   )
@@ -89,7 +89,7 @@ export function GeneratorCard({
   const isRunning = processingAction === action
 
   return (
-    <section className="rounded-2xl border border-outline-variant/12 bg-surface-container-low p-4">
+    <section className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-4 shadow-ambient-tight">
       <div className="space-y-3">
         <div>
           <h3 className="text-sm font-semibold text-on-surface">{label}</h3>
@@ -132,7 +132,7 @@ export function humanizeAuditAction(action: string) {
 
 export function JsonPreview({ title, value }: { title: string; value: unknown }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-outline-variant/12 bg-surface-container-low">
+    <section className="overflow-hidden rounded-xl border border-outline-variant/15 bg-surface-container-low">
       <div className="border-b border-outline-variant/10 px-3 py-2">
         <p className={labelClass}>{title}</p>
       </div>
@@ -161,7 +161,7 @@ export function MetricCard({
       className={`rounded-xl border px-3 py-3 text-left transition-colors ${
         isWarning
           ? 'border-amber-500/25 bg-amber-500/8 hover:bg-amber-500/12'
-          : 'border-outline-variant/12 bg-surface-container-low hover:bg-surface-container'
+          : 'border-outline-variant/15 bg-surface-container-low hover:bg-surface-container'
       }`}
       onClick={onClick}
       type="button"

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 
+import { SecondaryButton } from '~/components/button'
 import { DrawerPanel } from '~/components/drawer_panel'
 import { Modal } from '~/components/modal'
+import { Eyebrow } from '~/components/ui'
 
 import type { ActionTone, DevConsoleTab, Props } from './inspector_types'
 
@@ -37,9 +39,9 @@ export function AuditEventDrawer({
     <DrawerPanel
       description="Compact event payload and result details for denied, error, and success paths."
       footer={
-        <button className={buttonClass('secondary')} onClick={onClose} type="button">
+        <SecondaryButton onClick={onClose} type="button">
           Close
-        </button>
+        </SecondaryButton>
       }
       icon="data_object"
       onClose={onClose}
@@ -88,7 +90,7 @@ export function CommandPalette({
     <Modal onClose={onClose} open={open} size="sm" title="Command Palette">
       <div className="space-y-3">
         <section className="space-y-2">
-          <p className={labelClass}>Navigation</p>
+          <Eyebrow>Navigation</Eyebrow>
           <div className="grid gap-2">
             {tabs.map((tab) => (
               <button
@@ -105,7 +107,7 @@ export function CommandPalette({
         </section>
 
         <section className="space-y-2">
-          <p className={labelClass}>Actions</p>
+          <Eyebrow>Actions</Eyebrow>
           <button
             className="flex w-full items-center justify-between rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2.5 text-left text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container"
             onClick={onRefresh}
@@ -194,7 +196,7 @@ export function CreateTenantModal({
           </button>
         </div>
 
-        <div className="rounded-xl border border-outline-variant/12 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+        <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
           The dev operator stays in its own session tenant. This modal creates a separate tenant
           with a real owner account and optional demo data.
         </div>
