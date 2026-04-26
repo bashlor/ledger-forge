@@ -1,3 +1,4 @@
+import env from '#start/env'
 import app from '@adonisjs/core/services/app'
 import { defineConfig } from '@adonisjs/cors'
 
@@ -7,6 +8,18 @@ import { defineConfig } from '@adonisjs/cors'
  *
  * https://docs.adonisjs.com/guides/security/cors
  */
+function parseCorsAllowedOrigins(raw: string | undefined): string[] {
+  if (raw === undefined || raw.trim() === '') {
+    return []
+  }
+  return raw
+    .split(',')
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0)
+}
+
+const allowedOrigins = parseCorsAllowedOrigins(env.get('CORS_ALLOWED_ORIGINS'))
+
 const corsConfig = defineConfig({
   /**
    * Allow cookies/authorization headers on cross-origin requests.
@@ -37,14 +50,14 @@ const corsConfig = defineConfig({
   /**
    * HTTP methods accepted for cross-origin requests.
    */
-  methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
 
   /**
    * In development, allow every origin to simplify local front/backend setup.
-   * In production, keep an explicit allowlist (empty by default, so no
-   * cross-origin browser access is allowed until configured).
+   * In other environments, use CORS_ALLOWED_ORIGINS (comma-separated) or an
+   * empty allowlist when unset (no cross-origin browser access).
    */
-  origin: app.inDev ? true : [],
+  origin: app.inDev ? true : allowedOrigins.length > 0 ? allowedOrigins : [],
 })
 
 export default corsConfig
