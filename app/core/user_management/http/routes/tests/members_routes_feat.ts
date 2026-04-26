@@ -12,6 +12,7 @@ import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
 
+import { withInertiaHeaders } from '../../../../../../tests/helpers/routes_test_support.js'
 import {
   seedTestMember,
   seedTestOrganization,
@@ -268,6 +269,75 @@ test.group('Members routes | GET /account/organizations/members', (group) => {
     const response = await client.get('/account/organizations/members').redirects(0)
     response.assertStatus(302)
     response.assertHeader('location', '/signin')
+  })
+})
+
+test.group('Organization page route | GET /organization', (group) => {
+  let cleanup: () => Promise<void>
+  let db: PostgresJsDatabase<any>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+    db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
+    await seedAllUsersAndMembers(db)
+
+    const auth = new MultiUserAuth(
+      adminSession,
+      ownerSession,
+      regularMemberSession,
+      anotherAdminSession
+    )
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+  })
+
+  group.each.setup(async () => {
+    await db.delete(auditEvents)
+  })
+
+  group.teardown(async () => cleanup())
+
+  test('owner can view organization members and tenant audit', async ({ assert, client }) => {
+    await db.insert(auditEvents).values({
+      action: 'member_role_changed',
+      actorId: ownerUser.id,
+      changes: { after: { role: 'admin' }, before: { role: 'member' } },
+      createdAt: new Date('2026-04-20T10:00:00.000Z'),
+      entityId: MEMBER_IDS.regular,
+      entityType: 'member',
+      id: 'audit_org_page_owner',
+      metadata: { result: 'success' },
+      organizationId: TEST_TENANT_ID,
+    })
+
+    const response = await withCookie(withInertiaHeaders(client.get('/organization')), ownerSession)
+
+    response.assertStatus(200)
+    assert.equal(response.body().component, 'app/organization')
+    assert.lengthOf(response.body().props.members, 4)
+    assert.isTrue(response.body().props.canViewAuditTrail)
+    assert.lengthOf(response.body().props.auditEvents, 1)
+    assert.equal(response.body().props.auditEvents[0].action, 'member_role_changed')
+  })
+
+  test('admin can view the organization page', async ({ assert, client }) => {
+    const response = await withCookie(withInertiaHeaders(client.get('/organization')), adminSession)
+
+    response.assertStatus(200)
+    assert.equal(response.body().component, 'app/organization')
+    assert.lengthOf(response.body().props.members, 4)
+    assert.isTrue(response.body().props.canViewAuditTrail)
+  })
+
+  test('regular member is forbidden', async ({ client }) => {
+    const response = await withCookie(
+      withInertiaHeaders(client.get('/organization')),
+      regularMemberSession
+    ).redirects(0)
+
+    response.assertStatus(403)
   })
 })
 

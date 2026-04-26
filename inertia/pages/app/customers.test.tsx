@@ -84,6 +84,12 @@ function buildProps(
     errors: {},
     filters: { search: '  Existing Search  ' },
     flash: { notification: null },
+    permissions: {
+      canReadAccounting: true,
+      canViewAuditTrail: false,
+      canViewOrganization: false,
+      canViewOverview: true,
+    },
     user: {
       email: 'pat@example.com',
       fullName: 'Pat User',

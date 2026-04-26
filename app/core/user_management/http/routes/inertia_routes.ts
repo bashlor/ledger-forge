@@ -4,6 +4,7 @@ import router from '@adonisjs/core/services/router'
 const ForgotPasswordController = () => import('../controllers/forgot_password_controller.js')
 const AnonymousSigninController = () => import('../controllers/anonymous_signin_controller.js')
 const MembershipController = () => import('../controllers/membership_controller.js')
+const OrganizationController = () => import('../controllers/organization_controller.js')
 const ResetPasswordController = () => import('../controllers/reset_password_controller.js')
 const SigninController = () => import('../controllers/signin_controller.js')
 const SignoutController = () => import('../controllers/signout_controller.js')
@@ -42,6 +43,7 @@ router
 
 router
   .group(() => {
+    router.get('organization', [OrganizationController, 'show']).as('organization.show')
     router.get('account/organizations/members', [MembershipController, 'index']).as('members.index')
     router
       .patch('account/organizations/members/:memberId', [MembershipController, 'toggleActive'])
