@@ -6,12 +6,17 @@ import {
   DatabaseCriticalAuditTrail,
 } from '#core/accounting/application/audit/critical_audit_trail'
 import * as schema from '#core/common/drizzle/index'
-import { provisionPersonalWorkspace } from '#core/user_management/application/workspace_provisioning'
+import {
+  ensureSingleTenantMembership,
+  provisionPersonalWorkspace,
+  setActiveOrganizationForSession,
+} from '#core/user_management/application/workspace_provisioning'
 import {
   recordUserManagementActivityEvent,
   type UserManagementActivitySink,
 } from '#core/user_management/support/activity_log'
 import { readDevOperatorBootstrapDefaults } from '#core/user_management/support/dev_operator'
+import { getSingleTenantOrgId, isSingleTenantMode } from '#core/user_management/support/tenant_mode'
 import { and, eq } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
@@ -27,6 +32,8 @@ export class DevOperatorBootstrapService {
     private readonly dependencies: {
       activitySink?: UserManagementActivitySink
       auditTrail?: CriticalAuditTrail
+      getSingleTenantOrgId?: () => string
+      isSingleTenantMode?: () => boolean
     } = {}
   ) {}
 
@@ -83,17 +90,12 @@ export class DevOperatorBootstrapService {
       this.dependencies.activitySink
     )
 
-    await provisionPersonalWorkspace(
-      this.db,
-      {
-        displayName: fullName ?? persisted.user.name ?? undefined,
-        email,
-        isAnonymous: false,
-        sessionToken: persisted.session.token,
-        userId: persisted.user.id,
-      },
-      { activitySink: this.dependencies.activitySink, auditTrail: this.dependencies.auditTrail }
-    )
+    await this.provisionWorkspaceForDevOperator({
+      displayName: fullName ?? persisted.user.name ?? undefined,
+      email,
+      sessionToken: persisted.session.token,
+      userId: persisted.user.id,
+    })
 
     return (await auth.getSession(persisted.session.token)) ?? persisted
   }
@@ -241,5 +243,48 @@ export class DevOperatorBootstrapService {
       .limit(1)
 
     return Boolean(membership)
+  }
+
+  private async provisionWorkspaceForDevOperator(input: {
+    displayName?: string
+    email: string
+    sessionToken: string
+    userId: string
+  }): Promise<void> {
+    const auditTrail = this.dependencies.auditTrail
+    const activitySink = this.dependencies.activitySink
+
+    if ((this.dependencies.isSingleTenantMode ?? isSingleTenantMode)()) {
+      const organizationId = (this.dependencies.getSingleTenantOrgId ?? getSingleTenantOrgId)()
+      await ensureSingleTenantMembership(
+        this.db,
+        {
+          displayName: input.displayName,
+          email: input.email,
+          isAnonymous: false,
+          orgId: organizationId,
+          userId: input.userId,
+        },
+        { activitySink, auditTrail }
+      )
+      await setActiveOrganizationForSession(this.db, input.sessionToken, organizationId, {
+        activitySink,
+        auditTrail,
+        userId: input.userId,
+      })
+      return
+    }
+
+    await provisionPersonalWorkspace(
+      this.db,
+      {
+        displayName: input.displayName,
+        email: input.email,
+        isAnonymous: false,
+        sessionToken: input.sessionToken,
+        userId: input.userId,
+      },
+      { activitySink, auditTrail }
+    )
   }
 }
