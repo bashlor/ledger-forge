@@ -44,4 +44,23 @@ describe('mobile nav', () => {
     expect(screen.queryByRole('link', { name: 'Overview' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Dev' })).toBeInTheDocument()
   })
+
+  it('renders only the nav links passed by the shell permissions filter', () => {
+    render(
+      <MobileNav
+        devToolsEnabled={false}
+        devToolsHref="/_dev"
+        navLinks={[
+          { href: '/customers', icon: 'business', label: 'Customers' },
+          { href: '/invoices', icon: 'receipt_long', label: 'Invoices' },
+        ]}
+        url="/customers"
+      />
+    )
+
+    expect(screen.queryByRole('link', { name: 'Overview' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Organization' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Customers' })).toHaveAttribute('href', '/customers')
+    expect(screen.getByRole('link', { name: 'Invoices' })).toHaveAttribute('href', '/invoices')
+  })
 })

@@ -2,11 +2,12 @@ import { Link } from '@adonisjs/inertia/react'
 
 import { AppIcon } from '~/components/app_icon'
 
-import { isActive, mainNavLinks } from './config'
+import { type AppNavLink, isActive, mainNavLinks } from './config'
 
 interface MobileNavProps {
   devToolsEnabled: boolean
   devToolsHref: string
+  navLinks?: readonly AppNavLink[]
   showAccountingNav?: boolean
   url: string
 }
@@ -14,11 +15,12 @@ interface MobileNavProps {
 export function MobileNav({
   devToolsEnabled,
   devToolsHref,
+  navLinks = mainNavLinks,
   showAccountingNav = true,
   url,
 }: MobileNavProps) {
   const devToolsActive = isActive(url, '/_dev')
-  const mainCount = showAccountingNav ? mainNavLinks.length : 0
+  const mainCount = showAccountingNav ? navLinks.length : 0
   const devCount = devToolsEnabled ? 1 : 0
   const itemCount = mainCount + devCount
 
@@ -26,14 +28,13 @@ export function MobileNav({
     return null
   }
 
-  const gridColsClass =
-    itemCount === 1 ? 'grid-cols-1' : itemCount === 4 ? 'grid-cols-4' : 'grid-cols-5'
+  const gridColsClass = gridColumnsClass(itemCount)
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-outline-variant/10 bg-white/95 p-2 shadow-ambient backdrop-blur-md sm:inset-x-3 sm:bottom-3 sm:rounded-xl sm:border-0 lg:hidden">
       <div className={`grid gap-1 ${gridColsClass}`}>
         {showAccountingNav
-          ? mainNavLinks.map((link) => {
+          ? navLinks.map((link) => {
               const active = isActive(url, link.href)
               return (
                 <Link
@@ -77,4 +78,21 @@ export function MobileNav({
       </div>
     </nav>
   )
+}
+
+function gridColumnsClass(itemCount: number): string {
+  switch (itemCount) {
+    case 1:
+      return 'grid-cols-1'
+    case 2:
+      return 'grid-cols-2'
+    case 3:
+      return 'grid-cols-3'
+    case 4:
+      return 'grid-cols-4'
+    case 5:
+      return 'grid-cols-5'
+    default:
+      return 'grid-cols-6'
+  }
 }
