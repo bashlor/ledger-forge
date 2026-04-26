@@ -15,8 +15,6 @@ import {
 } from '#core/accounting/application/support/pagination'
 import { DomainError } from '#core/common/errors/domain_error'
 
-export { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
-export type { ExpenseCategory } from '#core/accounting/expense_categories'
 import type {
   CreateExpenseInput,
   DateFilter,

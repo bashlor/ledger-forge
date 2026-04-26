@@ -1,4 +1,6 @@
-export { EXPENSE_CATEGORIES, ExpenseService } from './expense_service.js'
+export { EXPENSE_CATEGORIES } from '#core/accounting/expense_categories'
+
+export { ExpenseService } from './expense_service.js'
 export type {
   CreateExpenseInput,
   DateFilter,

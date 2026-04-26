@@ -21,7 +21,8 @@ An `Invoice` is not just a database relationship to a `Customer`. It is a legal 
 
 ### How it works:
 
-- **On Creation (Draft)**: The `CustomerService` is called to fetch the current customer data (address, email, etc.). This data is **hard-copied** (snapshotted) into the invoice draft.
+- **On Creation (Draft)**: The invoice workflow loads the current customer data (address, email, etc.). This data is **hard-copied** (snapshotted) into the invoice draft.
+- **While Draft**: If a customer is updated, draft invoices refresh their customer snapshot so the operator can still correct customer details before issue.
 - **On Issue**: The invoice is sealed (`status = 'issued'`).
 - **Business Impact**: If the `Customer` address is updated later in the system, past invoices (already `issued`) retain the historical legal address. This progressive detachment is the cornerstone of our accounting integrity.
 

@@ -1,5 +1,5 @@
-import type { DateFilter } from '#core/accounting/application/expenses/index'
 import type { AccountingActivitySink } from '#core/accounting/application/support/activity_log'
+import type { DateFilter } from '#core/accounting/application/support/date_filter_types'
 import type { AccountingServiceDependencies } from '#core/accounting/application/support/service_dependencies'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
