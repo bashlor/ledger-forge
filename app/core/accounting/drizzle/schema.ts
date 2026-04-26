@@ -225,6 +225,10 @@ export const auditEvents = mainSchema.table(
       'audit_events_entity_type_check',
       sql`${table.entityType} IN ('invoice', 'expense', 'customer', 'member', 'session', 'user')`
     ),
+    check(
+      'audit_events_accounting_tenant_check',
+      sql`${table.entityType} NOT IN ('invoice', 'expense', 'customer') OR ${table.organizationId} IS NOT NULL`
+    ),
     index('audit_events_entity_history_idx').on(
       table.entityType,
       table.entityId,

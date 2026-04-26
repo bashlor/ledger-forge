@@ -1,5 +1,6 @@
-export type AuditEntityType = 'customer' | 'expense' | 'invoice' | 'member' | 'session' | 'user'
+export const TENANT_SCOPED_AUDIT_ENTITY_TYPES = ['customer', 'expense', 'invoice'] as const
 
+export type AuditEntityType = 'member' | 'session' | 'user' | TenantScopedAuditEntityType
 export interface AuditEventDto {
   action: string
   actorId: null | string
@@ -12,12 +13,30 @@ export interface AuditEventDto {
   organizationId: null | string
 }
 
-export interface AuditEventInput {
+export type AuditEventInput = GlobalAuditEventInput | TenantScopedAuditEventInput
+
+export type GlobalAuditEventInput = BaseAuditEventInput & {
+  entityType: Exclude<AuditEntityType, TenantScopedAuditEntityType>
+  tenantId: null | string
+}
+
+export type TenantScopedAuditEntityType = (typeof TENANT_SCOPED_AUDIT_ENTITY_TYPES)[number]
+
+export type TenantScopedAuditEventInput = BaseAuditEventInput & {
+  entityType: TenantScopedAuditEntityType
+  tenantId: string
+}
+
+interface BaseAuditEventInput {
   action: string
   actorId: null | string
   changes?: null | { after: Record<string, unknown>; before: Record<string, unknown> }
   entityId: string
-  entityType: AuditEntityType
   metadata?: null | Record<string, unknown>
-  tenantId: null | string
+}
+
+export function isTenantScopedAuditEntityType(
+  entityType: AuditEntityType
+): entityType is TenantScopedAuditEntityType {
+  return TENANT_SCOPED_AUDIT_ENTITY_TYPES.includes(entityType as TenantScopedAuditEntityType)
 }
