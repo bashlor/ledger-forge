@@ -36,7 +36,10 @@ export const customers = mainSchema.table(
       .references(() => organization.id, { onDelete: 'restrict' }),
     phone: text('phone').notNull(),
   },
-  (table) => [unique('customers_org_id_unique').on(table.organizationId, table.id)]
+  (table) => [
+    index('customers_org_company_id_idx').on(table.organizationId, table.company, table.id),
+    unique('customers_org_id_unique').on(table.organizationId, table.id),
+  ]
 )
 
 // ---------------------------------------------------------------------------
@@ -88,6 +91,7 @@ export const invoices = mainSchema.table(
       table.issueDate.desc(),
       table.invoiceNumber.desc()
     ),
+    index('invoices_org_customer_idx').on(table.organizationId, table.customerId),
     unique('invoices_org_id_unique').on(table.organizationId, table.id),
     unique('invoices_org_invoice_number_unique').on(table.organizationId, table.invoiceNumber),
     foreignKey({
@@ -155,6 +159,7 @@ export const expenses = mainSchema.table(
       .default('draft'),
   },
   (table) => [
+    index('expenses_org_date_label_idx').on(table.organizationId, table.date.desc(), table.label),
     unique('expenses_org_id_unique').on(table.organizationId, table.id),
     check('expenses_status_check', sql`${table.status} IN ('draft', 'confirmed')`),
     check('expenses_amount_positive', sql`${table.amountCents} > 0`),
