@@ -218,6 +218,13 @@
       "when": 1778100000000,
       "tag": "0030_audit_events_accounting_tenant_check",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1778200000000,
+      "tag": "0031_invoice_list_sort_index",
+      "breakpoints": true
     }
   ]
 }
