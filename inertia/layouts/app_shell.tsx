@@ -45,6 +45,8 @@ function AppShellFrame({ children }: { children: ReactNode }) {
   const workspace = page.props.workspace
   const devToolsEnabled = page.props.devTools?.enabled ?? false
   const devToolsHref = page.props.devTools?.accessHref ?? '/_dev/access'
+  const showAccountingNav = user?.isDevOperator !== true
+  const hasMobileNav = (showAccountingNav ? 4 : 0) + (devToolsEnabled ? 1 : 0) > 0
   const todayLine = formatTopbarDate(todayDateOnlyUtc())
   const showDateScopeControls =
     url === '/dashboard' || url.startsWith('/expenses') || url.startsWith('/invoices')
@@ -63,6 +65,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
         displayName={displayName}
         email={email}
         initials={initials}
+        showAccountingNav={showAccountingNav}
         url={url}
       />
 
@@ -78,11 +81,20 @@ function AppShellFrame({ children }: { children: ReactNode }) {
           workspace={workspace}
         />
 
-        <main className="w-full min-w-0 flex-1 bg-surface px-4 pb-24 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-10">
+        <main
+          className={`w-full min-w-0 flex-1 bg-surface px-4 pt-6 sm:px-6 lg:px-10 lg:pt-10 ${
+            hasMobileNav ? 'pb-24 lg:pb-10' : 'pb-6 lg:pb-10'
+          }`}
+        >
           {children}
         </main>
 
-        <MobileNav url={url} />
+        <MobileNav
+          devToolsEnabled={devToolsEnabled}
+          devToolsHref={devToolsHref}
+          showAccountingNav={showAccountingNav}
+          url={url}
+        />
       </div>
       <Toaster position="top-center" richColors />
     </div>

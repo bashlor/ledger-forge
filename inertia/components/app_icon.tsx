@@ -24,6 +24,10 @@ const iconRegistry: Record<string, { filled?: IconComponent; outline: IconCompon
     filled: PlusIcon,
     outline: PlusIcon,
   },
+  business: {
+    filled: BusinessFilledIcon,
+    outline: BusinessIcon,
+  },
   chevron_left: {
     filled: ChevronLeftIcon,
     outline: ChevronLeftIcon,
@@ -95,6 +99,10 @@ const iconRegistry: Record<string, { filled?: IconComponent; outline: IconCompon
   task_alt: {
     filled: TaskAltFilledIcon,
     outline: TaskAltIcon,
+  },
+  tune: {
+    filled: TuneIcon,
+    outline: TuneIcon,
   },
   verified_user: {
     filled: VerifiedUserFilledIcon,
@@ -169,6 +177,26 @@ function AccountBalanceWalletIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M4 11a2.5 2.5 0 0 1 2.5-2.5h11A2.5 2.5 0 0 1 20 11v6A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5V11Z" />
       <path d="M15.5 13.5h4" />
       <circle cx="15.5" cy="13.5" fill="currentColor" r=".5" stroke="none" />
+    </svg>
+  )
+}
+
+function BusinessFilledIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} fill="currentColor" stroke="none">
+      <path d="M4.5 21.25V8.9L12 5.2l7.5 3.7v12.35H21a.75.75 0 0 1 0 1.5H3a.75.75 0 0 1 0-1.5h1.5Zm6-11.5v9.5h3v-9.5H10.5Z" />
+    </svg>
+  )
+}
+
+function BusinessIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props}>
+      <path d="M3 21h18" />
+      <path d="M5 21V8.5L12 5l7 3.5V21" />
+      <path d="M9 21V10.5" />
+      <path d="M12 21V10.5" />
+      <path d="M15 21V10.5" />
     </svg>
   )
 }
@@ -462,6 +490,22 @@ function TaskAltIcon(props: SVGProps<SVGSVGElement>) {
     <svg {...props}>
       <path d="M20 12a8 8 0 1 1-4-6.93" />
       <path d="m8.5 12.5 2.3 2.3 7.7-7.8" />
+    </svg>
+  )
+}
+
+function TuneIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props}>
+      <path d="M4 21v-7" />
+      <path d="M4 10V3" />
+      <path d="M12 21v-9" />
+      <path d="M12 8V3" />
+      <path d="M20 21v-5" />
+      <path d="M20 12V3" />
+      <path d="M2 14h4" />
+      <path d="M10 8h4" />
+      <path d="M18 16h4" />
     </svg>
   )
 }

@@ -10,6 +10,7 @@ interface AppSidebarProps {
   displayName: string
   email: string
   initials: string
+  showAccountingNav: boolean
   url: string
 }
 
@@ -19,9 +20,10 @@ export function AppSidebar({
   displayName,
   email,
   initials,
+  showAccountingNav,
   url,
 }: AppSidebarProps) {
-  const devToolsActive = isActive(url, '/_dev/access') || isActive(url, '/_dev/inspector')
+  const devToolsActive = isActive(url, '/_dev')
 
   return (
     <aside className="fixed left-0 top-0 z-50 hidden h-screen w-64 flex-col bg-surface-container-highest px-4 pb-6 pt-0 lg:flex">
@@ -47,17 +49,25 @@ export function AppSidebar({
         aria-label="Primary"
         className="mt-2 flex flex-1 flex-col space-y-1 overflow-y-auto font-headline text-sm tracking-wide"
       >
-        {mainNavLinks.map((link) => (
-          <SidebarLink
-            active={isActive(url, link.href)}
-            href={link.href}
-            icon={link.icon}
-            key={link.href}
-            label={link.label}
-          />
-        ))}
+        {showAccountingNav
+          ? mainNavLinks.map((link) => (
+              <SidebarLink
+                active={isActive(url, link.href)}
+                href={link.href}
+                icon={link.icon}
+                key={link.href}
+                label={link.label}
+              />
+            ))
+          : null}
         {devToolsEnabled ? (
-          <SidebarLink active={devToolsActive} href={devToolsHref} icon="tune" label="Dev Tools" />
+          <SidebarLink
+            active={devToolsActive}
+            href={devToolsHref}
+            icon="tune"
+            label="Dev Tools"
+            secondaryIcon="monitoring"
+          />
         ) : null}
       </nav>
 
@@ -91,11 +101,13 @@ function SidebarLink({
   href,
   icon,
   label,
+  secondaryIcon,
 }: {
   active: boolean
   href: string
   icon: string
   label: string
+  secondaryIcon?: string
 }) {
   return (
     <Link
@@ -106,12 +118,24 @@ function SidebarLink({
       }`}
       href={href}
     >
-      <AppIcon
-        className={active ? 'text-primary' : 'text-on-surface-variant'}
-        filled={active}
-        name={icon}
-        size={22}
-      />
+      <span className="relative flex h-[22px] w-[22px] shrink-0 items-center justify-center">
+        <AppIcon
+          className={active ? 'text-primary' : 'text-on-surface-variant'}
+          filled={active}
+          name={icon}
+          size={22}
+        />
+        {secondaryIcon ? (
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-outline-variant/15 bg-surface-container-lowest/95 shadow-sm">
+            <AppIcon
+              className={active ? 'text-primary' : 'text-on-surface-variant'}
+              filled={active}
+              name={secondaryIcon}
+              size={10}
+            />
+          </span>
+        ) : null}
+      </span>
       <span>{label}</span>
     </Link>
   )
