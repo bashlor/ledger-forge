@@ -277,6 +277,119 @@ test.group('Workspace provisioning (integration)', (group) => {
     assert.equal(sessionAfter!.activeOrganizationId, memberships[0]!.organizationId)
   })
 
+  test('provisionPersonalWorkspace reuses a personal workspace across sessions', async ({
+    assert,
+  }) => {
+    const signUpRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'multi-session@example.com',
+      name: 'Multi Session',
+      password: 'SecureP@ss123',
+    })
+    const signedUp = await assertOkJson<{ user: { id: string } }>(signUpRes)
+    const userId = signedUp.user.id
+    const firstSession = await context.db.query.session.findFirst({
+      where: (s, { eq: e }) => e(s.userId, userId),
+    })
+    assert.isNotNull(firstSession)
+
+    const secondToken = `multi-session-${crypto.randomUUID()}`
+    await context.db.insert(schema.session).values({
+      activeOrganizationId: null,
+      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+      id: crypto.randomUUID(),
+      token: secondToken,
+      userId,
+    })
+
+    const firstProvisioning = await provisionPersonalWorkspace(context.db, {
+      displayName: 'Multi Session',
+      email: 'multi-session@example.com',
+      isAnonymous: false,
+      sessionToken: firstSession!.token,
+      userId,
+    })
+    const secondProvisioning = await provisionPersonalWorkspace(context.db, {
+      displayName: 'Multi Session',
+      email: 'multi-session@example.com',
+      isAnonymous: false,
+      sessionToken: secondToken,
+      userId,
+    })
+
+    assert.isTrue(firstProvisioning.wasProvisioned)
+    assert.isFalse(secondProvisioning.wasProvisioned)
+    assert.equal(secondProvisioning.organizationId, firstProvisioning.organizationId)
+
+    const organizations = await context.db.query.organization.findMany()
+    const memberships = await context.db.query.member.findMany({
+      where: (m, { eq: e }) => e(m.userId, userId),
+    })
+    const secondSession = await context.db.query.session.findFirst({
+      where: (s, { eq: e }) => e(s.token, secondToken),
+    })
+
+    assert.lengthOf(organizations, 1)
+    assert.lengthOf(memberships, 1)
+    assert.equal(secondSession!.activeOrganizationId, firstProvisioning.organizationId)
+  })
+
+  test('provisionPersonalWorkspace serializes personal workspace creation across sessions', async ({
+    assert,
+  }) => {
+    const signUpRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'parallel-sessions@example.com',
+      name: 'Parallel Sessions',
+      password: 'SecureP@ss123',
+    })
+    const signedUp = await assertOkJson<{ user: { id: string } }>(signUpRes)
+    const userId = signedUp.user.id
+    const firstSession = await context.db.query.session.findFirst({
+      where: (s, { eq: e }) => e(s.userId, userId),
+    })
+    assert.isNotNull(firstSession)
+
+    const secondToken = `parallel-session-${crypto.randomUUID()}`
+    await context.db.insert(schema.session).values({
+      activeOrganizationId: null,
+      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+      id: crypto.randomUUID(),
+      token: secondToken,
+      userId,
+    })
+
+    await Promise.all([
+      provisionPersonalWorkspace(context.db, {
+        displayName: 'Parallel Sessions',
+        email: 'parallel-sessions@example.com',
+        isAnonymous: false,
+        sessionToken: firstSession!.token,
+        userId,
+      }),
+      provisionPersonalWorkspace(context.db, {
+        displayName: 'Parallel Sessions',
+        email: 'parallel-sessions@example.com',
+        isAnonymous: false,
+        sessionToken: secondToken,
+        userId,
+      }),
+    ])
+
+    const organizations = await context.db.query.organization.findMany()
+    const memberships = await context.db.query.member.findMany({
+      where: (m, { eq: e }) => e(m.userId, userId),
+    })
+    const sessions = await context.db.query.session.findMany({
+      where: (s, { eq: e }) => e(s.userId, userId),
+    })
+    const activeOrganizationIds = new Set(
+      sessions.map((sessionRow) => sessionRow.activeOrganizationId)
+    )
+
+    assert.lengthOf(organizations, 1)
+    assert.lengthOf(memberships, 1)
+    assert.deepEqual([...activeOrganizationIds], [organizations[0]!.id])
+  })
+
   test('ensureSingleTenantMembership provisions the organization and makes the first user owner', async ({
     assert,
   }) => {
