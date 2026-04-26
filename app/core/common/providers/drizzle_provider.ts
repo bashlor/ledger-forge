@@ -9,6 +9,18 @@ import * as schema from '../drizzle/index.js'
 
 let postgresClient: null | ReturnType<typeof postgres> = null
 
+/**
+ * Closes the shared postgres.js client. One-shot Ace commands (e.g. migration:run) must
+ * call this when finished, or open sockets keep the Node event loop alive and the process
+ * never exits — which blocks Docker Compose `service_completed_successfully` for the app.
+ */
+export async function endDrizzlePostgresClient(): Promise<void> {
+  if (postgresClient) {
+    await postgresClient.end()
+    postgresClient = null
+  }
+}
+
 declare module '@adonisjs/core/types' {
   interface ContainerBindings {
     drizzle: PostgresJsDatabase<typeof schema>
@@ -32,9 +44,6 @@ export default class DrizzleProvider {
   }
 
   async shutdown() {
-    if (postgresClient) {
-      await postgresClient.end()
-      postgresClient = null
-    }
+    await endDrizzlePostgresClient()
   }
 }

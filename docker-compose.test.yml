@@ -72,6 +72,8 @@ services:
       - accounting_test_internal
 
   migrate:
+    # One-shot: must exit so `app` can start (`service_completed_successfully`).
+    restart: 'no'
     build:
       context: .
       dockerfile: Dockerfile
