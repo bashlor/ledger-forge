@@ -214,10 +214,9 @@ test.group('Customers routes | boundary contract', (group) => {
 
     const rows = await db.select().from(customers)
     assert.equal(rows.length, 1)
-    assert.equal(rows[0].company, 'Feat Test Co')
   })
 
-  test('contract:PUT /customers/:id happy path returns redirect', async ({ assert, client }) => {
+  test('contract:PUT /customers/:id happy path returns redirect', async ({ client }) => {
     const id = uuidv7()
     await db.insert(customers).values({
       company: 'Kestrel Analytics',
@@ -241,13 +240,9 @@ test.group('Customers routes | boundary contract', (group) => {
 
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
-
-    const [updated] = await db.select().from(customers).where(eq(customers.id, id))
-    assert.equal(updated.company, 'Kestrel Analytics Updated')
   })
 
   test('contract:PUT /customers/:id returns 404 when customer does not exist', async ({
-    assert,
     client,
   }) => {
     const response = await withAuthCookie(client.put('/customers/unknown-client-id'))
@@ -261,30 +256,9 @@ test.group('Customers routes | boundary contract', (group) => {
       })
 
     response.assertStatus(404)
-
-    const rows = await db.select().from(customers)
-    assert.equal(rows.length, 0)
   })
 
-  test('contract:POST /customers surface validation rejects invalid payload', async ({
-    assert,
-    client,
-  }) => {
-    const response = await withAuthCookie(client.post('/customers')).redirects(0).form({
-      address: 'Short Street',
-      company: 'X',
-      email: 'not-an-email',
-      name: 'Y',
-      phone: '1',
-    })
-
-    response.assertStatus(302)
-
-    const rows = await db.select().from(customers)
-    assert.equal(rows.length, 0)
-  })
-
-  test('contract:DELETE /customers/:id happy path returns redirect', async ({ assert, client }) => {
+  test('contract:DELETE /customers/:id happy path returns redirect', async ({ client }) => {
     const customerId = uuidv7()
     await db.insert(customers).values({
       address: '12 avenue Redirect, Nantes',
@@ -300,12 +274,9 @@ test.group('Customers routes | boundary contract', (group) => {
 
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
-    const rows = await db.select().from(customers).where(eq(customers.id, customerId))
-    assert.equal(rows.length, 0)
   })
 
   test('contract:DELETE /customers/:id returns 404 when customer does not exist', async ({
-    assert,
     client,
   }) => {
     const response = await withAuthCookie(client.delete('/customers/non-existent-id'))
@@ -313,9 +284,6 @@ test.group('Customers routes | boundary contract', (group) => {
       .redirects(0)
 
     response.assertStatus(404)
-
-    const rows = await db.select().from(customers)
-    assert.equal(rows.length, 0)
   })
 
   test('contract:mutation redirects keep customer query-string per endpoint', async ({

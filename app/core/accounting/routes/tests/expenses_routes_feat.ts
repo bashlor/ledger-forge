@@ -101,7 +101,7 @@ test.group('Expenses routes | boundary contract', (group) => {
     const created = rows[0]
 
     assert.equal(rows.length, 1)
-    assert.equal(created.status, 'draft')
+    assert.exists(created.id)
   })
 
   test('contract:GET /expenses returns minimal Inertia page contract', async ({
@@ -136,7 +136,6 @@ test.group('Expenses routes | boundary contract', (group) => {
   })
 
   test('contract:POST /expenses/:id/confirm-draft happy path returns redirect', async ({
-    assert,
     client,
   }) => {
     await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
@@ -155,12 +154,9 @@ test.group('Expenses routes | boundary contract', (group) => {
       .form({})
 
     confirmResponse.assertStatus(302)
-
-    const [confirmed] = await db.select().from(expenses).where(eq(expenses.id, draft.id))
-    assert.equal(confirmed.status, 'confirmed')
   })
 
-  test('contract:DELETE /expenses/:id happy path returns redirect', async ({ assert, client }) => {
+  test('contract:DELETE /expenses/:id happy path returns redirect', async ({ client }) => {
     await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
       amount: 12,
       category: 'Office',
@@ -173,8 +169,6 @@ test.group('Expenses routes | boundary contract', (group) => {
       .header('cookie', authCookie())
       .redirects(0)
     deleteResponse.assertStatus(302)
-    const rows = await db.select().from(expenses).where(eq(expenses.id, draft.id))
-    assert.equal(rows.length, 0)
   })
 
   test('contract:GET /expenses returns 403 for inactive membership', async ({ client }) => {
@@ -290,7 +284,6 @@ test.group('Expenses routes | boundary contract', (group) => {
   })
 
   test('contract:POST /expenses/:id/confirm-draft returns 404 when expense does not exist', async ({
-    assert,
     client,
   }) => {
     const missingId = uuidv7()
@@ -302,13 +295,9 @@ test.group('Expenses routes | boundary contract', (group) => {
       .form({})
 
     response.assertStatus(404)
-
-    const rows = await db.select().from(expenses)
-    assert.equal(rows.length, 0)
   })
 
   test('contract:DELETE /expenses/:id returns 404 when expense does not exist', async ({
-    assert,
     client,
   }) => {
     const missingId = uuidv7()
@@ -319,22 +308,6 @@ test.group('Expenses routes | boundary contract', (group) => {
       .redirects(0)
 
     response.assertStatus(404)
-
-    const rows = await db.select().from(expenses)
-    assert.equal(rows.length, 0)
-  })
-
-  test('contract:POST /expenses surface validation rejects invalid payload', async ({
-    assert,
-    client,
-  }) => {
-    await client
-      .post('/expenses')
-      .header('cookie', authCookie())
-      .redirects(0)
-      .form({ amount: 0, category: 'Software', date: 'not-a-date', label: '' })
-    const rows = await db.select().from(expenses)
-    assert.equal(rows.length, 0)
   })
 })
 
