@@ -39,7 +39,21 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
     const workspace = ctx.workspaceShare
     const devToolsEnvironment = await app.container.make(DevToolsEnvironmentService)
     const devToolsEnabled = devToolsEnvironment.isEnabled()
-    const canAccessDevTools = await this.resolveDevToolsAccess(ctx, devToolsEnabled)
+    let isDevOperator = false
+    let canAccessDevTools = false
+    if (ctx.authSession) {
+      try {
+        const authorizationService = await app.container.make(AuthorizationService)
+        const actor = await authorizationService.actorFromSession(ctx.authSession)
+        isDevOperator = actor.isDevOperator
+        if (devToolsEnabled) {
+          canAccessDevTools = authorizationService.allows(actor, 'devTools.access')
+        }
+      } catch {
+        isDevOperator = false
+        canAccessDevTools = false
+      }
+    }
     /**
      * Inertia / http-transformers refuse top-level `null` for serialized props
      * (`Cannot serialize an item with null value`). Use `undefined` when there
@@ -77,6 +91,7 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
               image: authUser.image ?? null,
               initials: this.getInitials(authUser.name, authUser.email),
               isAnonymous: authUser.isAnonymous,
+              isDevOperator,
             }
           : undefined
       ),
@@ -104,23 +119,6 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
         (entry): entry is [string, string] => typeof entry[1] === 'string'
       )
     )
-  }
-
-  private async resolveDevToolsAccess(
-    ctx: HttpContext,
-    devToolsEnabled: boolean
-  ): Promise<boolean> {
-    if (!devToolsEnabled || !ctx.authSession) {
-      return false
-    }
-
-    try {
-      const authorizationService = await app.container.make(AuthorizationService)
-      const actor = await authorizationService.actorFromSession(ctx.authSession)
-      return authorizationService.allows(actor, 'devTools.access')
-    } catch {
-      return false
-    }
   }
 }
 
