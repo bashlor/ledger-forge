@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { InvoiceService } from '#core/accounting/application/invoices/index'
+import { INVOICE_VAT_RATES } from '#core/accounting/invoice_vat_rates'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 
@@ -56,6 +57,7 @@ test.group('Invoices routes | GET /invoices', (group) => {
     assert.property(props, 'invoices')
     assert.property(props.invoices, 'items')
     assert.property(props.invoices, 'pagination')
+    assert.deepEqual(props.vatRates, [...INVOICE_VAT_RATES])
   })
 
   test('contract: GET /invoices returns 403 for an inactive membership', async ({ client }) => {

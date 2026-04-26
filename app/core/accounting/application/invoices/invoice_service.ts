@@ -28,15 +28,18 @@ import type {
   InvoiceDto,
   InvoiceListResult,
   InvoiceListScopeInput,
+  InvoicePreviewDto,
   InvoiceRequestContext,
   InvoiceSummaryDto,
   IssueInvoiceInput,
+  PreviewInvoiceDraftInput,
   SaveInvoiceDraftInput,
 } from './types.js'
 
 import { cancelInvoiceUseCase } from './application/cancel_invoice.js'
 import { createInvoiceUseCase } from './application/create_invoice.js'
 import { markInvoicePaidUseCase } from './application/mark_invoice_paid.js'
+import { previewInvoiceDraft } from './application/preview_invoice_draft.js'
 import { sendInvoiceUseCase } from './application/send_invoice.js'
 import { updateInvoiceDraftUseCase } from './application/update_invoice_draft.js'
 import { toInvoiceDto, toLineDto } from './infrastructure/invoice_mappers.js'
@@ -239,6 +242,10 @@ export class InvoiceService {
     hooks?: InvoiceConcurrencyHooks
   ): Promise<InvoiceDto> {
     return markInvoicePaidUseCase(this.dependencies(), id, toInvoiceRequestContext(access), hooks)
+  }
+
+  previewDraftTotals(input: PreviewInvoiceDraftInput): InvoicePreviewDto {
+    return previewInvoiceDraft(input)
   }
 
   async updateDraft(
