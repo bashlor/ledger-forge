@@ -19,6 +19,7 @@ import {
   toneForAuditResult,
 } from '../dev/inspector_ui_primitives'
 
+type AuditContextFilter = 'accounting' | 'all' | 'user_management'
 type MemberRoleFilter = 'admin' | 'all' | 'member' | 'owner'
 type MemberStatusFilter = 'active' | 'all' | 'inactive'
 
@@ -27,6 +28,7 @@ interface OrganizationAuditEvent {
   actorEmail: null | string
   actorId: null | string
   actorName: null | string
+  boundedContext?: 'accounting' | 'user_management'
   changes: unknown
   entityId: string
   entityType: string
@@ -68,6 +70,7 @@ export default function OrganizationPage({
 
   const [auditSearch, setAuditSearch] = useState('')
   const [auditActionFilter, setAuditActionFilter] = useState('')
+  const [auditContextFilter, setAuditContextFilter] = useState<AuditContextFilter>('all')
   const [auditVisibleCount, setAuditVisibleCount] = useState(20)
 
   const filteredMembers = useMemo(() => {
@@ -97,6 +100,9 @@ export default function OrganizationPage({
     const q = auditSearch.trim().toLowerCase()
     const actionNeedle = auditActionFilter.trim().toLowerCase()
     return auditEvents.filter((event) => {
+      if (auditContextFilter !== 'all' && auditContextForEvent(event) !== auditContextFilter) {
+        return false
+      }
       if (actionNeedle && !event.action.toLowerCase().includes(actionNeedle)) {
         return false
       }
@@ -114,7 +120,7 @@ export default function OrganizationPage({
         details.includes(q)
       )
     })
-  }, [auditActionFilter, auditEvents, auditSearch])
+  }, [auditActionFilter, auditContextFilter, auditEvents, auditSearch])
 
   const visibleMembers = filteredMembers.slice(0, memberVisibleCount)
   const visibleAuditEvents = filteredAuditEvents.slice(0, auditVisibleCount)
@@ -226,7 +232,7 @@ export default function OrganizationPage({
           <DataTable
             emptyMessage="No audit events match the current filters."
             headerContent={
-              <div className="grid min-w-[560px] gap-2 md:grid-cols-[minmax(0,1fr)_200px]">
+              <div className="grid min-w-[760px] gap-2 md:grid-cols-[minmax(0,1fr)_200px_200px]">
                 <input
                   className={inputClass()}
                   onChange={(event) => setAuditSearch(event.target.value)}
@@ -239,6 +245,17 @@ export default function OrganizationPage({
                   placeholder="Filter action"
                   value={auditActionFilter}
                 />
+                <select
+                  className={inputClass()}
+                  onChange={(event) =>
+                    setAuditContextFilter(event.target.value as AuditContextFilter)
+                  }
+                  value={auditContextFilter}
+                >
+                  <option value="all">All audit trails</option>
+                  <option value="accounting">Accounting</option>
+                  <option value="user_management">User management</option>
+                </select>
               </div>
             }
             isEmpty={visibleAuditEvents.length === 0}
@@ -277,7 +294,8 @@ export default function OrganizationPage({
                           {humanizeAuditAction(event.action)}
                         </td>
                         <td className="px-3 py-2.5 text-on-surface-variant">
-                          {event.entityType}:{event.entityId}
+                          {auditContextLabel(auditContextForEvent(event))} · {event.entityType}:
+                          {event.entityId}
                         </td>
                         <td className="px-3 py-2.5">
                           <ToneBadge
@@ -311,6 +329,22 @@ export default function OrganizationPage({
       </div>
     </>
   )
+}
+
+function auditContextForEvent(event: OrganizationAuditEvent): 'accounting' | 'user_management' {
+  if (event.boundedContext) {
+    return event.boundedContext
+  }
+
+  return event.entityType === 'customer' ||
+    event.entityType === 'expense' ||
+    event.entityType === 'invoice'
+    ? 'accounting'
+    : 'user_management'
+}
+
+function auditContextLabel(context: 'accounting' | 'user_management'): string {
+  return context === 'accounting' ? 'Accounting' : 'User management'
 }
 
 function auditResultFromMetadata(metadata: unknown): 'denied' | 'error' | 'success' {
