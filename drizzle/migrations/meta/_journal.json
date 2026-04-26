@@ -232,6 +232,13 @@
       "when": 1778300000000,
       "tag": "0032_customer_expense_list_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1778400000000,
+      "tag": "0033_user_management_audit_entity_types",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,6 @@
+ALTER TABLE "main"."audit_events"
+  DROP CONSTRAINT IF EXISTS "audit_events_entity_type_check";
+--> statement-breakpoint
+ALTER TABLE "main"."audit_events"
+  ADD CONSTRAINT "audit_events_entity_type_check"
+  CHECK ("entity_type" IN ('invoice', 'expense', 'customer', 'auth', 'member', 'session', 'user', 'workspace'));
