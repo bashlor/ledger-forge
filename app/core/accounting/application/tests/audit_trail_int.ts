@@ -6,6 +6,7 @@ import type { AuditEventInput } from '#core/accounting/application/audit/types'
 import type { AccountingAccessContext } from '#core/accounting/application/support/access_context'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { insertAuditEvent } from '#core/accounting/application/audit/audit_writer'
 import { ExpenseService } from '#core/accounting/application/expenses/index'
 import { InvoiceService } from '#core/accounting/application/invoices/index'
 import {
@@ -123,5 +124,20 @@ test.group('Audit trail | critical rollback and atomicity', (group) => {
 
     assert.equal(row.status, 'confirmed')
     assert.equal(entries.length, 1)
+  })
+
+  test('writer rejects accounting audit events without tenant scope', async ({ assert }) => {
+    const unsafeInput = {
+      action: 'create_draft',
+      actorId: ACCESS.actorId,
+      entityId: 'audit-without-tenant',
+      entityType: 'invoice',
+      tenantId: null,
+    } as unknown as AuditEventInput
+
+    await assert.rejects(
+      () => insertAuditEvent(db, unsafeInput),
+      'Audit event "invoice" requires an explicit tenant id.'
+    )
   })
 })

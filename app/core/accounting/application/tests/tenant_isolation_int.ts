@@ -455,4 +455,17 @@ test.group('Cross-tenant isolation', (group) => {
 
     assert.lengthOf(events, 0)
   })
+
+  test('database rejects accounting audit events without tenant scope', async ({ assert }) => {
+    await assert.rejects(() =>
+      db.insert(auditEvents).values({
+        action: 'create_draft',
+        actorId: 'actor-a',
+        entityId: 'audit-global-invoice',
+        entityType: 'invoice',
+        id: 'audit-global-invoice',
+        organizationId: null,
+      })
+    )
+  })
 })
