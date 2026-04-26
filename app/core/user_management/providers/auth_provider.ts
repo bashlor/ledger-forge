@@ -1,5 +1,6 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 
+import { UserManagementAuditTrail } from '../application/audit/user_management_audit_trail.js'
 import { AuthorizationService } from '../application/authorization_service.js'
 import { DevOperatorBootstrapService } from '../application/dev_operator_bootstrap_service.js'
 import { DevToolsEnvironmentService } from '../application/dev_tools_environment_service.js'
@@ -49,6 +50,11 @@ export default class AuthProvider {
       const drizzle = await resolver.make('drizzle')
       const devToolsEnvironmentService = await resolver.make(DevToolsEnvironmentService)
       return new AuthorizationService(drizzle, devToolsEnvironmentService.isEnabled())
+    })
+
+    this.app.container.bind(UserManagementAuditTrail, async (resolver) => {
+      const drizzle = await resolver.make('drizzle')
+      return new UserManagementAuditTrail(drizzle)
     })
 
     this.app.container.singleton(DevToolsEnvironmentService, async () => {
