@@ -1,4 +1,9 @@
-import type { CustomerSelectDto, InvoiceDto, InvoiceLineInput } from '~/lib/types'
+import type {
+  CustomerSelectDto,
+  InvoiceDto,
+  InvoiceLineInput,
+  InvoiceLinePreviewDto,
+} from '~/lib/types'
 
 import { AppIcon } from '~/components/app_icon'
 import { ErrorBanner } from '~/components/error_banner'
@@ -6,11 +11,9 @@ import { InvoiceTotals } from '~/components/invoice_totals'
 import { StatusBadge } from '~/components/status_badge'
 import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatCurrency } from '~/lib/format'
-import { calculateInvoiceLine, canDeleteInvoice, canIssueInvoice } from '~/lib/invoices'
+import { canDeleteInvoice, canIssueInvoice } from '~/lib/invoices'
 
 export type EditableInvoiceLine = InvoiceLineInput & { key: string }
-
-const VAT_OPTIONS = [0, 5.5, 10, 20]
 
 interface Props {
   accountingReadOnly: boolean
@@ -20,6 +23,7 @@ interface Props {
   form: { customerId: string; dueDate: string; issueDate: string; lines: EditableInvoiceLine[] }
   formIsValid: boolean
   isCreating: boolean
+  linePreviews: InvoiceLinePreviewDto[]
   minDueDate: string
   onDeleteDraft: () => void
   onFormChange: (field: 'customerId' | 'dueDate' | 'issueDate', value: string) => void
@@ -31,6 +35,8 @@ interface Props {
   saving: boolean
   selectedInvoice: InvoiceDto | null
   totals: TotalsValues
+  totalsErrorMessage: null | string
+  vatRates: number[]
 }
 
 interface TotalsValues {
@@ -47,6 +53,7 @@ export function InvoiceDraftEditor({
   form,
   formIsValid,
   isCreating,
+  linePreviews,
   minDueDate,
   onDeleteDraft,
   onFormChange,
@@ -58,6 +65,8 @@ export function InvoiceDraftEditor({
   saving,
   selectedInvoice,
   totals,
+  totalsErrorMessage,
+  vatRates,
 }: Props) {
   return (
     <div>
@@ -188,8 +197,8 @@ export function InvoiceDraftEditor({
                   </TableHeadRow>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/15 bg-white">
-                  {form.lines.map((line) => {
-                    const calculated = calculateInvoiceLine(line, line.key)
+                  {form.lines.map((line, index) => {
+                    const calculated = linePreviews[index]
                     return (
                       <tr key={line.key}>
                         <td className="px-4 py-3">
@@ -243,7 +252,7 @@ export function InvoiceDraftEditor({
                             }
                             value={line.vatRate}
                           >
-                            {VAT_OPTIONS.map((rate) => (
+                            {vatRates.map((rate) => (
                               <option key={rate} value={rate}>
                                 {rate}%
                               </option>
@@ -251,7 +260,7 @@ export function InvoiceDraftEditor({
                           </select>
                         </td>
                         <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums text-on-surface">
-                          {formatCurrency(calculated.lineTotalInclTax)}
+                          {calculated ? formatCurrency(calculated.lineTotalInclTax) : '—'}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button
@@ -285,6 +294,9 @@ export function InvoiceDraftEditor({
               totalInclTax={totals.totalInclTax}
               totalVat={totals.totalVat}
             />
+            {totalsErrorMessage ? (
+              <p className="text-sm font-medium text-error">{totalsErrorMessage}</p>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-3 border-t border-outline-variant/20 pt-5 sm:flex-row sm:items-center sm:justify-between">

@@ -155,6 +155,19 @@ export interface InvoiceLineInput {
   vatRate: number
 }
 
+export interface InvoiceLinePreviewDto extends InvoiceLineInput {
+  lineTotalExclTax: number
+  lineTotalInclTax: number
+  lineVatAmount: number
+}
+
+export interface InvoicePreviewDto {
+  lines: InvoiceLinePreviewDto[]
+  subtotalExclTax: number
+  totalInclTax: number
+  totalVat: number
+}
+
 export type InvoiceStatus = 'draft' | 'issued' | 'paid'
 
 export interface InvoiceSummaryDto {
