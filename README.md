@@ -76,6 +76,7 @@ This repository is meant to show how I approach:
 
 The codebase is organized by business capability rather than technical layers first.
 Each module owns its application logic, HTTP boundary, and persistence concerns.
+Inside the accounting bounded context, `invoices` is intentionally the only rich module; `customers` and `expenses` stay flat to keep the simpler workflows easy to review.
 
 ### Project Structure
 
