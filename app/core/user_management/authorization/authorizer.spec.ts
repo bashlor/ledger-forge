@@ -27,18 +27,22 @@ function subject(
 }
 
 test.group('authorization/authorizer', () => {
-  test('member can read accounting but cannot mark invoices as paid', ({ assert }) => {
+  test('member can read accounting pages but cannot view overview or privileged actions', ({
+    assert,
+  }) => {
     const currentActor = actor({ membershipRole: 'member' })
 
     assert.isTrue(can(currentActor, 'accounting.read'))
     assert.isTrue(can(currentActor, 'accounting.writeDrafts'))
+    assert.isFalse(can(currentActor, 'dashboard.view'))
     assert.isFalse(can(currentActor, 'invoice.markPaid'))
     assert.isFalse(can(currentActor, 'auditTrail.view'))
   })
 
-  test('admin can issue and mark invoices as paid', ({ assert }) => {
+  test('admin can view overview, audit trail, and invoice actions', ({ assert }) => {
     const currentActor = actor({ membershipRole: 'admin' })
 
+    assert.isTrue(can(currentActor, 'dashboard.view'))
     assert.isTrue(can(currentActor, 'invoice.issue'))
     assert.isTrue(can(currentActor, 'invoice.markPaid'))
     assert.isTrue(can(currentActor, 'auditTrail.view'))
@@ -86,6 +90,7 @@ test.group('authorization/authorizer', () => {
     assert.isTrue(can(currentActor, 'devTools.access'))
     assert.isFalse(can(currentActor, 'invoice.issue'))
     assert.isFalse(can(currentActor, 'accounting.read'))
+    assert.isFalse(can(currentActor, 'dashboard.view'))
     assert.isFalse(can(currentActor, 'auditTrail.view'))
     assert.isFalse(can(currentActor, 'membership.changeRole', subject()))
   })

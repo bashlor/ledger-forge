@@ -205,6 +205,12 @@ function buildProps(
       },
       ...overrides,
     },
+    permissions: {
+      canReadAccounting: false,
+      canViewAuditTrail: false,
+      canViewOrganization: false,
+      canViewOverview: false,
+    },
     user: {
       email: 'dev@example.com',
       fullName: 'Dev Operator',

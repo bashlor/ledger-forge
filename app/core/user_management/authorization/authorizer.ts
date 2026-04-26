@@ -4,6 +4,7 @@ export type AuthorizationAbility =
   | 'accounting.read'
   | 'accounting.writeDrafts'
   | 'auditTrail.view'
+  | 'dashboard.view'
   | 'devTools.access'
   | 'invoice.issue'
   | 'invoice.markPaid'
@@ -37,6 +38,7 @@ const MEMBER_ABILITIES: readonly AuthorizationAbility[] = [
 const ADMIN_ABILITIES: readonly AuthorizationAbility[] = [
   ...MEMBER_ABILITIES,
   'auditTrail.view',
+  'dashboard.view',
   'invoice.issue',
   'invoice.markPaid',
   'membership.list',

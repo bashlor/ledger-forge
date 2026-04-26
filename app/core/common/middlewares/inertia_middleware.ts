@@ -41,11 +41,21 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
     const devToolsEnabled = devToolsEnvironment.isEnabled()
     let isDevOperator = false
     let canAccessDevTools = false
+    const permissions = {
+      canReadAccounting: false,
+      canViewAuditTrail: false,
+      canViewOrganization: false,
+      canViewOverview: false,
+    }
     if (ctx.authSession) {
       try {
         const authorizationService = await app.container.make(AuthorizationService)
         const actor = await authorizationService.actorFromSession(ctx.authSession)
         isDevOperator = actor.isDevOperator
+        permissions.canReadAccounting = authorizationService.allows(actor, 'accounting.read')
+        permissions.canViewAuditTrail = authorizationService.allows(actor, 'auditTrail.view')
+        permissions.canViewOrganization = authorizationService.allows(actor, 'membership.list')
+        permissions.canViewOverview = authorizationService.allows(actor, 'dashboard.view')
         if (devToolsEnabled) {
           canAccessDevTools = authorizationService.allows(actor, 'devTools.access')
         }
@@ -82,6 +92,7 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
       flash: ctx.inertia.always({
         notification,
       }),
+      permissions: ctx.inertia.always(permissions),
       user: ctx.inertia.always(
         authUser
           ? {

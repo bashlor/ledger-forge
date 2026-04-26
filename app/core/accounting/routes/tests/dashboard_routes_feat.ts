@@ -41,14 +41,20 @@ test.group('Dashboard routes', (group) => {
     await seedTestMember(db, {
       id: 'member_test_dashboard_actor',
       organizationId: TEST_TENANT_ID,
-      role: 'member',
+      role: 'admin',
       userId: TEST_ACCOUNTING_USER_ID,
     })
   })
 
   group.teardown(async () => await cleanup())
 
-  group.each.setup(() => {
+  group.each.setup(async () => {
+    const db = (await app.container.make('drizzle')) as any
+    await db
+      .update(member)
+      .set({ isActive: true, role: 'admin' })
+      .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+
     resetInvoiceAuthContext()
     bindInvoiceAuth()
   })
@@ -142,7 +148,7 @@ test.group('Dashboard routes', (group) => {
     const db = (await app.container.make('drizzle')) as any
     await db
       .update(member)
-      .set({ isActive: false })
+      .set({ isActive: false, role: 'member' })
       .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
 
     const response = await inertiaHeaders(client.get('/dashboard'))
@@ -150,5 +156,32 @@ test.group('Dashboard routes', (group) => {
       .redirects(0)
 
     response.assertStatus(403)
+  })
+
+  test('GET /dashboard returns 403 for a regular member', async ({ client }) => {
+    const db = (await app.container.make('drizzle')) as any
+    await db
+      .update(member)
+      .set({ isActive: true, role: 'member' })
+      .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+
+    const response = await inertiaHeaders(client.get('/dashboard'))
+      .header('cookie', authCookie())
+      .redirects(0)
+
+    response.assertStatus(403)
+  })
+
+  test('GET / redirects regular members to customers', async ({ client }) => {
+    const db = (await app.container.make('drizzle')) as any
+    await db
+      .update(member)
+      .set({ isActive: true, role: 'member' })
+      .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+
+    const response = await client.get('/').header('cookie', authCookie()).redirects(0)
+
+    response.assertStatus(302)
+    response.assertHeader('location', '/customers')
   })
 })

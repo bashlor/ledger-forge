@@ -16,7 +16,7 @@ export default class DashboardController {
     dashboardService: DashboardService
   ) {
     const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
-    authorizationService.authorize(activeTenant.actor, 'accounting.read')
+    authorizationService.authorize(activeTenant.actor, 'dashboard.view')
 
     const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
     return renderInertiaPage(ctx.inertia, 'app/dashboard', {
@@ -27,7 +27,13 @@ export default class DashboardController {
     })
   }
 
-  async home({ response }: HttpContext) {
-    return response.redirect('/dashboard')
+  @inject()
+  async home(ctx: HttpContext, authorizationService: AuthorizationService) {
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const href = authorizationService.allows(activeTenant.actor, 'dashboard.view')
+      ? '/dashboard'
+      : '/customers'
+
+    return ctx.response.redirect(href)
   }
 }
