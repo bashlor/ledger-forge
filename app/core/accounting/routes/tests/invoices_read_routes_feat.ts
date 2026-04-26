@@ -68,38 +68,22 @@ test.group('Invoices routes | GET /invoices', (group) => {
     response.assertStatus(403)
   })
 
-  test('GET /invoices with only startDate redirects back with validation errors', async ({
-    client,
-  }) => {
-    const response = await client
-      .get('/invoices')
-      .header('cookie', authCookie())
-      .qs({ startDate: '2026-04-01' })
-      .redirects(0)
+  test('contract: GET /invoices redirects invalid date range queries', async ({ client }) => {
+    const invalidQueries = [
+      { startDate: '2026-04-01' },
+      { endDate: '2026-04-30' },
+      { endDate: '2026-04-01', startDate: '2026-04-30' },
+    ]
 
-    response.assertStatus(302)
-  })
+    for (const query of invalidQueries) {
+      const response = await client
+        .get('/invoices')
+        .header('cookie', authCookie())
+        .qs(query)
+        .redirects(0)
 
-  test('GET /invoices with only endDate redirects back with validation errors', async ({
-    client,
-  }) => {
-    const response = await client
-      .get('/invoices')
-      .header('cookie', authCookie())
-      .qs({ endDate: '2026-04-30' })
-      .redirects(0)
-
-    response.assertStatus(302)
-  })
-
-  test('GET /invoices rejects inverted date ranges', async ({ client }) => {
-    const response = await client
-      .get('/invoices')
-      .header('cookie', authCookie())
-      .qs({ endDate: '2026-04-01', startDate: '2026-04-30' })
-      .redirects(0)
-
-    response.assertStatus(302)
+      response.assertStatus(302)
+    }
   })
 
   test('GET /invoices with mode=new exposes create mode in inertia props', async ({
