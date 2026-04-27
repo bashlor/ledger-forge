@@ -52,7 +52,7 @@ load_test_runtime_flags() {
 }
 
 run_tests() {
-  exec pnpm exec node --import @poppinss/ts-exec "$REPO_ROOT/bin/test.ts" "$@"
+  pnpm exec node --import @poppinss/ts-exec "$REPO_ROOT/bin/test.ts" "$@"
 }
 
 ensure_podman_socket() {
@@ -123,6 +123,65 @@ EOF
   exit 1
 }
 
+BROWSER_UI_MODE=false
+BROWSER_REPORT_MODE=false
+BROWSER_DB_LOGS=false
+BROWSER_RUN_ARGS=()
+
+parse_browser_script_args() {
+  BROWSER_RUN_ARGS=()
+
+  for arg in "$@"; do
+    case "$arg" in
+      --ui)
+        BROWSER_UI_MODE=true
+        ;;
+      --report)
+        BROWSER_REPORT_MODE=true
+        ;;
+      --db-logs)
+        BROWSER_DB_LOGS=true
+        ;;
+      *)
+        BROWSER_RUN_ARGS+=("$arg")
+        ;;
+    esac
+  done
+}
+
+configure_browser_runtime() {
+  if [[ "$BROWSER_DB_LOGS" == true ]]; then
+    export DRIZZLE_LOG_QUERIES=true
+  else
+    export DRIZZLE_LOG_QUERIES="${DRIZZLE_LOG_QUERIES:-false}"
+  fi
+
+  if [[ "$BROWSER_UI_MODE" == true ]]; then
+    BROWSER_RUN_ARGS+=(--headed --devtools --slow=150 --no-clear)
+  fi
+}
+
+run_browser_with_reports() {
+  local reports_root="${E2E_REPORT_DIR:-$REPO_ROOT/tmp/reports/e2e}"
+  local traces_dir="$reports_root/traces"
+  local report_file="$reports_root/japa-report.ndjson"
+
+  mkdir -p "$reports_root" "$traces_dir"
+  rm -f "$report_file"
+
+  echo "Browser test artifacts:"
+  echo "  NDJSON report: $report_file"
+  echo "  Playwright traces: $traces_dir"
+
+  set +e
+  run_tests browser "${BROWSER_RUN_ARGS[@]}" --reporters=ndjson --trace=onTest >"$report_file"
+  local status=$?
+  set -e
+
+  node "$REPO_ROOT/scripts/print-japa-ndjson-summary.mjs" "$report_file"
+  return "$status"
+}
+
 require_cmd pnpm
 require_cmd node
 
@@ -138,6 +197,17 @@ case "$SUITE" in
     prepare_testcontainers_runtime
     if [[ "$SUITE" == "browser" ]]; then
       ensure_playwright_browser
+      parse_browser_script_args "$@"
+      configure_browser_runtime
+
+      if [[ "$BROWSER_REPORT_MODE" == true ]]; then
+        export JAPA_BROWSER_TRACES_DIR="${JAPA_BROWSER_TRACES_DIR:-$REPO_ROOT/tmp/reports/e2e/traces}"
+        run_browser_with_reports
+        exit $?
+      fi
+
+      run_tests "$SUITE" "${BROWSER_RUN_ARGS[@]}"
+      exit $?
     fi
     run_tests "$SUITE" "$@"
     ;;

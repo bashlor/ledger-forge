@@ -5,14 +5,39 @@ import testUtils from '@adonisjs/core/services/test_utils'
 import { sessionBrowserClient } from '@adonisjs/session/plugins/browser_client'
 import { apiClient } from '@japa/api-client'
 import { assert } from '@japa/assert'
-import { browserClient } from '@japa/browser-client'
+import { browserClient, decoratorsCollection } from '@japa/browser-client'
 import { pluginAdonisJS } from '@japa/plugin-adonisjs'
+
+const browserTimeout = Number(process.env.BROWSER_TEST_TIMEOUT_MS ?? '5000')
+const browserNavigationTimeout = Number(process.env.BROWSER_TEST_NAVIGATION_TIMEOUT_MS ?? '8000')
+
+decoratorsCollection.register({
+  page(page) {
+    page.setDefaultTimeout(browserTimeout)
+    page.setDefaultNavigationTimeout(browserNavigationTimeout)
+  },
+})
 
 export const plugins: Config['plugins'] = [
   assert(),
   pluginAdonisJS(app),
   apiClient(),
-  browserClient({ runInSuites: ['browser'] }),
+  browserClient({
+    assertions: {
+      pollIntervals: [100, 250, 500],
+      timeout: browserTimeout,
+    },
+    contextOptions: {
+      ignoreHTTPSErrors: true,
+    },
+    runInSuites: ['browser'],
+    tracing: {
+      cleanOutputDirectory: true,
+      enabled: true,
+      event: 'onError',
+      outputDirectory: process.env.JAPA_BROWSER_TRACES_DIR ?? 'tmp/reports/e2e/traces',
+    },
+  }),
   sessionBrowserClient(app),
 ]
 
