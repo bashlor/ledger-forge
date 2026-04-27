@@ -1,5 +1,7 @@
 # ADR-004: Store Amounts In Cents
 
+[Documentation index](../README.md)
+
 ## Context
 
 Financial values require deterministic arithmetic.

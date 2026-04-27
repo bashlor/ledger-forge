@@ -1,19 +1,26 @@
 # Accounting Demo
 
-Production-minded accounting application built to demonstrate backend engineering skills: business rules, authorization, SQL design, reliability, and pragmatic architecture decisions.
+A production-minded accounting system built to demonstrate backend engineering judgment.
 
-Not a tutorial CRUD.  
-A realistic business system designed for technical discussions and code review.
+This is not a tutorial project.
 
-## Highlights
+It focuses on the decisions real backend systems require: business invariants, authorization
+boundaries, SQL modeling, reliability, and pragmatic trade-offs.
 
-- Multi-tenant protected workspace
-- RBAC authorization model
-- Invoice lifecycle with invariants
-- Audit trail with degraded read-only mode
-- SQL-first persistence with Drizzle ORM
-- Test suites (unit / integration / routes / browser / console)
-- Containerized delivery (Docker or Podman)
+## Designed For Review
+
+This repository was built to be readable in limited time: start with this README, then inspect
+the architecture docs and the invoice module.
+
+## What Makes It Interesting
+
+- Multi-tenant workspace with explicit tenant boundaries
+- RBAC with contextual authorization rules
+- Invoice lifecycle (`draft -> issued -> paid`)
+- Audit trail dependency with degraded read-only mode
+- SQL-first persistence with Drizzle + PostgreSQL
+- Risk-based test strategy (unit / integration / routes / browser)
+- Containerized local and delivery workflow
 
 ## Product Walkthrough
 
@@ -29,14 +36,15 @@ Main flows covered:
 
 ---
 
-## What This Demonstrates
+## What This Repository Shows
 
-This repository is meant to show how I approach:
+How I approach backend engineering in practice:
 
-- structuring business domains
-- protecting invariants
-- making trade-offs under scope constraints
-- designing maintainable backends
+- model complexity where business risk is real
+- keep simpler flows simple
+- enforce invariants across services and database constraints
+- make explicit trade-offs under delivery constraints
+- design for maintainability, not accidental cleverness
 - shipping with production awareness
 
 ---
@@ -66,17 +74,26 @@ This repository is meant to show how I approach:
 
 ### Why These Choices
 
-- Drizzle keeps SQL explicit while preserving strong typing
-- Better Auth decouples identity concerns from framework internals
-- Simpler frontend fetching keeps behavior explicit for this project size
+- **AdonisJS**: ESM-native, productive, explicit, lower ceremony than heavier enterprise frameworks for this scope
+- **Drizzle**: keeps SQL visible while preserving strong typing
+- **Better Auth**: separates identity infrastructure from business authorization
+- **React + Inertia**: server-driven UX with full-stack simplicity
+- **No React Query**: explicit data flows were preferable to extra abstraction for this project size
 
 ---
 
 ## Architecture
 
-The codebase is organized by business capability rather than technical layers first.
-Each module owns its application logic, HTTP boundary, and persistence concerns.
-Inside the accounting bounded context, `invoices` is intentionally the only rich module; `customers` and `expenses` stay flat to keep the simpler workflows easy to review.
+The codebase is organized by business capability first.
+
+Each module owns its HTTP boundary, application logic, and persistence concerns.
+
+Inside the accounting context:
+
+- `invoices` is intentionally rich
+- `customers` and `expenses` remain flatter workflows
+
+This reflects a deliberate principle: complexity should exist where domain risk exists.
 
 ### Project Structure
 
@@ -102,7 +119,7 @@ Routes
 
 ---
 
-## Core Features
+## Business Capabilities
 
 ### Core Modules
 
@@ -147,11 +164,13 @@ Role defaults:
 - `admin`: member abilities + issue/mark paid + audit trail view + membership list
 - `owner`: admin abilities + membership role changes
 
-See `docs/rbac-membership.md` for details and contextual safeguards.
+See [RBAC and membership](docs/domain/rbac-membership.md) for details and contextual safeguards.
 
 ---
 
 ## Reliability And Ops
+
+The system favors safe degradation over silent corruption.
 
 - If audit trail storage is unhealthy, accounting write endpoints are blocked
 - Read pages remain available and expose `accountingReadOnly` state
@@ -170,11 +189,16 @@ Development-only operator tooling under `/_dev/inspector`:
 Use Docker Compose or Podman Compose for local services.
 App runs on `http://localhost:3333`.
 
+On Linux, use the bootstrap script for the fastest setup:
+
 ```bash
 pnpm setup
 pnpm services:up
 pnpm dev
 ```
+
+See [How to run locally](docs/getting-started/how-to-run.md) for what the bootstrap does,
+including Compose services, local Docker secrets, and test scripts.
 
 Useful commands:
 
@@ -191,9 +215,9 @@ Expected setup:
 
 ---
 
-## Tests
+## Testing Strategy
 
-Testing is treated as part of delivery, not an afterthought.
+Testing is treated as delivery infrastructure, not as optional polish.
 Critical business flows are covered through isolated and integration-level tests.
 
 Suites:
@@ -226,7 +250,7 @@ Out of scope for this demo:
 
 ---
 
-## Next Iterations
+## Planned Extensions
 
 - accounting journal postings on confirm flows
 - pagination strategy refinement
@@ -236,7 +260,7 @@ Out of scope for this demo:
 
 ---
 
-## Interview Topics
+## Good Discussion Topics
 
 - architecture trade-offs
 - SQL vs ORM abstraction
@@ -249,11 +273,15 @@ Out of scope for this demo:
 
 ## Documentation
 
-See `docs/` for deeper technical material:
+See [Documentation](docs/README.md) for deeper technical material:
 
-- `docs/architecture.md`
-- `docs/rbac-membership.md`
-- `docs/roadmap.md`
-- `docs/adr/`
+- [Review guide](docs/getting-started/review-guide.md)
+- [How to run locally](docs/getting-started/how-to-run.md)
+- [Architecture overview](docs/architecture/overview.md)
+- [Invoice lifecycle](docs/domain/invoice-lifecycle.md)
+- [Accounting authorization boundary](docs/architecture/accounting-boundary.md)
+- [RBAC and membership](docs/domain/rbac-membership.md)
+- [Roadmap](docs/roadmap/roadmap.md)
+- [Architecture Decision Records](docs/adr/)
 
-Detailed decisions are intentionally moved to `docs/` to keep this README concise.
+Detailed decisions are intentionally moved to [docs](docs/README.md) to keep this README concise.

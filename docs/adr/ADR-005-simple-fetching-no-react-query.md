@@ -1,5 +1,7 @@
 # ADR-005: Simple Frontend Fetching
 
+[Documentation index](../README.md)
+
 ## Context
 
 Frontend scope is intentionally limited.
