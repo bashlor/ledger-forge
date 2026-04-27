@@ -1,5 +1,7 @@
 # User Management Logging Strategy
 
+[Documentation index](../README.md)
+
 ## Goal
 
 Keep `user_management` logs consistent, searchable, and security-relevant while preserving
@@ -60,3 +62,5 @@ Use `debug`/`trace` only for non-security diagnostics that are safe to lose in p
 - Prefer `recordUserManagementActivityEvent` or an injected `UserManagementActivitySink` for stable
   metadata shape and level policy.
 - Keep sensitive details sanitized in metadata (avoid raw DB/internal messages).
+
+Related docs: [RBAC and membership](rbac-membership.md), [Accounting boundary](../architecture/accounting-boundary.md).

@@ -1,5 +1,7 @@
 # RBAC and Membership
 
+[Documentation index](../README.md)
+
 This page documents the current authorization model used by accounting and membership features.
 
 ## Roles
@@ -32,14 +34,15 @@ Development-only ability:
 
 ## Default ability matrix
 
-- `member`
-  - allow: `accounting.read`, `accounting.writeDrafts`
-  - deny by default: invoice transitions, audit history, membership administration
-- `admin`
-  - allow: member abilities + `invoice.issue`, `invoice.markPaid`, `auditTrail.view`, `membership.list`, `membership.toggleActive`
-  - deny by default: privileged role changes restricted to owner
-- `owner`
-  - allow: admin abilities + `membership.changeRole`
+| Role     | Default abilities                                                                                                                        | Main restrictions                                                                                         |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `member` | `accounting.read`, `accounting.writeDrafts`                                                                                              | no invoice transitions, no audit history, no membership administration                                    |
+| `admin`  | member abilities, `invoice.issue`, `invoice.markPaid`, `auditTrail.view`, `dashboard.view`, `membership.list`, `membership.toggleActive` | cannot change roles, cannot mutate owner memberships                                                      |
+| `owner`  | admin abilities, `membership.changeRole`                                                                                                 | cannot demote or deactivate itself, cannot promote arbitrary users to owner through membership management |
+
+The model is intentionally simple RBAC plus contextual subject checks, not a full dynamic
+policy engine. The important product rules are made explicit in code instead of hidden in a
+generic permission DSL.
 
 ## Contextual safeguards
 
@@ -54,6 +57,13 @@ Membership and authorization checks include contextual rules beyond static role 
 - self-destructive operations are blocked (for example self-deactivation)
 - admin-level actions on privileged targets are constrained by explicit subject checks
 - inactive memberships lose access even if historical role was elevated
+
+Examples:
+
+- `admin` can deactivate a `member`, but not an `owner`.
+- `owner` can change roles for non-owner memberships, but cannot demote itself.
+- `devTools.access` is not granted by tenant role; it is tied to configured local operator
+  identities and only meaningful when dev tools are enabled.
 
 ## Request flow for protected routes
 
@@ -86,3 +96,5 @@ Controllers enforce required abilities near the HTTP boundary; services keep bus
 - restricted using environment-configured operator identities (`DEV_OPERATOR_PUBLIC_IDS`)
 
 It is not part of production-facing user workflows.
+
+Related docs: [Accounting boundary](../architecture/accounting-boundary.md), [Architecture overview](../architecture/overview.md), [User management logging](user-management-logging.md).

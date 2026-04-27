@@ -1,5 +1,7 @@
 # Accounting Authorization Boundary
 
+[Documentation index](../README.md)
+
 ## Scope
 
 This note defines where accounting authorization and tenant isolation are enforced, and what non-HTTP callers must provide.
@@ -12,6 +14,22 @@ This note defines where accounting authorization and tenant isolation are enforc
 - Accounting services trust the provided `tenantId` and enforce tenant-scoped reads/writes on business data.
 - Non-HTTP callers (console commands, bootstrap flows, demo utilities) must build context via `systemAccessContext(tenantId, requestId)`.
 - `createdBy` and audit `actorId` are provenance fields. They may be `null` for system work and are intentionally not enforced as user FKs so legacy/system audit rows remain representable.
+
+## Tenant access flow
+
+```text
+Authenticated session
+-> active organization id
+-> active membership check
+-> AccountingAccessContext
+-> tenant-scoped service call
+-> tenant-scoped Drizzle query
+-> tenant-aware PostgreSQL constraint
+```
+
+The important rule is that `tenantId` is not inferred deep in the repository layer. It is
+resolved at the boundary, passed explicitly, used in every accounting query, and reinforced by
+database constraints where possible.
 
 ## Audit tenant semantics
 
@@ -27,6 +45,9 @@ This note defines where accounting authorization and tenant isolation are enforc
 - Callers must validate tenant eligibility upstream (for example demo command guards and organization existence checks) before invoking accounting services.
 - Callers must distinguish tenant access from actor provenance: `tenantId` scopes the data; `actorId` only explains who performed the action.
 
+This keeps console commands, seed/reset flows, and development tools aligned with the same
+tenant contract as HTTP routes instead of introducing privileged global shortcuts.
+
 ## Current entry points
 
 - HTTP controllers under `app/core/accounting/http/controllers/` resolve an active tenant context and then build `AccountingAccessContext`.
@@ -37,3 +58,5 @@ This note defines where accounting authorization and tenant isolation are enforc
   - `app/core/dev_tools/application/dev_operator_tenant_factory_service.ts`
 
 These entry points pass an explicit tenant id through `systemAccessContext` and stay aligned with the boundary contract.
+
+Related docs: [Architecture overview](overview.md), [RBAC and membership](../domain/rbac-membership.md), [User management logging](../domain/user-management-logging.md).
