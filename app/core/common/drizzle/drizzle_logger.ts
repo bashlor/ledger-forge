@@ -7,16 +7,6 @@ interface DrizzleStructuredLogger {
   trace(bindings: Record<string, unknown>, message: string): void
 }
 
-function isDrizzleQueryLoggingEnabled(): boolean {
-  const envValue = process.env.DRIZZLE_LOG_QUERIES
-
-  if (envValue === undefined) {
-    return true
-  }
-
-  return ['1', 'true', 'yes', 'on'].includes(envValue.toLowerCase())
-}
-
 export class DrizzleLogger implements Logger {
   constructor(private readonly logger: DrizzleStructuredLogger = appLogger) {}
 
@@ -47,4 +37,14 @@ export class DrizzleLogger implements Logger {
       'Drizzle query'
     )
   }
+}
+
+function isDrizzleQueryLoggingEnabled(): boolean {
+  const envValue = process.env.DRIZZLE_LOG_QUERIES
+
+  if (envValue === undefined) {
+    return true
+  }
+
+  return ['1', 'on', 'true', 'yes'].includes(envValue.toLowerCase())
 }
