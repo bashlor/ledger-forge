@@ -66,6 +66,7 @@ export function mapBetterAuthError(error: unknown): Error {
         'OrganizationBusinessRuleError'
       )
     case 'USER_ALREADY_EXISTS':
+    case 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL':
       return new UserAlreadyExistsError()
     case 'USER_NOT_FOUND':
       return new UserNotFoundError()

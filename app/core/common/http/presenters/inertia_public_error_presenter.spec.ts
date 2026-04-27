@@ -48,8 +48,12 @@ function createContext() {
       },
     },
     flashes,
-    getFlashAllCount: () => flashAllCount,
-    getRedirectedTo: () => redirectedTo,
+    getFlashAllCount() {
+      return flashAllCount
+    },
+    getRedirectedTo() {
+      return redirectedTo
+    },
   }
 }
 
@@ -170,11 +174,11 @@ test.group('public error presenter', () => {
       },
       {
         key: 'inputErrorsBag',
-        value: { email: 'A user with this email already exists' },
+        value: { email: 'These credentials are not accepted for sign-up.' },
       },
       {
         key: 'notification',
-        value: { message: 'A user with this email already exists', type: 'error' },
+        value: { message: 'These credentials are not accepted for sign-up.', type: 'error' },
       },
       {
         key: 'inputErrorsBag',

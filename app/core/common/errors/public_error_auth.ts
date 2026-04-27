@@ -21,7 +21,7 @@ const GENERIC_AUTH_ERROR_MESSAGE = 'An unexpected authentication error occurred.
 const GENERIC_BUSINESS_RULE_MESSAGE = 'The requested action could not be completed.'
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid email or password.'
 const SESSION_EXPIRED_MESSAGE = 'Session has expired or is invalid'
-const USER_ALREADY_EXISTS_MESSAGE = 'A user with this email already exists'
+const USER_ALREADY_EXISTS_MESSAGE = 'These credentials are not accepted for sign-up.'
 const EMAIL_NOT_VERIFIED_MESSAGE = 'Email address has not been verified'
 const USER_NOT_FOUND_MESSAGE = 'User not found'
 const INVALID_TOKEN_MESSAGE = 'The link has expired or is invalid.'
@@ -33,7 +33,7 @@ const BETTER_AUTH_ERROR_MAP: Record<string, BetterAuthErrorEntry> = {
   },
   CREDENTIAL_ACCOUNT_NOT_FOUND: {
     status: 401,
-    userMessage: 'Invalid email or password.',
+    userMessage: INVALID_CREDENTIALS_MESSAGE,
   },
   EMAIL_NOT_VERIFIED: {
     status: 403,
@@ -57,7 +57,7 @@ const BETTER_AUTH_ERROR_MAP: Record<string, BetterAuthErrorEntry> = {
   },
   INVALID_EMAIL_OR_PASSWORD: {
     status: 401,
-    userMessage: 'Invalid email or password.',
+    userMessage: INVALID_CREDENTIALS_MESSAGE,
   },
   INVALID_PASSWORD: {
     status: 422,
@@ -65,7 +65,7 @@ const BETTER_AUTH_ERROR_MAP: Record<string, BetterAuthErrorEntry> = {
   },
   INVALID_TOKEN: {
     status: 401,
-    userMessage: 'The link has expired or is invalid.',
+    userMessage: INVALID_TOKEN_MESSAGE,
   },
   INVITATION_NOT_FOUND: {
     status: 422,
@@ -113,7 +113,12 @@ const BETTER_AUTH_ERROR_MAP: Record<string, BetterAuthErrorEntry> = {
   },
   USER_ALREADY_EXISTS: {
     status: 409,
-    userMessage: 'An account with this email already exists.',
+    userMessage: USER_ALREADY_EXISTS_MESSAGE,
+  },
+  /** Sign-up email collision (Better Auth base route uses this code, not `USER_ALREADY_EXISTS`). */
+  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: {
+    status: 409,
+    userMessage: USER_ALREADY_EXISTS_MESSAGE,
   },
   USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION: {
     status: 409,
@@ -337,17 +342,16 @@ export function resolveBetterAuthPublicError(code: string | undefined): Resolved
     case 'YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION':
       return formPublicError('auth.forbidden', entry.userMessage, entry.status)
     case 'ORGANIZATION_ALREADY_EXISTS':
-    case 'ORGANIZATION_MEMBERSHIP_LIMIT_REACHED':
     case 'ORGANIZATION_SLUG_ALREADY_TAKEN':
     case 'USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION':
     case 'USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION':
-      if (code === 'ORGANIZATION_MEMBERSHIP_LIMIT_REACHED') {
-        return formPublicError('domain.business_logic_error', GENERIC_BUSINESS_RULE_MESSAGE, 422)
-      }
       return formPublicError('auth.conflict', entry.userMessage, entry.status)
+    case 'ORGANIZATION_MEMBERSHIP_LIMIT_REACHED':
+      return formPublicError('domain.business_logic_error', GENERIC_BUSINESS_RULE_MESSAGE, 422)
     case 'SESSION_EXPIRED':
       return formPublicError('auth.session_expired', entry.userMessage, entry.status)
     case 'USER_ALREADY_EXISTS':
+    case 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL':
       return formPublicError('auth.user_already_exists', entry.userMessage, entry.status)
     case 'USER_NOT_FOUND':
       return formPublicError('auth.user_not_found', entry.userMessage, entry.status)

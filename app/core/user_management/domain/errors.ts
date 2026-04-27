@@ -34,7 +34,11 @@ export class SessionExpiredError extends DomainError {
 
 export class UserAlreadyExistsError extends DomainError {
   constructor() {
-    super('A user with this email already exists', 'already_exists', 'UserAlreadyExistsError')
+    super(
+      'These credentials are not accepted for sign-up.',
+      'already_exists',
+      'UserAlreadyExistsError'
+    )
   }
 }
 
