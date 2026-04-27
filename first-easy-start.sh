@@ -102,7 +102,6 @@ set_env_value 'DEMO_MODE_ENABLED' 'true' "$REPO_ROOT/.env"
 set_env_value 'DEMO_COMMANDS_ENABLED' 'true' "$REPO_ROOT/.env"
 set_env_value 'DEV_TOOLS_ENABLED' 'true' "$REPO_ROOT/.env"
 set_env_value 'DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED' 'true' "$REPO_ROOT/.env"
-set_env_value 'DEMO_ALLOWED_TENANT_IDS' "$(get_env_value 'SINGLE_TENANT_ORG_ID' "$REPO_ROOT/.env")" "$REPO_ROOT/.env"
 ensure_env_value 'DEV_OPERATOR_DEFAULT_NAME' "$DEV_OPERATOR_DEFAULT_NAME" "$REPO_ROOT/.env"
 ensure_env_value 'DEV_OPERATOR_DEFAULT_EMAIL' "$DEV_OPERATOR_DEFAULT_EMAIL" "$REPO_ROOT/.env"
 ensure_env_value 'DEV_OPERATOR_DEFAULT_PASSWORD' "$DEV_OPERATOR_DEFAULT_PASSWORD" "$REPO_ROOT/.env"
@@ -164,7 +163,6 @@ echo '  DEMO_MODE_ENABLED=true'
 echo '  DEMO_COMMANDS_ENABLED=true'
 echo '  DEV_TOOLS_ENABLED=true'
 echo '  DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED=true'
-echo "  DEMO_ALLOWED_TENANT_IDS=$(get_env_value 'DEMO_ALLOWED_TENANT_IDS' "$REPO_ROOT/.env")"
 echo ''
 echo 'PostgreSQL and Redis are stopped. To work on the app:'
 echo '  1. pnpm services:up'

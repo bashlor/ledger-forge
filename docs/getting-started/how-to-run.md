@@ -124,6 +124,8 @@ pnpm test:integration
 pnpm test:routes
 pnpm test:console
 pnpm test:browser
+pnpm test:browser:ui
+pnpm test:browser:report
 ```
 
 The test runner:
@@ -142,5 +144,11 @@ pnpm playwright:install
 
 By default, `pnpm test` runs unit, integration, routes, and console suites. Browser tests are
 run explicitly with `pnpm test:browser`.
+
+Browser extras:
+
+- `pnpm test:browser:ui` runs headed Chromium with devtools and a small slow-down for demo/debug sessions.
+- `pnpm test:browser:report` writes an NDJSON run report plus Playwright traces under `tmp/reports/e2e`.
+- Add `-- --db-logs` to re-enable SQL logs for one browser run when diagnosing DB issues.
 
 Related docs: [Review guide](review-guide.md), [Architecture overview](../architecture/overview.md), [Roadmap](../roadmap/roadmap.md).
