@@ -4,6 +4,27 @@ import { test } from '@japa/runner'
 import { DrizzleLogger } from './drizzle_logger.js'
 
 test.group('DrizzleLogger', () => {
+  test('skips query logs when disabled via env flag', ({ assert }) => {
+    const previousValue = process.env.DRIZZLE_LOG_QUERIES
+    const calls: { bindings: Record<string, unknown>; message: string }[] = []
+    const logger = new DrizzleLogger({
+      trace(bindings, message) {
+        calls.push({ bindings, message })
+      },
+    })
+
+    process.env.DRIZZLE_LOG_QUERIES = 'false'
+    logger.logQuery('select 1', [])
+
+    if (previousValue === undefined) {
+      delete process.env.DRIZZLE_LOG_QUERIES
+    } else {
+      process.env.DRIZZLE_LOG_QUERIES = previousValue
+    }
+
+    assert.lengthOf(calls, 0)
+  })
+
   test('logs queries with structured drizzle fields', ({ assert }) => {
     const calls: { bindings: Record<string, unknown>; message: string }[] = []
     const logger = new DrizzleLogger({
