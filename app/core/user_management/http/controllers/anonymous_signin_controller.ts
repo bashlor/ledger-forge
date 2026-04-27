@@ -7,7 +7,7 @@ import { inject } from '@adonisjs/core'
 import { UserManagementAuditTrail } from '../../application/audit/user_management_audit_trail.js'
 import { AuthenticationPort } from '../../domain/authentication.js'
 import { resolveInertiaMutation } from '../helpers/error_surface.js'
-import { tryProvisionWorkspaceAfterAuth } from '../helpers/post_auth_workspace_bootstrap.js'
+import { tryProvisionAnonymousDemoWorkspaceAfterAuth } from '../helpers/post_auth_workspace_bootstrap.js'
 import { writeSessionToken } from '../session/session_token.js'
 
 export default class AnonymousSigninController {
@@ -21,10 +21,9 @@ export default class AnonymousSigninController {
 
         const authentication = await auth.signInAnonymously()
 
-        await tryProvisionWorkspaceAfterAuth(
+        await tryProvisionAnonymousDemoWorkspaceAfterAuth(
           ctx,
           {
-            isAnonymous: true,
             sessionToken: authentication.session.token,
             userId: authentication.user.id,
           },

@@ -1,6 +1,8 @@
 import type * as DrizzleSchema from '#core/common/drizzle/index'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
+import { AnonymousDemoWorkspaceService } from '#core/user_management/application/demo/anonymous_demo_workspace_service'
+import { DemoWorkspaceSeedService } from '#core/user_management/application/demo/demo_workspace_seed_service'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 
@@ -9,6 +11,26 @@ import type { AuthenticationPort, AuthResult } from '../../domain/authentication
 import WorkspaceShareMiddleware from './workspace_share_middleware.js'
 
 type AppDrizzleDb = PostgresJsDatabase<typeof DrizzleSchema>
+
+class StubDemoWorkspaceSeedService extends DemoWorkspaceSeedService {
+  constructor(private readonly handler?: () => Promise<boolean>) {
+    super({} as AppDrizzleDb)
+  }
+
+  protected override async seedProvisionedWorkspaceDemoData(): Promise<boolean> {
+    return (await this.handler?.()) ?? false
+  }
+}
+
+class StubAnonymousDemoWorkspaceService extends AnonymousDemoWorkspaceService {
+  constructor(private readonly handler: () => Promise<AuthResult>) {
+    super({} as AppDrizzleDb)
+  }
+
+  override async ensureWorkspace(): Promise<AuthResult> {
+    return this.handler()
+  }
+}
 
 class SingleTenantTestMiddleware extends WorkspaceShareMiddleware {
   constructor(
@@ -55,8 +77,8 @@ class SingleTenantTestMiddleware extends WorkspaceShareMiddleware {
     return this.options.isSingleTenantMode ?? true
   }
 
-  protected override async seedWorkspaceDemoData(): Promise<boolean> {
-    return (await this.options.seedWorkspaceDemoData?.()) ?? false
+  protected override createDemoWorkspaceSeedService(): DemoWorkspaceSeedService {
+    return new StubDemoWorkspaceSeedService(this.options.seedWorkspaceDemoData)
   }
 }
 
@@ -71,6 +93,7 @@ class WorkspaceTestMiddleware extends WorkspaceShareMiddleware {
       getSingleTenantOrgId?: () => string
       hasActiveTenantMembership?: () => Promise<boolean>
       isSingleTenantMode?: boolean
+      resolveAnonymousDemoWorkspace?: () => Promise<AuthResult>
       provisionPersonalWorkspace?: () => Promise<{
         organizationId: null | string
         wasProvisioned: boolean
@@ -109,6 +132,14 @@ class WorkspaceTestMiddleware extends WorkspaceShareMiddleware {
     return this.options.isSingleTenantMode ?? true
   }
 
+  protected override createAnonymousDemoWorkspaceService(): AnonymousDemoWorkspaceService {
+    if (!this.options.resolveAnonymousDemoWorkspace) {
+      throw new Error('resolveAnonymousDemoWorkspace should not be called in this test')
+    }
+
+    return new StubAnonymousDemoWorkspaceService(this.options.resolveAnonymousDemoWorkspace)
+  }
+
   protected override async provisionPersonalWorkspace(): Promise<{
     organizationId: null | string
     wasProvisioned: boolean
@@ -120,12 +151,17 @@ class WorkspaceTestMiddleware extends WorkspaceShareMiddleware {
     return this.options.provisionPersonalWorkspace()
   }
 
-  protected override async seedWorkspaceDemoData(): Promise<boolean> {
-    return (await this.options.seedWorkspaceDemoData?.()) ?? false
+  protected override createDemoWorkspaceSeedService(): DemoWorkspaceSeedService {
+    return new StubDemoWorkspaceSeedService(this.options.seedWorkspaceDemoData)
   }
 }
 
-function createAuthSession(activeOrganizationId: null | string): AuthResult {
+function createAuthSession(
+  activeOrganizationId: null | string,
+  options: { isAnonymous?: boolean } = {}
+): AuthResult {
+  const isAnonymous = options.isAnonymous ?? false
+
   return {
     session: {
       activeOrganizationId,
@@ -135,12 +171,12 @@ function createAuthSession(activeOrganizationId: null | string): AuthResult {
     },
     user: {
       createdAt: new Date('2024-01-01T00:00:00.000Z'),
-      email: 'user@example.com',
-      emailVerified: true,
+      email: isAnonymous ? 'temp@example.test' : 'user@example.com',
+      emailVerified: !isAnonymous,
       id: 'user-1',
       image: null,
-      isAnonymous: false,
-      name: 'User',
+      isAnonymous,
+      name: isAnonymous ? 'Anonymous' : 'User',
       publicId: 'pub-user-1',
     },
   }
@@ -201,7 +237,7 @@ function createContext(input: {
       return responseStatus
     },
     warnings,
-    workspaceShare: undefined,
+    workspaceShare: undefined as undefined | { isAnonymousWorkspace: boolean },
   }
 }
 
@@ -444,6 +480,54 @@ test.group('WorkspaceShareMiddleware', () => {
     assert.equal(auditRows[0]?.actorId, 'user-1')
     assert.equal(auditRows[0]?.entityId, 'session-id-1')
     assert.notEqual(auditRows[0]?.entityId, 'session-token')
+    assert.deepEqual(ctx.redirects, [])
+  })
+
+  test('single-tenant mode delegates anonymous workspace resolution', async ({ assert }) => {
+    app.container.bindValue('drizzle', {
+      query: {
+        organization: {
+          findFirst: async () => ({
+            id: 'org-anonymous',
+            logo: null,
+            metadata: JSON.stringify({ workspaceKind: 'anonymous' }),
+            name: 'Anonymous workspace',
+            slug: 'ws-anonymous',
+          }),
+        },
+      },
+    } as unknown as AppDrizzleDb)
+
+    const auth = {
+      getSession: async () => createAuthSession('org-anonymous', { isAnonymous: true }),
+    } satisfies Pick<AuthenticationPort, 'getSession'>
+
+    let resolved = false
+    const middleware = new WorkspaceTestMiddleware(auth as unknown as AuthenticationPort, {
+      ensureSingleTenantMembership: async () => {
+        throw new Error('anonymous users should not join the single-tenant organization')
+      },
+      resolveAnonymousDemoWorkspace: async () => {
+        resolved = true
+        return createAuthSession('org-anonymous', { isAnonymous: true })
+      },
+    })
+
+    const ctx = createContext({
+      authSession: createAuthSession('org-anonymous', { isAnonymous: true }),
+      cookie: 'session-token',
+      path: '/app/dashboard',
+    })
+    let nextCalled = false
+
+    await middleware.handle(ctx as never, async () => {
+      nextCalled = true
+    })
+
+    assert.isTrue(nextCalled)
+    assert.isTrue(resolved)
+    assert.equal(ctx.authSession.session.activeOrganizationId, 'org-anonymous')
+    assert.isTrue(ctx.workspaceShare?.isAnonymousWorkspace)
     assert.deepEqual(ctx.redirects, [])
   })
 

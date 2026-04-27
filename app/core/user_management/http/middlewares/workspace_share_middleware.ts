@@ -4,7 +4,8 @@ import type { NextFn } from '@adonisjs/core/types/http'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { HttpProblem } from '#core/common/resources/http_problem'
-import { seedProvisionedWorkspaceDemoData } from '#core/user_management/application/demo_workspace_bootstrap'
+import { AnonymousDemoWorkspaceService } from '#core/user_management/application/demo/anonymous_demo_workspace_service'
+import { DemoWorkspaceSeedService } from '#core/user_management/application/demo/demo_workspace_seed_service'
 import {
   clearActiveOrganizationForSession,
   ensureSingleTenantMembership,
@@ -51,33 +52,49 @@ export default class WorkspaceShareMiddleware {
     const singleTenantMode = this.isSingleTenantMode()
 
     if (singleTenantMode) {
-      try {
-        const orgId = this.getSingleTenantOrgId()
-        await this.ensureSingleTenantMembership(db, {
-          displayName: ctx.authSession.user.name ?? undefined,
-          email: ctx.authSession.user.email,
-          isAnonymous: ctx.authSession.user.isAnonymous,
-          orgId,
-          userId: ctx.authSession.user.id,
+      if (ctx.authSession.user.isAnonymous) {
+        ctx.authSession = await this.createAnonymousDemoWorkspaceService(db).ensureWorkspace({
+          activitySink: new StructuredUserManagementActivitySink(ctx.logger),
+          auth,
+          authSession: ctx.authSession,
+          path: pathname,
+          sessionToken: token,
         })
+      } else {
+        try {
+          const orgId = this.getSingleTenantOrgId()
+          await this.ensureSingleTenantMembership(db, {
+            displayName: ctx.authSession.user.name ?? undefined,
+            email: ctx.authSession.user.email,
+            isAnonymous: ctx.authSession.user.isAnonymous,
+            orgId,
+            userId: ctx.authSession.user.id,
+          })
 
-        if (token && ctx.authSession.session.activeOrganizationId !== orgId) {
-          await setActiveOrganizationForSession(db, token, orgId, {
+          if (token && ctx.authSession.session.activeOrganizationId !== orgId) {
+            await setActiveOrganizationForSession(db, token, orgId, {
+              userId: ctx.authSession.user.id,
+            })
+          }
+
+          this.setActiveOrganizationId(ctx, orgId)
+        } catch (error) {
+          this.setActiveOrganizationId(ctx, null)
+          this.logSingleTenantResolutionFailure(ctx, pathname, error)
+        }
+
+        if (ctx.authSession?.session.activeOrganizationId) {
+          await this.createDemoWorkspaceSeedService(db).seedBestEffort({
+            activitySink: new StructuredUserManagementActivitySink(ctx.logger),
+            mode: 'single',
+            path: pathname,
+            provisioning: {
+              organizationId: ctx.authSession.session.activeOrganizationId,
+              wasProvisioned: true,
+            },
             userId: ctx.authSession.user.id,
           })
         }
-
-        this.setActiveOrganizationId(ctx, orgId)
-      } catch (error) {
-        this.setActiveOrganizationId(ctx, null)
-        this.logSingleTenantResolutionFailure(ctx, pathname, error)
-      }
-
-      if (ctx.authSession?.session.activeOrganizationId) {
-        await this.seedWorkspaceDemoDataBestEffort(ctx, db, pathname, 'single', {
-          organizationId: ctx.authSession.session.activeOrganizationId,
-          wasProvisioned: true,
-        })
       }
     } else if (!ctx.authSession.session.activeOrganizationId && token) {
       try {
@@ -94,7 +111,13 @@ export default class WorkspaceShareMiddleware {
           ctx.authSession = refreshed
         }
 
-        await this.seedWorkspaceDemoDataBestEffort(ctx, db, pathname, 'personal', provisioning)
+        await this.createDemoWorkspaceSeedService(db).seedBestEffort({
+          activitySink: new StructuredUserManagementActivitySink(ctx.logger),
+          mode: 'personal',
+          path: pathname,
+          provisioning,
+          userId: ctx.authSession.user.id,
+        })
       } catch (error) {
         this.logPersonalWorkspaceProvisionFailure(ctx, pathname, error)
       }
@@ -162,6 +185,18 @@ export default class WorkspaceShareMiddleware {
     return next()
   }
 
+  protected createAnonymousDemoWorkspaceService(
+    db: PostgresJsDatabase<typeof schema>
+  ): AnonymousDemoWorkspaceService {
+    return new AnonymousDemoWorkspaceService(db, this.createDemoWorkspaceSeedService(db))
+  }
+
+  protected createDemoWorkspaceSeedService(
+    db: PostgresJsDatabase<typeof schema>
+  ): DemoWorkspaceSeedService {
+    return new DemoWorkspaceSeedService(db)
+  }
+
   protected async ensureSingleTenantMembership(
     db: PostgresJsDatabase<typeof schema>,
     input: {
@@ -204,11 +239,11 @@ export default class WorkspaceShareMiddleware {
     return provisionPersonalWorkspace(db, input)
   }
 
-  protected async seedWorkspaceDemoData(
+  protected async loadWorkspaceShare(
     db: PostgresJsDatabase<typeof schema>,
-    provisioning: { organizationId: null | string; wasProvisioned: boolean }
-  ): Promise<boolean> {
-    return seedProvisionedWorkspaceDemoData(db, provisioning)
+    organizationId: string
+  ) {
+    return loadWorkspaceShare(db, organizationId)
   }
 
   private async attachWorkspaceShare(ctx: HttpContext): Promise<void> {
@@ -220,7 +255,7 @@ export default class WorkspaceShareMiddleware {
 
     const db = (await app.container.make('drizzle')) as PostgresJsDatabase<typeof schema>
     try {
-      const share = await loadWorkspaceShare(db, activeOrganizationId)
+      const share = await this.loadWorkspaceShare(db, activeOrganizationId)
       ctx.workspaceShare = share ?? undefined
     } catch (error) {
       this.recordWorkspaceActivity(ctx, 'workspace_share_load_failure', {
@@ -254,25 +289,6 @@ export default class WorkspaceShareMiddleware {
         errorName: error instanceof Error ? error.name : 'UnknownError',
         mode: 'personal',
         orgId: ctx.authSession?.session.activeOrganizationId,
-        path: pathname,
-      },
-    })
-  }
-
-  private logSeedFailure(
-    ctx: HttpContext,
-    pathname: string,
-    error: unknown,
-    mode: 'personal' | 'single',
-    organizationId: null | string
-  ): void {
-    this.recordWorkspaceActivity(ctx, `${mode}_workspace_demo_seed_failure`, {
-      entityId: organizationId ?? 'unknown',
-      level: 'warn',
-      metadata: {
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-        mode,
-        orgId: organizationId,
         path: pathname,
       },
     })
@@ -340,20 +356,6 @@ export default class WorkspaceShareMiddleware {
       },
       new StructuredUserManagementActivitySink(ctx.logger)
     )
-  }
-
-  private async seedWorkspaceDemoDataBestEffort(
-    ctx: HttpContext,
-    db: PostgresJsDatabase<typeof schema>,
-    pathname: string,
-    mode: 'personal' | 'single',
-    provisioning: { organizationId: null | string; wasProvisioned: boolean }
-  ): Promise<void> {
-    try {
-      await this.seedWorkspaceDemoData(db, provisioning)
-    } catch (error) {
-      this.logSeedFailure(ctx, pathname, error, mode, provisioning.organizationId)
-    }
   }
 
   private setActiveOrganizationId(ctx: HttpContext, organizationId: null | string): void {

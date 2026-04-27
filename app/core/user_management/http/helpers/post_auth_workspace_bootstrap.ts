@@ -2,7 +2,7 @@ import type * as schema from '#core/common/drizzle/index'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import { seedProvisionedWorkspaceDemoData } from '#core/user_management/application/demo_workspace_bootstrap'
+import { DemoWorkspaceSeedService } from '#core/user_management/application/demo/demo_workspace_seed_service'
 import { provisionPersonalWorkspace } from '#core/user_management/application/workspace_provisioning'
 import { isSingleTenantMode } from '#core/user_management/support/tenant_mode'
 import app from '@adonisjs/core/services/app'
@@ -18,8 +18,8 @@ export type PostAuthWorkspaceFailureEvent =
   | 'workspace_provision_on_signup_failure'
 
 /**
- * Best-effort personal workspace + demo data after sign-in / sign-up. Failures
- * are logged; callers should not block session establishment.
+ * Best-effort normal personal workspace bootstrap after named sign-in / sign-up.
+ * Single-tenant named users are resolved by WorkspaceShareMiddleware.
  */
 export async function tryProvisionWorkspaceAfterAuth(
   ctx: HttpContext,
@@ -33,10 +33,47 @@ export async function tryProvisionWorkspaceAfterAuth(
   activeOrganizationId: null | string,
   failureEvent: PostAuthWorkspaceFailureEvent
 ): Promise<void> {
+  if (isSingleTenantMode()) {
+    return
+  }
+
+  await tryProvisionPersonalWorkspaceAfterAuth(ctx, input, activeOrganizationId, failureEvent)
+}
+
+export async function tryProvisionAnonymousDemoWorkspaceAfterAuth(
+  ctx: HttpContext,
+  input: {
+    sessionToken: string
+    userId: string
+  },
+  activeOrganizationId: null | string,
+  failureEvent: PostAuthWorkspaceFailureEvent
+): Promise<void> {
+  await tryProvisionPersonalWorkspaceAfterAuth(
+    ctx,
+    {
+      isAnonymous: true,
+      sessionToken: input.sessionToken,
+      userId: input.userId,
+    },
+    activeOrganizationId,
+    failureEvent
+  )
+}
+
+async function tryProvisionPersonalWorkspaceAfterAuth(
+  ctx: HttpContext,
+  input: {
+    displayName?: string
+    email?: string
+    isAnonymous: boolean
+    sessionToken: string
+    userId: string
+  },
+  activeOrganizationId: null | string,
+  failureEvent: PostAuthWorkspaceFailureEvent
+): Promise<void> {
   try {
-    if (isSingleTenantMode()) {
-      return
-    }
     const db = (await app.container.make('drizzle')) as PostgresJsDatabase<typeof schema>
     const provisioning = await provisionPersonalWorkspace(db, {
       displayName: input.displayName,
@@ -45,7 +82,13 @@ export async function tryProvisionWorkspaceAfterAuth(
       sessionToken: input.sessionToken,
       userId: input.userId,
     })
-    await seedProvisionedWorkspaceDemoData(db, provisioning)
+    await new DemoWorkspaceSeedService(db).seedBestEffort({
+      activitySink: new StructuredUserManagementActivitySink(ctx.logger),
+      mode: 'personal',
+      path: ctx.request.url(true),
+      provisioning,
+      userId: input.userId,
+    })
   } catch (error) {
     recordUserManagementActivityEvent(
       {
