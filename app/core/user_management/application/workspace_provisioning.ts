@@ -130,14 +130,30 @@ export async function ensureSingleTenantMembership(
         .where(eq(schema.member.organizationId, input.orgId))
         .limit(1)
 
-      const isFirstOrganizationMember = Number(organizationMemberCount?.value ?? 0) === 0
+      const [membershipComposition] = await tx
+        .select({
+          anonymousOwnerCount: sql<number>`count(*) filter (where ${schema.user.isAnonymous} = true and ${schema.member.role} = 'owner')`,
+          namedMemberCount: sql<number>`count(*) filter (where ${schema.user.isAnonymous} = false)`,
+        })
+        .from(schema.member)
+        .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
+        .where(eq(schema.member.organizationId, input.orgId))
+        .limit(1)
+
+      const memberRole = resolveSingleTenantProvisionedRole({
+        anonymousOwnerCount: Number(membershipComposition?.anonymousOwnerCount ?? 0),
+        isAnonymous: input.isAnonymous,
+        namedMemberCount: Number(membershipComposition?.namedMemberCount ?? 0),
+        organizationMemberCount: Number(organizationMemberCount?.value ?? 0),
+      })
+
       await tx
         .insert(schema.member)
         .values({
           createdAt: new Date(),
           id: memberId,
           organizationId: input.orgId,
-          role: isFirstOrganizationMember ? 'owner' : 'member',
+          role: memberRole,
           userId: input.userId,
         })
         .onConflictDoNothing()
@@ -145,7 +161,7 @@ export async function ensureSingleTenantMembership(
         action: 'member_workspace_provisioned',
         actorId: input.userId,
         changes: {
-          after: { isActive: true, role: isFirstOrganizationMember ? 'owner' : 'member' },
+          after: { isActive: true, role: memberRole },
           before: { isActive: null, role: null },
         },
         entityId: memberId,
@@ -160,7 +176,7 @@ export async function ensureSingleTenantMembership(
           event: 'single_tenant_membership_provision_success',
           level: 'info',
           metadata: {
-            role: isFirstOrganizationMember ? 'owner' : 'member',
+            role: memberRole,
             workspaceMode: 'single_tenant',
           },
           outcome: 'success',
@@ -596,4 +612,20 @@ async function recordSessionActiveOrganizationChanged(
     metadata: { source: input.source },
     tenantId: input.afterOrganizationId,
   })
+}
+
+function resolveSingleTenantProvisionedRole(input: {
+  anonymousOwnerCount: number
+  isAnonymous: boolean
+  namedMemberCount: number
+  organizationMemberCount: number
+}): 'member' | 'owner' {
+  if (input.organizationMemberCount === 0) {
+    return 'owner'
+  }
+
+  const shouldPromoteFirstNamedMember =
+    !input.isAnonymous && input.namedMemberCount === 0 && input.anonymousOwnerCount > 0
+
+  return shouldPromoteFirstNamedMember ? 'owner' : 'member'
 }

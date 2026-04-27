@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { isAnonymousDemoAuthEnabled } from '#core/user_management/support/demo_mode'
 import { inject } from '@adonisjs/core'
 
 import { UserManagementAuditTrail } from '../../application/audit/user_management_audit_trail.js'
@@ -12,7 +13,9 @@ import { loginValidator } from '../validators/user.js'
 
 export default class SigninController {
   async show({ inertia }: HttpContext) {
-    return inertia.render('auth/signin', {})
+    return inertia.render('auth/signin', {
+      allowAnonymousAuth: isAnonymousDemoAuthEnabled(),
+    })
   }
 
   @inject()
@@ -48,7 +51,7 @@ export default class SigninController {
         })
       },
       flashAll: true,
-      redirectTo: '/dashboard',
+      redirectTo: '/',
     })
   }
 }

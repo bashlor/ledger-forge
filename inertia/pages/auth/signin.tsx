@@ -8,7 +8,11 @@ import { AuthPageShell } from '~/components/auth_page_shell'
 import { PrimaryButton, SecondaryButton } from '~/components/button'
 import { FormField } from '~/components/form_field'
 
-export default function Signin() {
+interface SigninProps {
+  allowAnonymousAuth: boolean
+}
+
+export default function Signin({ allowAnonymousAuth }: SigninProps) {
   return (
     <>
       <Head title="Secure access" />
@@ -75,13 +79,15 @@ export default function Signin() {
                   Authorize access
                 </PrimaryButton>
 
-                <SecondaryButton
-                  className="w-full border border-outline-variant/30 py-2.5 text-xs font-bold uppercase tracking-widest"
-                  onClick={() => router.post('/signin/anonymous')}
-                  type="button"
-                >
-                  Continue in anonymous mode
-                </SecondaryButton>
+                {allowAnonymousAuth ? (
+                  <SecondaryButton
+                    className="w-full border border-outline-variant/30 py-2.5 text-xs font-bold uppercase tracking-widest"
+                    onClick={() => router.post('/signin/anonymous')}
+                    type="button"
+                  >
+                    Continue in anonymous mode
+                  </SecondaryButton>
+                ) : null}
 
                 <div className="flex items-center justify-center gap-2 text-sm text-on-surface-variant">
                   <span>No account yet?</span>
