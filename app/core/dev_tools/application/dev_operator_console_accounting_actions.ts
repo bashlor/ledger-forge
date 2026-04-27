@@ -88,7 +88,7 @@ export class DevOperatorConsoleAccountingActions {
         nextTarget.id,
         {
           issuedCompanyAddress: '15 rue de la Paix, 75001 Paris',
-          issuedCompanyName: 'Precision Ledger Dev',
+          issuedCompanyName: 'Ledger Forge Dev',
         },
         scenario.access
       )

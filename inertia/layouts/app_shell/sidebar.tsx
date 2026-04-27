@@ -31,7 +31,7 @@ export function AppSidebar({
   return (
     <aside className="fixed left-0 top-0 z-50 hidden h-screen w-64 flex-col bg-surface-container-highest px-4 pb-6 pt-0 lg:flex">
       <Link
-        aria-label="Precision Ledger home"
+        aria-label="Ledger Forge home"
         className="-mx-2 flex min-h-16 items-center gap-2.5 rounded-xl px-2 outline-hidden transition-colors hover:bg-surface-container-lowest/40 focus-visible:ring-2 focus-visible:ring-primary/30"
         href={homeHref}
       >
@@ -40,10 +40,10 @@ export function AppSidebar({
         </div>
         <div className="flex min-w-0 flex-col justify-center py-1">
           <p className="font-headline text-[15px] font-extrabold leading-tight text-on-surface">
-            Precision Ledger
+            Ledger Forge
           </p>
           <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
-            Accounting demo
+            Demo workspace
           </p>
         </div>
       </Link>
