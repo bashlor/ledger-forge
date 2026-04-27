@@ -3,6 +3,7 @@ import {
   AuthenticationError,
   InvalidCredentialsError,
   SessionExpiredError,
+  UserAlreadyExistsError,
 } from '#core/user_management/domain/errors'
 import { mapBetterAuthError } from '#core/user_management/infra/auth/map_better_auth_error'
 import { test } from '@japa/runner'
@@ -29,6 +30,14 @@ test.group('resolvePublicError', () => {
         status: 401,
       }
     )
+
+    assert.deepEqual(resolvePublicError(new UserAlreadyExistsError()), {
+      code: 'auth.user_already_exists',
+      fieldBag: { email: 'These credentials are not accepted for sign-up.' },
+      message: 'These credentials are not accepted for sign-up.',
+      presentation: 'form',
+      status: 409,
+    })
   })
 
   test('sanitizes generic authentication failures', ({ assert }) => {
@@ -91,6 +100,13 @@ test.group('resolvePublicError', () => {
       message: 'Invalid email or password.',
       presentation: 'form',
       status: 401,
+    })
+
+    assert.deepEqual(resolveBetterAuthPublicError('USER_ALREADY_EXISTS'), {
+      code: 'auth.user_already_exists',
+      message: 'These credentials are not accepted for sign-up.',
+      presentation: 'form',
+      status: 409,
     })
 
     assert.deepEqual(resolveBetterAuthPublicError('ORGANIZATION_NOT_FOUND'), {

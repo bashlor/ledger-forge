@@ -64,5 +64,6 @@ test.group('Signup E2E', (group) => {
 
     await page.waitForURL(route('signup.show'))
     await page.assertPath(route('signup.show'))
+    await page.assertTextContains('body', 'These credentials are not accepted for sign-up.')
   })
 })

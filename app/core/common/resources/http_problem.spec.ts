@@ -129,7 +129,7 @@ test.group('HttpProblem', () => {
 
     assert.deepEqual(lookupBetterAuthError('USER_ALREADY_EXISTS'), {
       status: 409,
-      userMessage: 'An account with this email already exists.',
+      userMessage: 'These credentials are not accepted for sign-up.',
     })
     assert.deepEqual(lookupBetterAuthError('FAILED_TO_RETRIEVE_INVITATION'), {
       status: 422,
