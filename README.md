@@ -227,6 +227,8 @@ Suites:
 - `pnpm test:routes`
 - `pnpm test:console`
 - `pnpm test:browser`
+- `pnpm test:browser:ui`
+- `pnpm test:browser:report`
 
 Test naming:
 

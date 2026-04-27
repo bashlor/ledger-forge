@@ -24,7 +24,7 @@ export default class SeedDemo extends BaseCommand {
       throw new DomainError('The --tenant flag is required.', 'invalid_data')
     }
 
-    new DemoCommandGuardService().ensureTenantAllowed(tenantId)
+    new DemoCommandGuardService().ensureTenantAllowed()
 
     const db = await this.app.container.make('drizzle')
     const organization = await db.query.organization.findFirst({

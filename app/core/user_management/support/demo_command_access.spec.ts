@@ -1,9 +1,9 @@
 import { test } from '@japa/runner'
 
-import { isDemoCommandAccessEnabled, parseDemoAllowedTenantIds } from './demo_command_access.js'
+import { isDemoCommandAccessEnabled } from './demo_command_access.js'
 
 test.group('demo command access', () => {
-  test('does not enable commands from demo mode in development', ({ assert }) => {
+  test('keeps commands disabled by default in development', ({ assert }) => {
     assert.isFalse(
       isDemoCommandAccessEnabled({
         commandsEnabled: false,
@@ -37,13 +37,5 @@ test.group('demo command access', () => {
         nodeEnv: 'test',
       })
     )
-  })
-
-  test('parses allowlisted tenant ids', ({ assert }) => {
-    assert.deepEqual(parseDemoAllowedTenantIds(' tenant-a,tenant-b ,, tenant-c '), [
-      'tenant-a',
-      'tenant-b',
-      'tenant-c',
-    ])
   })
 })

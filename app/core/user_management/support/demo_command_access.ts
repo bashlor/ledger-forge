@@ -19,12 +19,3 @@ export function isDemoCommandAccessEnabled(
 
   return commandsEnabled
 }
-
-export function parseDemoAllowedTenantIds(
-  value = env.get('DEMO_ALLOWED_TENANT_IDS') ?? ''
-): string[] {
-  return value
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
-}

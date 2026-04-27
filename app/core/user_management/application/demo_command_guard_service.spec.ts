@@ -4,39 +4,21 @@ import { test } from '@japa/runner'
 import { DemoCommandGuardService } from './demo_command_guard_service.js'
 
 test.group('DemoCommandGuardService', () => {
-  test('allows tenant when commands are enabled and no allowlist is configured', ({ assert }) => {
-    const guard = new DemoCommandGuardService(true, [])
+  test('allows demo commands when they are enabled', ({ assert }) => {
+    const guard = new DemoCommandGuardService(true)
 
-    assert.doesNotThrow(() => guard.ensureTenantAllowed('tenant-a'))
+    assert.doesNotThrow(() => guard.ensureTenantAllowed())
   })
 
   test('rejects access when commands are disabled', ({ assert }) => {
-    const guard = new DemoCommandGuardService(false, [])
+    const guard = new DemoCommandGuardService(false)
 
     try {
-      guard.ensureTenantAllowed('tenant-a')
+      guard.ensureTenantAllowed()
       assert.fail('Expected guard to reject when commands are disabled.')
     } catch (error) {
       assert.instanceOf(error, DomainError)
       assert.equal(error.message, 'Demo commands are not available in this environment.')
     }
-  })
-
-  test('rejects non-allowlisted tenants when an allowlist is configured', ({ assert }) => {
-    const guard = new DemoCommandGuardService(true, ['tenant-a'], 'development')
-
-    try {
-      guard.ensureTenantAllowed('tenant-b')
-      assert.fail('Expected guard to reject non-allowlisted tenant.')
-    } catch (error) {
-      assert.instanceOf(error, DomainError)
-      assert.equal(error.message, 'Tenant tenant-b is not allowlisted for demo commands.')
-    }
-  })
-
-  test('ignores the allowlist in test environment', ({ assert }) => {
-    const guard = new DemoCommandGuardService(true, ['tenant-a'], 'test')
-
-    assert.doesNotThrow(() => guard.ensureTenantAllowed('tenant-b'))
   })
 })
