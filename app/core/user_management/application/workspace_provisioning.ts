@@ -124,28 +124,15 @@ export async function ensureSingleTenantMembership(
 
     if (!existing) {
       const memberId = uuidv7()
-      const [organizationMemberCount] = await tx
-        .select({ value: sql<number>`count(*)` })
-        .from(schema.member)
-        .where(eq(schema.member.organizationId, input.orgId))
-        .limit(1)
-
       const [membershipComposition] = await tx
         .select({
-          anonymousOwnerCount: sql<number>`count(*) filter (where ${schema.user.isAnonymous} = true and ${schema.member.role} = 'owner')`,
-          namedMemberCount: sql<number>`count(*) filter (where ${schema.user.isAnonymous} = false)`,
+          memberCount: sql<number>`count(*)`,
         })
         .from(schema.member)
-        .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
         .where(eq(schema.member.organizationId, input.orgId))
         .limit(1)
 
-      const memberRole = resolveSingleTenantProvisionedRole({
-        anonymousOwnerCount: Number(membershipComposition?.anonymousOwnerCount ?? 0),
-        isAnonymous: input.isAnonymous,
-        namedMemberCount: Number(membershipComposition?.namedMemberCount ?? 0),
-        organizationMemberCount: Number(organizationMemberCount?.value ?? 0),
-      })
+      const memberRole = Number(membershipComposition?.memberCount ?? 0) === 0 ? 'owner' : 'member'
 
       await tx
         .insert(schema.member)
@@ -612,20 +599,4 @@ async function recordSessionActiveOrganizationChanged(
     metadata: { source: input.source },
     tenantId: input.afterOrganizationId,
   })
-}
-
-function resolveSingleTenantProvisionedRole(input: {
-  anonymousOwnerCount: number
-  isAnonymous: boolean
-  namedMemberCount: number
-  organizationMemberCount: number
-}): 'member' | 'owner' {
-  if (input.organizationMemberCount === 0) {
-    return 'owner'
-  }
-
-  const shouldPromoteFirstNamedMember =
-    !input.isAnonymous && input.namedMemberCount === 0 && input.anonymousOwnerCount > 0
-
-  return shouldPromoteFirstNamedMember ? 'owner' : 'member'
 }
