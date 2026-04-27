@@ -1,11 +1,13 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { DomainError } from '#core/common/errors/domain_error'
 import { HttpProblem } from '#core/common/resources/http_problem'
 import { AuthenticationError } from '#core/user_management/domain/errors'
 import {
   recordUserManagementActivityEvent,
   StructuredUserManagementActivitySink,
 } from '#core/user_management/support/activity_log'
+import { isAnonymousDemoAuthEnabled } from '#core/user_management/support/demo_mode'
 import app from '@adonisjs/core/services/app'
 import router from '@adonisjs/core/services/router'
 
@@ -53,8 +55,20 @@ function createWebRequest(ctx: HttpContext): Request {
   })
 }
 
+function isAnonymousSignInRequest(ctx: HttpContext): boolean {
+  const path = ctx.request.url(true).split('?')[0]
+  return ctx.request.method().toUpperCase() === 'POST' && path === '/api/auth/sign-in/anonymous'
+}
+
 async function proxyBetterAuthRequest(ctx: HttpContext): Promise<void> {
   const { response } = ctx
+  if (isAnonymousSignInRequest(ctx) && !isAnonymousDemoAuthEnabled()) {
+    HttpProblem.fromError(
+      new DomainError('Anonymous sign-in is only available in demo mode.', 'forbidden')
+    ).toResponse(response)
+    return
+  }
+
   const auth = await app.container.make('betterAuth')
   const webRequest = createWebRequest(ctx)
 

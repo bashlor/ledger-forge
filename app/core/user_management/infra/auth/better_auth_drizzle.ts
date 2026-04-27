@@ -14,11 +14,13 @@ import type { UserManagementActivitySink } from '../../support/activity_log.js'
 
 import { AUTH_COOKIE_PREFIX } from '../../auth_session_cookie.js'
 import * as authTables from '../../drizzle/schema.js'
+import { isAnonymousDemoAuthEnabled } from '../../support/demo_mode.js'
 
 export type BetterAuthInstance = Awaited<ReturnType<typeof createBetterAuth>>
 
 interface BetterAuthFactoryOptions {
   activitySink?: UserManagementActivitySink
+  anonymousAuthEnabled?: boolean
   emailAndPassword?: {
     enabled: boolean
     maxPasswordLength?: number
@@ -81,6 +83,7 @@ export async function createBetterAuth(
 
   const {
     activitySink,
+    anonymousAuthEnabled = isAnonymousDemoAuthEnabled(),
     emailAndPassword = {
       enabled: true,
       maxPasswordLength: 128,
@@ -170,7 +173,7 @@ export async function createBetterAuth(
       }),
     },
     plugins: [
-      anonymous(),
+      ...(anonymousAuthEnabled ? [anonymous()] : []),
       organization({
         allowUserToCreateOrganization: true,
       }),

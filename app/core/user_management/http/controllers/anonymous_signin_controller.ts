@@ -1,5 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { DomainError } from '#core/common/errors/domain_error'
+import { isAnonymousDemoAuthEnabled } from '#core/user_management/support/demo_mode'
 import { inject } from '@adonisjs/core'
 
 import { UserManagementAuditTrail } from '../../application/audit/user_management_audit_trail.js'
@@ -13,6 +15,10 @@ export default class AnonymousSigninController {
   async store(ctx: HttpContext, auth: AuthenticationPort, auditTrail: UserManagementAuditTrail) {
     return resolveInertiaMutation(ctx, {
       action: async () => {
+        if (!isAnonymousDemoAuthEnabled()) {
+          throw new DomainError('Anonymous sign-in is only available in demo mode.', 'forbidden')
+        }
+
         const authentication = await auth.signInAnonymously()
 
         await tryProvisionWorkspaceAfterAuth(
@@ -38,7 +44,7 @@ export default class AnonymousSigninController {
         })
       },
       flashAll: true,
-      redirectTo: '/dashboard',
+      redirectTo: '/',
     })
   }
 }
