@@ -1,5 +1,7 @@
 # ADR-001: Single App Instead of Monorepo
 
+[Documentation index](../README.md)
+
 ## Context
 
 The demo scope is intentionally small.
