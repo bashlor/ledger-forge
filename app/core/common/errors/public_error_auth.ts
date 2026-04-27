@@ -115,6 +115,11 @@ const BETTER_AUTH_ERROR_MAP: Record<string, BetterAuthErrorEntry> = {
     status: 409,
     userMessage: USER_ALREADY_EXISTS_MESSAGE,
   },
+  /** Sign-up email collision (Better Auth base route uses this code, not `USER_ALREADY_EXISTS`). */
+  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: {
+    status: 409,
+    userMessage: USER_ALREADY_EXISTS_MESSAGE,
+  },
   USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION: {
     status: 409,
     userMessage: 'This user is already a member of the organization.',
@@ -346,6 +351,7 @@ export function resolveBetterAuthPublicError(code: string | undefined): Resolved
     case 'SESSION_EXPIRED':
       return formPublicError('auth.session_expired', entry.userMessage, entry.status)
     case 'USER_ALREADY_EXISTS':
+    case 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL':
       return formPublicError('auth.user_already_exists', entry.userMessage, entry.status)
     case 'USER_NOT_FOUND':
       return formPublicError('auth.user_not_found', entry.userMessage, entry.status)

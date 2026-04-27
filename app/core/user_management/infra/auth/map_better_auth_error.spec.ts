@@ -1,4 +1,5 @@
 import { DomainError } from '#core/common/errors/domain_error'
+import { UserAlreadyExistsError } from '#core/user_management/domain/errors'
 import { test } from '@japa/runner'
 
 import { mapBetterAuthError } from './map_better_auth_error.js'
@@ -49,5 +50,13 @@ test.group('mapBetterAuthError', () => {
     assert.instanceOf(membershipLimit, DomainError)
     assert.equal((membershipLimit as DomainError).type, 'business_logic_error')
     assert.equal((membershipLimit as DomainError).name, 'OrganizationBusinessRuleError')
+  })
+
+  test('maps duplicate sign-up to UserAlreadyExistsError for Better Auth email collision code', ({
+    assert,
+  }) => {
+    const duplicate = mapBetterAuthError({ code: 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL' })
+
+    assert.instanceOf(duplicate, UserAlreadyExistsError)
   })
 })
