@@ -165,7 +165,7 @@ test.group('Auth inertia routes', (group) => {
       .form({ email: 'sam@example.com', password: 'SecureP@ss123' })
 
     response.assertStatus(302)
-    response.assertHeader('location', '/dashboard')
+    response.assertHeader('location', '/')
     const setCookies = response.headers()['set-cookie']
     const serializedCookies = Array.isArray(setCookies) ? setCookies.join('; ') : (setCookies ?? '')
     assert.include(serializedCookies, `${AUTH_SESSION_TOKEN_COOKIE_NAME}=`)
@@ -213,7 +213,7 @@ test.group('Auth inertia routes', (group) => {
     })
 
     response.assertStatus(302)
-    response.assertHeader('location', '/dashboard')
+    response.assertHeader('location', '/')
     const setCookies = response.headers()['set-cookie']
     const serializedCookies = Array.isArray(setCookies) ? setCookies.join('; ') : (setCookies ?? '')
     assert.include(serializedCookies, `${AUTH_SESSION_TOKEN_COOKIE_NAME}=`)
@@ -224,7 +224,7 @@ test.group('Auth inertia routes', (group) => {
     const response = await client.post('/signin/anonymous').redirects(0).form({})
 
     response.assertStatus(302)
-    response.assertHeader('location', '/dashboard')
+    response.assertHeader('location', '/')
     const setCookies = response.headers()['set-cookie']
     const serializedCookies = Array.isArray(setCookies) ? setCookies.join('; ') : (setCookies ?? '')
     assert.include(serializedCookies, `${AUTH_SESSION_TOKEN_COOKIE_NAME}=`)

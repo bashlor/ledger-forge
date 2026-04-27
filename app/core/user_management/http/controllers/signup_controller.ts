@@ -41,7 +41,7 @@ export default class SignupController {
       },
       errorKey: 'E_SIGNUP_ERROR',
       flashAll: true,
-      redirectTo: '/dashboard',
+      redirectTo: '/',
     })
   }
 }
