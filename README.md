@@ -1,4 +1,4 @@
-# Accounting Demo
+# Ledger Forge
 
 A production-minded accounting system built to demonstrate backend engineering judgment.
 
@@ -24,7 +24,7 @@ the architecture docs and the invoice module.
 
 ## Product Walkthrough
 
-![Accounting demo slideshow](assets/images/demo-slideshow.gif)
+![Ledger Forge slideshow](assets/images/demo-slideshow.gif)
 
 Main flows covered:
 
