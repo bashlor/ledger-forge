@@ -1,11 +1,11 @@
 import type * as schema from '#core/common/drizzle/index'
-import type { AuthResult } from '#core/user_management/domain/authentication'
-import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
-
 import type {
   WorkspaceProvisioningResult,
   WorkspaceShareProps,
 } from '#core/user_management/application/workspace_provisioning'
+import type { AuthResult } from '#core/user_management/domain/authentication'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+
 import { test } from '@japa/runner'
 
 import { AnonymousDemoWorkspaceService } from './anonymous_demo_workspace_service.js'

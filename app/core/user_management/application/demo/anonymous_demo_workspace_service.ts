@@ -1,5 +1,6 @@
 import type * as schema from '#core/common/drizzle/index'
 import type { AuthResult } from '#core/user_management/domain/authentication'
+import type { AuthenticationPort } from '#core/user_management/domain/authentication'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import {
@@ -9,7 +10,6 @@ import {
   type WorkspaceProvisioningResult,
   type WorkspaceShareProps,
 } from '#core/user_management/application/workspace_provisioning'
-import type { AuthenticationPort } from '#core/user_management/domain/authentication'
 import {
   recordUserManagementActivityEvent,
   type UserManagementActivitySink,

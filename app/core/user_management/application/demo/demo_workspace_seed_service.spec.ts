@@ -10,7 +10,7 @@ import { DemoWorkspaceSeedService } from './demo_workspace_seed_service.js'
 type AppDrizzleDb = PostgresJsDatabase<typeof schema>
 
 class DemoWorkspaceSeedServiceStub extends DemoWorkspaceSeedService {
-  constructor(private readonly result: Error | boolean) {
+  constructor(private readonly result: boolean | Error) {
     super({} as AppDrizzleDb)
   }
 

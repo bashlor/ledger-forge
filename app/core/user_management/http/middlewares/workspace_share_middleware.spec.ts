@@ -12,26 +12,6 @@ import WorkspaceShareMiddleware from './workspace_share_middleware.js'
 
 type AppDrizzleDb = PostgresJsDatabase<typeof DrizzleSchema>
 
-class StubDemoWorkspaceSeedService extends DemoWorkspaceSeedService {
-  constructor(private readonly handler?: () => Promise<boolean>) {
-    super({} as AppDrizzleDb)
-  }
-
-  protected override async seedProvisionedWorkspaceDemoData(): Promise<boolean> {
-    return (await this.handler?.()) ?? false
-  }
-}
-
-class StubAnonymousDemoWorkspaceService extends AnonymousDemoWorkspaceService {
-  constructor(private readonly handler: () => Promise<AuthResult>) {
-    super({} as AppDrizzleDb)
-  }
-
-  override async ensureWorkspace(): Promise<AuthResult> {
-    return this.handler()
-  }
-}
-
 class SingleTenantTestMiddleware extends WorkspaceShareMiddleware {
   constructor(
     auth: AuthenticationPort,
@@ -49,6 +29,10 @@ class SingleTenantTestMiddleware extends WorkspaceShareMiddleware {
     super(auth)
   }
 
+  protected override createDemoWorkspaceSeedService(): DemoWorkspaceSeedService {
+    return new StubDemoWorkspaceSeedService(this.options.seedWorkspaceDemoData)
+  }
+
   protected override async ensureSingleTenantMembership(): Promise<{
     organizationId: string
     wasProvisioned: boolean
@@ -76,9 +60,25 @@ class SingleTenantTestMiddleware extends WorkspaceShareMiddleware {
   protected override isSingleTenantMode(): boolean {
     return this.options.isSingleTenantMode ?? true
   }
+}
 
-  protected override createDemoWorkspaceSeedService(): DemoWorkspaceSeedService {
-    return new StubDemoWorkspaceSeedService(this.options.seedWorkspaceDemoData)
+class StubAnonymousDemoWorkspaceService extends AnonymousDemoWorkspaceService {
+  constructor(private readonly handler: () => Promise<AuthResult>) {
+    super({} as AppDrizzleDb)
+  }
+
+  override async ensureWorkspace(): Promise<AuthResult> {
+    return this.handler()
+  }
+}
+
+class StubDemoWorkspaceSeedService extends DemoWorkspaceSeedService {
+  constructor(private readonly handler?: () => Promise<boolean>) {
+    super({} as AppDrizzleDb)
+  }
+
+  protected override async seedProvisionedWorkspaceDemoData(): Promise<boolean> {
+    return (await this.handler?.()) ?? false
   }
 }
 
@@ -93,15 +93,27 @@ class WorkspaceTestMiddleware extends WorkspaceShareMiddleware {
       getSingleTenantOrgId?: () => string
       hasActiveTenantMembership?: () => Promise<boolean>
       isSingleTenantMode?: boolean
-      resolveAnonymousDemoWorkspace?: () => Promise<AuthResult>
       provisionPersonalWorkspace?: () => Promise<{
         organizationId: null | string
         wasProvisioned: boolean
       }>
+      resolveAnonymousDemoWorkspace?: () => Promise<AuthResult>
       seedWorkspaceDemoData?: () => Promise<boolean>
     } = {}
   ) {
     super(auth)
+  }
+
+  protected override createAnonymousDemoWorkspaceService(): AnonymousDemoWorkspaceService {
+    if (!this.options.resolveAnonymousDemoWorkspace) {
+      throw new Error('resolveAnonymousDemoWorkspace should not be called in this test')
+    }
+
+    return new StubAnonymousDemoWorkspaceService(this.options.resolveAnonymousDemoWorkspace)
+  }
+
+  protected override createDemoWorkspaceSeedService(): DemoWorkspaceSeedService {
+    return new StubDemoWorkspaceSeedService(this.options.seedWorkspaceDemoData)
   }
 
   protected override async ensureSingleTenantMembership(): Promise<{
@@ -132,14 +144,6 @@ class WorkspaceTestMiddleware extends WorkspaceShareMiddleware {
     return this.options.isSingleTenantMode ?? true
   }
 
-  protected override createAnonymousDemoWorkspaceService(): AnonymousDemoWorkspaceService {
-    if (!this.options.resolveAnonymousDemoWorkspace) {
-      throw new Error('resolveAnonymousDemoWorkspace should not be called in this test')
-    }
-
-    return new StubAnonymousDemoWorkspaceService(this.options.resolveAnonymousDemoWorkspace)
-  }
-
   protected override async provisionPersonalWorkspace(): Promise<{
     organizationId: null | string
     wasProvisioned: boolean
@@ -149,10 +153,6 @@ class WorkspaceTestMiddleware extends WorkspaceShareMiddleware {
     }
 
     return this.options.provisionPersonalWorkspace()
-  }
-
-  protected override createDemoWorkspaceSeedService(): DemoWorkspaceSeedService {
-    return new StubDemoWorkspaceSeedService(this.options.seedWorkspaceDemoData)
   }
 }
 

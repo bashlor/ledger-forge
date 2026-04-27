@@ -226,6 +226,13 @@ export default class WorkspaceShareMiddleware {
     return isSingleTenantMode()
   }
 
+  protected async loadWorkspaceShare(
+    db: PostgresJsDatabase<typeof schema>,
+    organizationId: string
+  ) {
+    return loadWorkspaceShare(db, organizationId)
+  }
+
   protected async provisionPersonalWorkspace(
     db: PostgresJsDatabase<typeof schema>,
     input: {
@@ -237,13 +244,6 @@ export default class WorkspaceShareMiddleware {
     }
   ) {
     return provisionPersonalWorkspace(db, input)
-  }
-
-  protected async loadWorkspaceShare(
-    db: PostgresJsDatabase<typeof schema>,
-    organizationId: string
-  ) {
-    return loadWorkspaceShare(db, organizationId)
   }
 
   private async attachWorkspaceShare(ctx: HttpContext): Promise<void> {

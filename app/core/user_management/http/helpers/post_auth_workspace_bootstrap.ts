@@ -17,6 +17,27 @@ export type PostAuthWorkspaceFailureEvent =
   | 'workspace_provision_on_signin_failure'
   | 'workspace_provision_on_signup_failure'
 
+export async function tryProvisionAnonymousDemoWorkspaceAfterAuth(
+  ctx: HttpContext,
+  input: {
+    sessionToken: string
+    userId: string
+  },
+  activeOrganizationId: null | string,
+  failureEvent: PostAuthWorkspaceFailureEvent
+): Promise<void> {
+  await tryProvisionPersonalWorkspaceAfterAuth(
+    ctx,
+    {
+      isAnonymous: true,
+      sessionToken: input.sessionToken,
+      userId: input.userId,
+    },
+    activeOrganizationId,
+    failureEvent
+  )
+}
+
 /**
  * Best-effort normal personal workspace bootstrap after named sign-in / sign-up.
  * Single-tenant named users are resolved by WorkspaceShareMiddleware.
@@ -38,27 +59,6 @@ export async function tryProvisionWorkspaceAfterAuth(
   }
 
   await tryProvisionPersonalWorkspaceAfterAuth(ctx, input, activeOrganizationId, failureEvent)
-}
-
-export async function tryProvisionAnonymousDemoWorkspaceAfterAuth(
-  ctx: HttpContext,
-  input: {
-    sessionToken: string
-    userId: string
-  },
-  activeOrganizationId: null | string,
-  failureEvent: PostAuthWorkspaceFailureEvent
-): Promise<void> {
-  await tryProvisionPersonalWorkspaceAfterAuth(
-    ctx,
-    {
-      isAnonymous: true,
-      sessionToken: input.sessionToken,
-      userId: input.userId,
-    },
-    activeOrganizationId,
-    failureEvent
-  )
 }
 
 async function tryProvisionPersonalWorkspaceAfterAuth(
