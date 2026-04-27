@@ -15,57 +15,50 @@ export default function Signup() {
 
       <AuthPageShell
         description="Set your profile details and get redirected into the workspace immediately."
-        footer={
-          <div className="flex flex-wrap items-center justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-outline">
-            <span className="transition-colors hover:text-on-surface">Identity</span>
-            <span className="h-1 w-1 rounded-full bg-outline-variant" />
-            <span className="transition-colors hover:text-on-surface">Session</span>
-            <span className="h-1 w-1 rounded-full bg-outline-variant" />
-            <span className="transition-colors hover:text-on-surface">Redirect</span>
-          </div>
-        }
         title="Create account"
       >
         <Form route="signup.store">
           {({ errors }: { errors: FormErrors }) => (
-            <div className="space-y-6">
-              <FormField
-                autoComplete="name"
-                error={errors.fullName}
-                id="fullName"
-                label="Full name"
-                required
-                variant="ghost"
-              />
-              <FormField
-                autoComplete="email"
-                error={errors.email}
-                id="email"
-                label="Email address"
-                required
-                type="email"
-                variant="ghost"
-              />
-              <FormField
-                autoComplete="new-password"
-                error={errors.password}
-                id="password"
-                label="Password"
-                required
-                type="password"
-                variant="ghost"
-              />
-              <FormField
-                autoComplete="new-password"
-                error={errors.passwordConfirmation}
-                id="passwordConfirmation"
-                label="Confirm password"
-                required
-                type="password"
-                variant="ghost"
-              />
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  autoComplete="name"
+                  error={errors.fullName}
+                  id="fullName"
+                  label="Full name"
+                  required
+                  variant="ghost"
+                />
+                <FormField
+                  autoComplete="email"
+                  error={errors.email}
+                  id="email"
+                  label="Email address"
+                  required
+                  type="email"
+                  variant="ghost"
+                />
+                <FormField
+                  autoComplete="new-password"
+                  error={errors.password}
+                  id="password"
+                  label="Password"
+                  required
+                  type="password"
+                  variant="ghost"
+                />
+                <FormField
+                  autoComplete="new-password"
+                  error={errors.passwordConfirmation}
+                  id="passwordConfirmation"
+                  label="Confirm password"
+                  required
+                  type="password"
+                  variant="ghost"
+                />
+              </div>
 
-              <div className="flex items-center gap-3 rounded-lg border border-outline-variant/10 bg-surface-container-low p-3">
+              <div className="flex items-center gap-3 rounded-lg border border-outline-variant/10 bg-surface-container-low p-2.5">
                 <AppIcon className="text-secondary" filled name="verified_user" size={18} />
                 <p className="text-[11px] font-medium leading-tight text-on-surface-variant">
                   This uses the built-in Better Auth flow from the boilerplate, so signup and
@@ -74,7 +67,7 @@ export default function Signup() {
               </div>
 
               <PrimaryButton
-                className="w-full py-4 font-headline font-bold uppercase tracking-widest"
+                className="w-full py-3 font-headline font-bold uppercase tracking-widest"
                 type="submit"
               >
                 Create workspace access

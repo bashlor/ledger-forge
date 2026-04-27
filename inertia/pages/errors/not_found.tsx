@@ -1,12 +1,12 @@
-import { ErrorHomeLink } from './error_home_link'
+import { ErrorPageShell } from './error_page_shell'
 
 export default function NotFound() {
   return (
-    <div className="error-page">
-      <p className="error-code">404</p>
-      <h1>Page not found</h1>
-      <p>The page you're looking for doesn't exist or has been moved.</p>
-      <ErrorHomeLink />
-    </div>
+    <ErrorPageShell
+      code="404"
+      description="The page you are looking for does not exist, was moved, or is outside your current workspace."
+      icon="receipt_long"
+      title="Page not found"
+    />
   )
 }
