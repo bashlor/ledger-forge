@@ -7,13 +7,6 @@ import { defineConfig } from 'vite'
 const isTest = process.env.NODE_ENV === 'test'
 
 export default defineConfig({
-  optimizeDeps: isTest
-    ? {
-        // Test runs don't need dev-time dependency discovery/pre-bundling.
-        noDiscovery: true,
-      }
-    : undefined,
-
   plugins: [
     tailwindcss(),
     react({

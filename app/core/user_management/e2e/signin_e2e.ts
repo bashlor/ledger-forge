@@ -3,7 +3,7 @@ import { test } from '@japa/runner'
 import {
   bindTestServices,
   createTestPostgresContext,
-} from '../../../../tests/helpers/test_postgres.ts'
+} from '../../../../tests/helpers/test_postgres.js'
 
 test.group('Login E2E', (group) => {
   let context: Awaited<ReturnType<typeof createTestPostgresContext>>
