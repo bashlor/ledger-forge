@@ -11,7 +11,7 @@ import { client } from '~/client'
 import AppShellLayout from '~/layouts/app_shell'
 import PublicLayout from '~/layouts/public'
 
-const appName = import.meta.env.VITE_APP_NAME || 'Precision Ledger'
+const appName = import.meta.env.VITE_APP_NAME || 'Ledger Forge'
 const includeDevToolsPages =
   import.meta.env.DEV || import.meta.env.VITE_INCLUDE_DEV_TOOLS === 'true'
 const pageModules = includeDevToolsPages

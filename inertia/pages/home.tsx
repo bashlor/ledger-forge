@@ -4,7 +4,7 @@ export default function Home() {
       <div className="mx-auto max-w-5xl space-y-10">
         <section className="rounded-2xl bg-surface-container-lowest p-8 shadow-card md:p-12">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-dim">
-            Accounting Demo
+            Ledger Forge
           </p>
           <h1 className="mt-4 max-w-2xl font-headline text-4xl font-extrabold tracking-tight text-on-surface">
             Backend-first accounting workflow with a simple operational UI.

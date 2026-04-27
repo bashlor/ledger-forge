@@ -25,7 +25,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           href="/signin"
         >
           <AppIcon className="text-primary" filled name="account_balance_wallet" size={20} />
-          <span>Precision Ledger</span>
+          <span>Ledger Forge</span>
         </Link>
       </header>
       {children}
