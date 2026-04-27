@@ -16,7 +16,7 @@ export default function Signin() {
       <AuthPageShell
         description="Use the credentials you created during signup to open the workspace."
         footer={
-          <div className="flex flex-wrap items-center justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-outline">
+          <div className="flex flex-wrap items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-widest text-outline sm:gap-5">
             <span className="transition-colors hover:text-on-surface">Privacy</span>
             <span className="h-1 w-1 rounded-full bg-outline-variant" />
             <span className="transition-colors hover:text-on-surface">Security</span>
@@ -29,7 +29,7 @@ export default function Signin() {
         <Form route="signin.store">
           {({ errors }: { errors: FormErrors }) => {
             return (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <FormField
                   autoComplete="username"
                   error={errors.email}
@@ -60,7 +60,7 @@ export default function Signin() {
                   variant="ghost"
                 />
 
-                <div className="flex items-center gap-3 rounded-lg border border-outline-variant/10 bg-surface-container-low p-3">
+                <div className="flex items-center gap-3 rounded-lg border border-outline-variant/10 bg-surface-container-low p-2.5">
                   <AppIcon className="text-secondary" filled name="shield_lock" size={18} />
                   <p className="text-[11px] font-medium leading-tight text-on-surface-variant">
                     Enter your signup email and password. If sign-in fails, check the red hint under
@@ -69,14 +69,14 @@ export default function Signin() {
                 </div>
 
                 <PrimaryButton
-                  className="w-full py-4 font-headline font-bold uppercase tracking-widest shadow-md hover:shadow-lg active:scale-[0.98]"
+                  className="w-full py-3 font-headline font-bold uppercase tracking-widest shadow-md hover:shadow-lg active:scale-[0.98]"
                   type="submit"
                 >
                   Authorize access
                 </PrimaryButton>
 
                 <SecondaryButton
-                  className="w-full border border-outline-variant/30 py-3 text-xs font-bold uppercase tracking-widest"
+                  className="w-full border border-outline-variant/30 py-2.5 text-xs font-bold uppercase tracking-widest"
                   onClick={() => router.post('/signin/anonymous')}
                   type="button"
                 >

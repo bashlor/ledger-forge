@@ -1,12 +1,12 @@
-import { ErrorHomeLink } from './error_home_link'
+import { ErrorPageShell } from './error_page_shell'
 
 export default function ServerError() {
   return (
-    <div className="error-page">
-      <p className="error-code">500</p>
-      <h1>Something went wrong</h1>
-      <p>An unexpected error occurred. Please try again later.</p>
-      <ErrorHomeLink />
-    </div>
+    <ErrorPageShell
+      code="500"
+      description="An unexpected server error interrupted this request. Try again from a stable workspace page."
+      icon="notifications"
+      title="Something went wrong"
+    />
   )
 }

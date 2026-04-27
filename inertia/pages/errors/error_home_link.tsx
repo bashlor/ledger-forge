@@ -2,11 +2,19 @@ import { Link } from '@adonisjs/inertia/react'
 import { type Data } from '@generated/data'
 import { usePage } from '@inertiajs/react'
 
-export function ErrorHomeLink() {
+interface ErrorHomeLinkProps {
+  className?: string
+}
+
+export function ErrorHomeLink({ className }: ErrorHomeLinkProps) {
   const page = usePage<Data.SharedProps>()
   const href = resolveErrorHomeHref(page.props)
 
-  return <Link href={href}>Go back home</Link>
+  return (
+    <Link className={className} href={href}>
+      Go back home
+    </Link>
+  )
 }
 
 export function resolveErrorHomeHref(props: Data.SharedProps): string {

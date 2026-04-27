@@ -1,6 +1,6 @@
 export default function Home() {
   return (
-    <main className="min-h-dvh bg-background px-6 py-12">
+    <main className="flex-1 bg-background px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-5xl space-y-10">
         <section className="rounded-2xl bg-surface-container-lowest p-8 shadow-card md:p-12">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-dim">
