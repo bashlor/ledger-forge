@@ -574,7 +574,7 @@ test.group('Workspace provisioning (integration)', (group) => {
     assert.equal(Number(customerCount?.value ?? 0), DEMO_CUSTOMER_COUNT)
   })
 
-  test('ensureSingleTenantMembership promotes the first named user after an anonymous bootstrap', async ({
+  test('ensureSingleTenantMembership keeps named users as members after an anonymous bootstrap', async ({
     assert,
   }) => {
     const anonRes = await postAuth(context.betterAuth, '/api/auth/sign-in/anonymous', {})
@@ -597,7 +597,7 @@ test.group('Workspace provisioning (integration)', (group) => {
       orgId: 'org-single-shared-upgrade',
       userId: anon.user.id,
     })
-    const upgradedProvisioning = await ensureSingleTenantMembership(context.db, {
+    const namedProvisioning = await ensureSingleTenantMembership(context.db, {
       displayName: 'Named User',
       email: 'named@example.com',
       isAnonymous: false,
@@ -619,7 +619,7 @@ test.group('Workspace provisioning (integration)', (group) => {
     assert.isNotNull(organization)
     assert.equal(organization!.name, 'Named User workspace')
     assert.include(organization!.metadata ?? '', 'personal')
-    assert.isTrue(upgradedProvisioning.wasProvisioned)
+    assert.isTrue(namedProvisioning.wasProvisioned)
 
     const memberships = await context.db.query.member.findMany({
       orderBy: (memberRow, { asc }) => [asc(memberRow.createdAt)],
@@ -628,8 +628,8 @@ test.group('Workspace provisioning (integration)', (group) => {
     })
     assert.lengthOf(memberships, 3)
     assert.equal(memberships[0]!.role, 'owner')
-    assert.isTrue(memberships[0]!.userId === anon.user.id)
-    assert.equal(memberships[1]!.role, 'owner')
+    assert.equal(memberships[0]!.userId, anon.user.id)
+    assert.equal(memberships[1]!.role, 'member')
     assert.equal(memberships[1]!.userId, signedUp.user.id)
     assert.equal(memberships[2]!.role, 'member')
     assert.equal(memberships[2]!.userId, laterSignedUp.user.id)
