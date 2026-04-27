@@ -341,13 +341,13 @@ export function resolveBetterAuthPublicError(code: string | undefined): Resolved
     case 'YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_ORGANIZATION':
     case 'YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION':
       return formPublicError('auth.forbidden', entry.userMessage, entry.status)
-    case 'ORGANIZATION_MEMBERSHIP_LIMIT_REACHED':
-      return formPublicError('domain.business_logic_error', GENERIC_BUSINESS_RULE_MESSAGE, 422)
     case 'ORGANIZATION_ALREADY_EXISTS':
     case 'ORGANIZATION_SLUG_ALREADY_TAKEN':
     case 'USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION':
     case 'USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION':
       return formPublicError('auth.conflict', entry.userMessage, entry.status)
+    case 'ORGANIZATION_MEMBERSHIP_LIMIT_REACHED':
+      return formPublicError('domain.business_logic_error', GENERIC_BUSINESS_RULE_MESSAGE, 422)
     case 'SESSION_EXPIRED':
       return formPublicError('auth.session_expired', entry.userMessage, entry.status)
     case 'USER_ALREADY_EXISTS':
