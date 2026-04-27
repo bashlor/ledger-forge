@@ -574,7 +574,7 @@ test.group('Workspace provisioning (integration)', (group) => {
     assert.equal(Number(customerCount?.value ?? 0), DEMO_CUSTOMER_COUNT)
   })
 
-  test('ensureSingleTenantMembership upgrades an anonymous bootstrap to a named workspace', async ({
+  test('ensureSingleTenantMembership promotes the first named user after an anonymous bootstrap', async ({
     assert,
   }) => {
     const anonRes = await postAuth(context.betterAuth, '/api/auth/sign-in/anonymous', {})
@@ -585,6 +585,12 @@ test.group('Workspace provisioning (integration)', (group) => {
       password: 'SecureP@ss123',
     })
     const signedUp = await assertOkJson<{ user: { id: string } }>(signUpRes)
+    const laterSignUpRes = await postAuth(context.betterAuth, '/api/auth/sign-up/email', {
+      email: 'later-named@example.com',
+      name: 'Later Named',
+      password: 'SecureP@ss123',
+    })
+    const laterSignedUp = await assertOkJson<{ user: { id: string } }>(laterSignUpRes)
 
     await ensureSingleTenantMembership(context.db, {
       isAnonymous: true,
@@ -597,6 +603,13 @@ test.group('Workspace provisioning (integration)', (group) => {
       isAnonymous: false,
       orgId: 'org-single-shared-upgrade',
       userId: signedUp.user.id,
+    })
+    await ensureSingleTenantMembership(context.db, {
+      displayName: 'Later Named',
+      email: 'later-named@example.com',
+      isAnonymous: false,
+      orgId: 'org-single-shared-upgrade',
+      userId: laterSignedUp.user.id,
     })
 
     const organization = await context.db.query.organization.findFirst({
@@ -613,9 +626,13 @@ test.group('Workspace provisioning (integration)', (group) => {
       where: (memberRow, { eq: equal }) =>
         equal(memberRow.organizationId, 'org-single-shared-upgrade'),
     })
-    assert.lengthOf(memberships, 2)
+    assert.lengthOf(memberships, 3)
     assert.equal(memberships[0]!.role, 'owner')
-    assert.equal(memberships[1]!.role, 'member')
+    assert.isTrue(memberships[0]!.userId === anon.user.id)
+    assert.equal(memberships[1]!.role, 'owner')
+    assert.equal(memberships[1]!.userId, signedUp.user.id)
+    assert.equal(memberships[2]!.role, 'member')
+    assert.equal(memberships[2]!.userId, laterSignedUp.user.id)
   })
 
   test('demo workspace bootstrap seeds newly provisioned workspaces only once', async ({
