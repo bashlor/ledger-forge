@@ -31,6 +31,10 @@ The important rule is that `tenantId` is not inferred deep in the repository lay
 resolved at the boundary, passed explicitly, used in every accounting query, and reinforced by
 database constraints where possible.
 
+Money precision follows the same boundary discipline: persisted amounts and accounting
+calculations use integer cents, and SQL aggregate cents are converted through the shared safe
+money helper before they are exposed as JavaScript numbers. See [ADR-004](../adr/ADR-004-amounts-in-cents.md).
+
 ## Audit tenant semantics
 
 - `audit_events.organization_id` is nullable so global platform events remain representable, for example dev-operator bootstrap or user/session lifecycle events that are not owned by one accounting tenant.
