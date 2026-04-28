@@ -230,4 +230,9 @@
   .tonal-table tbody tr:hover {
     background-color: #f1f5f9;
   }
+
+  .tonal-table.customer-register-table tbody tr:hover,
+  .tonal-table.customer-register-table tbody tr:focus-within {
+    background-color: #f1f5f9;
+  }
 }

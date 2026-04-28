@@ -167,7 +167,7 @@ describe('customers page', () => {
   it('opens edit mode from the table keyboard interaction and submits updates', () => {
     renderPage()
 
-    fireEvent.keyDown(screen.getByRole('row', { name: /Alpha Co/i }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByText('Alpha Co').closest('tr')!, { key: 'Enter' })
 
     expect(screen.getByRole('dialog', { name: 'Edit Alpha Co' })).toBeInTheDocument()
 
@@ -192,7 +192,7 @@ describe('customers page', () => {
     renderPage({ canManageCustomers: false })
 
     expect(screen.queryByRole('button', { name: 'New customer' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Actions for Alpha Co/i })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByText('Alpha Co'))
 
@@ -207,7 +207,8 @@ describe('customers page', () => {
 
     expect(screen.getAllByText('Accounting is in read-only mode.')).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'New customer' })).toBeDisabled()
-    expect(screen.getAllByRole('button', { name: 'Delete' })[0]).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: /Actions for Alpha Co/i }))
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDisabled()
 
     fireEvent.click(screen.getByText('Alpha Co'))
 
@@ -220,7 +221,8 @@ describe('customers page', () => {
   it('confirms deletions and preserves active query params', () => {
     renderPage()
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+    fireEvent.click(screen.getByRole('button', { name: /Actions for Alpha Co/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }))
 
     expect(globalThis.confirm).toHaveBeenCalledWith('Delete customer "Alpha Co"?')
     expect(routerDeleteMock).toHaveBeenCalledWith(
