@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react'
 
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { CustomerListDto } from '~/lib/types'
@@ -236,7 +237,8 @@ describe('customers page', () => {
     )
   })
 
-  it('applies local filters without hitting the server and shows the filtered empty state', () => {
+  it('applies local filters without hitting the server and shows the filtered empty state', async () => {
+    const user = userEvent.setup()
     renderPage({
       customers: buildCustomers([
         {
@@ -253,9 +255,8 @@ describe('customers page', () => {
       ]),
     })
 
-    fireEvent.change(screen.getByLabelText('Filter customers'), {
-      target: { value: 'with_invoices' },
-    })
+    await user.click(screen.getByRole('combobox', { name: /Filter customers/i }))
+    await user.click(screen.getByRole('option', { name: 'With invoices' }))
 
     expect(
       screen.getByText('No customers match the current filters on this page.')

@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import type {
   CustomerSelectDto,
   InvoiceDto,
@@ -9,7 +11,7 @@ import { AppIcon } from '~/components/app_icon'
 import { ErrorBanner } from '~/components/error_banner'
 import { InvoiceTotals } from '~/components/invoice_totals'
 import { StatusBadge } from '~/components/status_badge'
-import { TableHeaderCell, TableHeadRow } from '~/components/ui'
+import { Select, TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatCurrency } from '~/lib/format'
 import { canDeleteInvoice, canIssueInvoice } from '~/lib/invoices'
 
@@ -68,6 +70,15 @@ export function InvoiceDraftEditor({
   totalsErrorMessage,
   vatRates,
 }: Props) {
+  const customerOptions = useMemo(
+    () => customers.map((c) => ({ label: c.company, value: c.id })),
+    [customers]
+  )
+  const vatOptions = useMemo(
+    () => vatRates.map((rate) => ({ label: `${rate}%`, value: String(rate) })),
+    [vatRates]
+  )
+
   return (
     <div>
       <div className="border-b border-outline-variant/10 px-5 py-4 sm:px-6">
@@ -111,19 +122,17 @@ export function InvoiceDraftEditor({
               >
                 Customer
               </label>
-              <select
-                className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+              <Select
+                aria-label="Invoice customer"
+                contentClassName="z-[120]"
                 disabled={accountingReadOnly}
                 id="invoice-client"
-                onChange={(event) => onFormChange('customerId', event.target.value)}
+                onValueChange={(next) => onFormChange('customerId', next)}
+                options={customerOptions}
+                tone="surface"
+                triggerClassName="h-9 min-h-9 py-1.5 text-sm font-medium leading-snug"
                 value={effectiveCustomerId}
-              >
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.company}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <label
@@ -243,21 +252,17 @@ export function InvoiceDraftEditor({
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <select
+                          <Select
                             aria-label="VAT rate"
-                            className="w-28 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            contentClassName="z-[120]"
                             disabled={accountingReadOnly}
-                            onChange={(event) =>
-                              onLineUpdate(line.key, 'vatRate', event.target.value)
-                            }
-                            value={line.vatRate}
-                          >
-                            {vatRates.map((rate) => (
-                              <option key={rate} value={rate}>
-                                {rate}%
-                              </option>
-                            ))}
-                          </select>
+                            onValueChange={(next) => onLineUpdate(line.key, 'vatRate', next)}
+                            options={vatOptions}
+                            size="compact"
+                            tone="surface"
+                            triggerClassName="w-[5.5rem] shrink-0 tabular-nums"
+                            value={String(line.vatRate)}
+                          />
                         </td>
                         <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums text-on-surface">
                           {calculated ? formatCurrency(calculated.lineTotalInclTax) : '—'}

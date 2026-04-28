@@ -6,6 +6,7 @@ import { PrimaryButton, SecondaryButton } from '~/components/button'
 import { DrawerPanel } from '~/components/drawer_panel'
 import { ErrorBanner } from '~/components/error_banner'
 import { FormField } from '~/components/form_field'
+import { Select } from '~/components/ui'
 import { todayDateOnlyUtc } from '~/lib/date'
 
 interface CreateDrawerProps {
@@ -102,19 +103,15 @@ export function CreateDrawer({
             >
               Category
             </label>
-            <select
-              className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+            <Select
+              aria-label="Expense category"
               disabled={fieldDisabled}
               id="expense-category"
-              onChange={(e) => setCreateForm((f) => ({ ...f, category: e.target.value }))}
+              onValueChange={(next) => setCreateForm((f) => ({ ...f, category: next }))}
+              options={categories.map((c) => ({ label: c, value: c }))}
+              tone="surface"
               value={form.category}
-            >
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <FormField

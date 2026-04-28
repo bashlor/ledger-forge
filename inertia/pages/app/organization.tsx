@@ -13,7 +13,7 @@ import {
 } from '~/components/operator_ui'
 import { PageHeader } from '~/components/page_header'
 import { StatusBadge } from '~/components/status_badge'
-import { TableHeaderCell, TableHeadRow } from '~/components/ui'
+import { Select, TableHeaderCell, TableHeadRow } from '~/components/ui'
 
 import type { InertiaProps } from '../../types'
 
@@ -153,27 +153,29 @@ export default function OrganizationPage({
                 placeholder="Search name, email, user id"
                 value={memberSearch}
               />
-              <select
-                className={inputClass()}
-                onChange={(event) => setMemberRoleFilter(event.target.value as MemberRoleFilter)}
+              <Select
+                aria-label="Filter members by role"
+                onValueChange={(next) => setMemberRoleFilter(next as MemberRoleFilter)}
+                options={[
+                  { label: 'All roles', value: 'all' },
+                  { label: 'Owner', value: 'owner' },
+                  { label: 'Admin', value: 'admin' },
+                  { label: 'Member', value: 'member' },
+                ]}
+                tone="surface"
                 value={memberRoleFilter}
-              >
-                <option value="all">All roles</option>
-                <option value="owner">Owner</option>
-                <option value="admin">Admin</option>
-                <option value="member">Member</option>
-              </select>
-              <select
-                className={inputClass()}
-                onChange={(event) =>
-                  setMemberStatusFilter(event.target.value as MemberStatusFilter)
-                }
+              />
+              <Select
+                aria-label="Filter members by status"
+                onValueChange={(next) => setMemberStatusFilter(next as MemberStatusFilter)}
+                options={[
+                  { label: 'All statuses', value: 'all' },
+                  { label: 'Active', value: 'active' },
+                  { label: 'Inactive', value: 'inactive' },
+                ]}
+                tone="surface"
                 value={memberStatusFilter}
-              >
-                <option value="all">All statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+              />
             </div>
           }
           isEmpty={visibleMembers.length === 0}
@@ -245,17 +247,17 @@ export default function OrganizationPage({
                   placeholder="Filter action"
                   value={auditActionFilter}
                 />
-                <select
-                  className={inputClass()}
-                  onChange={(event) =>
-                    setAuditContextFilter(event.target.value as AuditContextFilter)
-                  }
+                <Select
+                  aria-label="Filter audit trail by context"
+                  onValueChange={(next) => setAuditContextFilter(next as AuditContextFilter)}
+                  options={[
+                    { label: 'All audit trails', value: 'all' },
+                    { label: 'Accounting', value: 'accounting' },
+                    { label: 'User management', value: 'user_management' },
+                  ]}
+                  tone="surface"
                   value={auditContextFilter}
-                >
-                  <option value="all">All audit trails</option>
-                  <option value="accounting">Accounting</option>
-                  <option value="user_management">User management</option>
-                </select>
+                />
               </div>
             }
             isEmpty={visibleAuditEvents.length === 0}

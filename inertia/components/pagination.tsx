@@ -1,6 +1,6 @@
 import type { PaginationMetaDto } from '~/lib/types'
 
-import { FilterSelect } from '~/components/filter_select'
+import { Select } from '~/components/ui'
 import { PAGE_SIZE_OPTIONS } from '~/lib/pagination'
 
 interface PaginationProps {
@@ -10,7 +10,8 @@ interface PaginationProps {
 }
 
 const perPageOptions = PAGE_SIZE_OPTIONS.map((option) => ({
-  label: `${option} / page`,
+  label: `${option} lignes par page`,
+  triggerLabel: String(option),
   value: String(option),
 }))
 
@@ -52,18 +53,15 @@ export function Pagination({ onPageChange, onPerPageChange, pagination }: Pagina
           </button>
         </div>
         {onPerPageChange ? (
-          <label className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-on-surface-variant">
-              Par page
-            </span>
-            <FilterSelect
-              aria-label="Nombre d’éléments par page"
-              className="sm:min-w-[7.25rem]"
-              onChange={(event) => onPerPageChange(Number(event.target.value))}
-              options={perPageOptions}
-              value={String(perPage)}
-            />
-          </label>
+          <Select
+            aria-label="Nombre d’éléments par page"
+            label="Lignes par page"
+            onValueChange={(next) => onPerPageChange(Number(next))}
+            options={perPageOptions}
+            size="compact"
+            triggerClassName="min-w-[2.75rem] justify-center tabular-nums sm:min-w-12"
+            value={String(perPage)}
+          />
         ) : null}
       </div>
     </div>

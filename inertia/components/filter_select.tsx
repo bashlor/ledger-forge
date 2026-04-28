@@ -1,6 +1,6 @@
-import type { ChangeEventHandler } from 'react'
+import type { ChangeEvent, ChangeEventHandler } from 'react'
 
-import { AppIcon } from './app_icon'
+import { Select } from '~/components/ui'
 
 interface FilterSelectOption {
   label: string
@@ -20,24 +20,16 @@ export function FilterSelect({ 'aria-label': ariaLabel, className, onChange, opt
 
   return (
     <div className={wrapClass}>
-      <select
+      <Select
         aria-label={ariaLabel}
-        className="h-10 w-full cursor-pointer appearance-none rounded-xl border border-slate-200/95 bg-white px-10 py-2 text-center text-sm font-medium text-slate-800 shadow-sm shadow-slate-900/[0.04] outline-hidden ring-1 ring-slate-900/[0.03] transition-[border-color,box-shadow] duration-150 ease-out hover:border-slate-300/90 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25"
-        onChange={onChange}
+        onValueChange={(next) =>
+          onChange({ target: { value: next } } as ChangeEvent<HTMLSelectElement>)
+        }
+        options={options}
+        size="compact"
+        triggerClassName="w-full max-w-[11rem] justify-center text-center sm:max-w-none"
         value={value}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center text-slate-500"
-      >
-        <AppIcon name="expand_more" size={18} />
-      </span>
+      />
     </div>
   )
 }
