@@ -60,14 +60,14 @@ export function InvoiceHistoryDrawer({
           <p className="mt-2 text-on-surface-variant">{errorMessage}</p>
         </div>
       ) : events.length === 0 ? (
-        <div className="rounded-2xl border border-outline-variant/25 bg-surface-container-low p-5 text-sm text-on-surface-variant">
+        <div className="rounded-2xl border border-border-default bg-surface-container-low p-5 text-sm text-on-surface-variant">
           No audit events recorded for this invoice yet.
         </div>
       ) : (
         <ol className="space-y-4">
           {events.map((event) => (
             <li
-              className="rounded-2xl border border-outline-variant/25 bg-white p-4 shadow-sm"
+              className="rounded-2xl border border-border-default bg-white p-4 shadow-sm"
               key={event.id}
             >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">

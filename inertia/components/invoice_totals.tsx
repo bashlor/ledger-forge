@@ -8,7 +8,7 @@ interface Props {
 
 export function InvoiceTotals({ subtotalExclTax, totalInclTax, totalVat }: Props) {
   return (
-    <div className="rounded-2xl border border-primary/12 bg-primary/5 p-5">
+    <div className="rounded-2xl border border-border-default bg-primary/5 p-5 ring-1 ring-primary/10">
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Totals</p>
       <dl className="mt-4 space-y-3">
         <div className="flex items-center justify-between text-sm text-on-surface">
@@ -19,7 +19,7 @@ export function InvoiceTotals({ subtotalExclTax, totalInclTax, totalVat }: Props
           <dt>VAT total</dt>
           <dd className="font-semibold tabular-nums">{formatCurrency(totalVat)}</dd>
         </div>
-        <div className="flex items-center justify-between border-t border-primary/10 pt-3 text-base font-semibold text-primary">
+        <div className="flex items-center justify-between border-t border-border-hairline pt-3 text-base font-semibold text-primary">
           <dt>Total (incl. VAT)</dt>
           <dd className="tabular-nums">{formatCurrency(totalInclTax)}</dd>
         </div>

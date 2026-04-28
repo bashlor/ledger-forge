@@ -81,7 +81,7 @@ export function InvoiceDraftEditor({
 
   return (
     <div>
-      <div className="border-b border-outline-variant/10 px-5 py-4 sm:px-6">
+      <div className="border-b border-border-hairline px-5 py-4 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">
             {isCreating ? 'Draft' : 'Editing draft'}
@@ -106,7 +106,7 @@ export function InvoiceDraftEditor({
 
       {customers.length === 0 ? (
         <div className="px-5 py-6 sm:px-6">
-          <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-5 text-sm text-on-surface-variant">
+          <div className="rounded-2xl border border-border-default bg-surface-container-low p-5 text-sm text-on-surface-variant shadow-sm ring-1 ring-slate-900/[0.04]">
             Create a customer first before you can save an invoice.
           </div>
         </div>
@@ -142,7 +142,7 @@ export function InvoiceDraftEditor({
                 Issue date
               </label>
               <input
-                className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                className="w-full rounded-xl border border-border-default bg-white px-3 py-3 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors focus:border-primary focus:ring-primary/20"
                 disabled={accountingReadOnly}
                 id="invoice-issue-date"
                 onChange={(event) => onFormChange('issueDate', event.target.value)}
@@ -158,7 +158,7 @@ export function InvoiceDraftEditor({
                 Due date
               </label>
               <input
-                className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                className="w-full rounded-xl border border-border-default bg-white px-3 py-3 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors focus:border-primary focus:ring-primary/20"
                 disabled={accountingReadOnly}
                 id="invoice-due-date"
                 min={minDueDate}
@@ -174,8 +174,8 @@ export function InvoiceDraftEditor({
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-outline-variant/35">
-            <div className="flex items-center justify-between border-b border-outline-variant/10 bg-surface-container-low px-4 py-3">
+          <div className="overflow-hidden rounded-2xl border border-border-default shadow-sm ring-1 ring-slate-900/[0.04]">
+            <div className="flex items-center justify-between border-b border-border-hairline bg-surface-container-low px-4 py-3">
               <div>
                 <h3 className="text-sm font-semibold text-on-surface">Invoice lines</h3>
                 <p className="text-xs text-on-surface-variant">
@@ -183,7 +183,7 @@ export function InvoiceDraftEditor({
                 </p>
               </div>
               <button
-                className="inline-flex items-center gap-2 rounded-xl border border-outline-variant/35 bg-white px-3 py-2 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-lowest"
+                className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-white px-3 py-2 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-lowest"
                 disabled={accountingReadOnly}
                 onClick={onLineAdd}
                 type="button"
@@ -205,7 +205,7 @@ export function InvoiceDraftEditor({
                     <TableHeaderCell className="py-3 text-right">Action</TableHeaderCell>
                   </TableHeadRow>
                 </thead>
-                <tbody className="divide-y divide-outline-variant/15 bg-white">
+                <tbody className="divide-y divide-border-hairline bg-white">
                   {form.lines.map((line, index) => {
                     const calculated = linePreviews[index]
                     return (
@@ -213,7 +213,7 @@ export function InvoiceDraftEditor({
                         <td className="px-4 py-3">
                           <input
                             aria-label="Line description"
-                            className="w-full rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            className="w-full rounded-xl border border-border-default bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors focus:border-primary focus:ring-primary/20"
                             disabled={accountingReadOnly}
                             onChange={(event) =>
                               onLineUpdate(line.key, 'description', event.target.value)
@@ -226,7 +226,7 @@ export function InvoiceDraftEditor({
                         <td className="px-4 py-3">
                           <input
                             aria-label="Quantity"
-                            className="w-24 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            className="w-24 rounded-xl border border-border-default bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors focus:border-primary focus:ring-primary/20"
                             disabled={accountingReadOnly}
                             min="0"
                             onChange={(event) =>
@@ -240,7 +240,7 @@ export function InvoiceDraftEditor({
                         <td className="px-4 py-3">
                           <input
                             aria-label="Unit price"
-                            className="w-32 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            className="w-32 rounded-xl border border-border-default bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors focus:border-primary focus:ring-primary/20"
                             disabled={accountingReadOnly}
                             min="0"
                             onChange={(event) =>
@@ -286,7 +286,7 @@ export function InvoiceDraftEditor({
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-5">
+            <div className="rounded-2xl border border-border-default bg-surface-container-low p-5 shadow-sm ring-1 ring-slate-900/[0.04]">
               <h3 className="text-sm font-semibold text-on-surface">Business rules</h3>
               <ul className="mt-3 space-y-2 text-sm leading-6 text-on-surface-variant">
                 <li>Every invoice starts as a draft.</li>
@@ -304,7 +304,7 @@ export function InvoiceDraftEditor({
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-outline-variant/20 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t border-border-hairline pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-on-surface-variant">
               {isCreating
                 ? 'Save the draft first, then issue the invoice.'
@@ -322,7 +322,7 @@ export function InvoiceDraftEditor({
                 </button>
               ) : null}
               <button
-                className="rounded-xl border border-outline-variant/35 bg-white px-4 py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-lowest disabled:opacity-60"
+                className="rounded-xl border border-border-default bg-white px-4 py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-lowest disabled:opacity-60"
                 disabled={accountingReadOnly || saving || customers.length === 0 || !formIsValid}
                 onClick={onSaveDraft}
                 type="button"

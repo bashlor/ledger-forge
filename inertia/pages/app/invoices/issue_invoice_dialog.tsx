@@ -19,7 +19,7 @@ export function IssueInvoiceDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-xl rounded-2xl border border-outline-variant/20 bg-white p-6 shadow-xl">
+      <div className="w-full max-w-xl rounded-2xl border border-border-default bg-white p-6 shadow-xl">
         <h3 className="text-lg font-semibold text-on-surface">Issue invoice</h3>
         <p className="mt-1 text-sm text-on-surface-variant">
           Provide company identity to snapshot this issued invoice.
@@ -28,7 +28,7 @@ export function IssueInvoiceDialog({
           <label className="block">
             <span className="text-sm font-medium text-on-surface">Company name</span>
             <input
-              className="mt-1 w-full rounded-lg border border-outline-variant/35 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-border-default px-3 py-2 text-sm"
               disabled={readOnly}
               onChange={(event) => onFieldChange('issuedCompanyName', event.target.value)}
               required
@@ -38,7 +38,7 @@ export function IssueInvoiceDialog({
           <label className="block">
             <span className="text-sm font-medium text-on-surface">Company address</span>
             <textarea
-              className="mt-1 min-h-28 w-full rounded-lg border border-outline-variant/35 px-3 py-2 text-sm"
+              className="mt-1 min-h-28 w-full rounded-lg border border-border-default px-3 py-2 text-sm"
               disabled={readOnly}
               onChange={(event) => onFieldChange('issuedCompanyAddress', event.target.value)}
               required
@@ -48,7 +48,7 @@ export function IssueInvoiceDialog({
         </div>
         <div className="mt-6 flex items-center justify-end gap-3">
           <button
-            className="rounded-lg border border-outline-variant/35 px-4 py-2 text-sm"
+            className="rounded-lg border border-border-default px-4 py-2 text-sm"
             onClick={onCancel}
             type="button"
           >

@@ -22,7 +22,7 @@ interface FormFieldProps {
 }
 
 const INPUT_BORDERED =
-  'w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60'
+  'w-full rounded-xl border border-border-default bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60'
 
 const INPUT_GHOST =
   'w-full border-0 bg-surface-container-lowest py-3 pl-0 pr-0 font-medium text-on-surface shadow-none outline-hidden ring-0 transition-all placeholder:text-outline/40 focus:border-primary focus:ring-0 ghost-border'

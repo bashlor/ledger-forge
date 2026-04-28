@@ -8,14 +8,14 @@ type MemberRole = 'admin' | 'member' | 'owner'
 export const labelClass = 'eyebrow'
 
 const INPUT_BORDERED =
-  'w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60'
+  'w-full rounded-xl border border-border-default bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60'
 
 export function buttonClass(tone: ActionTone = 'primary') {
   const base =
     'inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 
   if (tone === 'secondary') {
-    return `${base} border border-outline-variant/18 bg-surface-container-highest text-on-surface hover:bg-surface-container-high`
+    return `${base} border border-border-hairline bg-surface-container-highest text-on-surface hover:bg-surface-container-high`
   }
 
   if (tone === 'danger') {
@@ -34,7 +34,7 @@ export function RoleBadge({ role }: { role: MemberRole }) {
 }
 
 export function rowActionButtonClass() {
-  return 'eyebrow rounded-lg border border-outline-variant/18 bg-surface-container-low px-3 py-1.5 transition-colors hover:bg-surface-container'
+  return 'eyebrow rounded-lg border border-border-hairline bg-surface-container-low px-3 py-1.5 transition-colors hover:bg-surface-container'
 }
 
 export function ScrollableTable({
@@ -74,7 +74,7 @@ export function toneBadgeClass(tone: BadgeTone) {
     case 'warning':
       return 'border-amber-500/30 bg-amber-500/12 text-amber-700'
     default:
-      return 'border-outline-variant/20 bg-surface-container-low text-on-surface-variant'
+      return 'border-border-hairline bg-surface-container-low text-on-surface-variant'
   }
 }
 

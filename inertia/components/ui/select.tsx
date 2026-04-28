@@ -18,15 +18,16 @@ const triggerBaseClass =
 const triggerCompactModifier =
   'h-9 gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold leading-snug shadow-sm ring-1 ring-slate-900/[0.03]'
 
-/** Matches `inputClass()` / app form controls (outline-variant). */
+/** Matches `inputClass()` / app form controls. */
 const triggerSurfaceClass =
-  'inline-flex h-10 min-w-0 w-full shrink-0 items-center justify-between gap-2 rounded-xl border border-outline-variant/35 bg-white px-3 py-2 text-left text-sm font-medium text-on-surface outline-hidden transition-colors hover:border-outline-variant/55 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-60 data-[placeholder]:text-outline/50 data-[state=open]:border-primary focus-visible:border-primary'
+  'inline-flex h-10 min-w-0 w-full shrink-0 items-center justify-between gap-2 rounded-xl border border-border-default bg-white px-3 py-2 text-left text-sm font-medium text-on-surface shadow-sm shadow-slate-900/[0.04] outline-hidden ring-1 ring-slate-900/[0.05] transition-colors hover:border-slate-400 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-60 data-[placeholder]:text-outline/50 data-[state=open]:border-primary data-[state=open]:ring-2 data-[state=open]:ring-primary/25 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25'
 
-const triggerSurfaceCompactModifier = 'h-9 rounded-lg px-2 py-1 text-xs font-semibold leading-snug'
+const triggerSurfaceCompactModifier =
+  'h-9 rounded-lg px-2 py-1 text-xs font-semibold leading-snug shadow-sm ring-1 ring-slate-900/[0.05]'
 
 /** Radix default `item-aligned` keeps the list anchored to the trigger (popper mode often mispositions here). */
 const contentBaseClass =
-  'z-[100] max-h-[min(22rem,70dvh)] min-w-0 max-w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-slate-200/95 bg-white py-1 shadow-lg shadow-slate-900/12 ring-1 ring-slate-900/[0.05] transition-[opacity,transform] duration-150 ease-out data-[side=bottom]:origin-top data-[side=top]:origin-bottom data-[state=closed]:scale-[0.98] data-[state=closed]:opacity-0 data-[state=open]:scale-100 data-[state=open]:opacity-100'
+  'z-[100] max-h-[min(22rem,70dvh)] min-w-0 max-w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-border-default bg-white py-1 shadow-lg shadow-slate-900/12 ring-1 ring-slate-900/[0.05] transition-[opacity,transform] duration-150 ease-out data-[side=bottom]:origin-top data-[side=top]:origin-bottom data-[state=closed]:scale-[0.98] data-[state=closed]:opacity-0 data-[state=open]:scale-100 data-[state=open]:opacity-100'
 
 const itemBaseClass =
   'relative flex min-w-0 cursor-pointer select-none items-center rounded-lg py-2 pr-3 pl-9 text-sm font-medium text-slate-800 outline-hidden data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[highlighted]:bg-slate-50 data-[state=checked]:bg-slate-50/80'

@@ -32,7 +32,7 @@ export default function Settings({ user }: SettingsProps) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <section className="rounded-[1.75rem] border border-outline-variant/15 bg-surface-container-lowest px-6 py-6 shadow-ambient-tight sm:px-7">
+      <section className="rounded-[1.75rem] border border-border-default bg-surface-container-lowest px-6 py-6 shadow-ambient-tight sm:px-7">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">
@@ -94,7 +94,7 @@ export default function Settings({ user }: SettingsProps) {
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <section className="rounded-[1.75rem] border border-outline-variant/15 bg-surface-container-lowest p-6 shadow-ambient-tight sm:p-7">
+        <section className="rounded-[1.75rem] border border-border-default bg-surface-container-lowest p-6 shadow-ambient-tight sm:p-7">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
               Profile
@@ -122,7 +122,7 @@ export default function Settings({ user }: SettingsProps) {
                         Email
                       </label>
                       <input
-                        className="w-full rounded-xl border border-outline-variant/35 bg-surface-container-low px-3 py-3 text-sm text-on-surface-variant outline-hidden"
+                        className="w-full rounded-xl border border-border-default bg-surface-container-low px-3 py-3 text-sm text-on-surface-variant outline-hidden"
                         defaultValue={user.email}
                         disabled
                         id="email"
@@ -153,7 +153,7 @@ export default function Settings({ user }: SettingsProps) {
         </section>
 
         {!isAnonymous ? (
-          <section className="rounded-[1.75rem] border border-outline-variant/15 bg-surface-container-lowest p-6 shadow-ambient-tight sm:p-7">
+          <section className="rounded-[1.75rem] border border-border-default bg-surface-container-lowest p-6 shadow-ambient-tight sm:p-7">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                 Security

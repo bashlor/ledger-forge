@@ -24,7 +24,7 @@ export function InvoiceView({
 }: Props) {
   return (
     <div>
-      <div className="border-b border-outline-variant/10 px-5 py-4 sm:px-6">
+      <div className="border-b border-border-hairline px-5 py-4 sm:px-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={invoice.status} />
@@ -65,7 +65,7 @@ export function InvoiceView({
         {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
 
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">
+          <div className="rounded-2xl border border-border-default bg-surface-container-low p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-on-surface-variant">
               Customer
             </p>
@@ -86,7 +86,7 @@ export function InvoiceView({
               {invoice.customerPhoneSnapshot || 'No phone'}
             </p>
           </div>
-          <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">
+          <div className="rounded-2xl border border-border-default bg-surface-container-low p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-on-surface-variant">
               Issue date
             </p>
@@ -94,7 +94,7 @@ export function InvoiceView({
               {formatShortDate(invoice.issueDate)}
             </p>
           </div>
-          <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4">
+          <div className="rounded-2xl border border-border-default bg-surface-container-low p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-on-surface-variant">
               Due date
             </p>
@@ -104,7 +104,7 @@ export function InvoiceView({
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-outline-variant/35">
+        <div className="overflow-hidden rounded-2xl border border-border-default">
           <table className="w-full">
             <thead>
               <tr className="bg-surface-container-low text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
@@ -115,7 +115,7 @@ export function InvoiceView({
                 <th className="px-4 py-3 text-right">Line total (incl. VAT)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant/15 bg-white">
+            <tbody className="divide-y divide-border-hairline bg-white">
               {invoice.lines.map((line) => (
                 <tr key={line.id}>
                   <td className="px-4 py-3 text-sm text-on-surface">{line.description}</td>
@@ -136,7 +136,7 @@ export function InvoiceView({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-5">
+          <div className="rounded-2xl border border-border-default bg-surface-container-low p-5">
             <h3 className="text-sm font-semibold text-on-surface">Lifecycle</h3>
             <p className="mt-3 text-sm leading-6 text-on-surface-variant">
               {invoice.status === 'issued'

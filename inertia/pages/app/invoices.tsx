@@ -749,7 +749,7 @@ function InvoicesContent({
 
               {selectedInvoice && canViewAuditHistory ? (
                 <button
-                  className="inline-flex items-center gap-2 self-start rounded-lg border border-outline-variant/35 bg-white px-4 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                  className="inline-flex items-center gap-2 self-start rounded-lg border border-border-default bg-white px-4 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
                   onClick={handleOpenHistory}
                   type="button"
                 >
@@ -790,7 +790,7 @@ function InvoicesContent({
             summary={summary}
           />
         ) : (
-          <section className="overflow-hidden rounded-xl bg-surface-container-lowest shadow-ambient-tight">
+          <section className="overflow-hidden rounded-xl border border-border-default bg-surface-container-lowest shadow-ambient-tight ring-1 ring-black/[0.03]">
             {isCreating || editingInvoice ? (
               <InvoiceDraftEditor
                 accountingReadOnly={accountingReadOnly}
