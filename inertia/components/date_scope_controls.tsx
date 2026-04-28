@@ -1,25 +1,41 @@
-import type { FormEvent } from 'react'
+import type { FormEvent, RefObject } from 'react'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import type { DateRange } from '~/lib/types'
 
 import { AppIcon } from '~/components/app_icon'
 import { useDateScope } from '~/components/date_scope_provider'
-import { Modal } from '~/components/modal'
-import { createCurrentMonthDateScope, isValidDateRange } from '~/lib/date_scope'
+import {
+  createCurrentMonthDateScope,
+  createMonthDateScope,
+  isValidDateRange,
+} from '~/lib/date_scope'
 
 export function DateScopeControls() {
-  const { resetToCurrentMonth, scope, setCustomRange, shiftBackward, shiftForward } = useDateScope()
-  const [modalOpen, setModalOpen] = useState(false)
+  const { jumpToMonth, resetToCurrentMonth, scope, setCustomRange, shiftBackward, shiftForward } =
+    useDateScope()
+  const [panelOpen, setPanelOpen] = useState(false)
   const [form, setForm] = useState<DateRange>({
     endDate: scope.endDate,
     startDate: scope.startDate,
   })
+  const containerRef = useRef<HTMLDivElement>(null)
+  const panelId = useId()
 
-  function openModal() {
+  useCloseOnOutsideAndEscape(panelOpen, setPanelOpen, containerRef)
+
+  function openPanel() {
     setForm({ endDate: scope.endDate, startDate: scope.startDate })
-    setModalOpen(true)
+    setPanelOpen(true)
+  }
+
+  function togglePanel() {
+    if (panelOpen) {
+      setPanelOpen(false)
+    } else {
+      openPanel()
+    }
   }
 
   const invalidRange = useMemo(() => !isValidDateRange(form), [form])
@@ -28,20 +44,33 @@ export function DateScopeControls() {
     scope.endDate === createCurrentMonthDateScope().endDate &&
     scope.mode === 'month'
 
+  /** YYYY-MM for native month input */
+  const monthInputValue = scope.startDate.slice(0, 7)
+
+  function handleMonthChange(value: string) {
+    if (!value) return
+    const [y, m] = value.split('-').map(Number)
+    if (!y || !m) return
+    jumpToMonth(y, m - 1)
+    const next = createMonthDateScope(y, m - 1)
+    setForm({ endDate: next.endDate, startDate: next.startDate })
+    setPanelOpen(false)
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (invalidRange) return
 
     setCustomRange(form)
-    setModalOpen(false)
+    setPanelOpen(false)
   }
 
   return (
-    <>
-      <div className="flex items-center gap-1">
+    <div className="relative" ref={containerRef}>
+      <div className="flex items-center gap-0">
         <button
           aria-label="Previous period"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
           onClick={shiftBackward}
           type="button"
         >
@@ -49,18 +78,21 @@ export function DateScopeControls() {
         </button>
 
         <button
-          className="rounded-lg px-3 py-1.5 text-center transition-colors hover:bg-surface-container-low"
-          onClick={openModal}
+          aria-controls={panelId}
+          aria-expanded={panelOpen}
+          aria-haspopup="dialog"
+          className="min-w-0 px-2 py-1 text-center transition-colors hover:bg-surface-container-low/80"
+          onClick={togglePanel}
           type="button"
         >
-          <p className="font-headline text-sm font-bold tabular-nums text-on-surface">
+          <p className="truncate font-headline text-[13px] font-medium tabular-nums text-on-surface">
             {scope.label}
           </p>
         </button>
 
         <button
           aria-label="Next period"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
           onClick={shiftForward}
           type="button"
         >
@@ -68,82 +100,118 @@ export function DateScopeControls() {
         </button>
       </div>
 
-      <Modal
-        description="Choose a global period for overview widgets and list components. This version only wires the UI layer."
-        footer={
-          <>
-            <button
-              className="rounded-xl border border-outline-variant/20 px-4 py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
-              onClick={() => setModalOpen(false)}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-xl border border-outline-variant/20 px-4 py-2.5 text-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isCurrentMonth}
-              onClick={() => {
-                resetToCurrentMonth()
-                setModalOpen(false)
-              }}
-              type="button"
-            >
-              Reset to current month
-            </button>
-            <button
-              className="rounded-xl px-4 py-2.5 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={invalidRange}
-              form="date-scope-form"
-              type="submit"
-            >
-              Apply range
-            </button>
-          </>
-        }
-        onClose={() => setModalOpen(false)}
-        open={modalOpen}
-        size="md"
-        title="Global date scope"
-      >
-        <form className="grid gap-4 sm:grid-cols-2" id="date-scope-form" onSubmit={handleSubmit}>
-          <label className="grid gap-2 text-sm text-on-surface-variant">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">
-              Start date
-            </span>
-            <input
-              className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-              onChange={(event) =>
-                setForm((current) => ({ ...current, startDate: event.target.value }))
-              }
-              type="date"
-              value={form.startDate}
-            />
-          </label>
-          <label className="grid gap-2 text-sm text-on-surface-variant">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">End date</span>
-            <input
-              className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-              onChange={(event) =>
-                setForm((current) => ({ ...current, endDate: event.target.value }))
-              }
-              type="date"
-              value={form.endDate}
-            />
-          </label>
-
-          <div className="sm:col-span-2">
-            <div className="rounded-2xl border border-outline-variant/15 bg-surface-container-low px-4 py-3">
-              <p className="text-sm font-semibold text-on-surface">Active scope</p>
-              <p className="mt-1 text-sm text-on-surface-variant">{scope.label}</p>
-              <p className="mt-2 text-sm text-on-surface-variant">
-                {invalidRange
-                  ? 'Choose an end date that is on or after the start date.'
-                  : `This range will be reflected by the topbar controls immediately.`}
-              </p>
-            </div>
+      {panelOpen ? (
+        <div
+          className="absolute left-1/2 top-full z-50 mt-1.5 w-[min(calc(100vw-1.5rem),18.5rem)] -translate-x-1/2 rounded-lg border border-outline-variant bg-surface-container-lowest py-3 shadow-lg shadow-slate-900/10"
+          aria-modal="false"
+          id={panelId}
+          role="dialog"
+          aria-label="Select period"
+        >
+          <div className="border-b border-outline-variant px-3 pb-3">
+            <label className="grid gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
+                Month
+              </span>
+              <input
+                className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 text-sm text-on-surface outline-hidden focus:border-primary focus:ring-1 focus:ring-primary/20"
+                onChange={(event) => handleMonthChange(event.target.value)}
+                type="month"
+                value={monthInputValue}
+              />
+            </label>
           </div>
-        </form>
-      </Modal>
-    </>
+
+          <form className="px-3 pt-3" onSubmit={handleSubmit}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
+              Custom range
+            </p>
+            <div className="mt-2 grid gap-3">
+              <label className="grid gap-1">
+                <span className="text-xs text-on-surface-variant">Start</span>
+                <input
+                  className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 text-sm text-on-surface outline-hidden focus:border-primary focus:ring-1 focus:ring-primary/20"
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, startDate: event.target.value }))
+                  }
+                  type="date"
+                  value={form.startDate}
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-xs text-on-surface-variant">End</span>
+                <input
+                  className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 text-sm text-on-surface outline-hidden focus:border-primary focus:ring-1 focus:ring-primary/20"
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, endDate: event.target.value }))
+                  }
+                  type="date"
+                  value={form.endDate}
+                />
+              </label>
+            </div>
+
+            {invalidRange ? (
+              <p className="mt-2 text-xs text-error">La date de fin doit être après le début.</p>
+            ) : null}
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                className="rounded-md border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high"
+                onClick={() => setPanelOpen(false)}
+                type="button"
+              >
+                Close
+              </button>
+              <button
+                className="rounded-md border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isCurrentMonth}
+                onClick={() => {
+                  resetToCurrentMonth()
+                  setPanelOpen(false)
+                }}
+                type="button"
+              >
+                This month
+              </button>
+              <button
+                className="ml-auto rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary shadow-sm shadow-primary/15 transition-colors hover:bg-primary-dim disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={invalidRange}
+                type="submit"
+              >
+                Apply
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </div>
   )
+}
+
+function useCloseOnOutsideAndEscape(
+  open: boolean,
+  setOpen: (value: boolean) => void,
+  ref: RefObject<HTMLElement | null>
+) {
+  useEffect(() => {
+    if (!open) return
+
+    function onPointerDown(event: PointerEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open, ref, setOpen])
 }

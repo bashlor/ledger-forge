@@ -7,10 +7,12 @@ import type { DateRange, DateScope } from '~/lib/types'
 import {
   createCurrentMonthDateScope,
   createCustomDateScope,
+  createMonthDateScope,
   shiftDateScope,
 } from '~/lib/date_scope'
 
 interface DateScopeContextValue {
+  jumpToMonth: (year: number, monthIndex: number) => void
   resetToCurrentMonth: () => void
   scope: DateScope
   setCustomRange: (range: DateRange) => void
@@ -26,6 +28,7 @@ export function DateScopeProvider({ children }: { children: ReactNode }) {
   return (
     <DateScopeContext.Provider
       value={{
+        jumpToMonth: (year, monthIndex) => setScope(createMonthDateScope(year, monthIndex)),
         resetToCurrentMonth: () => setScope(createCurrentMonthDateScope()),
         scope,
         setCustomRange: (range) => setScope(createCustomDateScope(range)),
