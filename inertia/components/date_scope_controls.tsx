@@ -1,6 +1,6 @@
-import type { FormEvent, RefObject } from 'react'
+import type { FormEvent } from 'react'
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 
 import type { DateRange } from '~/lib/types'
 
@@ -11,6 +11,7 @@ import {
   createMonthDateScope,
   isValidDateRange,
 } from '~/lib/date_scope'
+import { useCloseOnOutsideAndEscape } from '~/hooks/use_close_on_outside_and_escape'
 
 export function DateScopeControls() {
   const { jumpToMonth, resetToCurrentMonth, scope, setCustomRange, shiftBackward, shiftForward } =
@@ -187,31 +188,4 @@ export function DateScopeControls() {
       ) : null}
     </div>
   )
-}
-
-function useCloseOnOutsideAndEscape(
-  open: boolean,
-  setOpen: (value: boolean) => void,
-  ref: RefObject<HTMLElement | null>
-) {
-  useEffect(() => {
-    if (!open) return
-
-    function onPointerDown(event: PointerEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
-    }
-
-    document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open, ref, setOpen])
 }

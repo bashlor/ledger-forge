@@ -1,12 +1,11 @@
-import type { RefObject } from 'react'
-
 import { Form, Link } from '@adonisjs/inertia/react'
 import { type Data } from '@generated/data'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 
 import { AppIcon } from '~/components/app_icon'
 import { DateScopeControls } from '~/components/date_scope_controls'
 import { LedgerForgeMark } from '~/components/ledger_forge_brand'
+import { useCloseOnOutsideAndEscape } from '~/hooks/use_close_on_outside_and_escape'
 
 import { pageDescriptions } from './config'
 import { SHELL_CONTENT_GUTTER_CLASS, SHELL_MAIN_MAX_WIDTH_CLASS } from './shell_layout'
@@ -122,7 +121,7 @@ export function AppTopbar({
                 >
                   <AppIcon name="date_range" size={18} />
                 </span>
-                <div className="h-5 w-px shrink-0 bg-slate-200" aria-hidden="true" />
+                <div aria-hidden="true" className="h-5 w-px shrink-0 bg-slate-200" />
                 <DateScopeControls />
               </div>
             ) : (
@@ -198,31 +197,4 @@ export function AppTopbar({
       </div>
     </header>
   )
-}
-
-function useCloseOnOutsideAndEscape(
-  open: boolean,
-  setOpen: (value: boolean) => void,
-  ref: RefObject<HTMLElement | null>
-) {
-  useEffect(() => {
-    if (!open) return
-
-    function onPointerDown(event: PointerEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
-    }
-
-    document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open, ref, setOpen])
 }
