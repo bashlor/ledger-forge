@@ -33,4 +33,5 @@ Trade-off:
 
 - less framework-native convenience than a fully Adonis-owned auth stack
 - the proxy layer must stay small and well tested
-- //complexité d'implémentation élevée vis-à-vis de la démo.
+- higher implementation surface area (routing, error mapping, tests) than wiring the
+  framework’s first-party stack for a same-sized demo
