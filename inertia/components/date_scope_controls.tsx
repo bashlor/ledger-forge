@@ -67,10 +67,10 @@ export function DateScopeControls() {
 
   return (
     <div className="relative" ref={containerRef}>
-      <div className="flex items-center gap-0">
+        <div className="flex items-center gap-0">
         <button
           aria-label="Previous period"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-on-surface-variant transition-colors duration-200 hover:bg-surface-container-low hover:text-on-surface"
           onClick={shiftBackward}
           type="button"
         >
@@ -81,7 +81,7 @@ export function DateScopeControls() {
           aria-controls={panelId}
           aria-expanded={panelOpen}
           aria-haspopup="dialog"
-          className="min-w-0 px-2 py-1 text-center transition-colors hover:bg-surface-container-low/80"
+          className="min-w-0 px-2 py-1.5 text-center transition-colors duration-200 hover:bg-surface-container-low/80"
           onClick={togglePanel}
           type="button"
         >
@@ -92,7 +92,7 @@ export function DateScopeControls() {
 
         <button
           aria-label="Next period"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-on-surface-variant transition-colors duration-200 hover:bg-surface-container-low hover:text-on-surface"
           onClick={shiftForward}
           type="button"
         >

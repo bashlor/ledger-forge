@@ -9,9 +9,17 @@ import { DateScopeProvider } from '~/components/date_scope_provider'
 import { todayDateOnlyUtc } from '~/lib/date'
 import { formatTopbarDate, getInitials } from '~/lib/format'
 
-import { pageLabelForUrl, visibleMainNavLinks } from './app_shell/config'
+import {
+  pageLabelForUrl,
+  suppressPrimaryPageTitleInTopbar,
+  visibleMainNavLinks,
+} from './app_shell/config'
 import { MobileNav } from './app_shell/mobile_nav'
-import { SHELL_CONTENT_GUTTER_CLASS, SHELL_MAIN_PAD_LEFT_CLASS } from './app_shell/shell_layout'
+import {
+  SHELL_CONTENT_GUTTER_CLASS,
+  SHELL_MAIN_MAX_WIDTH_CLASS,
+  SHELL_MAIN_PAD_LEFT_CLASS,
+} from './app_shell/shell_layout'
 import { AppSidebar } from './app_shell/sidebar'
 import { AppTopbar } from './app_shell/topbar'
 
@@ -52,6 +60,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
   const todayLine = formatTopbarDate(todayDateOnlyUtc())
   const showDateScopeControls =
     url === '/dashboard' || url.startsWith('/expenses') || url.startsWith('/invoices')
+  const suppressTopbarPageTitle = suppressPrimaryPageTitleInTopbar(url)
 
   useEffect(() => {
     toast.dismiss()
@@ -80,16 +89,19 @@ function AppShellFrame({ children }: { children: ReactNode }) {
           pageLabel={pageLabel}
           readOnlyBadge={readOnlyBadge}
           showDateScopeControls={showDateScopeControls}
+          suppressPrimaryTitle={suppressTopbarPageTitle}
           todayLine={todayLine}
           workspace={workspace}
         />
 
         <main
-          className={`w-full min-w-0 flex-1 bg-background pt-6 lg:pt-7 ${
-            hasMobileNav ? 'pb-24 lg:pb-10' : 'pb-7 lg:pb-10'
+          className={`w-full min-w-0 flex-1 bg-app-canvas pt-7 lg:pt-8 ${
+            hasMobileNav ? 'pb-24 lg:pb-11' : 'pb-8 lg:pb-11'
           }`}
         >
-          <div className={SHELL_CONTENT_GUTTER_CLASS}>{children}</div>
+          <div className={SHELL_CONTENT_GUTTER_CLASS}>
+            <div className={SHELL_MAIN_MAX_WIDTH_CLASS}>{children}</div>
+          </div>
         </main>
 
         <MobileNav

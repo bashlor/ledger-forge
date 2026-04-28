@@ -4,6 +4,8 @@
 @source "../**/*.{ts,tsx}";
 
 @theme {
+  /** Main scroll region behind cards (slightly cooler than pure white). */
+  --color-app-canvas: #f1f5f9;
   --color-background: #f8fafc;
   --color-error: #dc2626;
   --color-error-container: #fee2e2;
@@ -23,7 +25,7 @@
   --color-on-secondary-fixed: #1e293b;
   --color-on-secondary-fixed-variant: #475569;
   --color-on-surface: #0f172a;
-  --color-on-surface-variant: #64748b;
+  --color-on-surface-variant: #5c6578;
   --color-on-tertiary: #ffffff;
   --color-on-tertiary-container: #065f46;
   --color-on-tertiary-fixed: #064e3b;

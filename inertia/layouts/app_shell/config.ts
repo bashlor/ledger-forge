@@ -12,13 +12,13 @@ export interface NavigationPermissions {
 
 export const mainNavLinks: readonly AppNavLink[] = [
   { href: '/dashboard', icon: 'dashboard', label: 'Overview', permission: 'canViewOverview' },
-  { href: '/customers', icon: 'business', label: 'Customers' },
+  { href: '/customers', icon: 'group', label: 'Customers' },
   { href: '/invoices', icon: 'receipt_long', label: 'Invoices' },
   /** Évite `payments` (carte / $) sur la ligne Dépenses — lu comme encaissement / facturation */
   { href: '/expenses', icon: 'shopping_bag', label: 'Expenses' },
   {
     href: '/organization',
-    icon: 'group',
+    icon: 'business',
     label: 'Organization',
     permission: 'canViewOrganization',
   },
@@ -54,6 +54,18 @@ export function pageLabelForUrl(url: string) {
 
   const match = mainNavLinks.find((link) => isActive(url, link.href))
   return match?.label ?? 'Overview'
+}
+
+/** Main app pages render an H1 via `PageHeader`; topbar should not repeat the same title. */
+export function suppressPrimaryPageTitleInTopbar(url: string): boolean {
+  if (url.startsWith('/account')) return false
+  if (url.startsWith('/_dev')) return false
+  if (url === '/dashboard') return true
+  if (isActive(url, '/customers')) return true
+  if (isActive(url, '/invoices')) return true
+  if (isActive(url, '/expenses')) return true
+  if (isActive(url, '/organization')) return true
+  return false
 }
 
 export function visibleMainNavLinks(permissions?: NavigationPermissions): readonly AppNavLink[] {

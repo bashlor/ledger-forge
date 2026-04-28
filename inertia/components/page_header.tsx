@@ -1,22 +1,70 @@
 import type { ReactNode } from 'react'
 
+import { Link } from '@adonisjs/inertia/react'
+
 import { Caption, Eyebrow } from './ui'
+
+export type PageHeaderBreadcrumbSegment = {
+  href?: string
+  label: string
+}
 
 interface PageHeaderProps {
   actions?: ReactNode
+  breadcrumb?: PageHeaderBreadcrumbSegment[]
   className?: string
   description: string
   eyebrow?: string
   title: string
 }
 
-export function PageHeader({ actions, className, description, eyebrow, title }: PageHeaderProps) {
+export function PageHeader({
+  actions,
+  breadcrumb,
+  className,
+  description,
+  eyebrow,
+  title,
+}: PageHeaderProps) {
   return (
-    <div className={`flex flex-col gap-2.5 ${className ?? ''}`.trim()}>
+    <div className={`flex flex-col gap-3 sm:gap-3.5 ${className ?? ''}`.trim()}>
+      {breadcrumb?.length ? (
+        <nav aria-label="Breadcrumb">
+          <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
+            {breadcrumb.map((segment, index) => {
+              const isLast = index === breadcrumb.length - 1
+
+              return (
+                <li className="flex min-w-0 items-center gap-x-1.5" key={`${segment.label}-${index}`}>
+                  {index > 0 ? (
+                    <span aria-hidden className="font-normal text-on-surface-variant/45">
+                      /
+                    </span>
+                  ) : null}
+                  {segment.href && !isLast ? (
+                    <Link
+                      className="truncate text-on-surface-variant transition-colors duration-200 hover:text-primary"
+                      href={segment.href}
+                    >
+                      {segment.label}
+                    </Link>
+                  ) : (
+                    <span
+                      className={`truncate ${isLast ? 'text-on-surface/80' : 'text-on-surface-variant'}`}
+                    >
+                      {segment.label}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+        </nav>
+      ) : null}
       {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="min-w-0 flex-1 space-y-1.5 sm:max-w-3xl">
-          <h1 className="font-headline text-2xl font-bold tracking-tight text-on-surface sm:text-3xl">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
+        <div className="min-w-0 flex-1 space-y-2 sm:max-w-3xl">
+          <h1 className="font-headline text-[1.65rem] font-bold leading-[1.15] tracking-tight text-on-surface sm:text-3xl sm:leading-tight">
             {title}
           </h1>
           <Caption className="max-w-2xl text-sm leading-relaxed text-on-surface-variant sm:text-[15px]">
@@ -24,7 +72,7 @@ export function PageHeader({ actions, className, description, eyebrow, title }: 
           </Caption>
         </div>
         {actions ? (
-          <div className="flex shrink-0 items-center gap-2 sm:pt-0.5">{actions}</div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:pt-1">{actions}</div>
         ) : null}
       </div>
     </div>
