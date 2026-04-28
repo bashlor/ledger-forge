@@ -73,11 +73,9 @@ function AppShellFrame({ children }: { children: ReactNode }) {
       <AppSidebar
         devToolsEnabled={devToolsEnabled}
         devToolsHref={devToolsHref}
-        initials={initials}
         navLinks={navLinks}
         showAccountingNav={showAccountingNav}
         url={url}
-        workspaceLabel={workspace?.name ?? 'Workspace'}
       />
 
       <div className={`flex min-h-screen w-full min-w-0 flex-col ${SHELL_MAIN_PAD_LEFT_CLASS}`}>

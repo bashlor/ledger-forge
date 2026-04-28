@@ -25,14 +25,12 @@ describe('app sidebar', () => {
       <AppSidebar
         devToolsEnabled={false}
         devToolsHref="/_dev"
-        initials="TU"
         navLinks={[
           { href: '/customers', icon: 'business', label: 'Customers' },
           { href: '/expenses', icon: 'shopping_bag', label: 'Expenses' },
         ]}
         showAccountingNav
         url="/customers"
-        workspaceLabel="Acme Workspace"
       />
     )
 
