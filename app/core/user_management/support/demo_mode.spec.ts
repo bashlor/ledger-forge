@@ -9,9 +9,9 @@ test.group('demo mode', () => {
   })
 
   test('requires DEMO_PRODUCTION_FORCE in production when demo flag is set', ({ assert }) => {
-    assert.isFalse(isDemoModeEnabled(true, { nodeEnv: 'production', demoProductionForce: false }))
-    assert.isTrue(isDemoModeEnabled(true, { nodeEnv: 'production', demoProductionForce: true }))
-    assert.isFalse(isDemoModeEnabled(false, { nodeEnv: 'production', demoProductionForce: true }))
+    assert.isFalse(isDemoModeEnabled(true, { demoProductionForce: false, nodeEnv: 'production' }))
+    assert.isTrue(isDemoModeEnabled(true, { demoProductionForce: true, nodeEnv: 'production' }))
+    assert.isFalse(isDemoModeEnabled(false, { demoProductionForce: true, nodeEnv: 'production' }))
   })
 
   test('allows anonymous auth only when effective demo mode is on outside tests', ({ assert }) => {
