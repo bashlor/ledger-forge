@@ -14,7 +14,8 @@ export const mainNavLinks: readonly AppNavLink[] = [
   { href: '/dashboard', icon: 'dashboard', label: 'Overview', permission: 'canViewOverview' },
   { href: '/customers', icon: 'business', label: 'Customers' },
   { href: '/invoices', icon: 'receipt_long', label: 'Invoices' },
-  { href: '/expenses', icon: 'payments', label: 'Expenses' },
+  /** Évite `payments` (carte / $) sur la ligne Dépenses — lu comme encaissement / facturation */
+  { href: '/expenses', icon: 'shopping_bag', label: 'Expenses' },
   {
     href: '/organization',
     icon: 'group',

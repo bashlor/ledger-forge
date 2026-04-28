@@ -11,6 +11,7 @@ import { formatTopbarDate, getInitials } from '~/lib/format'
 
 import { pageLabelForUrl, visibleMainNavLinks } from './app_shell/config'
 import { MobileNav } from './app_shell/mobile_nav'
+import { SHELL_CONTENT_GUTTER_CLASS, SHELL_MAIN_PAD_LEFT_CLASS } from './app_shell/shell_layout'
 import { AppSidebar } from './app_shell/sidebar'
 import { AppTopbar } from './app_shell/topbar'
 
@@ -71,7 +72,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
         url={url}
       />
 
-      <div className="flex min-h-screen w-full min-w-0 flex-col lg:pl-64">
+      <div className={`flex min-h-screen w-full min-w-0 flex-col ${SHELL_MAIN_PAD_LEFT_CLASS}`}>
         <AppTopbar
           displayName={displayName}
           email={email}
@@ -84,11 +85,11 @@ function AppShellFrame({ children }: { children: ReactNode }) {
         />
 
         <main
-          className={`w-full min-w-0 flex-1 bg-surface px-4 pt-6 sm:px-6 lg:px-10 lg:pt-10 ${
-            hasMobileNav ? 'pb-24 lg:pb-10' : 'pb-6 lg:pb-10'
+          className={`w-full min-w-0 flex-1 bg-background pt-6 lg:pt-7 ${
+            hasMobileNav ? 'pb-24 lg:pb-10' : 'pb-7 lg:pb-10'
           }`}
         >
-          {children}
+          <div className={SHELL_CONTENT_GUTTER_CLASS}>{children}</div>
         </main>
 
         <MobileNav

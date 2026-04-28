@@ -30,7 +30,7 @@ describe('app sidebar', () => {
         initials="TU"
         navLinks={[
           { href: '/customers', icon: 'business', label: 'Customers' },
-          { href: '/expenses', icon: 'payments', label: 'Expenses' },
+          { href: '/expenses', icon: 'shopping_bag', label: 'Expenses' },
         ]}
         showAccountingNav
         url="/customers"
