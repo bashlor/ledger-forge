@@ -12,6 +12,11 @@ export default class SignoutController {
   async store(ctx: HttpContext, auth: AuthenticationPort, auditTrail: UserManagementAuditTrail) {
     await signOutWithAudit(ctx, auth, auditTrail)
     clearSessionToken(ctx)
+
+    if (ctx.request.header('x-inertia')) {
+      return ctx.response.status(409).header('X-Inertia-Location', '/')
+    }
+
     return ctx.response.redirect('/')
   }
 }

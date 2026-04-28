@@ -1,13 +1,14 @@
 import type { DateRange, DateScope } from '~/lib/types'
 
 import { parseDateOnlyUtc, toDateOnlyUtc } from '~/lib/date'
+import { DISPLAY_LOCALE } from '~/lib/format'
 
-const monthFormatter = new Intl.DateTimeFormat('en-GB', {
+const monthFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
   month: 'long',
   year: 'numeric',
 })
 
-const rangeFormatter = new Intl.DateTimeFormat('en-GB', {
+const rangeFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
   day: 'numeric',
   month: 'short',
   year: 'numeric',
@@ -41,7 +42,10 @@ export function createMonthDateScope(year: number, monthIndex: number): DateScop
 }
 
 export function formatDateScopeCaption(scope: DateScope) {
-  return scope.mode === 'month' ? `${scope.startDate} -> ${scope.endDate}` : 'Custom range'
+  if (scope.mode === 'month') {
+    return `${formatDateOnlyNumericFr(scope.startDate)} — ${formatDateOnlyNumericFr(scope.endDate)}`
+  }
+  return `${formatDateOnlyNumericFr(scope.startDate)} — ${formatDateOnlyNumericFr(scope.endDate)}`
 }
 
 export function isDateWithinScope(value: string, scope: DateScope) {
@@ -77,9 +81,17 @@ function differenceInDaysInclusive(startDate: string, endDate: string) {
   return Math.floor(diffMs / 86_400_000) + 1
 }
 
+function formatDateOnlyNumericFr(isoDate: string) {
+  const d = parseDateOnlyUtc(isoDate)
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const yyyy = d.getUTCFullYear()
+  return `${dd}/${mm}/${yyyy}`
+}
+
 function formatRangeLabel(range: DateRange) {
   const start = parseDateOnlyUtc(range.startDate)
   const end = parseDateOnlyUtc(range.endDate)
 
-  return `${rangeFormatter.format(start)} - ${rangeFormatter.format(end)}`
+  return `${rangeFormatter.format(start)} – ${rangeFormatter.format(end)}`
 }

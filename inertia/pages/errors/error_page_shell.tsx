@@ -16,7 +16,7 @@ export function ErrorPageShell({ code, description, icon, title }: ErrorPageShel
       <div className="pointer-events-none absolute bottom-0 left-0 h-56 w-56 -translate-x-1/3 translate-y-1/3 rounded-full bg-tertiary-container/15 blur-3xl sm:h-80 sm:w-80" />
 
       <section className="relative mx-auto grid w-full max-w-5xl items-center gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="order-2 rounded-2xl border border-outline-variant/15 bg-surface-container-lowest/85 p-5 shadow-card backdrop-blur sm:p-8 lg:order-1">
+        <div className="order-2 rounded-2xl border border-border-default bg-surface-container-lowest/85 p-5 shadow-card backdrop-blur sm:p-8 lg:order-1">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-container text-primary-dim">
               <AppIcon filled name={icon} size={22} />
@@ -29,7 +29,7 @@ export function ErrorPageShell({ code, description, icon, title }: ErrorPageShel
             </div>
           </div>
 
-          <div className="mt-8 space-y-3 border-t border-outline-variant/10 pt-6 text-sm leading-6 text-on-surface-variant">
+          <div className="mt-8 space-y-3 border-t border-border-hairline pt-6 text-sm leading-6 text-on-surface-variant">
             <p>
               The app is still running. Use the primary action to return to the best available page.
             </p>
@@ -52,7 +52,7 @@ export function ErrorPageShell({ code, description, icon, title }: ErrorPageShel
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <ErrorHomeLink className="inline-flex items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95" />
+            <ErrorHomeLink className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-on-primary shadow-md shadow-primary/25 transition-colors hover:bg-primary-dim" />
             <span className="text-xs font-medium text-on-surface-variant">
               Routing adapts to your current access level.
             </span>

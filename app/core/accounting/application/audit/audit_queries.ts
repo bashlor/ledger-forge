@@ -1,6 +1,5 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
-import { auditEvents } from '#core/accounting/drizzle/schema'
 import {
   type AuditBoundedContext,
   auditBoundedContextForEntity,
@@ -34,17 +33,36 @@ export async function listAuditEventsForEntity(
     tenantId: string
   }
 ): Promise<AuditEventDto[]> {
-  return db
-    .select()
-    .from(auditEvents)
+  const rows = await db
+    .select({
+      action: schema.auditEvents.action,
+      actorEmail: schema.user.email,
+      actorId: schema.auditEvents.actorId,
+      actorName: schema.user.name,
+      changes: schema.auditEvents.changes,
+      createdAt: schema.auditEvents.createdAt,
+      entityId: schema.auditEvents.entityId,
+      entityType: schema.auditEvents.entityType,
+      id: schema.auditEvents.id,
+      metadata: schema.auditEvents.metadata,
+      organizationId: schema.auditEvents.organizationId,
+    })
+    .from(schema.auditEvents)
+    .leftJoin(schema.user, eq(schema.auditEvents.actorId, schema.user.id))
     .where(
       and(
-        eq(auditEvents.organizationId, input.tenantId),
-        eq(auditEvents.entityType, input.entityType),
-        eq(auditEvents.entityId, input.entityId)
+        eq(schema.auditEvents.organizationId, input.tenantId),
+        eq(schema.auditEvents.entityType, input.entityType),
+        eq(schema.auditEvents.entityId, input.entityId)
       )
     )
-    .orderBy(desc(auditEvents.createdAt))
+    .orderBy(desc(schema.auditEvents.createdAt))
+
+  return rows.map((row) => ({
+    ...row,
+    actorEmail: row.actorEmail ?? null,
+    actorName: row.actorName?.trim() || null,
+  }))
 }
 
 export async function listRecentAuditEventsForTenant(

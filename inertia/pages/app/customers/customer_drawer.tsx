@@ -3,10 +3,11 @@ import { useState } from 'react'
 import type { CreateCustomerInput, CustomerDto } from '~/lib/types'
 import type { FormErrors } from '~/types'
 
-import { PrimaryButton, SecondaryButton } from '~/components/button'
+import { GhostButton, PrimaryButton, SecondaryButton } from '~/components/button'
 import { DrawerPanel } from '~/components/drawer_panel'
 import { ErrorBanner } from '~/components/error_banner'
 import { FormField } from '~/components/form_field'
+import { Eyebrow } from '~/components/ui'
 
 const EMPTY_FORM: CreateCustomerInput = {
   address: '',
@@ -17,9 +18,13 @@ const EMPTY_FORM: CreateCustomerInput = {
   phone: '',
 }
 
+export type CustomerDrawerMode = 'create' | 'edit' | 'view'
+
 interface CustomerDrawerProps {
   errors: FormErrors
+  mode: CustomerDrawerMode
   onClose: () => void
+  onRequestEditMode?: () => void
   onSubmit: (form: CreateCustomerInput, editingId: null | string) => void
   open: boolean
   processing: boolean
@@ -30,7 +35,9 @@ interface CustomerDrawerProps {
 
 export function CustomerDrawer({
   errors,
+  mode,
   onClose,
+  onRequestEditMode,
   onSubmit,
   open,
   processing,
@@ -38,8 +45,22 @@ export function CustomerDrawer({
   readOnlyMessage,
   target,
 }: CustomerDrawerProps) {
-  const isEdit = target !== null
-  const [form, setForm] = useState<CreateCustomerInput>(formFromTarget(target))
+  const isView = mode === 'view'
+  const formKey = target?.id ?? 'new'
+  const [draft, setDraft] = useState(() => ({
+    form: formFromTarget(target),
+    formKey,
+  }))
+
+  let form = draft.form
+  if (draft.formKey !== formKey) {
+    form = formFromTarget(target)
+    setDraft({ form, formKey })
+  }
+
+  function setForm(updater: (form: CreateCustomerInput) => CreateCustomerInput) {
+    setDraft((current) => ({ ...current, form: updater(current.form) }))
+  }
 
   function handleClose() {
     onClose()
@@ -47,100 +68,136 @@ export function CustomerDrawer({
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (readOnly) return
+    if (readOnly || isView) return
     onSubmit(form, target?.id ?? null)
   }
 
+  const fieldsLocked = readOnly || isView
+
+  const title =
+    mode === 'create'
+      ? 'Create customer'
+      : mode === 'view'
+        ? (target?.company ?? 'Customer')
+        : `Edit ${target?.company ?? ''}`
+
+  const description =
+    mode === 'create'
+      ? 'Add a contact that can be selected when creating an invoice.'
+      : mode === 'view'
+        ? 'Read-only summary. Use Edit to change details.'
+        : 'Update contact details. Draft invoices show the new company name; issued invoices keep their original label.'
+
+  const icon = mode === 'view' ? 'monitoring' : mode === 'edit' ? 'edit' : 'person_add'
+
+  const footer = isView ? (
+    <div className="flex flex-wrap items-center justify-end gap-3">
+      <GhostButton className="py-2.5" onClick={handleClose} type="button">
+        Close
+      </GhostButton>
+      {!readOnly && onRequestEditMode ? (
+        <SecondaryButton className="py-2.5" onClick={onRequestEditMode} type="button">
+          Edit customer
+        </SecondaryButton>
+      ) : null}
+    </div>
+  ) : (
+    <div className="flex flex-wrap items-center justify-end gap-3">
+      <GhostButton className="py-2.5" onClick={handleClose} type="button">
+        Cancel
+      </GhostButton>
+      <PrimaryButton
+        className="py-2.5"
+        disabled={processing || readOnly}
+        form="customer-form"
+        type="submit"
+      >
+        {processing ? 'Saving…' : target ? 'Update' : 'Save'}
+      </PrimaryButton>
+    </div>
+  )
+
   return (
     <DrawerPanel
-      description={
-        isEdit
-          ? 'Update contact details. Draft invoices show the new company name; issued invoices keep their original label.'
-          : 'Add a contact that can be selected when creating an invoice.'
-      }
-      footer={
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <SecondaryButton className="py-3" onClick={handleClose}>
-            Cancel
-          </SecondaryButton>
-          <PrimaryButton
-            className="py-3"
-            disabled={processing || readOnly}
-            form="customer-form"
-            type="submit"
-          >
-            {processing ? 'Saving…' : isEdit ? 'Update' : 'Save'}
-          </PrimaryButton>
-        </div>
-      }
-      icon={isEdit ? 'edit' : 'person_add'}
+      description={description}
+      footer={footer}
+      icon={icon}
+      maxWidthClass="max-w-[520px]"
       onClose={handleClose}
       open={open}
-      title={target ? `Edit ${target.company}` : 'Create customer'}
+      title={title}
     >
       {readOnly ? <ErrorBanner message={readOnlyMessage} /> : null}
 
-      <form className="grid gap-4 sm:grid-cols-2" id="customer-form" onSubmit={handleSubmit}>
-        <div className="sm:col-span-2">
+      <form className="space-y-6" id="customer-form" onSubmit={handleSubmit}>
+        <section className="space-y-3">
+          <Eyebrow className="text-slate-500">Company info</Eyebrow>
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+            <div className="sm:col-span-2">
+              <FormField
+                disabled={fieldsLocked}
+                error={errors.company}
+                id="customer-company"
+                label="Company"
+                onChange={(value) => setForm((f) => ({ ...f, company: value }))}
+                required
+                value={form.company}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <FormField
+                disabled={fieldsLocked}
+                error={errors.address}
+                id="customer-address"
+                label="Address"
+                onChange={(value) => setForm((f) => ({ ...f, address: value }))}
+                required
+                rows={2}
+                value={form.address}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-3 border-t border-slate-100 pt-5">
+          <Eyebrow className="text-slate-500">Contact info</Eyebrow>
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+            <FormField
+              disabled={fieldsLocked}
+              error={errors.name}
+              id="customer-name"
+              label="Contact"
+              onChange={(value) => setForm((f) => ({ ...f, name: value }))}
+              required
+              value={form.name}
+            />
+            <FormField
+              disabled={fieldsLocked}
+              error={errors.phone}
+              id="customer-phone"
+              label="Phone"
+              onChange={(value) => setForm((f) => ({ ...f, phone: value }))}
+              type="tel"
+              value={form.phone ?? ''}
+            />
+            <div className="sm:col-span-2">
+              <FormField
+                disabled={fieldsLocked}
+                error={errors.email}
+                id="customer-email"
+                label="Email"
+                onChange={(value) => setForm((f) => ({ ...f, email: value }))}
+                type="email"
+                value={form.email ?? ''}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-3 border-t border-slate-100 pt-5">
+          <Eyebrow className="text-slate-500">Internal note</Eyebrow>
           <FormField
-            disabled={readOnly}
-            error={errors.company}
-            id="customer-company"
-            label="Company"
-            onChange={(value) => setForm((f) => ({ ...f, company: value }))}
-            required
-            value={form.company}
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <FormField
-            disabled={readOnly}
-            error={errors.address}
-            id="customer-address"
-            label="Address"
-            onChange={(value) => setForm((f) => ({ ...f, address: value }))}
-            required
-            rows={2}
-            value={form.address}
-          />
-        </div>
-
-        <FormField
-          disabled={readOnly}
-          error={errors.name}
-          id="customer-name"
-          label="Contact"
-          onChange={(value) => setForm((f) => ({ ...f, name: value }))}
-          required
-          value={form.name}
-        />
-
-        <FormField
-          disabled={readOnly}
-          error={errors.phone}
-          id="customer-phone"
-          label="Phone"
-          onChange={(value) => setForm((f) => ({ ...f, phone: value }))}
-          type="tel"
-          value={form.phone ?? ''}
-        />
-
-        <div className="sm:col-span-2">
-          <FormField
-            disabled={readOnly}
-            error={errors.email}
-            id="customer-email"
-            label="Email"
-            onChange={(value) => setForm((f) => ({ ...f, email: value }))}
-            type="email"
-            value={form.email ?? ''}
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <FormField
-            disabled={readOnly}
+            disabled={fieldsLocked}
             error={errors.note}
             id="customer-note"
             label="Note"
@@ -148,7 +205,7 @@ export function CustomerDrawer({
             rows={3}
             value={form.note ?? ''}
           />
-        </div>
+        </section>
       </form>
     </DrawerPanel>
   )

@@ -399,7 +399,7 @@ test.group('Members routes | PATCH toggle active', (group) => {
       .form({ isActive: 'false' })
 
     response.assertStatus(302)
-    response.assertHeader('location', '/account/organizations/members')
+    response.assertHeader('location', '/organization')
 
     const [row] = await db
       .select({ isActive: member.isActive })
@@ -481,6 +481,8 @@ test.group('Members routes | PATCH update role', (group) => {
       .form({ role: 'admin' })
 
     response.assertStatus(302)
+
+    response.assertHeader('location', '/organization')
 
     const [row] = await db
       .select({ role: member.role })

@@ -1,15 +1,14 @@
-import { Form, Link } from '@adonisjs/inertia/react'
+import { Link } from '@adonisjs/inertia/react'
 
 import { AppIcon } from '~/components/app_icon'
+import { LedgerForgeMark } from '~/components/ledger_forge_brand'
 
 import { type AppNavLink, isActive, mainNavLinks } from './config'
+import { SHELL_SIDEBAR_WIDTH_CLASS } from './shell_layout'
 
 interface AppSidebarProps {
   devToolsEnabled: boolean
   devToolsHref: string
-  displayName: string
-  email: string
-  initials: string
   navLinks?: readonly AppNavLink[]
   showAccountingNav: boolean
   url: string
@@ -18,9 +17,6 @@ interface AppSidebarProps {
 export function AppSidebar({
   devToolsEnabled,
   devToolsHref,
-  displayName,
-  email,
-  initials,
   navLinks = mainNavLinks,
   showAccountingNav,
   url,
@@ -29,71 +25,51 @@ export function AppSidebar({
   const homeHref = showAccountingNav ? (navLinks[0]?.href ?? '/customers') : devToolsHref
 
   return (
-    <aside className="fixed left-0 top-0 z-50 hidden h-screen w-64 flex-col bg-surface-container-highest px-4 pb-6 pt-0 lg:flex">
-      <Link
-        aria-label="Ledger Forge home"
-        className="-mx-2 flex min-h-16 items-center gap-2.5 rounded-xl px-2 outline-hidden transition-colors hover:bg-surface-container-lowest/40 focus-visible:ring-2 focus-visible:ring-primary/30"
-        href={homeHref}
-      >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg milled-steel-gradient shadow-sm">
-          <AppIcon className="text-on-primary" filled name="account_balance" size={20} />
-        </div>
-        <div className="flex min-w-0 flex-col justify-center py-1">
-          <p className="font-headline text-[15px] font-extrabold leading-tight text-on-surface">
-            Ledger Forge
-          </p>
-          <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
-            Demo workspace
-          </p>
-        </div>
-      </Link>
-
-      <nav
-        aria-label="Primary"
-        className="mt-2 flex flex-1 flex-col space-y-1 overflow-y-auto font-headline text-sm tracking-wide"
-      >
-        {showAccountingNav
-          ? navLinks.map((link) => (
-              <SidebarLink
-                active={isActive(url, link.href)}
-                href={link.href}
-                icon={link.icon}
-                key={link.href}
-                label={link.label}
-              />
-            ))
-          : null}
-        {devToolsEnabled ? (
-          <SidebarLink
-            active={devToolsActive}
-            href={devToolsHref}
-            icon="tune"
-            label="Dev Tools"
-            secondaryIcon="monitoring"
-          />
-        ) : null}
-      </nav>
-
-      <div className="mt-auto shrink-0 border-t border-outline-variant/10 pt-6">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg milled-steel-gradient text-xs font-bold text-on-primary">
-            {initials}
+    <aside
+      className={`fixed left-0 top-0 z-50 hidden h-dvh min-h-0 flex-col border-r border-slate-200/90 bg-surface-container-lowest pb-4 shadow-[1px_0_0_rgba(15,23,42,0.04)] lg:flex ${SHELL_SIDEBAR_WIDTH_CLASS}`}
+    >
+      <div className="flex min-h-0 flex-1 flex-col px-3 pt-0">
+        <Link
+          aria-label="Ledger Forge home"
+          className="flex h-14 shrink-0 items-center gap-2.5 rounded-xl border border-transparent px-2.5 outline-hidden transition-all duration-200 hover:border-slate-200/90 hover:bg-slate-50/90 focus-visible:ring-2 focus-visible:ring-primary/20 sm:h-[3.75rem] sm:gap-3"
+          href={homeHref}
+        >
+          <LedgerForgeMark className="shrink-0 text-primary" size={22} />
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate font-headline text-[14px] font-semibold tracking-tight text-slate-950">
+              Ledger Forge
+            </p>
+            <p className="mt-0.5 truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Demo workspace
+            </p>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-on-surface">{displayName}</p>
-            <p className="truncate text-xs text-on-surface-variant">{email}</p>
-          </div>
-          <Form className="inline shrink-0" route="signout.store">
-            <button
-              aria-label="Sign out from sidebar"
-              className="shrink-0 rounded-lg p-1.5 text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-error"
-              title="Sign out"
-              type="submit"
-            >
-              <AppIcon name="logout" size={18} />
-            </button>
-          </Form>
-        </div>
+        </Link>
+
+        <nav
+          aria-label="Primary"
+          className="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain font-headline text-[13px] leading-tight"
+        >
+          {showAccountingNav
+            ? navLinks.map((link) => (
+                <SidebarLink
+                  active={isActive(url, link.href)}
+                  href={link.href}
+                  icon={link.icon}
+                  key={link.href}
+                  label={link.label}
+                />
+              ))
+            : null}
+          {devToolsEnabled ? (
+            <SidebarLink
+              active={devToolsActive}
+              href={devToolsHref}
+              icon="tune"
+              label="Dev Tools"
+              secondaryIcon="monitoring"
+            />
+          ) : null}
+        </nav>
       </div>
     </aside>
   )
@@ -114,32 +90,32 @@ function SidebarLink({
 }) {
   return (
     <Link
-      className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-300 ${
+      className={`group flex items-center gap-3 rounded-lg border-l-2 py-2 pr-2 pl-2.5 font-medium transition-colors duration-200 ${
         active
-          ? 'border-l-2 border-primary bg-surface-container-lowest font-bold text-on-surface shadow-ambient-tight'
-          : 'border-l-2 border-transparent text-on-surface-variant hover:bg-surface-container-lowest/35 hover:text-on-surface'
+          ? 'border-primary bg-primary/[0.07] font-semibold text-primary shadow-sm shadow-primary/[0.07]'
+          : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900'
       }`}
       href={href}
     >
-      <span className="relative flex h-[22px] w-[22px] shrink-0 items-center justify-center">
+      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
         <AppIcon
-          className={active ? 'text-primary' : 'text-on-surface-variant'}
+          className={active ? 'text-primary' : 'text-slate-500 group-hover:text-slate-800'}
           filled={active}
           name={icon}
-          size={22}
+          size={20}
         />
         {secondaryIcon ? (
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-outline-variant/15 bg-surface-container-lowest/95 shadow-sm">
+          <span className="absolute -bottom-px -right-px flex h-3.5 w-3.5 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
             <AppIcon
-              className={active ? 'text-primary' : 'text-on-surface-variant'}
+              className={active ? 'text-primary' : 'text-slate-500'}
               filled={active}
               name={secondaryIcon}
-              size={10}
+              size={9}
             />
           </span>
         ) : null}
       </span>
-      <span>{label}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
     </Link>
   )
 }

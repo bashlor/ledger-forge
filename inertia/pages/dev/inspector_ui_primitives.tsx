@@ -1,32 +1,27 @@
 import type { ReactNode } from 'react'
 
 import { SecondaryButton } from '~/components/button'
+import { buttonClass, ToneBadge } from '~/components/operator_ui'
+import { PageHeader } from '~/components/page_header'
 import { Caption, Eyebrow, Panel } from '~/components/ui'
 
 import type { ActionTone, DevConsoleTab, Props } from './inspector_types'
 
 import { tabs } from './inspector_types'
 
-/** @deprecated Prefer `<Eyebrow>` or the `eyebrow` Tailwind utility; kept for existing `className={labelClass}` call sites. */
-export const labelClass = 'eyebrow'
+type GlobalOperation = Props['inspector']['globalOperations'][number]
 
-const INPUT_BORDERED =
-  'w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-60'
-
-export function buttonClass(tone: ActionTone = 'primary') {
-  const base =
-    'inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
-
-  if (tone === 'secondary') {
-    return `${base} border border-outline-variant/18 bg-surface-container-highest text-on-surface hover:bg-surface-container-high`
-  }
-
-  if (tone === 'danger') {
-    return `${base} bg-error text-on-primary hover:opacity-90`
-  }
-
-  return `${base} milled-steel-gradient text-on-primary hover:opacity-90`
-}
+export {
+  buttonClass,
+  inputClass,
+  labelClass,
+  RoleBadge,
+  rowActionButtonClass,
+  ScrollableTable,
+  ToneBadge,
+  toneBadgeClass,
+  toneForAuditResult,
+} from '~/components/operator_ui'
 
 export function CompactPanel({ children, title }: { children: ReactNode; title: string }) {
   return (
@@ -55,30 +50,27 @@ export function DevConsoleHeader({
   readOnlyBadge: string
 }) {
   return (
-    <Panel as="section" className="px-4 py-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface sm:text-[1.75rem]">
-          Dev Console
-        </h1>
-        <ToneBadge label="Development" tone="info" />
-        <ToneBadge label={readOnlyBadge} tone="warning" />
-        <div className="ml-auto flex min-w-0 items-center gap-3">
-          <div className="min-w-0 rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2">
-            <Eyebrow>Current operator</Eyebrow>
-            <p className="truncate text-sm font-semibold text-on-surface">{operatorName}</p>
-            <p className="truncate text-xs text-on-surface-variant">{operatorEmail}</p>
+    <Panel as="section" className="px-4 py-4">
+      <PageHeader
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ToneBadge label={readOnlyBadge} tone="warning" />
+            <div className="min-w-0 rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2">
+              <Eyebrow>Current operator</Eyebrow>
+              <p className="truncate text-sm font-semibold text-on-surface">{operatorName}</p>
+              <p className="truncate text-xs text-on-surface-variant">{operatorEmail}</p>
+            </div>
+            <SecondaryButton onClick={onRefresh} type="button">
+              Refresh
+            </SecondaryButton>
           </div>
-          <SecondaryButton onClick={onRefresh} type="button">
-            Refresh
-          </SecondaryButton>
-        </div>
-      </div>
+        }
+        description="Inspect tenants, permissions, audit events, and demo data workflows for the local development environment."
+        eyebrow="Development"
+        title="Dev Console"
+      />
     </Panel>
   )
-}
-
-export function inputClass() {
-  return INPUT_BORDERED
 }
 
 export function OperationPanel({
@@ -105,6 +97,7 @@ export function OperationPanel({
         <Caption>{description}</Caption>
         {operations.map((operation) => {
           const tone = operation.tone === 'danger' ? 'danger' : 'secondary'
+          const buttonLabel = operationButtonLabel(operation, processingAction)
           return (
             <div
               className="rounded-xl border border-outline-variant/15 bg-surface-container-low px-4 py-3"
@@ -117,11 +110,7 @@ export function OperationPanel({
                 </div>
                 <button
                   className={`${buttonClass(tone)} shrink-0`}
-                  disabled={
-                    !operation.available ||
-                    !operation.action ||
-                    processingAction === operation.action
-                  }
+                  disabled={operationButtonDisabled(operation, processingAction)}
                   onClick={() =>
                     operation.action &&
                     onRun(
@@ -133,11 +122,7 @@ export function OperationPanel({
                   }
                   type="button"
                 >
-                  {!operation.available
-                    ? (operation.unavailableLabel ?? 'Unavailable')
-                    : processingAction === operation.action
-                      ? 'Running...'
-                      : 'Run'}
+                  {buttonLabel}
                 </button>
               </div>
             </div>
@@ -160,15 +145,6 @@ export function PermissionChip({ active, label }: { active: boolean; label: stri
       {label}
     </span>
   )
-}
-
-export function RoleBadge({ role }: { role: 'admin' | 'member' | 'owner' }) {
-  const tone = role === 'owner' ? 'warning' : role === 'admin' ? 'info' : 'neutral'
-  return <ToneBadge label={role} tone={tone} />
-}
-
-export function rowActionButtonClass() {
-  return 'eyebrow rounded-lg border border-outline-variant/18 bg-surface-container-low px-3 py-1.5 transition-colors hover:bg-surface-container'
 }
 
 export function RuleList({
@@ -202,16 +178,6 @@ export function RuleList({
   )
 }
 
-export function ScrollableTable({
-  children,
-  maxHeightClass = 'max-h-[26rem]',
-}: {
-  children: ReactNode
-  maxHeightClass?: string
-}) {
-  return <div className={`overflow-auto ${maxHeightClass}`}>{children}</div>
-}
-
 export function StickyTabs({
   activeTab,
   counts,
@@ -228,9 +194,9 @@ export function StickyTabs({
           const active = activeTab === tab.id
           return (
             <button
-              className={`flex min-w-[170px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+              className={`flex min-w-[170px] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
                 active
-                  ? 'bg-on-surface text-background'
+                  ? 'bg-primary/10 text-primary ring-1 ring-primary/15'
                   : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
               }`}
               key={tab.id}
@@ -240,7 +206,7 @@ export function StickyTabs({
               <span>{tab.label}</span>
               {counts[tab.id] !== null ? (
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${active ? 'bg-background/15 text-background' : 'bg-surface-container-low text-on-surface-variant'}`}
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${active ? 'bg-primary/10 text-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
                 >
                   {counts[tab.id]}
                 </span>
@@ -253,44 +219,21 @@ export function StickyTabs({
   )
 }
 
-export function ToneBadge({
-  label,
-  tone,
-}: {
-  label: string
-  tone: 'danger' | 'info' | 'neutral' | 'success' | 'warning'
-}) {
-  return (
-    <span
-      className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${toneBadgeClass(tone)}`}
-    >
-      {label}
-    </span>
-  )
+function operationButtonDisabled(
+  operation: GlobalOperation,
+  processingAction: null | string
+): boolean {
+  return !operation.available || !operation.action || processingAction === operation.action
 }
 
-export function toneBadgeClass(tone: 'danger' | 'info' | 'neutral' | 'success' | 'warning') {
-  switch (tone) {
-    case 'danger':
-      return 'border-red-500/20 bg-red-500/10 text-red-700'
-    case 'info':
-      return 'border-sky-500/20 bg-sky-500/10 text-sky-700'
-    case 'success':
-      return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700'
-    case 'warning':
-      return 'border-amber-500/30 bg-amber-500/12 text-amber-700'
-    default:
-      return 'border-outline-variant/20 bg-surface-container-low text-on-surface-variant'
+function operationButtonLabel(operation: GlobalOperation, processingAction: null | string): string {
+  if (!operation.available) {
+    return operation.unavailableLabel ?? 'Unavailable'
   }
-}
 
-export function toneForAuditResult(result: 'denied' | 'error' | 'success') {
-  switch (result) {
-    case 'denied':
-      return 'warning' as const
-    case 'success':
-      return 'success' as const
-    default:
-      return 'danger' as const
+  if (processingAction === operation.action) {
+    return 'Running...'
   }
+
+  return 'Run'
 }

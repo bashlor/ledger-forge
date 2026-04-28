@@ -6,22 +6,34 @@ interface Props {
   totalVat: number
 }
 
+const rowClass = 'flex items-baseline justify-between gap-6 text-sm text-on-surface'
+
 export function InvoiceTotals({ subtotalExclTax, totalInclTax, totalVat }: Props) {
   return (
-    <div className="rounded-2xl border border-primary/12 bg-primary/5 p-5">
+    <div className="rounded-2xl border border-primary/15 bg-gradient-to-b from-primary/[0.06] to-primary/[0.03] p-5 shadow-sm ring-1 ring-primary/10">
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Totals</p>
-      <dl className="mt-4 space-y-3">
-        <div className="flex items-center justify-between text-sm text-on-surface">
-          <dt>Subtotal (ex. VAT)</dt>
-          <dd className="font-semibold tabular-nums">{formatCurrency(subtotalExclTax)}</dd>
+      <dl className="mt-4 space-y-0">
+        <div className={`${rowClass} pb-3`}>
+          <dt className="text-on-surface-variant">Subtotal (ex. VAT)</dt>
+          <dd className="text-right text-[15px] font-semibold tabular-nums text-on-surface">
+            {formatCurrency(subtotalExclTax)}
+          </dd>
         </div>
-        <div className="flex items-center justify-between text-sm text-on-surface">
-          <dt>VAT total</dt>
-          <dd className="font-semibold tabular-nums">{formatCurrency(totalVat)}</dd>
+        <div className="border-t border-primary/10 py-3">
+          <div className={rowClass}>
+            <dt className="text-on-surface-variant">VAT total</dt>
+            <dd className="text-right text-[15px] font-semibold tabular-nums text-on-surface">
+              {formatCurrency(totalVat)}
+            </dd>
+          </div>
         </div>
-        <div className="flex items-center justify-between border-t border-primary/10 pt-3 text-base font-semibold text-primary">
-          <dt>Total (incl. VAT)</dt>
-          <dd className="tabular-nums">{formatCurrency(totalInclTax)}</dd>
+        <div className="border-t border-primary/20 pt-4">
+          <div className="flex items-baseline justify-between gap-6">
+            <dt className="text-base font-semibold text-primary">Total (incl. VAT)</dt>
+            <dd className="text-right text-xl font-bold tabular-nums tracking-tight text-primary">
+              {formatCurrency(totalInclTax)}
+            </dd>
+          </div>
         </div>
       </dl>
     </div>

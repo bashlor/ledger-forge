@@ -1,5 +1,6 @@
 import type { InvoiceAuditEventDto, InvoiceDto } from '~/lib/types'
 
+import { AppIcon } from '~/components/app_icon'
 import { DrawerPanel } from '~/components/drawer_panel'
 import { formatCurrency, formatShortDate } from '~/lib/format'
 
@@ -35,7 +36,7 @@ export function InvoiceHistoryDrawer({
       footer={
         <div className="flex justify-end">
           <button
-            className="rounded-lg bg-surface-container-highest px-4 py-3 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high"
+            className="rounded-xl bg-surface-container-highest px-4 py-3 text-sm font-medium text-on-surface transition-colors duration-150 hover:bg-surface-container-high"
             onClick={onClose}
             type="button"
           >
@@ -44,15 +45,37 @@ export function InvoiceHistoryDrawer({
         </div>
       }
       icon="receipt_long"
+      maxWidthClass="max-w-[580px]"
       onClose={onClose}
       open={open}
+      panelClassName="border-l border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90"
       title={invoice ? `${invoice.invoiceNumber} history` : 'Invoice history'}
     >
       {loading ? (
-        <div className="space-y-3">
-          <div className="h-20 animate-pulse rounded-2xl bg-surface-container-low" />
-          <div className="h-20 animate-pulse rounded-2xl bg-surface-container-low" />
-          <div className="h-20 animate-pulse rounded-2xl bg-surface-container-low" />
+        <div className="relative">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute bottom-2 left-5 top-2 w-px -translate-x-1/2 bg-gradient-to-b from-slate-200 via-slate-200 to-transparent"
+          />
+          <ul className="space-y-5">
+            {[1, 2, 3].map((key) => (
+              <li className="flex gap-4" key={key}>
+                <div className="relative z-[1] flex w-10 shrink-0 justify-center pt-0.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
+                    <span className="h-4 w-4 animate-pulse rounded bg-slate-200" />
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1 space-y-2 pt-0.5">
+                  <div className="h-4 w-[56%] max-w-[14rem] animate-pulse rounded bg-slate-200" />
+                  <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
+                  <div className="h-3 w-4/5 animate-pulse rounded bg-slate-100" />
+                </div>
+                <div className="hidden w-36 shrink-0 text-right sm:block">
+                  <div className="ml-auto h-3 w-28 animate-pulse rounded bg-slate-100" />
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : errorMessage ? (
         <div className="rounded-2xl border border-error/20 bg-error/5 p-4 text-sm text-on-surface">
@@ -60,36 +83,93 @@ export function InvoiceHistoryDrawer({
           <p className="mt-2 text-on-surface-variant">{errorMessage}</p>
         </div>
       ) : events.length === 0 ? (
-        <div className="rounded-2xl border border-outline-variant/25 bg-surface-container-low p-5 text-sm text-on-surface-variant">
+        <div className="rounded-2xl border border-border-default bg-slate-50/80 p-8 text-center text-sm text-on-surface-variant">
           No audit events recorded for this invoice yet.
         </div>
       ) : (
-        <ol className="space-y-4">
-          {events.map((event) => (
-            <li
-              className="rounded-2xl border border-outline-variant/25 bg-white p-4 shadow-sm"
-              key={event.id}
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-on-surface">
-                    {labelForAction(event.action)}
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-on-surface-variant">
-                    {summarizeChange(event)}
-                  </p>
-                </div>
-                <div className="text-sm text-on-surface-variant sm:text-right">
-                  <p>{historyDateFormatter.format(new Date(event.createdAt))}</p>
-                  <p className="mt-1">Actor: {event.actorId ?? 'System'}</p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <div className="relative">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute bottom-3 left-5 top-3 w-px -translate-x-1/2 bg-slate-200/90"
+          />
+          <ol className="relative space-y-0">
+            {events.map((event) => {
+              const iconName = iconForAuditAction(event.action)
+              const actor = actorLabel(event)
+              return (
+                <li className="relative flex gap-4 pb-8 last:pb-0" key={event.id}>
+                  <div className="relative z-[1] flex w-10 shrink-0 justify-center pt-0.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200/95 bg-white shadow-sm ring-2 ring-white">
+                      <AppIcon className="text-primary" name={iconName} size={17} />
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]">
+                      <p className="text-[15px] font-semibold leading-snug text-slate-950">
+                        {labelForAction(event.action)}
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                        {summarizeChange(event)}
+                      </p>
+                      <p className="mt-3 text-xs font-medium text-slate-500 sm:hidden">
+                        <span className="tabular-nums">
+                          {historyDateFormatter.format(new Date(event.createdAt))}
+                        </span>
+                        <span className="mx-2 text-slate-300">·</span>
+                        Actor: {actor}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="hidden w-[11.5rem] shrink-0 text-right sm:block">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                      Event time
+                    </p>
+                    <p className="mt-1 text-sm font-medium tabular-nums leading-snug text-slate-800">
+                      {historyDateFormatter.format(new Date(event.createdAt))}
+                    </p>
+                    <p className="mt-2 text-xs leading-snug text-slate-500">
+                      Actor
+                      <span className="mt-0.5 block font-medium text-slate-700">{actor}</span>
+                    </p>
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+        </div>
       )}
     </DrawerPanel>
   )
+}
+
+function actorLabel(event: InvoiceAuditEventDto): string {
+  if (event.actorName?.trim()) {
+    return event.actorName.trim()
+  }
+  if (event.actorEmail?.trim()) {
+    return event.actorEmail.trim()
+  }
+  if (event.actorId) {
+    return event.actorId
+  }
+  return 'System'
+}
+
+function iconForAuditAction(action: string): string {
+  switch (action) {
+    case 'create_draft':
+      return 'add'
+    case 'delete_draft':
+      return 'delete'
+    case 'issue':
+      return 'send'
+    case 'mark_paid':
+      return 'task_alt'
+    case 'update_draft':
+      return 'edit'
+    default:
+      return 'receipt_long'
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

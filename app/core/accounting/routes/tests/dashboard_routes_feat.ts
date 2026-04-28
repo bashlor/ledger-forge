@@ -1,5 +1,5 @@
 import { type DashboardDto, DashboardService } from '#core/accounting/application/dashboard/index'
-import { member } from '#core/user_management/drizzle/schema'
+import { devOperatorAccess, member } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
@@ -54,6 +54,7 @@ test.group('Dashboard routes', (group) => {
       .update(member)
       .set({ isActive: true, role: 'admin' })
       .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+    await db.delete(devOperatorAccess)
 
     resetInvoiceAuthContext()
     bindInvoiceAuth()
@@ -172,16 +173,11 @@ test.group('Dashboard routes', (group) => {
     response.assertStatus(403)
   })
 
-  test('GET / redirects regular members to customers', async ({ client }) => {
-    const db = (await app.container.make('drizzle')) as any
-    await db
-      .update(member)
-      .set({ isActive: true, role: 'member' })
-      .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+  test('GET / renders the public landing page without authentication', async ({ client }) => {
+    const response = await client.get('/')
 
-    const response = await client.get('/').header('cookie', authCookie()).redirects(0)
-
-    response.assertStatus(302)
-    response.assertHeader('location', '/customers')
+    response.assertStatus(200)
+    response.assertTextIncludes('Ledger Forge')
+    response.assertTextIncludes('Backend portfolio project')
   })
 })

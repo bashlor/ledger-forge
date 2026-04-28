@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react'
 
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { CustomerListDto } from '~/lib/types'
@@ -126,10 +127,6 @@ describe('customers page', () => {
     routerPostMock.mockReset()
     routerPutMock.mockReset()
     usePageMock.mockReset()
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => true)
-    )
   })
 
   it('submits customer creation with trimmed contact fields and preserved query params', () => {
@@ -167,7 +164,7 @@ describe('customers page', () => {
   it('opens edit mode from the table keyboard interaction and submits updates', () => {
     renderPage()
 
-    fireEvent.keyDown(screen.getByRole('row', { name: /Alpha Co/i }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByText('Alpha Co').closest('tr')!, { key: 'Enter' })
 
     expect(screen.getByRole('dialog', { name: 'Edit Alpha Co' })).toBeInTheDocument()
 
@@ -192,7 +189,7 @@ describe('customers page', () => {
     renderPage({ canManageCustomers: false })
 
     expect(screen.queryByRole('button', { name: 'New customer' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Actions for Alpha Co/i })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByText('Alpha Co'))
 
@@ -207,7 +204,8 @@ describe('customers page', () => {
 
     expect(screen.getAllByText('Accounting is in read-only mode.')).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'New customer' })).toBeDisabled()
-    expect(screen.getAllByRole('button', { name: 'Delete' })[0]).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: /Actions for Alpha Co/i }))
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDisabled()
 
     fireEvent.click(screen.getByText('Alpha Co'))
 
@@ -220,9 +218,10 @@ describe('customers page', () => {
   it('confirms deletions and preserves active query params', () => {
     renderPage()
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+    fireEvent.click(screen.getByRole('button', { name: /Actions for Alpha Co/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete customer' }))
 
-    expect(globalThis.confirm).toHaveBeenCalledWith('Delete customer "Alpha Co"?')
     expect(routerDeleteMock).toHaveBeenCalledWith(
       '/customers/customer-alpha',
       expect.objectContaining({
@@ -238,7 +237,8 @@ describe('customers page', () => {
     )
   })
 
-  it('applies local filters without hitting the server and shows the filtered empty state', () => {
+  it('applies local filters without hitting the server and shows the filtered empty state', async () => {
+    const user = userEvent.setup()
     renderPage({
       customers: buildCustomers([
         {
@@ -255,9 +255,8 @@ describe('customers page', () => {
       ]),
     })
 
-    fireEvent.change(screen.getByLabelText('Filter customers'), {
-      target: { value: 'with_invoices' },
-    })
+    await user.click(screen.getByRole('button', { name: /Filter customers/i }))
+    await user.click(screen.getByRole('option', { name: 'With invoices' }))
 
     expect(
       screen.getByText('No customers match the current filters on this page.')
@@ -266,16 +265,23 @@ describe('customers page', () => {
   })
 
   it('submits trimmed search terms through the customers query refresh', () => {
-    renderPage()
+    vi.useFakeTimers()
+    try {
+      renderPage()
 
-    fireEvent.change(screen.getByLabelText('Search customers'), { target: { value: '  Beta  ' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+      fireEvent.change(screen.getByLabelText('Search customers'), {
+        target: { value: '  Beta  ' },
+      })
+      vi.advanceTimersByTime(400)
 
-    expect(routerGetMock).toHaveBeenCalledWith(
-      '/customers',
-      { perPage: 25, search: 'Beta' },
-      { only: ['customers', 'filters'], preserveScroll: true, replace: true }
-    )
+      expect(routerGetMock).toHaveBeenCalledWith(
+        '/customers',
+        { perPage: 25, search: 'Beta' },
+        { only: ['customers', 'filters'], preserveScroll: true, replace: true }
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('opens the drawer when customer validation errors are present', () => {

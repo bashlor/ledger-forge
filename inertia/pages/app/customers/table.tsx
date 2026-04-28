@@ -3,11 +3,14 @@ import type { CustomerListItemDto } from '~/lib/types'
 import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatCurrency } from '~/lib/format'
 
+import { CustomerRowActionsMenu } from './customer_row_actions_menu'
+
 interface CustomerTableProps {
   canManageCustomers: boolean
   items: CustomerListItemDto[]
   onDelete: (customer: CustomerListItemDto) => void
   onEdit: (customer: CustomerListItemDto) => void
+  onView: (customer: CustomerListItemDto) => void
   processing: boolean
   readOnly: boolean
 }
@@ -17,15 +20,16 @@ export function CustomerTable({
   items,
   onDelete,
   onEdit,
+  onView,
   processing,
   readOnly,
 }: CustomerTableProps) {
   const canInteract = canManageCustomers && !readOnly
 
   return (
-    <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+    <table className="tonal-table customer-register-table w-full min-w-[880px] border-collapse text-left text-sm">
       <thead>
-        <TableHeadRow>
+        <TableHeadRow className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
           <TableHeaderCell>Company</TableHeaderCell>
           <TableHeaderCell>Contact</TableHeaderCell>
           <TableHeaderCell>Email</TableHeaderCell>
@@ -35,11 +39,11 @@ export function CustomerTable({
           <TableHeaderCell className="text-right">Actions</TableHeaderCell>
         </TableHeadRow>
       </thead>
-      <tbody className="divide-y divide-outline-variant/10">
+      <tbody className="divide-y divide-slate-200/80">
         {items.map((customer) => (
           <tr
-            className={`group transition-colors focus-within:bg-surface-container-low/70 ${
-              canInteract ? 'cursor-pointer hover:bg-surface-container-low/60' : ''
+            className={`group transition-colors duration-150 ease-out focus-within:bg-slate-50 ${
+              canInteract ? 'cursor-pointer hover:bg-slate-50' : ''
             }`}
             key={customer.id}
             onClick={() => {
@@ -54,37 +58,36 @@ export function CustomerTable({
             }}
             tabIndex={canInteract ? 0 : -1}
           >
-            <td className="px-4 py-2.5 font-medium text-on-surface">
+            <td className="px-5 py-4 font-medium text-slate-950">
               <div>{customer.company}</div>
               {customer.note ? (
-                <div className="text-xs text-on-surface-variant">{customer.note}</div>
+                <div className="mt-0.5 text-xs leading-snug text-slate-500">{customer.note}</div>
               ) : null}
             </td>
-            <td className="px-4 py-2.5 text-on-surface">{customer.name}</td>
-            <td className="px-4 py-2.5 text-on-surface-variant">{customer.email}</td>
-            <td className="px-4 py-2.5 text-on-surface-variant">{customer.phone}</td>
-            <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-on-surface">
+            <td className="px-5 py-4 text-slate-900">{customer.name}</td>
+            <td className="px-5 py-4 text-slate-600">{customer.email}</td>
+            <td className="px-5 py-4 text-slate-600">{customer.phone}</td>
+            <td className="px-5 py-4 text-right text-sm font-semibold tabular-nums text-slate-900">
               {customer.invoiceCount}
             </td>
-            <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-on-surface">
+            <td className="px-5 py-4 text-right text-sm font-semibold tabular-nums text-slate-900">
               {formatCurrency(customer.totalInvoiced)}
             </td>
-            <td className="px-4 py-2.5 text-right">
+            <td className="px-5 py-4 text-right">
               <div
-                className="flex flex-wrap items-center justify-end gap-2"
+                className="flex justify-end"
                 onClick={(event) => event.stopPropagation()}
                 onKeyDown={(event) => event.stopPropagation()}
               >
                 {canManageCustomers ? (
-                  <button
-                    className="rounded border border-error/20 px-3 py-1.5 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={processing || readOnly || customer.canDelete === false}
-                    onClick={() => onDelete(customer)}
-                    title={customer.deleteBlockReason}
-                    type="button"
-                  >
-                    Delete
-                  </button>
+                  <CustomerRowActionsMenu
+                    customer={customer}
+                    onDelete={onDelete}
+                    onEdit={onEdit}
+                    onView={onView}
+                    processing={processing}
+                    readOnly={readOnly}
+                  />
                 ) : null}
               </div>
             </td>

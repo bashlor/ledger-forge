@@ -70,8 +70,8 @@ describe('InvoiceDraftEditor', () => {
       />
     )
 
-    expect(screen.getAllByText('€59.98')).toHaveLength(2)
-    expect(screen.getByText('€49.98')).toBeInTheDocument()
-    expect(screen.getByText('€10.00')).toBeInTheDocument()
+    expect(screen.getAllByText(/59,98\s*€/)).toHaveLength(2)
+    expect(screen.getByText(/49,98\s*€/)).toBeInTheDocument()
+    expect(screen.getByText(/10,00\s*€/)).toBeInTheDocument()
   })
 })

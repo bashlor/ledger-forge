@@ -3,20 +3,31 @@ interface StatusBadgeProps {
 }
 
 const BADGE_STYLES: Record<string, string> = {
-  booked: 'bg-surface-container-high text-on-surface-variant',
-  confirmed: 'bg-tertiary-container text-on-tertiary-container',
-  draft: 'bg-secondary-container text-on-secondary-container',
-  good_payer: 'bg-tertiary-container text-on-tertiary-container',
-  issued: 'bg-primary-container text-on-primary-container',
-  no_activity: 'bg-surface-container-high text-on-surface-variant',
-  overdue: 'bg-error-container text-on-error-container',
-  paid: 'bg-tertiary-container text-on-tertiary-container',
-  pending: 'bg-surface-container-high text-on-surface-variant',
-  settled: 'bg-tertiary-container text-on-tertiary-container',
+  booked:
+    'border border-slate-200/80 bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-900/5',
+  cancelled:
+    'border border-slate-200/80 bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-900/8',
+  confirmed:
+    'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
+  draft:
+    'border border-violet-200/85 bg-violet-50 text-violet-900 ring-1 ring-inset ring-violet-900/8',
+  good_payer:
+    'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
+  issued: 'border border-blue-200/85 bg-blue-50 text-blue-900 ring-1 ring-inset ring-blue-900/8',
+  no_activity:
+    'border border-slate-200/80 bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-900/5',
+  overdue: 'border border-red-200/80 bg-red-50 text-red-800 ring-1 ring-inset ring-red-900/5',
+  paid: 'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
+  pending:
+    'border border-amber-200/80 bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-900/5',
+  rejected: 'border border-red-200/85 bg-red-50 text-red-900 ring-1 ring-inset ring-red-900/8',
+  settled:
+    'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
 }
 
 const BADGE_LABELS: Record<string, string> = {
   booked: 'Booked',
+  cancelled: 'Cancelled',
   confirmed: 'Confirmed',
   draft: 'Draft',
   good_payer: 'Good payer',
@@ -25,17 +36,20 @@ const BADGE_LABELS: Record<string, string> = {
   overdue: 'Overdue',
   paid: 'Paid',
   pending: 'Pending',
+  rejected: 'Rejected',
   settled: 'Settled',
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const key = status.toLowerCase()
   const label = BADGE_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1)
-  const styles = BADGE_STYLES[key] ?? 'bg-surface-container-high text-on-surface-variant'
+  const styles =
+    BADGE_STYLES[key] ??
+    'border border-slate-200/80 bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-900/5'
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${styles}`}
+      className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-semibold tracking-wide ${styles}`}
     >
       {label}
     </span>

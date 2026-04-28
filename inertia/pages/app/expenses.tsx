@@ -18,7 +18,7 @@ import { CreateDrawer } from './expenses/create_drawer'
 import { SummaryCards, SummaryCardsSkeleton } from './expenses/summary_cards'
 import { ExpenseTable } from './expenses/table'
 
-type PendingAction = { id: string; kind: 'confirm' | 'delete'; label: string }
+type PendingConfirm = { id: string; label: string }
 
 type Props = InertiaProps<{
   accountingReadOnly: boolean
@@ -42,7 +42,7 @@ export default function ExpensesPage({
   const [selectedExpense, setSelectedExpense] = useState<ExpenseDto | null>(null)
   const [processing, setProcessing] = useState(false)
   const [processingId, setProcessingId] = useState<null | string>(null)
-  const [pendingAction, setPendingAction] = useState<null | PendingAction>(null)
+  const [pendingConfirm, setPendingConfirm] = useState<null | PendingConfirm>(null)
   const cachedSummary = useRef<ExpenseSummaryDto | null>(null)
   const appliedSearch = filters?.search?.trim() ?? ''
 
@@ -126,34 +126,28 @@ export default function ExpensesPage({
   function requestConfirm(id: string) {
     if (accountingReadOnly) return
     const expense = expenses.items.find((e) => e.id === id)
-    setPendingAction({ id, kind: 'confirm', label: expense?.label ?? 'this expense' })
+    setPendingConfirm({ id, label: expense?.label ?? 'this expense' })
   }
 
-  function requestDelete(id: string) {
+  function performDelete(expense: ExpenseDto) {
     if (accountingReadOnly) return
-    const expense = expenses.items.find((e) => e.id === id)
-    setPendingAction({ id, kind: 'delete', label: expense?.label ?? 'this expense' })
+    router.delete(`/expenses/${expense.id}`, {
+      data: listQs(),
+      onFinish: () => setProcessingId(null),
+      onStart: () => setProcessingId(expense.id),
+      preserveScroll: true,
+    })
   }
 
-  function executeAction() {
-    if (!pendingAction || accountingReadOnly) return
-    const { id, kind } = pendingAction
-    setPendingAction(null)
-
-    if (kind === 'confirm') {
-      router.post(`/expenses/${id}/confirm-draft`, listQs(), {
-        onFinish: () => setProcessingId(null),
-        onStart: () => setProcessingId(id),
-        preserveScroll: true,
-      })
-    } else {
-      router.delete(`/expenses/${id}`, {
-        data: listQs(),
-        onFinish: () => setProcessingId(null),
-        onStart: () => setProcessingId(id),
-        preserveScroll: true,
-      })
-    }
+  function executeConfirmDraft() {
+    if (!pendingConfirm || accountingReadOnly) return
+    const { id } = pendingConfirm
+    setPendingConfirm(null)
+    router.post(`/expenses/${id}/confirm-draft`, listQs(), {
+      onFinish: () => setProcessingId(null),
+      onStart: () => setProcessingId(id),
+      preserveScroll: true,
+    })
   }
 
   return (
@@ -173,6 +167,7 @@ export default function ExpensesPage({
               New expense
             </PrimaryButton>
           }
+          className="sm:gap-4"
           description="Expenses start as drafts, can be confirmed once, and only drafts stay deletable."
           eyebrow="Costs"
           title="Expenses"
@@ -197,13 +192,14 @@ export default function ExpensesPage({
 
         <DataTable
           emptyMessage="No expenses found."
+          headerClassName="border-b border-slate-200/90 bg-white px-5 py-4 sm:px-6"
           headerContent={
             <SearchForm
               ariaLabel="Search expenses"
-              key={appliedSearch}
               onSubmit={submitSearch}
               placeholder="Search label or category"
               value={appliedSearch}
+              variant="premium"
             />
           }
           isEmpty={expenses.items.length === 0}
@@ -223,13 +219,16 @@ export default function ExpensesPage({
             })
           }
           pagination={expenses.pagination}
+          panelClassName="overflow-hidden rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]"
           title="Expense register"
+          titleClassName="text-slate-950 lg:text-base"
+          toolbarClassName="gap-3"
         >
           <ExpenseTable
             accountingReadOnly={accountingReadOnly}
             items={expenses.items}
             onConfirm={requestConfirm}
-            onDelete={requestDelete}
+            onDelete={performDelete}
             onOpen={openExpenseDrawer}
             processingId={processingId}
           />
@@ -238,31 +237,27 @@ export default function ExpensesPage({
 
       <Modal
         description={
-          pendingAction?.kind === 'confirm'
-            ? `This will mark "${pendingAction.label}" as confirmed. Confirmed expenses cannot be reverted to draft.`
-            : `This will permanently delete the draft "${pendingAction?.label}".`
+          pendingConfirm
+            ? `This will mark "${pendingConfirm.label}" as confirmed. Confirmed expenses cannot be reverted to draft.`
+            : undefined
         }
         footer={
           <>
-            <SecondaryButton onClick={() => setPendingAction(null)}>Cancel</SecondaryButton>
+            <SecondaryButton onClick={() => setPendingConfirm(null)}>Cancel</SecondaryButton>
             <button
-              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                pendingAction?.kind === 'delete'
-                  ? 'bg-error text-on-error hover:bg-error/90'
-                  : 'text-on-primary milled-steel-gradient hover:opacity-95'
-              }`}
+              className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-sm shadow-primary/20 transition-colors hover:bg-primary-dim disabled:opacity-60"
               disabled={accountingReadOnly}
-              onClick={executeAction}
+              onClick={executeConfirmDraft}
               type="button"
             >
-              {pendingAction?.kind === 'confirm' ? 'Confirm expense' : 'Delete draft'}
+              Confirm expense
             </button>
           </>
         }
-        onClose={() => setPendingAction(null)}
-        open={pendingAction !== null}
+        onClose={() => setPendingConfirm(null)}
+        open={pendingConfirm !== null}
         size="sm"
-        title={pendingAction?.kind === 'confirm' ? 'Confirm expense' : 'Delete draft'}
+        title="Confirm expense"
       >
         <p className="text-sm text-on-surface-variant">This action cannot be undone.</p>
       </Modal>

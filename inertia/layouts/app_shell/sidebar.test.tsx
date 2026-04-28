@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+import { visibleMainNavLinks } from './config'
 import { AppSidebar } from './sidebar'
 
 type MockLinkProps = Record<string, unknown> & {
@@ -25,12 +26,9 @@ describe('app sidebar', () => {
       <AppSidebar
         devToolsEnabled={false}
         devToolsHref="/_dev"
-        displayName="Test User"
-        email="test@example.com"
-        initials="TU"
         navLinks={[
           { href: '/customers', icon: 'business', label: 'Customers' },
-          { href: '/expenses', icon: 'payments', label: 'Expenses' },
+          { href: '/expenses', icon: 'shopping_bag', label: 'Expenses' },
         ]}
         showAccountingNav
         url="/customers"
@@ -41,5 +39,15 @@ describe('app sidebar', () => {
     expect(screen.queryByRole('link', { name: 'Organization' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Customers' })).toHaveAttribute('href', '/customers')
     expect(screen.getByRole('link', { name: 'Expenses' })).toHaveAttribute('href', '/expenses')
+  })
+
+  it('filters accounting links from shared permissions', () => {
+    const links = visibleMainNavLinks({
+      canReadAccounting: false,
+      canViewOrganization: true,
+      canViewOverview: true,
+    })
+
+    expect(links.map((link) => link.label)).toEqual(['Overview', 'Organization'])
   })
 })

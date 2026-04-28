@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import type {
   CustomerSelectDto,
   InvoiceDto,
@@ -9,9 +11,14 @@ import { AppIcon } from '~/components/app_icon'
 import { ErrorBanner } from '~/components/error_banner'
 import { InvoiceTotals } from '~/components/invoice_totals'
 import { StatusBadge } from '~/components/status_badge'
-import { TableHeaderCell, TableHeadRow } from '~/components/ui'
+import { Select, TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatCurrency } from '~/lib/format'
-import { canDeleteInvoice, canIssueInvoice } from '~/lib/invoices'
+import { canDeleteInvoice, canIssueInvoice, invoiceDisplayStatus } from '~/lib/invoices'
+
+const FIELD_DATE_CLASS =
+  'h-10 min-h-10 w-full rounded-xl border border-border-default bg-white px-3 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors duration-150 focus:border-primary focus:ring-2 focus:ring-primary/20'
+const LINE_INPUT_CLASS =
+  'h-10 min-h-10 w-full rounded-xl border border-border-default bg-surface-container-lowest px-3 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors duration-150 focus:border-primary focus:ring-2 focus:ring-primary/20'
 
 export type EditableInvoiceLine = InvoiceLineInput & { key: string }
 
@@ -68,16 +75,25 @@ export function InvoiceDraftEditor({
   totalsErrorMessage,
   vatRates,
 }: Props) {
+  const customerOptions = useMemo(
+    () => customers.map((c) => ({ label: c.company, value: c.id })),
+    [customers]
+  )
+  const vatOptions = useMemo(
+    () => vatRates.map((rate) => ({ label: `${rate}%`, value: String(rate) })),
+    [vatRates]
+  )
+
   return (
     <div>
-      <div className="border-b border-outline-variant/10 px-5 py-4 sm:px-6">
+      <div className="border-b border-border-hairline px-5 py-4 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">
             {isCreating ? 'Draft' : 'Editing draft'}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {!isCreating && selectedInvoice ? (
-              <StatusBadge status={selectedInvoice.status} />
+              <StatusBadge status={invoiceDisplayStatus(selectedInvoice)} />
             ) : (
               <span className="rounded-full bg-surface-container-low px-3 py-1 text-xs font-semibold text-on-surface-variant">
                 Draft
@@ -95,7 +111,7 @@ export function InvoiceDraftEditor({
 
       {customers.length === 0 ? (
         <div className="px-5 py-6 sm:px-6">
-          <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-5 text-sm text-on-surface-variant">
+          <div className="rounded-2xl border border-border-default bg-surface-container-low p-5 text-sm text-on-surface-variant shadow-sm ring-1 ring-slate-900/[0.04]">
             Create a customer first before you can save an invoice.
           </div>
         </div>
@@ -105,35 +121,27 @@ export function InvoiceDraftEditor({
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="md:col-span-1">
-              <label
-                className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
-                htmlFor="invoice-client"
-              >
+              <label className="form-label-caps" htmlFor="invoice-client">
                 Customer
               </label>
-              <select
-                className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+              <Select
+                aria-label="Invoice customer"
+                contentClassName="z-[120]"
                 disabled={accountingReadOnly}
                 id="invoice-client"
-                onChange={(event) => onFormChange('customerId', event.target.value)}
+                onValueChange={(next) => onFormChange('customerId', next)}
+                options={customerOptions}
+                tone="surface"
+                triggerClassName="h-10 min-h-10 py-0 text-sm font-medium leading-snug"
                 value={effectiveCustomerId}
-              >
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.company}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
-              <label
-                className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
-                htmlFor="invoice-issue-date"
-              >
+              <label className="form-label-caps" htmlFor="invoice-issue-date">
                 Issue date
               </label>
               <input
-                className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                className={FIELD_DATE_CLASS}
                 disabled={accountingReadOnly}
                 id="invoice-issue-date"
                 onChange={(event) => onFormChange('issueDate', event.target.value)}
@@ -142,14 +150,11 @@ export function InvoiceDraftEditor({
               />
             </div>
             <div>
-              <label
-                className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant"
-                htmlFor="invoice-due-date"
-              >
+              <label className="form-label-caps" htmlFor="invoice-due-date">
                 Due date
               </label>
               <input
-                className="w-full rounded-xl border border-outline-variant/35 bg-white px-3 py-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                className={FIELD_DATE_CLASS}
                 disabled={accountingReadOnly}
                 id="invoice-due-date"
                 min={minDueDate}
@@ -165,8 +170,8 @@ export function InvoiceDraftEditor({
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-outline-variant/35">
-            <div className="flex items-center justify-between border-b border-outline-variant/10 bg-surface-container-low px-4 py-3">
+          <div className="overflow-hidden rounded-2xl border border-border-default shadow-sm ring-1 ring-slate-900/[0.04]">
+            <div className="flex items-center justify-between border-b border-border-hairline bg-surface-container-low px-4 py-3">
               <div>
                 <h3 className="text-sm font-semibold text-on-surface">Invoice lines</h3>
                 <p className="text-xs text-on-surface-variant">
@@ -174,7 +179,7 @@ export function InvoiceDraftEditor({
                 </p>
               </div>
               <button
-                className="inline-flex items-center gap-2 rounded-xl border border-outline-variant/35 bg-white px-3 py-2 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-lowest"
+                className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-white px-3.5 py-2 text-sm font-semibold text-on-surface shadow-sm transition-colors duration-150 hover:border-slate-300 hover:bg-surface-container-lowest"
                 disabled={accountingReadOnly}
                 onClick={onLineAdd}
                 type="button"
@@ -189,14 +194,20 @@ export function InvoiceDraftEditor({
                 <thead>
                   <TableHeadRow className="text-[11px] tracking-[0.18em]">
                     <TableHeaderCell className="py-3">Description</TableHeaderCell>
-                    <TableHeaderCell className="py-3">Qty</TableHeaderCell>
-                    <TableHeaderCell className="py-3">Unit price</TableHeaderCell>
-                    <TableHeaderCell className="py-3">VAT</TableHeaderCell>
-                    <TableHeaderCell className="py-3 text-right">Line total</TableHeaderCell>
-                    <TableHeaderCell className="py-3 text-right">Action</TableHeaderCell>
+                    <TableHeaderCell className="py-3 text-right tabular-nums">Qty</TableHeaderCell>
+                    <TableHeaderCell className="py-3 text-right tabular-nums">
+                      Unit price
+                    </TableHeaderCell>
+                    <TableHeaderCell className="py-3 text-right">VAT</TableHeaderCell>
+                    <TableHeaderCell className="py-3 text-right tabular-nums">
+                      Line total
+                    </TableHeaderCell>
+                    <TableHeaderCell className="w-px py-3 text-right">
+                      <span className="sr-only">Remove line</span>
+                    </TableHeaderCell>
                   </TableHeadRow>
                 </thead>
-                <tbody className="divide-y divide-outline-variant/15 bg-white">
+                <tbody className="divide-y divide-border-hairline bg-white">
                   {form.lines.map((line, index) => {
                     const calculated = linePreviews[index]
                     return (
@@ -204,7 +215,7 @@ export function InvoiceDraftEditor({
                         <td className="px-4 py-3">
                           <input
                             aria-label="Line description"
-                            className="w-full rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            className={LINE_INPUT_CLASS}
                             disabled={accountingReadOnly}
                             onChange={(event) =>
                               onLineUpdate(line.key, 'description', event.target.value)
@@ -214,10 +225,10 @@ export function InvoiceDraftEditor({
                             value={line.description}
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-right align-middle">
                           <input
                             aria-label="Quantity"
-                            className="w-24 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            className={`${LINE_INPUT_CLASS} ml-auto block w-24`}
                             disabled={accountingReadOnly}
                             min="0"
                             onChange={(event) =>
@@ -228,10 +239,10 @@ export function InvoiceDraftEditor({
                             value={line.quantity}
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-right align-middle">
                           <input
                             aria-label="Unit price"
-                            className="w-32 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                            className={`${LINE_INPUT_CLASS} ml-auto block w-32`}
                             disabled={accountingReadOnly}
                             min="0"
                             onChange={(event) =>
@@ -242,34 +253,33 @@ export function InvoiceDraftEditor({
                             value={line.unitPrice}
                           />
                         </td>
-                        <td className="px-4 py-3">
-                          <select
-                            aria-label="VAT rate"
-                            className="w-28 rounded-xl border border-outline-variant/35 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
-                            disabled={accountingReadOnly}
-                            onChange={(event) =>
-                              onLineUpdate(line.key, 'vatRate', event.target.value)
-                            }
-                            value={line.vatRate}
-                          >
-                            {vatRates.map((rate) => (
-                              <option key={rate} value={rate}>
-                                {rate}%
-                              </option>
-                            ))}
-                          </select>
+                        <td className="px-4 py-3 text-right align-middle">
+                          <div className="flex justify-end">
+                            <Select
+                              aria-label="VAT rate"
+                              contentClassName="z-[120]"
+                              disabled={accountingReadOnly}
+                              onValueChange={(next) => onLineUpdate(line.key, 'vatRate', next)}
+                              options={vatOptions}
+                              size="compact"
+                              tone="surface"
+                              triggerClassName="h-10 min-h-10 w-[5.5rem] shrink-0 tabular-nums"
+                              value={String(line.vatRate)}
+                            />
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums text-on-surface">
+                        <td className="px-4 py-3 text-right align-middle text-sm font-semibold tabular-nums text-on-surface">
                           {calculated ? formatCurrency(calculated.lineTotalInclTax) : '—'}
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right align-middle">
                           <button
-                            className="rounded-xl px-3 py-2 text-sm font-semibold text-error transition-colors hover:bg-error-container/40 disabled:cursor-not-allowed disabled:text-on-surface-variant"
+                            aria-label="Remove line"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 outline-hidden transition-colors duration-150 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-40"
                             disabled={accountingReadOnly || form.lines.length === 1}
                             onClick={() => onLineRemove(line.key)}
                             type="button"
                           >
-                            Remove
+                            <AppIcon name="delete" size={18} />
                           </button>
                         </td>
                       </tr>
@@ -281,13 +291,13 @@ export function InvoiceDraftEditor({
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-5">
+            <div className="rounded-2xl border border-slate-200/90 border-l-[3px] border-l-primary/50 bg-slate-50/90 p-5 shadow-sm ring-1 ring-slate-900/[0.04]">
               <h3 className="text-sm font-semibold text-on-surface">Business rules</h3>
-              <ul className="mt-3 space-y-2 text-sm leading-6 text-on-surface-variant">
+              <ol className="mt-3 list-decimal space-y-2 pl-4 text-sm leading-relaxed text-on-surface-variant marker:font-semibold marker:text-primary">
                 <li>Every invoice starts as a draft.</li>
                 <li>Once issued, an invoice cannot be edited.</li>
                 <li>Only drafts can be deleted.</li>
-              </ul>
+              </ol>
             </div>
             <InvoiceTotals
               subtotalExclTax={totals.subtotalExclTax}
@@ -295,46 +305,50 @@ export function InvoiceDraftEditor({
               totalVat={totals.totalVat}
             />
             {totalsErrorMessage ? (
-              <p className="text-sm font-medium text-error">{totalsErrorMessage}</p>
+              <p className="text-sm font-medium text-error lg:col-span-2">{totalsErrorMessage}</p>
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-outline-variant/20 pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-on-surface-variant">
-              {isCreating
-                ? 'Save the draft first, then issue the invoice.'
-                : 'The invoice stays editable while it remains a draft.'}
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {!isCreating && selectedInvoice && canDeleteInvoice(selectedInvoice) ? (
+          <div className="border-t border-border-hairline pt-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+              <div className="flex flex-1 flex-wrap items-center justify-start gap-3">
+                {!isCreating && selectedInvoice && canDeleteInvoice(selectedInvoice) ? (
+                  <button
+                    className="rounded-xl border border-error/25 bg-white px-4 py-2.5 text-sm font-semibold text-error shadow-sm transition-colors duration-150 hover:bg-error-container/30 disabled:opacity-60"
+                    disabled={accountingReadOnly || saving}
+                    onClick={onDeleteDraft}
+                    type="button"
+                  >
+                    Delete draft
+                  </button>
+                ) : null}
+              </div>
+              <p className="flex-[1.4] text-center text-sm leading-6 text-on-surface-variant lg:min-w-0 lg:px-4">
+                {isCreating
+                  ? 'Save the draft first, then issue the invoice.'
+                  : 'The invoice stays editable while it remains a draft.'}
+              </p>
+              <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
                 <button
-                  className="rounded-xl border border-error/18 px-4 py-2.5 text-sm font-semibold text-error transition-colors hover:bg-error-container/35 disabled:opacity-60"
-                  disabled={accountingReadOnly || saving}
-                  onClick={onDeleteDraft}
+                  className="rounded-xl border border-border-default bg-white px-4 py-2.5 text-sm font-semibold text-on-surface shadow-sm transition-colors duration-150 hover:bg-surface-container-lowest disabled:opacity-60"
+                  disabled={accountingReadOnly || saving || customers.length === 0 || !formIsValid}
+                  onClick={onSaveDraft}
                   type="button"
                 >
-                  Delete draft
+                  {saving ? 'Saving…' : 'Save draft'}
                 </button>
-              ) : null}
-              <button
-                className="rounded-xl border border-outline-variant/35 bg-white px-4 py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-lowest disabled:opacity-60"
-                disabled={accountingReadOnly || saving || customers.length === 0 || !formIsValid}
-                onClick={onSaveDraft}
-                type="button"
-              >
-                {saving ? 'Saving…' : 'Save draft'}
-              </button>
-              {!isCreating && selectedInvoice && canIssueInvoice(selectedInvoice) ? (
-                <button
-                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
-                  disabled={accountingReadOnly || saving}
-                  onClick={onIssueInvoice}
-                  type="button"
-                >
-                  <AppIcon name="send" size={16} />
-                  Issue invoice
-                </button>
-              ) : null}
+                {!isCreating && selectedInvoice && canIssueInvoice(selectedInvoice) ? (
+                  <button
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-sm shadow-primary/25 transition-colors duration-150 hover:bg-primary-dim disabled:opacity-60"
+                    disabled={accountingReadOnly || saving}
+                    onClick={onIssueInvoice}
+                    type="button"
+                  >
+                    <AppIcon name="send" size={16} />
+                    Issue invoice
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>

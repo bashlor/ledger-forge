@@ -1,18 +1,23 @@
 import { parseDateOnlyForDisplay } from '~/lib/date'
 
-const currencyFormatter = new Intl.NumberFormat('en-GB', {
+/** Single display locale for currency and dates (deterministic SSR/tests). */
+export const DISPLAY_LOCALE = 'fr-FR' as const
+
+const currencyFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
   currency: 'EUR',
+  currencyDisplay: 'symbol',
   maximumFractionDigits: 2,
   minimumFractionDigits: 2,
   style: 'currency',
+  useGrouping: true,
 })
 
-const shortDateFormatter = new Intl.DateTimeFormat('en-GB', {
+const shortDateFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
   day: 'numeric',
   month: 'short',
 })
 
-const topbarDateFormatter = new Intl.DateTimeFormat('en-GB', {
+const topbarDateFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
   day: 'numeric',
   month: 'long',
 })
@@ -43,4 +48,31 @@ export function getInitials(value: string) {
     .join('')
 
   return initials || 'PL'
+}
+
+const TOPBAR_EMAIL_LOCAL_PLACEHOLDERS = new Set(['anonymous', 'guest', 'noreply', 'temp'])
+
+/**
+ * Topbar display name: never show disposable email local parts (e.g. "temp") as the user's name.
+ */
+export function resolveTopbarDisplayName(
+  fullName: null | string | undefined,
+  email: string,
+  isAnonymous: boolean | undefined
+): string {
+  const trimmed = fullName?.trim()
+  if (trimmed) {
+    return trimmed
+  }
+  if (isAnonymous) {
+    return 'Anonymous'
+  }
+  const localPart = email.split('@')[0]?.toLowerCase() ?? ''
+  if (!localPart) {
+    return 'Account'
+  }
+  if (TOPBAR_EMAIL_LOCAL_PLACEHOLDERS.has(localPart)) {
+    return 'Account'
+  }
+  return localPart
 }

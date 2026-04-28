@@ -43,7 +43,7 @@ export default class AnonymousSigninController {
         })
       },
       flashAll: true,
-      redirectTo: '/',
+      redirectTo: '/dashboard',
     })
   }
 }

@@ -6,7 +6,7 @@ import { usePage } from '@inertiajs/react'
 import { useEffect } from 'react'
 import { toast, Toaster } from 'sonner'
 
-import { AppIcon } from '~/components/app_icon'
+import { LedgerForgeMark } from '~/components/ledger_forge_brand'
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
   const page = usePage<Data.SharedProps>()
@@ -24,7 +24,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           className="inline-flex items-center gap-2 font-headline text-sm font-extrabold text-primary-dim transition-colors hover:text-primary"
           href="/signin"
         >
-          <AppIcon className="text-primary" filled name="account_balance_wallet" size={20} />
+          <LedgerForgeMark />
           <span>Ledger Forge</span>
         </Link>
       </header>

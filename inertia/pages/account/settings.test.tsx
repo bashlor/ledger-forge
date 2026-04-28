@@ -1,21 +1,10 @@
 import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
 
 import Settings from './settings'
 
-const usePageMock = vi.hoisted(() =>
-  vi.fn(() => ({
-    props: {
-      workspace: null as null | {
-        id: string
-        isAnonymousWorkspace: boolean
-        name: string
-        slug: string
-      },
-    },
-    url: '/account',
-  }))
-)
+const usePageMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@adonisjs/inertia/react', () => ({
   Form: ({
@@ -29,69 +18,123 @@ vi.mock('@adonisjs/inertia/react', () => ({
       {typeof children === 'function' ? children({ errors: {} }) : children}
     </form>
   ),
+  Link: ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
 }))
 
 vi.mock('@inertiajs/react', () => ({
+  Head: () => null,
   usePage: usePageMock,
 }))
 
-describe('account settings page', () => {
-  beforeEach(() => {
-    usePageMock.mockImplementation(() => ({
-      props: { workspace: null },
-      url: '/account',
-    }))
-  })
+const defaultWorkspace = {
+  id: 'ws',
+  isAnonymousWorkspace: true,
+  name: 'Pat User workspace',
+  slug: 'pat-user-workspace',
+}
 
-  it('hides profile and password mutation controls for anonymous users', () => {
-    render(
-      <Settings
-        user={{
-          email: 'anonymous@example.com',
-          image: null,
-          isAnonymous: true,
-          name: 'Anonymous User',
-        }}
-      />
-    )
+const defaultPermissions = {
+  canReadAccounting: true,
+  canViewAuditTrail: false,
+  canViewOrganization: true,
+  canViewOverview: true,
+}
+
+const defaultUser = {
+  email: 'anon@example.com',
+  fullName: '',
+  id: 'user-anon',
+  image: null,
+  initials: 'AN',
+  isAnonymous: true,
+  isDevOperator: false,
+}
+
+function mockSharedPage(overrides?: {
+  permissions?: typeof defaultPermissions
+  user?: null | typeof defaultUser
+  workspace?: null | typeof defaultWorkspace
+}) {
+  usePageMock.mockReturnValue({
+    props: {
+      permissions: overrides?.permissions ?? defaultPermissions,
+      user: overrides?.user === null ? undefined : (overrides?.user ?? defaultUser),
+      workspace:
+        overrides?.workspace === null ? undefined : (overrides?.workspace ?? defaultWorkspace),
+    },
+  })
+}
+
+describe('Settings page', () => {
+  it('shows anonymous badge when session is anonymous', () => {
+    mockSharedPage()
+
+    render(<Settings activeWorkspaceRole={null} />)
 
     expect(screen.getByText('Anonymous session')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Anonymous accounts can browse the workspace but cannot change profile/i)
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(/Anonymous mode keeps this page visible for inspection only/i)
-    ).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Update profile' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Change password' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Anonymous sessions are read-only/i)).toBeInTheDocument()
   })
 
-  it('shows active workspace summary when workspace prop is present', () => {
-    usePageMock.mockImplementation(() => ({
-      props: {
-        workspace: {
-          id: 'org-1',
-          isAnonymousWorkspace: false,
-          name: 'Pat User workspace',
-          slug: 'ws-abc123',
-        },
-      },
-      url: '/account',
-    }))
+  it('shows workspace info when switching to Workspace section', async () => {
+    const user = userEvent.setup()
+    mockSharedPage()
 
-    render(
-      <Settings
-        user={{
-          email: 'pat@example.com',
-          image: null,
-          isAnonymous: false,
-          name: 'Pat User',
-        }}
-      />
-    )
+    render(<Settings activeWorkspaceRole={null} />)
 
-    expect(screen.getByText('Active workspace')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^workspace$/i }))
+    expect(screen.getByRole('heading', { name: 'Active workspace' })).toBeInTheDocument()
     expect(screen.getByText('Pat User workspace')).toBeInTheDocument()
-    expect(screen.getByText('ws-abc123')).toBeInTheDocument()
+    expect(screen.getByText('pat-user-workspace')).toBeInTheDocument()
+  })
+
+  it('filters settings navigation from user permissions and account type', () => {
+    mockSharedPage({
+      permissions: {
+        canReadAccounting: false,
+        canViewAuditTrail: false,
+        canViewOrganization: false,
+        canViewOverview: false,
+      },
+    })
+
+    render(<Settings activeWorkspaceRole={null} />)
+
+    expect(screen.getByRole('button', { name: /^profile$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^security$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^workspace$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /billing/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^danger zone$/i })).not.toBeInTheDocument()
+  })
+
+  it('shows profile and security actions when session is registered', async () => {
+    const user = userEvent.setup()
+    mockSharedPage({
+      user: {
+        email: 'jane@example.com',
+        fullName: 'Jane Doe',
+        id: 'user-jane',
+        image: null,
+        initials: 'JD',
+        isAnonymous: false,
+        isDevOperator: false,
+      },
+      workspace: {
+        id: 'ws',
+        isAnonymousWorkspace: false,
+        name: 'Pat User workspace',
+        slug: 'pat-user-workspace',
+      },
+    })
+
+    render(<Settings activeWorkspaceRole="owner" />)
+
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument()
+    expect(screen.getByText('Registered account')).toBeInTheDocument()
+    expect(screen.getByText('Owner')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^security$/i }))
+    expect(screen.getByRole('button', { name: /update password/i })).toBeInTheDocument()
   })
 })

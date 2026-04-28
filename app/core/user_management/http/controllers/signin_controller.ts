@@ -51,7 +51,7 @@ export default class SigninController {
         })
       },
       flashAll: true,
-      redirectTo: '/',
+      redirectTo: '/dashboard',
     })
   }
 }

@@ -1,6 +1,6 @@
 import type { ExpenseSummaryDto } from '~/lib/types'
 
-import { Caption, Eyebrow, Panel } from '~/components/ui'
+import { MetricCard } from '~/components/metric_card'
 import { formatCurrency } from '~/lib/format'
 
 interface SummaryCardsProps {
@@ -11,44 +11,48 @@ const SKELETON = Array.from({ length: 4 })
 
 export function SummaryCards({ summary }: SummaryCardsProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Card caption="All registered expenses" label="Expenses" value={String(summary.totalCount)} />
-      <Card caption="Confirmed expenses" label="Confirmed" value={String(summary.confirmedCount)} />
-      <Card caption="Pending confirmation" label="Drafts" value={String(summary.draftCount)} />
-      <Card
+    <section className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+      <MetricCard
+        caption="All registered expenses"
+        icon="receipt_long"
+        label="Expenses"
+        tone="default"
+        value={String(summary.totalCount)}
+      />
+      <MetricCard
+        caption="Posted to the ledger"
+        icon="task_alt"
+        label="Confirmed"
+        tone="success"
+        value={String(summary.confirmedCount)}
+      />
+      <MetricCard
+        caption="Awaiting confirmation"
+        icon="tune"
+        label="Drafts"
+        tone="default"
+        value={String(summary.draftCount)}
+      />
+      <MetricCard
         caption="Sum of confirmed expenses"
+        icon="payments"
         label="Total expenses"
+        tone="default"
         value={formatCurrency(summary.totalAmount)}
       />
-    </div>
+    </section>
   )
 }
 
 export function SummaryCardsSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
       {SKELETON.map((_, i) => (
         <div
-          className="animate-pulse rounded-xl border border-outline-variant/15 bg-surface-container-low p-4 shadow-ambient-tight"
+          className="h-[7.25rem] animate-pulse rounded-xl border border-slate-200/90 bg-white shadow-md shadow-slate-900/[0.05] ring-1 ring-slate-900/[0.04]"
           key={i}
-        >
-          <div className="h-3 w-24 rounded bg-surface-container-high" />
-          <div className="mt-4 h-9 w-16 rounded bg-surface-container-high" />
-          <div className="mt-2 h-3 w-32 rounded bg-surface-container-high" />
-        </div>
+        />
       ))}
     </div>
-  )
-}
-
-function Card({ caption, label, value }: { caption: string; label: string; value: string }) {
-  return (
-    <Panel as="div" className="bg-surface-container-low p-4">
-      <Eyebrow className="tracking-[0.16em]">{label}</Eyebrow>
-      <p className="mt-2 text-3xl font-headline font-extrabold leading-tight tabular-nums text-on-surface sm:text-[2rem]">
-        {value}
-      </p>
-      <Caption className="mt-1">{caption}</Caption>
-    </Panel>
   )
 }

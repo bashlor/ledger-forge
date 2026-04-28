@@ -39,7 +39,9 @@ describe('signin page', () => {
   it('hides anonymous sign-in when disabled', () => {
     render(<Signin allowAnonymousAuth={false} />)
 
-    expect(screen.queryByRole('button', { name: 'Continue in anonymous mode' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Continue in anonymous mode' })
+    ).not.toBeInTheDocument()
   })
 
   it('posts to the anonymous sign-in route when selected', () => {
