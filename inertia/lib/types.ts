@@ -109,7 +109,9 @@ export interface ExpenseSummaryDto {
 
 export interface InvoiceAuditEventDto {
   action: string
+  actorEmail: null | string
   actorId: null | string
+  actorName: null | string
   changes: unknown
   createdAt: string
   entityId: string

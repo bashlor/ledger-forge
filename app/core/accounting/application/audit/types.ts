@@ -12,7 +12,9 @@ export type AccountingAuditEntityType = (typeof ACCOUNTING_AUDIT_ENTITY_TYPES)[n
 export type AuditEntityType = AccountingAuditEntityType | UserManagementAuditEntityType
 export interface AuditEventDto {
   action: string
+  actorEmail: null | string
   actorId: null | string
+  actorName: null | string
   changes: unknown
   createdAt: Date
   entityId: string

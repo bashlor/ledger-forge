@@ -18,6 +18,19 @@ const historyDateFormatter = new Intl.DateTimeFormat('en-GB', {
   timeStyle: 'short',
 })
 
+function actorLabel(event: InvoiceAuditEventDto): string {
+  if (event.actorName?.trim()) {
+    return event.actorName.trim()
+  }
+  if (event.actorEmail?.trim()) {
+    return event.actorEmail.trim()
+  }
+  if (event.actorId) {
+    return event.actorId
+  }
+  return 'System'
+}
+
 function iconForAuditAction(action: string): string {
   switch (action) {
     case 'create_draft':
@@ -69,16 +82,18 @@ export function InvoiceHistoryDrawer({
       title={invoice ? `${invoice.invoiceNumber} history` : 'Invoice history'}
     >
       {loading ? (
-        <div className="relative pl-2">
+        <div className="relative">
           <div
             aria-hidden
-            className="absolute bottom-2 left-[15px] top-2 w-px bg-gradient-to-b from-slate-200 via-slate-200 to-transparent"
+            className="pointer-events-none absolute bottom-2 left-5 top-2 w-px -translate-x-1/2 bg-gradient-to-b from-slate-200 via-slate-200 to-transparent"
           />
           <ul className="space-y-5">
             {[1, 2, 3].map((key) => (
               <li className="flex gap-4" key={key}>
-                <div className="relative z-[1] mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
-                  <span className="h-4 w-4 animate-pulse rounded bg-slate-200" />
+                <div className="relative z-[1] flex w-10 shrink-0 justify-center pt-0.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
+                    <span className="h-4 w-4 animate-pulse rounded bg-slate-200" />
+                  </div>
                 </div>
                 <div className="min-w-0 flex-1 space-y-2 pt-0.5">
                   <div className="h-4 w-[56%] max-w-[14rem] animate-pulse rounded bg-slate-200" />
@@ -102,18 +117,21 @@ export function InvoiceHistoryDrawer({
           No audit events recorded for this invoice yet.
         </div>
       ) : (
-        <div className="relative pl-2">
+        <div className="relative">
           <div
             aria-hidden
-            className="absolute bottom-3 left-[15px] top-3 w-px bg-slate-200/90"
+            className="pointer-events-none absolute bottom-3 left-5 top-3 w-px -translate-x-1/2 bg-slate-200/90"
           />
           <ol className="relative space-y-0">
             {events.map((event) => {
               const iconName = iconForAuditAction(event.action)
+              const actor = actorLabel(event)
               return (
                 <li className="relative flex gap-4 pb-8 last:pb-0" key={event.id}>
-                  <div className="relative z-[1] mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/95 bg-white shadow-sm ring-2 ring-white">
-                    <AppIcon className="text-primary" name={iconName} size={17} />
+                  <div className="relative z-[1] flex w-10 shrink-0 justify-center pt-0.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200/95 bg-white shadow-sm ring-2 ring-white">
+                      <AppIcon className="text-primary" name={iconName} size={17} />
+                    </div>
                   </div>
                   <div className="min-w-0 flex-1 pt-0.5">
                     <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]">
@@ -128,7 +146,7 @@ export function InvoiceHistoryDrawer({
                           {historyDateFormatter.format(new Date(event.createdAt))}
                         </span>
                         <span className="mx-2 text-slate-300">·</span>
-                        Actor: {event.actorId ?? 'System'}
+                        Actor: {actor}
                       </p>
                     </div>
                   </div>
@@ -141,9 +159,7 @@ export function InvoiceHistoryDrawer({
                     </p>
                     <p className="mt-2 text-xs leading-snug text-slate-500">
                       Actor
-                      <span className="mt-0.5 block font-medium text-slate-700">
-                        {event.actorId ?? 'System'}
-                      </span>
+                      <span className="mt-0.5 block font-medium text-slate-700">{actor}</span>
                     </p>
                   </div>
                 </li>
