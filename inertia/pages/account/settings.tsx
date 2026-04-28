@@ -7,6 +7,8 @@ import { PrimaryButton } from '~/components/button'
 import { FormField } from '~/components/form_field'
 import { PageHeader } from '~/components/page_header'
 
+type SettingsPermissions = Data.SharedProps['permissions']
+
 interface SettingsProps {
   user: null | {
     email: string
@@ -15,7 +17,6 @@ interface SettingsProps {
     name: string
   }
 }
-
 type SettingsSection = 'billing' | 'danger' | 'profile' | 'security' | 'workspace'
 
 const SECTION_NAV: {
@@ -23,12 +24,23 @@ const SECTION_NAV: {
   hint?: string
   id: SettingsSection
   label: string
+  registeredOnly?: boolean
+  requiresAny?: (keyof SettingsPermissions)[]
 }[] = [
   { id: 'profile', label: 'Profile' },
   { id: 'security', label: 'Security' },
-  { id: 'workspace', label: 'Workspace' },
-  { disabled: true, hint: 'Coming soon', id: 'billing', label: 'Billing' },
-  { id: 'danger', label: 'Danger zone' },
+  {
+    id: 'workspace',
+    label: 'Workspace',
+    requiresAny: [
+      'canReadAccounting',
+      'canViewAuditTrail',
+      'canViewOrganization',
+      'canViewOverview',
+    ],
+  },
+  { disabled: true, hint: 'Coming soon', id: 'billing', label: 'Billing', registeredOnly: true },
+  { id: 'danger', label: 'Danger zone', registeredOnly: true },
 ]
 
 const CARD_CLASS =
@@ -41,6 +53,7 @@ export default function Settings({ user }: SettingsProps) {
   const page = usePage<Data.SharedProps>()
   const workspace = page.props.workspace
   const permissions = page.props.permissions
+  const sectionNav = SECTION_NAV.filter((item) => isSectionVisible(item, permissions, user))
   const [activeSection, setActiveSection] = useState<SettingsSection>('profile')
 
   if (!user) {
@@ -99,7 +112,7 @@ export default function Settings({ user }: SettingsProps) {
             aria-label="Settings sections"
             className="flex shrink-0 gap-2 overflow-x-auto pb-1 lg:w-52 lg:flex-col lg:overflow-visible lg:pb-0"
           >
-            {SECTION_NAV.map((item) => {
+            {sectionNav.map((item) => {
               const isActive = activeSection === item.id
               const isDisabled = item.disabled === true
               return (
@@ -121,7 +134,9 @@ export default function Settings({ user }: SettingsProps) {
                 >
                   <span className="block">{item.label}</span>
                   {item.hint ? (
-                    <span className="mt-0.5 block text-[11px] font-normal text-slate-400">{item.hint}</span>
+                    <span className="mt-0.5 block text-[11px] font-normal text-slate-400">
+                      {item.hint}
+                    </span>
                   ) : null}
                 </button>
               )
@@ -181,10 +196,18 @@ export default function Settings({ user }: SettingsProps) {
                                 type="email"
                               />
                             </div>
-                            <FormField error={errors.name} id="name" label="Full name" value={user.name} />
+                            <FormField
+                              error={errors.name}
+                              id="name"
+                              label="Full name"
+                              value={user.name}
+                            />
                           </div>
                           <div className="flex justify-end border-t border-slate-200/80 pt-6">
-                            <PrimaryButton className="min-w-44 rounded-xl py-3 font-headline font-bold" type="submit">
+                            <PrimaryButton
+                              className="min-w-44 rounded-xl py-3 font-headline font-bold"
+                              type="submit"
+                            >
                               Save changes
                             </PrimaryButton>
                           </div>
@@ -250,22 +273,33 @@ export default function Settings({ user }: SettingsProps) {
                     </div>
                     <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
                       <dt className="text-sm font-medium text-slate-500">Session</dt>
-                      <dd className="text-sm font-semibold text-slate-900">Anonymous / read-only</dd>
+                      <dd className="text-sm font-semibold text-slate-900">
+                        Anonymous / read-only
+                      </dd>
                     </div>
                     <div className="flex flex-col gap-1">
                       <dt className="text-sm font-medium text-slate-500">Workspace permissions</dt>
                       <dd className="text-sm text-slate-700">
                         <ul className="mt-1 list-inside list-disc space-y-1">
                           <li>Dashboard: {permissions.canViewOverview ? 'View' : 'No access'}</li>
-                          <li>Accounting data: {permissions.canReadAccounting ? 'Read' : 'No access'}</li>
-                          <li>Organization: {permissions.canViewOrganization ? 'View' : 'No access'}</li>
-                          <li>Audit trail: {permissions.canViewAuditTrail ? 'View' : 'No access'}</li>
+                          <li>
+                            Accounting data: {permissions.canReadAccounting ? 'Read' : 'No access'}
+                          </li>
+                          <li>
+                            Organization: {permissions.canViewOrganization ? 'View' : 'No access'}
+                          </li>
+                          <li>
+                            Audit trail: {permissions.canViewAuditTrail ? 'View' : 'No access'}
+                          </li>
                         </ul>
                       </dd>
                     </div>
                   </dl>
                 ) : (
-                  <Form className="mt-6 space-y-5 border-t border-slate-200/80 pt-6" route="account.password.update">
+                  <Form
+                    className="mt-6 space-y-5 border-t border-slate-200/80 pt-6"
+                    route="account.password.update"
+                  >
                     {({ errors }) => (
                       <>
                         <input
@@ -303,7 +337,10 @@ export default function Settings({ user }: SettingsProps) {
                           </div>
                         </div>
                         <div className="flex justify-end border-t border-slate-200/80 pt-6">
-                          <PrimaryButton className="min-w-44 rounded-xl py-3 font-headline font-bold" type="submit">
+                          <PrimaryButton
+                            className="min-w-44 rounded-xl py-3 font-headline font-bold"
+                            type="submit"
+                          >
                             Update password
                           </PrimaryButton>
                         </div>
@@ -343,7 +380,9 @@ export default function Settings({ user }: SettingsProps) {
                     </div>
                     <div>
                       <p className="form-label-caps">Workspace ID</p>
-                      <p className="mt-2 break-all font-mono text-sm text-slate-800">{workspace.slug}</p>
+                      <p className="mt-2 break-all font-mono text-sm text-slate-800">
+                        {workspace.slug}
+                      </p>
                     </div>
                     <p className="text-sm leading-relaxed text-slate-600">
                       {workspace.isAnonymousWorkspace
@@ -375,7 +414,9 @@ export default function Settings({ user }: SettingsProps) {
                     Billing and subscription management will be available in a future release.
                   </p>
                 </div>
-                <p className="mt-6 border-t border-slate-200/80 pt-6 text-sm text-slate-500">Coming soon.</p>
+                <p className="mt-6 border-t border-slate-200/80 pt-6 text-sm text-slate-500">
+                  Coming soon.
+                </p>
               </section>
             ) : null}
 
@@ -392,7 +433,8 @@ export default function Settings({ user }: SettingsProps) {
                     Destructive actions
                   </h2>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                    Actions that permanently remove data or access are not available in this release.
+                    Actions that permanently remove data or access are not available in this
+                    release.
                   </p>
                 </div>
                 <p className="mt-6 border-t border-slate-200/80 pt-6 text-sm text-slate-600">
@@ -405,4 +447,20 @@ export default function Settings({ user }: SettingsProps) {
       </div>
     </>
   )
+}
+
+function isSectionVisible(
+  item: (typeof SECTION_NAV)[number],
+  permissions: SettingsPermissions,
+  user: SettingsProps['user']
+): boolean {
+  if (item.registeredOnly && user?.isAnonymous !== false) {
+    return false
+  }
+
+  if (!item.requiresAny) {
+    return true
+  }
+
+  return item.requiresAny.some((permission) => permissions[permission] === true)
 }

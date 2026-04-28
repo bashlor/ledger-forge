@@ -6,16 +6,17 @@ export interface AppNavLink {
 }
 
 export interface NavigationPermissions {
+  canReadAccounting?: boolean
   canViewOrganization?: boolean
   canViewOverview?: boolean
 }
 
 export const mainNavLinks: readonly AppNavLink[] = [
   { href: '/dashboard', icon: 'dashboard', label: 'Overview', permission: 'canViewOverview' },
-  { href: '/customers', icon: 'group', label: 'Customers' },
-  { href: '/invoices', icon: 'receipt_long', label: 'Invoices' },
+  { href: '/customers', icon: 'group', label: 'Customers', permission: 'canReadAccounting' },
+  { href: '/invoices', icon: 'receipt_long', label: 'Invoices', permission: 'canReadAccounting' },
   /** Évite `payments` (carte / $) sur la ligne Dépenses — lu comme encaissement / facturation */
-  { href: '/expenses', icon: 'shopping_bag', label: 'Expenses' },
+  { href: '/expenses', icon: 'shopping_bag', label: 'Expenses', permission: 'canReadAccounting' },
   {
     href: '/organization',
     icon: 'business',

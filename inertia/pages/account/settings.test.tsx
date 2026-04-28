@@ -44,7 +44,7 @@ const defaultPermissions = {
 
 function mockSharedPage(overrides?: {
   permissions?: typeof defaultPermissions
-  workspace?: typeof defaultWorkspace | null
+  workspace?: null | typeof defaultWorkspace
 }) {
   usePageMock.mockReturnValue({
     props: {
@@ -92,6 +92,34 @@ describe('Settings page', () => {
     expect(screen.getByRole('heading', { name: 'Active workspace' })).toBeInTheDocument()
     expect(screen.getByText('Pat User workspace')).toBeInTheDocument()
     expect(screen.getByText('pat-user-workspace')).toBeInTheDocument()
+  })
+
+  it('filters settings navigation from user permissions and account type', () => {
+    mockSharedPage({
+      permissions: {
+        canReadAccounting: false,
+        canViewAuditTrail: false,
+        canViewOrganization: false,
+        canViewOverview: false,
+      },
+    })
+
+    render(
+      <Settings
+        user={{
+          email: 'anon@example.com',
+          image: null,
+          isAnonymous: true,
+          name: '',
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /^profile$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^security$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^workspace$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /billing/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^danger zone$/i })).not.toBeInTheDocument()
   })
 
   it('shows profile and security actions when session is registered', async () => {

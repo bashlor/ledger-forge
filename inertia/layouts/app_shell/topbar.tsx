@@ -181,7 +181,6 @@ export function AppTopbar({
                   <Form className="contents" route="signout.store">
                     <button
                       className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] font-medium text-slate-800 transition-colors duration-150 hover:bg-slate-50 hover:text-error focus-visible:bg-slate-50"
-                      onClick={() => setAccountMenuOpen(false)}
                       role="menuitem"
                       type="submit"
                     >
