@@ -21,6 +21,7 @@ Accounting abilities:
 - `invoice.issue`
 - `invoice.markPaid`
 - `auditTrail.view`
+- `dashboard.view` (default for `admin` and `owner`; see matrix)
 
 Membership abilities:
 
@@ -43,6 +44,25 @@ Development-only ability:
 The model is intentionally simple RBAC plus contextual subject checks, not a full dynamic
 policy engine. The important product rules are made explicit in code instead of hidden in a
 generic permission DSL.
+
+## Tenant-wide data vs `createdBy`
+
+**Access isolation is tenant-scoped**: a user sees and acts on data for the active
+organization only, subject to their role and abilities (active membership required).
+
+Accounting entities may store `createdBy` (or similar) for **traceability and display**
+(“who created this draft?”). That field does **not** define the authorization boundary.
+List queries, dashboard aggregates, and mutations allowed by `accounting.read` /
+`accounting.writeDrafts` apply to **the whole workspace**, not “rows I created only.” A
+member with draft permissions can work on another member’s customers, expenses, or
+invoice drafts within the same tenant. That is a **deliberate product choice** (shared
+back-office collaboration) expressed through RBAC, not owner-level isolation.
+
+If the product ever required per-author data walls, that would be an explicit model
+change (for example filtering by `createdBy` or separate sub-tenants), not a hidden
+implication of the current fields. The dashboard query module documents the same
+org-wide scope (no per-user row filter on aggregates); see
+`app/core/accounting/application/dashboard/queries.ts`.
 
 ## Contextual safeguards
 

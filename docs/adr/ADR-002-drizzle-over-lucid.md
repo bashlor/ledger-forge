@@ -30,7 +30,7 @@ Benefits:
 
 Trade-off:
 
-- fewer batteries-included abstractions
-  //Ici
+- fewer batteries-included abstractions; repository wiring, DTO mapping, and transaction
+  boundaries are explicit, which is more integration work up front than with a
+  framework-native ORM
 - more discipline required around repositories, transactions, and DTO mapping
-  // une bonne intégration de drizzle est plus complexe que celle avec l'orm native

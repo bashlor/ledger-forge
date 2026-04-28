@@ -154,6 +154,7 @@ Main abilities used by accounting and membership flows:
 - `invoice.issue`
 - `invoice.markPaid`
 - `auditTrail.view`
+- `dashboard.view`
 - `membership.list`
 - `membership.toggleActive`
 - `membership.changeRole`
@@ -161,7 +162,7 @@ Main abilities used by accounting and membership flows:
 Role defaults:
 
 - `member`: accounting read + draft writes
-- `admin`: member abilities + issue/mark paid + audit trail view + membership list
+- `admin`: member abilities + issue/mark paid + audit trail view + dashboard + membership list and toggles
 - `owner`: admin abilities + membership role changes
 
 See [RBAC and membership](docs/domain/rbac-membership.md) for details and contextual safeguards.
@@ -254,7 +255,7 @@ Out of scope for this demo:
 
 ## Planned Extensions
 
-- accounting journal postings on confirm flows
+- journal posting flows: deeper reconciliation visibility, chart-of-accounts rules, and reporting (issue/confirm already post journal lines today)
 - pagination strategy refinement
 - observability (logs / metrics / tracing)
 - richer dashboard analytics

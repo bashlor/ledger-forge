@@ -35,7 +35,9 @@ preparation material and should not be treated as runtime or product documentati
 
 ## Decisions
 
-- [Architecture Decision Records](adr/): key technical trade-offs
+- [Architecture Decision Records](adr/): key technical trade-offs, stack choices, and explicit
+  limitations (for example ORM, auth integration, and degraded read-only policy). The ADR
+  files are the durable record when the root README only summarizes.
 
 ## Roadmap
 

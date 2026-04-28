@@ -22,7 +22,23 @@ The HTTP boundary exposes this as a degraded read-only mode:
 - mutating accounting routes are intercepted by the audit writable middleware
 - JSON write attempts can return a clean `503` Problem Details response
 
-//Expliciter ce choix. Il est incomplet... a revoir //TODO Elie
+## Implementation scope (this repository)
+
+The **business policy** is strict: do not process accounting mutations if the app cannot
+record audit events alongside them.
+
+The **degraded check** in this demo is intentionally narrow: it probes whether audit
+trail storage is reachable (e.g. a read against the audit table). That answers “can we
+persist an audit event right now?”—not “are journal or ledger rows mathematically
+consistent with each other” or “did every past write land correctly.” Double-entry
+rules, reconciliation, and richer failure modes belong to a more complete accounting
+platform, not to this health signal.
+
+**Beyond demo scope (production-hardening direction):** a stronger system would
+separate liveness of the database from semantic guarantees (durable write queues,
+reconciliation jobs, idempotent audit append, dashboards for stuck writes, and
+possibly independent verification of posted amounts). The current design is a
+pragmatic guardrail, not a full financial-control subsystem.
 
 ## Consequences
 
