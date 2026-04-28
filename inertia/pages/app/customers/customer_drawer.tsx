@@ -74,7 +74,8 @@ export function CustomerDrawer({
         ? 'Read-only summary. Use Edit to change details.'
         : 'Update contact details. Draft invoices show the new company name; issued invoices keep their original label.'
 
-  const icon = mode === 'view' ? 'monitoring' : target ? 'edit' : 'person_add'
+  const icon =
+    mode === 'view' ? 'monitoring' : mode === 'edit' ? 'edit' : 'person_add'
 
   const footer =
     isView ? (

@@ -44,6 +44,10 @@ const iconRegistry: Record<string, { filled?: IconComponent; outline: IconCompon
     filled: DashboardFilledIcon,
     outline: DashboardIcon,
   },
+  delete: {
+    filled: DeleteFilledIcon,
+    outline: DeleteIcon,
+  },
   date_range: {
     filled: DateRangeFilledIcon,
     outline: DateRangeIcon,
@@ -264,6 +268,26 @@ function DashboardIcon(props: SVGProps<SVGSVGElement>) {
       <rect height="10" rx="1.5" width="7" x="13" y="4" />
       <rect height="7" rx="1.5" width="7" x="13" y="16" />
       <rect height="10" rx="1.5" width="7" x="4" y="13" />
+    </svg>
+  )
+}
+
+function DeleteFilledIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} fill="currentColor" stroke="none">
+      <path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM7 7h10l-1 12H8L7 7Z" />
+    </svg>
+  )
+}
+
+function DeleteIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
     </svg>
   )
 }

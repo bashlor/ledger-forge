@@ -155,7 +155,6 @@ export default function CustomersPage({
   function handleDelete(customer: CustomerListItemDto) {
     if (!canMutateCustomers) return
     if (customer.canDelete === false) return
-    if (!window.confirm(`Delete customer "${customer.company}"?`)) return
 
     router.delete(`/customers/${customer.id}`, {
       data: pageQs,
@@ -264,7 +263,7 @@ export default function CustomersPage({
               { only: ['customers', 'filters'], preserveScroll: true, replace: true }
             )
           }
-          panelClassName="rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]"
+          panelClassName="overflow-hidden rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]"
           pagination={pagination}
           title="Customer register"
           titleClassName="text-slate-950 lg:text-base"

@@ -126,10 +126,6 @@ describe('customers page', () => {
     routerPostMock.mockReset()
     routerPutMock.mockReset()
     usePageMock.mockReset()
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => true)
-    )
   })
 
   it('submits customer creation with trimmed contact fields and preserved query params', () => {
@@ -223,8 +219,8 @@ describe('customers page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Actions for Alpha Co/i }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete customer' }))
 
-    expect(globalThis.confirm).toHaveBeenCalledWith('Delete customer "Alpha Co"?')
     expect(routerDeleteMock).toHaveBeenCalledWith(
       '/customers/customer-alpha',
       expect.objectContaining({
