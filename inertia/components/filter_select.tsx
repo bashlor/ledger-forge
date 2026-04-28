@@ -22,7 +22,7 @@ export function FilterSelect({ 'aria-label': ariaLabel, className, onChange, opt
     <div className={wrapClass}>
       <select
         aria-label={ariaLabel}
-        className="h-10 w-full cursor-pointer appearance-none rounded-xl border border-slate-200/95 bg-white py-2 pl-3 pr-10 text-sm font-medium text-slate-800 shadow-sm shadow-slate-900/[0.04] outline-hidden ring-1 ring-slate-900/[0.03] transition-[border-color,box-shadow] duration-150 ease-out hover:border-slate-300/90 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25"
+        className="h-10 w-full cursor-pointer appearance-none rounded-xl border border-slate-200/95 bg-white px-10 py-2 text-center text-sm font-medium text-slate-800 shadow-sm shadow-slate-900/[0.04] outline-hidden ring-1 ring-slate-900/[0.03] transition-[border-color,box-shadow] duration-150 ease-out hover:border-slate-300/90 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25"
         onChange={onChange}
         value={value}
       >

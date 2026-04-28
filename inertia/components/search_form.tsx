@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { AppIcon } from './app_icon'
-
 const DEBOUNCE_MS = 350
 
 interface SearchFormProps {
@@ -10,7 +8,7 @@ interface SearchFormProps {
   onSubmit: (query: string) => void
   placeholder: string
   value: string
-  /** Premium styling: leading search icon, slate focus ring */
+  /** Premium styling: slate border, focus ring (no leading icon) */
   variant?: 'default' | 'premium'
 }
 
@@ -57,16 +55,10 @@ export function SearchForm({
       className={`flex w-full min-w-0 items-stretch sm:w-auto sm:min-w-[12rem] sm:max-w-md sm:flex-1 ${className ?? ''}`.trim()}
     >
       {isPremium ? (
-        <div className="flex min-w-0 flex-1 items-stretch rounded-xl border border-slate-200/95 bg-white shadow-sm shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-          <span
-            aria-hidden
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-l-[0.65rem] border-r border-slate-100 bg-slate-50/80 text-slate-500"
-          >
-            <AppIcon name="search" size={18} />
-          </span>
+        <div className="flex min-w-0 flex-1 rounded-xl border border-slate-200/95 bg-white shadow-sm shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
           <input
             aria-label={ariaLabel}
-            className="h-10 min-w-0 flex-1 rounded-r-[0.65rem] border-0 bg-transparent py-2 pr-3 pl-2 text-sm text-slate-900 outline-hidden placeholder:text-slate-400 focus-visible:ring-0"
+            className="h-10 w-full min-w-0 rounded-xl border-0 bg-transparent px-3 py-2 text-sm text-slate-900 outline-hidden placeholder:text-slate-400 focus-visible:ring-0"
             onChange={(event) => {
               const next = event.target.value
               setSearchQuery(next)
