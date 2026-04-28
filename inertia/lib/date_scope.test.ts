@@ -22,7 +22,7 @@ describe('date scope helpers', () => {
     const scope = createMonthDateScope(2026, 3)
     expect(isDateWithinScope('2026-04-15', scope)).toBe(true)
     expect(isDateWithinScope('2026-05-01', scope)).toBe(false)
-    expect(formatDateScopeCaption(scope)).toBe('2026-04-01 -> 2026-04-30')
+    expect(formatDateScopeCaption(scope)).toBe('01/04/2026 — 30/04/2026')
   })
 
   it('shifts custom ranges by inclusive span', () => {

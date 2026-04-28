@@ -266,16 +266,23 @@ describe('customers page', () => {
   })
 
   it('submits trimmed search terms through the customers query refresh', () => {
-    renderPage()
+    vi.useFakeTimers()
+    try {
+      renderPage()
 
-    fireEvent.change(screen.getByLabelText('Search customers'), { target: { value: '  Beta  ' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+      fireEvent.change(screen.getByLabelText('Search customers'), {
+        target: { value: '  Beta  ' },
+      })
+      vi.advanceTimersByTime(400)
 
-    expect(routerGetMock).toHaveBeenCalledWith(
-      '/customers',
-      { perPage: 25, search: 'Beta' },
-      { only: ['customers', 'filters'], preserveScroll: true, replace: true }
-    )
+      expect(routerGetMock).toHaveBeenCalledWith(
+        '/customers',
+        { perPage: 25, search: 'Beta' },
+        { only: ['customers', 'filters'], preserveScroll: true, replace: true }
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('opens the drawer when customer validation errors are present', () => {

@@ -200,7 +200,6 @@ export default function ExpensesPage({
           headerContent={
             <SearchForm
               ariaLabel="Search expenses"
-              key={appliedSearch}
               onSubmit={submitSearch}
               placeholder="Search label or category"
               value={appliedSearch}

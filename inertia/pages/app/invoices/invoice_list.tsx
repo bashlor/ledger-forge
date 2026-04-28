@@ -79,7 +79,6 @@ export function InvoiceList({
         headerContent={
           <SearchForm
             ariaLabel="Search invoices"
-            key={appliedSearch}
             onSubmit={onSearchSubmit}
             placeholder="Search invoice, company, contact"
             value={appliedSearch}

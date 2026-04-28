@@ -28,7 +28,7 @@ export function DataTable({
   title,
 }: DataTableProps) {
   return (
-    <Panel>
+    <Panel className="flex min-h-0 flex-col">
       <div className="border-b border-outline-variant px-4 py-3 sm:px-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
           <h2 className="shrink-0 text-base font-semibold tracking-tight text-on-surface lg:text-[15px]">
@@ -46,7 +46,9 @@ export function DataTable({
         <EmptyState message={emptyMessage} />
       ) : (
         <>
-          <div className="overflow-x-auto">{children}</div>
+          <div className="min-h-0 flex-1 max-h-[min(65dvh,32rem)] overflow-y-auto overflow-x-auto overscroll-contain">
+            {children}
+          </div>
           {pagination && onPageChange && (
             <Pagination
               onPageChange={onPageChange}

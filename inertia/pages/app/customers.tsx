@@ -196,7 +196,6 @@ export default function CustomersPage({
             <>
               <SearchForm
                 ariaLabel="Search customers"
-                key={appliedSearch}
                 onSubmit={submitSearch}
                 placeholder="Search company, contact, email, phone"
                 value={appliedSearch}

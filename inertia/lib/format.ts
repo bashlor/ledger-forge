@@ -1,18 +1,21 @@
 import { parseDateOnlyForDisplay } from '~/lib/date'
 
-const currencyFormatter = new Intl.NumberFormat('en-GB', {
+/** Single display locale for currency and dates (deterministic SSR/tests). */
+export const DISPLAY_LOCALE = 'fr-FR' as const
+
+const currencyFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
   currency: 'EUR',
   maximumFractionDigits: 2,
   minimumFractionDigits: 2,
   style: 'currency',
 })
 
-const shortDateFormatter = new Intl.DateTimeFormat('en-GB', {
+const shortDateFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
   day: 'numeric',
   month: 'short',
 })
 
-const topbarDateFormatter = new Intl.DateTimeFormat('en-GB', {
+const topbarDateFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
   day: 'numeric',
   month: 'long',
 })
