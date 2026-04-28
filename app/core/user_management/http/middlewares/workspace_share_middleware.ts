@@ -107,8 +107,12 @@ export default class WorkspaceShareMiddleware {
         })
 
         const refreshed = await auth.getSession(token)
-        if (refreshed) {
-          ctx.authSession = refreshed
+        ctx.authSession = refreshed ?? {
+          ...ctx.authSession,
+          session: {
+            ...ctx.authSession.session,
+            activeOrganizationId: provisioning.organizationId ?? null,
+          },
         }
 
         await this.createDemoWorkspaceSeedService(db).seedBestEffort({
