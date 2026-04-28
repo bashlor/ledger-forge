@@ -20,7 +20,7 @@ export function AuthPageShell({ children, description, footer, title }: AuthPage
           as="div"
           className="relative w-full overflow-hidden p-5 shadow-ambient sm:p-6 md:p-8"
         >
-          <div className="absolute left-0 top-0 h-1 w-full milled-steel-gradient opacity-80" />
+          <div className="absolute left-0 top-0 h-1 w-full bg-primary" />
           <header className="mb-5">
             <h1 className="font-headline text-xl font-bold text-on-surface">{title}</h1>
             <Caption className="mt-1">{description}</Caption>
