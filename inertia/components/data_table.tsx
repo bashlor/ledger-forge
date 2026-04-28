@@ -49,7 +49,9 @@ export function DataTable({
     .filter(Boolean)
     .join(' ')
 
-  const panelClasses = ['flex min-h-0 flex-col', panelClassName].filter(Boolean).join(' ')
+  const panelClasses = ['data-table-panel flex min-h-0 flex-col', panelClassName]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <Panel className={panelClasses}>
