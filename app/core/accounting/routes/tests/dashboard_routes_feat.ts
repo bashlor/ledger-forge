@@ -1,5 +1,5 @@
 import { type DashboardDto, DashboardService } from '#core/accounting/application/dashboard/index'
-import { member } from '#core/user_management/drizzle/schema'
+import { devOperatorAccess, member } from '#core/user_management/drizzle/schema'
 import app from '@adonisjs/core/services/app'
 import { test } from '@japa/runner'
 import { eq } from 'drizzle-orm'
@@ -54,6 +54,7 @@ test.group('Dashboard routes', (group) => {
       .update(member)
       .set({ isActive: true, role: 'admin' })
       .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+    await db.delete(devOperatorAccess)
 
     resetInvoiceAuthContext()
     bindInvoiceAuth()
@@ -183,5 +184,17 @@ test.group('Dashboard routes', (group) => {
 
     response.assertStatus(302)
     response.assertHeader('location', '/customers')
+  })
+
+  test('GET / redirects dev operators to dev tools instead of accounting pages', async ({
+    client,
+  }) => {
+    const db = (await app.container.make('drizzle')) as any
+    await db.insert(devOperatorAccess).values({ userId: TEST_ACCOUNTING_USER_ID })
+
+    const response = await client.get('/').header('cookie', authCookie()).redirects(0)
+
+    response.assertStatus(302)
+    response.assertHeader('location', '/_dev')
   })
 })

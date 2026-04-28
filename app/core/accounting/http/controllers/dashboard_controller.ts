@@ -29,11 +29,32 @@ export default class DashboardController {
 
   @inject()
   async home(ctx: HttpContext, authorizationService: AuthorizationService) {
-    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
-    const href = authorizationService.allows(activeTenant.actor, 'dashboard.view')
-      ? '/dashboard'
-      : '/customers'
+    const actor = await authorizationService.actorFromSession(ctx.authSession)
+    const href = resolveHomeHref(actor, authorizationService)
 
     return ctx.response.redirect(href)
   }
+}
+
+function resolveHomeHref(
+  actor: Awaited<ReturnType<AuthorizationService['actorFromSession']>>,
+  authorizationService: AuthorizationService
+): string {
+  if (authorizationService.allows(actor, 'devTools.access')) {
+    return '/_dev'
+  }
+
+  if (authorizationService.allows(actor, 'dashboard.view')) {
+    return '/dashboard'
+  }
+
+  if (authorizationService.allows(actor, 'accounting.read')) {
+    return '/customers'
+  }
+
+  if (authorizationService.allows(actor, 'membership.list')) {
+    return '/organization'
+  }
+
+  return '/account'
 }
