@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { expenses, invoices } from '#core/accounting/drizzle/schema'
+import { toSafeCentsNumber } from '#core/shared/money'
 import { and, desc, eq, inArray, sum } from 'drizzle-orm'
 
 import type { DashboardQueryData } from './types.js'
@@ -54,8 +55,11 @@ export async function loadDashboardQueryData(
   ])
 
   return {
-    collectedTotalCents: Number(collectedSumRow[0]?.total ?? 0),
-    expenseTotalCents: Number(expenseSumRow[0]?.total ?? 0),
+    collectedTotalCents: toSafeCentsNumber(
+      collectedSumRow[0]?.total,
+      'dashboard.collectedTotalCents'
+    ),
+    expenseTotalCents: toSafeCentsNumber(expenseSumRow[0]?.total, 'dashboard.expenseTotalCents'),
     recentInvoicesRows: recentInvoicesRows.map((row) => ({
       customerCompanyName: row.customerCompanyName,
       dueDate: row.dueDate,
@@ -65,6 +69,6 @@ export async function loadDashboardQueryData(
       status: row.status,
       totalInclTaxCents: row.totalInclTaxCents,
     })),
-    revenueTotalCents: Number(revenueSumRow[0]?.total ?? 0),
+    revenueTotalCents: toSafeCentsNumber(revenueSumRow[0]?.total, 'dashboard.revenueTotalCents'),
   }
 }

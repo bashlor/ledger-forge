@@ -4,7 +4,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { buildDateFilterCondition } from '#core/accounting/application/support/date_filter'
 import { computePaginationWindow } from '#core/accounting/application/support/pagination'
 import { expenses } from '#core/accounting/drizzle/schema'
-import { fromCents } from '#core/shared/money'
+import { fromCents, toSafeCentsNumber } from '#core/shared/money'
 import { and, count, desc, eq, sql, sum } from 'drizzle-orm'
 
 import type { DateFilter, ExpenseListResult, ExpenseRow, ExpenseSummary } from './types.js'
@@ -51,7 +51,7 @@ export async function getExpenseSummary(
   return {
     confirmedCount: row.confirmedCount,
     draftCount: row.draftCount,
-    totalAmount: fromCents(Number(row.totalAmountCents ?? 0)),
+    totalAmount: fromCents(toSafeCentsNumber(row.totalAmountCents, 'expenses.totalAmountCents')),
     totalCount: row.totalCount,
   }
 }
