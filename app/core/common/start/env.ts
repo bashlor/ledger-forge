@@ -27,6 +27,7 @@ export default await Env.create(new URL('../../../../', import.meta.url), {
   DB_USER: Env.schema.string(),
   DEMO_COMMANDS_ENABLED: Env.schema.boolean.optional(),
   DEMO_MODE_ENABLED: Env.schema.boolean.optional(),
+  DEMO_PRODUCTION_FORCE: Env.schema.boolean.optional(),
   DEV_OPERATOR_DEFAULT_EMAIL: Env.schema.string.optional(),
   DEV_OPERATOR_DEFAULT_NAME: Env.schema.string.optional(),
   DEV_OPERATOR_DEFAULT_PASSWORD: Env.schema.string.optional(),

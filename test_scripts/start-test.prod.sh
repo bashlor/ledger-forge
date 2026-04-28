@@ -58,6 +58,7 @@ const forcedValues = new Map([
   ['DEV_TOOLS_ENABLED', 'false'],
   ['DEV_TOOLS_DESTRUCTIVE_OPERATIONS_ENABLED', 'false'],
   ['DEMO_MODE_ENABLED', 'false'],
+  ['DEMO_PRODUCTION_FORCE', 'false'],
   ['DEMO_COMMANDS_ENABLED', 'false'],
   ['SESSION_DRIVER', 'cookie'],
   ['LIMITER_STORE', 'redis'],
