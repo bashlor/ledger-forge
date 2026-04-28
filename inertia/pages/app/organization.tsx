@@ -1,67 +1,89 @@
-import { type Data } from '@generated/data'
-import { Head, usePage } from '@inertiajs/react'
+import { Head } from '@inertiajs/react'
 import { useMemo, useState } from 'react'
 
+import { PrimaryButton } from '~/components/button'
 import { DataTable } from '~/components/data_table'
-import {
-  buttonClass,
-  inputClass,
-  RoleBadge,
-  ScrollableTable,
-  ToneBadge,
-  toneForAuditResult,
-} from '~/components/operator_ui'
+import { FilterSelect } from '~/components/filter_select'
+import { MetricCard } from '~/components/metric_card'
 import { PageHeader } from '~/components/page_header'
-import { StatusBadge } from '~/components/status_badge'
-import { Select, TableHeaderCell, TableHeadRow } from '~/components/ui'
+import { SearchForm } from '~/components/search_form'
 
 import type { InertiaProps } from '../../types'
 
-import { formatTimestamp, humanizeAuditAction } from '../dev/inspector_display_helpers'
+import { AuditEventDetailDrawer } from './organization/audit_event_detail_drawer'
+import { AuditTrailTable } from './organization/audit_trail_table'
+import type { OrganizationAuditEvent } from './organization/audit_types'
+import { MembersTable } from './organization/members_table'
+import type { OrganizationMemberRow } from './organization/member_row_actions_menu'
 
 type AuditContextFilter = 'accounting' | 'all' | 'user_management'
 type MemberRoleFilter = 'admin' | 'all' | 'member' | 'owner'
 type MemberStatusFilter = 'active' | 'all' | 'inactive'
 
-interface OrganizationAuditEvent {
-  action: string
-  actorEmail: null | string
-  actorId: null | string
-  actorName: null | string
-  boundedContext?: 'accounting' | 'user_management'
-  changes: unknown
-  entityId: string
-  entityType: string
-  id: string
-  metadata: unknown
-  timestamp: Date | string
-}
+const MEMBER_ROLE_FILTER_OPTIONS = [
+  { label: 'All roles', value: 'all' },
+  { label: 'Owner', value: 'owner' },
+  { label: 'Admin', value: 'admin' },
+  { label: 'Member', value: 'member' },
+] as const
 
-interface OrganizationMember {
-  email: string
-  id: string
-  isActive: boolean
-  name: string
-  role: 'admin' | 'member' | 'owner'
-  userId: string
-}
+const MEMBER_STATUS_FILTER_OPTIONS = [
+  { label: 'All statuses', value: 'all' },
+  { label: 'Active', value: 'active' },
+  { label: 'Inactive', value: 'inactive' },
+] as const
+
+const AUDIT_CONTEXT_OPTIONS = [
+  { label: 'All contexts', value: 'all' },
+  { label: 'Accounting', value: 'accounting' },
+  { label: 'User management', value: 'user_management' },
+] as const
 
 interface OrganizationPageProps {
   auditEvents: OrganizationAuditEvent[]
+  canManageMembershipRoles: boolean
+  canToggleMembershipStatus: boolean
   canViewAuditTrail: boolean
-  members: OrganizationMember[]
+  members: OrganizationMemberRow[]
+  viewerMembershipRole: 'admin' | 'member' | 'owner'
+  viewerUserId: string
+}
+
+function compactDetailsForSearch(event: OrganizationAuditEvent): null | string {
+  const details: Record<string, unknown> = {}
+  if (event.changes && typeof event.changes === 'object') {
+    details.changes = event.changes
+  }
+  if (event.metadata && typeof event.metadata === 'object') {
+    details.metadata = event.metadata
+  }
+
+  return Object.keys(details).length > 0 ? JSON.stringify(details) : null
+}
+
+function auditContextForFilter(event: OrganizationAuditEvent): 'accounting' | 'user_management' {
+  if (event.boundedContext) {
+    return event.boundedContext
+  }
+
+  return event.entityType === 'customer' ||
+    event.entityType === 'expense' ||
+    event.entityType === 'invoice'
+    ? 'accounting'
+    : 'user_management'
 }
 
 export default function OrganizationPage({
   auditEvents,
+  canManageMembershipRoles,
+  canToggleMembershipStatus,
   canViewAuditTrail,
   members,
+  viewerMembershipRole,
+  viewerUserId,
 }: InertiaProps<OrganizationPageProps>) {
-  const workspace = usePage<Data.SharedProps>().props.workspace
   const activeMembers = members.filter((member) => member.isActive).length
-  const admins = members.filter(
-    (member) => member.role === 'admin' || member.role === 'owner'
-  ).length
+  const admins = members.filter((member) => member.role === 'admin' || member.role === 'owner').length
 
   const [memberSearch, setMemberSearch] = useState('')
   const [memberRoleFilter, setMemberRoleFilter] = useState<MemberRoleFilter>('all')
@@ -72,6 +94,8 @@ export default function OrganizationPage({
   const [auditActionFilter, setAuditActionFilter] = useState('')
   const [auditContextFilter, setAuditContextFilter] = useState<AuditContextFilter>('all')
   const [auditVisibleCount, setAuditVisibleCount] = useState(20)
+  const [auditDetail, setAuditDetail] = useState<null | OrganizationAuditEvent>(null)
+  const [patchingId, setPatchingId] = useState<null | string>(null)
 
   const filteredMembers = useMemo(() => {
     const q = memberSearch.trim().toLowerCase()
@@ -100,7 +124,7 @@ export default function OrganizationPage({
     const q = auditSearch.trim().toLowerCase()
     const actionNeedle = auditActionFilter.trim().toLowerCase()
     return auditEvents.filter((event) => {
-      if (auditContextFilter !== 'all' && auditContextForEvent(event) !== auditContextFilter) {
+      if (auditContextFilter !== 'all' && auditContextForFilter(event) !== auditContextFilter) {
         return false
       }
       if (actionNeedle && !event.action.toLowerCase().includes(actionNeedle)) {
@@ -112,7 +136,7 @@ export default function OrganizationPage({
       const actor =
         `${event.actorName ?? ''} ${event.actorEmail ?? ''} ${event.actorId ?? ''}`.toLowerCase()
       const entity = `${event.entityType} ${event.entityId}`.toLowerCase()
-      const details = compactDetails(event)?.toLowerCase() ?? ''
+      const details = compactDetailsForSearch(event)?.toLowerCase() ?? ''
       return (
         event.action.toLowerCase().includes(q) ||
         actor.includes(q) ||
@@ -125,262 +149,168 @@ export default function OrganizationPage({
   const visibleMembers = filteredMembers.slice(0, memberVisibleCount)
   const visibleAuditEvents = filteredAuditEvents.slice(0, auditVisibleCount)
 
+  const membersToolbar = (
+    <>
+      <SearchForm
+        ariaLabel="Search members"
+        onSubmit={setMemberSearch}
+        placeholder="Search name, email, or user id"
+        value={memberSearch}
+        variant="premium"
+      />
+      <FilterSelect
+        aria-label="Filter members by role"
+        onChange={(event) => setMemberRoleFilter(event.target.value as MemberRoleFilter)}
+        options={[...MEMBER_ROLE_FILTER_OPTIONS]}
+        value={memberRoleFilter}
+      />
+      <FilterSelect
+        aria-label="Filter members by status"
+        onChange={(event) => setMemberStatusFilter(event.target.value as MemberStatusFilter)}
+        options={[...MEMBER_STATUS_FILTER_OPTIONS]}
+        value={memberStatusFilter}
+      />
+    </>
+  )
+
+  const auditToolbar = (
+    <>
+      <SearchForm
+        ariaLabel="Search audit trail"
+        onSubmit={setAuditSearch}
+        placeholder="Search actor, entity, or action"
+        value={auditSearch}
+        variant="premium"
+      />
+      <div className="flex w-full min-w-0 flex-1 rounded-xl border border-slate-200/95 bg-white shadow-sm shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 sm:max-w-xs">
+        <input
+          aria-label="Filter by action keyword"
+          className="h-10 min-w-0 flex-1 rounded-xl border-0 bg-transparent px-3 text-sm text-slate-900 outline-hidden placeholder:text-slate-400"
+          onChange={(event) => setAuditActionFilter(event.target.value)}
+          placeholder="Filter by action"
+          type="search"
+          value={auditActionFilter}
+        />
+      </div>
+      <FilterSelect
+        aria-label="Filter audit by domain"
+        onChange={(event) => setAuditContextFilter(event.target.value as AuditContextFilter)}
+        options={[...AUDIT_CONTEXT_OPTIONS]}
+        value={auditContextFilter}
+      />
+    </>
+  )
+
   return (
     <>
       <Head title="Organization" />
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-[1.75rem] border border-outline-variant/15 bg-surface-container-lowest p-6 shadow-ambient-tight sm:p-7">
-          <PageHeader
-            description="Review the active workspace members and the latest tenant audit events."
-            eyebrow="Workspace"
-            title={workspace?.name ?? 'Organization'}
-          />
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <SummaryTile label="Members" value={String(members.length)} />
-            <SummaryTile label="Active" value={String(activeMembers)} />
-            <SummaryTile label="Admins & owner" value={String(admins)} />
-          </div>
+      <div className="mx-auto max-w-7xl space-y-5">
+        <PageHeader
+          className="sm:gap-4"
+          description="Manage members, roles and workspace activity."
+          eyebrow="Workspace"
+          title="Organization"
+        />
+
+        <section className="grid gap-3 sm:grid-cols-3 sm:gap-4">
+          <MetricCard icon="group" label="Members" value={String(members.length)} />
+          <MetricCard icon="task_alt" label="Active" value={String(activeMembers)} />
+          <MetricCard icon="settings" label="Admins & owners" value={String(admins)} />
         </section>
 
         <DataTable
           emptyMessage="No members match the current filters."
+          headerClassName="border-b border-slate-200/90 bg-white px-5 py-4 sm:px-6"
           headerContent={
-            <div className="grid min-w-[720px] gap-2 lg:grid-cols-[minmax(0,1.4fr)_180px_180px]">
-              <input
-                className={inputClass()}
-                onChange={(event) => setMemberSearch(event.target.value)}
-                placeholder="Search name, email, user id"
-                value={memberSearch}
-              />
-              <Select
-                aria-label="Filter members by role"
-                onValueChange={(next) => setMemberRoleFilter(next as MemberRoleFilter)}
-                options={[
-                  { label: 'All roles', value: 'all' },
-                  { label: 'Owner', value: 'owner' },
-                  { label: 'Admin', value: 'admin' },
-                  { label: 'Member', value: 'member' },
-                ]}
-                tone="surface"
-                value={memberRoleFilter}
-              />
-              <Select
-                aria-label="Filter members by status"
-                onValueChange={(next) => setMemberStatusFilter(next as MemberStatusFilter)}
-                options={[
-                  { label: 'All statuses', value: 'all' },
-                  { label: 'Active', value: 'active' },
-                  { label: 'Inactive', value: 'inactive' },
-                ]}
-                tone="surface"
-                value={memberStatusFilter}
-              />
-            </div>
-          }
-          isEmpty={visibleMembers.length === 0}
-          title="Members"
-        >
-          <div className="space-y-3">
-            <ScrollableTable maxHeightClass="max-h-[38rem]">
-              <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-                <thead className="sticky top-0 z-20">
-                  <TableHeadRow className="tracking-[0.14em]">
-                    <TableHeaderCell className="py-2">Name</TableHeaderCell>
-                    <TableHeaderCell className="py-2">Email</TableHeaderCell>
-                    <TableHeaderCell className="py-2">Role</TableHeaderCell>
-                    <TableHeaderCell className="py-2">Status</TableHeaderCell>
-                  </TableHeadRow>
-                </thead>
-                <tbody>
-                  {visibleMembers.map((member, index) => (
-                    <tr
-                      className={`border-b border-outline-variant/8 ${
-                        index % 2 === 0
-                          ? 'bg-surface-container-lowest'
-                          : 'bg-surface-container-lowest/70'
-                      }`}
-                      key={member.id}
-                    >
-                      <td className="px-3 py-2.5 font-medium text-on-surface">{member.name}</td>
-                      <td className="px-3 py-2.5 text-on-surface-variant">{member.email}</td>
-                      <td className="px-3 py-2.5">
-                        <RoleBadge role={member.role} />
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <StatusBadge status={member.isActive ? 'confirmed' : 'overdue'} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </ScrollableTable>
-
-            {filteredMembers.length > memberVisibleCount ? (
-              <div className="flex justify-end">
-                <button
-                  className={buttonClass('secondary')}
-                  onClick={() => setMemberVisibleCount((count) => count + 12)}
+            <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">{membersToolbar}</div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <PrimaryButton
+                  className="rounded-xl px-4 py-2.5 opacity-90"
+                  disabled
+                  title="Invitations are not available yet"
                   type="button"
                 >
-                  Load more
-                </button>
+                  Invite member
+                </PrimaryButton>
+                <span className="hidden text-xs text-slate-400 sm:inline">Coming soon</span>
               </div>
-            ) : null}
-          </div>
-        </DataTable>
+            </div>
+          }
+          isEmpty={filteredMembers.length === 0}
+          panelClassName="overflow-hidden rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]"
+          title="Members"
+          titleClassName="text-slate-950 lg:text-base"
+          toolbarClassName="gap-3"
+        >
+          <>
+            <MembersTable
+              canManageMembershipRoles={canManageMembershipRoles}
+              canToggleMembershipStatus={canToggleMembershipStatus}
+              items={visibleMembers}
+              patchingId={patchingId}
+              setPatchingId={setPatchingId}
+              viewerMembershipRole={viewerMembershipRole}
+              viewerUserId={viewerUserId}
+            />
 
-        {canViewAuditTrail ? (
-          <DataTable
-            emptyMessage="No audit events match the current filters."
-            headerContent={
-              <div className="grid min-w-[760px] gap-2 md:grid-cols-[minmax(0,1fr)_200px_200px]">
-                <input
-                  className={inputClass()}
-                  onChange={(event) => setAuditSearch(event.target.value)}
-                  placeholder="Search actor, entity, action, payload"
-                  value={auditSearch}
-                />
-                <input
-                  className={inputClass()}
-                  onChange={(event) => setAuditActionFilter(event.target.value)}
-                  placeholder="Filter action"
-                  value={auditActionFilter}
-                />
-                <Select
-                  aria-label="Filter audit trail by context"
-                  onValueChange={(next) => setAuditContextFilter(next as AuditContextFilter)}
-                  options={[
-                    { label: 'All audit trails', value: 'all' },
-                    { label: 'Accounting', value: 'accounting' },
-                    { label: 'User management', value: 'user_management' },
-                  ]}
-                  tone="surface"
-                  value={auditContextFilter}
-                />
-              </div>
-            }
-            isEmpty={visibleAuditEvents.length === 0}
-            title="Audit trail"
-          >
-            <div className="space-y-3">
-              <ScrollableTable maxHeightClass="max-h-[34rem]">
-                <table className="w-full min-w-[960px] border-collapse text-left text-sm">
-                  <thead className="sticky top-0 z-20">
-                    <TableHeadRow className="tracking-[0.14em]">
-                      <TableHeaderCell className="py-2">Timestamp</TableHeaderCell>
-                      <TableHeaderCell className="py-2">Actor</TableHeaderCell>
-                      <TableHeaderCell className="py-2">Action</TableHeaderCell>
-                      <TableHeaderCell className="py-2">Entity</TableHeaderCell>
-                      <TableHeaderCell className="py-2">Result</TableHeaderCell>
-                      <TableHeaderCell className="py-2">Details</TableHeaderCell>
-                    </TableHeadRow>
-                  </thead>
-                  <tbody>
-                    {visibleAuditEvents.map((event, index) => (
-                      <tr
-                        className={`border-b border-outline-variant/8 ${
-                          index % 2 === 0
-                            ? 'bg-surface-container-lowest'
-                            : 'bg-surface-container-lowest/70'
-                        }`}
-                        key={event.id}
-                      >
-                        <td className="px-3 py-2.5 text-xs text-on-surface-variant">
-                          {formatTimestamp(String(event.timestamp))}
-                        </td>
-                        <td className="px-3 py-2.5 text-on-surface">
-                          {event.actorName || event.actorEmail || event.actorId || 'system'}
-                        </td>
-                        <td className="px-3 py-2.5 font-medium text-on-surface">
-                          {humanizeAuditAction(event.action)}
-                        </td>
-                        <td className="px-3 py-2.5 text-on-surface-variant">
-                          {auditContextLabel(auditContextForEvent(event))} · {event.entityType}:
-                          {event.entityId}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <ToneBadge
-                            label={auditResultLabel(event.metadata)}
-                            tone={toneForAuditResult(auditResultFromMetadata(event.metadata))}
-                          />
-                        </td>
-                        <td className="max-w-[280px] truncate px-3 py-2.5 font-mono text-xs text-on-surface-variant">
-                          {compactDetails(event) ?? '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </ScrollableTable>
-
-              {filteredAuditEvents.length > auditVisibleCount ? (
+            {filteredMembers.length > memberVisibleCount ? (
+              <div className="border-t border-slate-200/80 px-5 py-4 sm:px-6">
                 <div className="flex justify-end">
                   <button
-                    className={buttonClass('secondary')}
-                    onClick={() => setAuditVisibleCount((count) => count + 20)}
+                    className="rounded-xl border border-slate-200/95 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition-colors duration-150 hover:bg-slate-50"
+                    onClick={() => setMemberVisibleCount((count) => count + 12)}
                     type="button"
                   >
                     Load more
                   </button>
                 </div>
+              </div>
+            ) : null}
+          </>
+        </DataTable>
+
+        {canViewAuditTrail ? (
+          <DataTable
+            emptyMessage="No audit events match the current filters."
+            headerClassName="border-b border-slate-200/90 bg-slate-50/80 px-5 py-4 sm:px-6"
+            headerContent={
+              <div className="flex w-full flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+                {auditToolbar}
+              </div>
+            }
+            isEmpty={filteredAuditEvents.length === 0}
+            panelClassName="overflow-hidden rounded-xl border border-slate-200/90 bg-slate-50/40 shadow-sm shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]"
+            title="Audit trail"
+            titleClassName="text-slate-600 lg:text-[15px]"
+            toolbarClassName="gap-3"
+          >
+            <>
+              <AuditTrailTable
+                events={visibleAuditEvents}
+                onViewDetails={(event) => setAuditDetail(event)}
+              />
+
+              {filteredAuditEvents.length > auditVisibleCount ? (
+                <div className="border-t border-slate-200/80 px-5 py-4 sm:px-6">
+                  <div className="flex justify-end">
+                    <button
+                      className="rounded-xl border border-slate-200/95 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition-colors duration-150 hover:bg-slate-50"
+                      onClick={() => setAuditVisibleCount((count) => count + 20)}
+                      type="button"
+                    >
+                      Load more
+                    </button>
+                  </div>
+                </div>
               ) : null}
-            </div>
+            </>
           </DataTable>
         ) : null}
       </div>
+
+      <AuditEventDetailDrawer event={auditDetail} onClose={() => setAuditDetail(null)} />
     </>
-  )
-}
-
-function auditContextForEvent(event: OrganizationAuditEvent): 'accounting' | 'user_management' {
-  if (event.boundedContext) {
-    return event.boundedContext
-  }
-
-  return event.entityType === 'customer' ||
-    event.entityType === 'expense' ||
-    event.entityType === 'invoice'
-    ? 'accounting'
-    : 'user_management'
-}
-
-function auditContextLabel(context: 'accounting' | 'user_management'): string {
-  return context === 'accounting' ? 'Accounting' : 'User management'
-}
-
-function auditResultFromMetadata(metadata: unknown): 'denied' | 'error' | 'success' {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-    return 'success'
-  }
-
-  const candidate = (metadata as Record<string, unknown>).result
-  return candidate === 'denied' || candidate === 'error' ? candidate : 'success'
-}
-
-function auditResultLabel(metadata: unknown): string {
-  return auditResultFromMetadata(metadata)
-}
-
-function compactDetails(event: OrganizationAuditEvent): null | string {
-  const details: Record<string, unknown> = {}
-  if (event.changes && typeof event.changes === 'object') {
-    details.changes = event.changes
-  }
-  if (event.metadata && typeof event.metadata === 'object') {
-    details.metadata = event.metadata
-  }
-
-  return Object.keys(details).length > 0 ? JSON.stringify(details) : null
-}
-
-function SummaryTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl bg-surface-container-low px-4 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-        {label}
-      </p>
-      <p className="mt-1.5 font-headline text-2xl font-extrabold text-on-surface">{value}</p>
-    </div>
   )
 }
