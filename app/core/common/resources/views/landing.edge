@@ -55,6 +55,18 @@
         display: block;
         width: 100%;
         height: auto;
+        max-height: none;
+      }
+
+      /* Hero screenshot: avoid clipping translated shadow / full aspect ratio */
+      .landing-hero-screen {
+        overflow: visible;
+      }
+
+      .landing-hero-screen img {
+        border-radius: 0.75rem;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        box-sizing: border-box;
       }
 
       .showcase-screen {
@@ -96,13 +108,13 @@
 
     <main>
       <section
-        class="relative isolate overflow-hidden border-b border-slate-200/80 bg-[#f8f6f0] pt-24 sm:pt-28"
+        class="relative isolate overflow-x-clip border-b border-slate-200/80 bg-[#f8f6f0] pt-24 sm:pt-28"
       >
         <div
           class="absolute inset-x-0 top-0 -z-10 h-[50rem] bg-[radial-gradient(circle_at_74%_12%,rgba(79,70,229,0.15),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.86),rgba(248,246,240,0))]"
         ></div>
         <div class="mx-auto max-w-7xl px-5 sm:px-8">
-          <div class="grid items-end gap-10 lg:grid-cols-[0.72fr_0.28fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.72fr_0.28fr] lg:items-end">
             <div class="max-w-4xl">
               <p class="landing-rise text-sm font-bold tracking-[0.2em] text-indigo-700 uppercase">
                 Backend portfolio project
@@ -135,7 +147,7 @@
             </div>
 
             <div
-              class="landing-rise landing-delay-3 hidden rounded-lg border border-slate-200/90 bg-white/60 p-4 shadow-sm ring-1 ring-slate-900/[0.03] lg:block"
+              class="landing-rise landing-delay-3 hidden min-h-0 flex-col rounded-lg border border-slate-200/90 bg-white/60 p-4 shadow-sm ring-1 ring-slate-900/[0.03] lg:flex"
               aria-label="Project capability summary"
             >
               <p class="text-[11px] font-bold tracking-[0.18em] text-slate-500 uppercase">
@@ -164,17 +176,18 @@
             <span class="rounded-md border border-slate-200 bg-white/80 px-2.5 py-1 text-xs font-bold text-slate-700">Docker ready</span>
           </div>
 
-          <div class="landing-rise landing-delay-3 mt-8 pb-12 sm:pb-16 lg:-mx-3 lg:mt-10">
-            <div class="landing-screen screenshot-depth transition duration-500 hover:-translate-y-1">
+          <div class="landing-rise landing-delay-3 mt-8 pb-12 sm:pb-16 lg:mt-10">
+            <div class="landing-hero-screen screenshot-depth transition duration-500 hover:-translate-y-1">
               <img
                 src="/images/landing/dashboard.webp"
                 alt="Ledger Forge dashboard with accounting summary metrics and recent invoices"
-                width="2441"
-                height="1573"
+                width="2386"
+                height="1377"
                 fetchpriority="high"
               />
             </div>
           </div>
+
         </div>
       </section>
 
