@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { computePaginationWindow } from '#core/accounting/application/support/pagination'
 import { customers, invoices } from '#core/accounting/drizzle/schema'
+import { toSafeCentsNumber } from '#core/shared/money'
 import { and, count, eq, inArray, or, sql } from 'drizzle-orm'
 
 import type { CustomerAggregate, CustomerRow } from './types.js'
@@ -54,17 +55,14 @@ export async function invoiceAggregateForCustomer(
   const [row] = await db
     .select({
       invoiceCount: sql<number>`count(${invoices.id})::int`.mapWith(Number),
-      totalInvoicedCents:
-        sql<number>`coalesce(sum(case when ${invoices.status} <> 'draft' then ${invoices.totalInclTaxCents} else 0 end), 0)::bigint`.mapWith(
-          Number
-        ),
+      totalInvoicedCents: sql<string>`coalesce(sum(case when ${invoices.status} <> 'draft' then ${invoices.totalInclTaxCents} else 0 end), 0)::bigint`,
     })
     .from(invoices)
     .where(and(eq(invoices.customerId, customerId), eq(invoices.organizationId, tenantId)))
 
   return {
     invoiceCount: row?.invoiceCount ?? 0,
-    totalInvoicedCents: row?.totalInvoicedCents ?? 0,
+    totalInvoicedCents: toSafeCentsNumber(row?.totalInvoicedCents, 'customer.totalInvoicedCents'),
   }
 }
 
@@ -93,10 +91,7 @@ export async function listCustomersWithAggregates(
   const [{ linkedCustomers, totalInvoicedCents }] = await db
     .select({
       linkedCustomers: sql<number>`count(distinct ${invoices.customerId})::int`.mapWith(Number),
-      totalInvoicedCents:
-        sql<number>`coalesce(sum(${invoices.totalInclTaxCents}) filter (where ${invoices.status} <> 'draft'), 0)::bigint`.mapWith(
-          Number
-        ),
+      totalInvoicedCents: sql<string>`coalesce(sum(${invoices.totalInclTaxCents}) filter (where ${invoices.status} <> 'draft'), 0)::bigint`,
     })
     .from(invoices)
     .where(invoiceTenantWhere)
@@ -120,7 +115,7 @@ export async function listCustomersWithAggregates(
         totalPages: paginationWindow.totalPages,
       },
       rows,
-      totalInvoicedCents: Number(totalInvoicedCents ?? 0),
+      totalInvoicedCents: toSafeCentsNumber(totalInvoicedCents, 'customers.totalInvoicedCents'),
     }
   }
 
@@ -129,10 +124,7 @@ export async function listCustomersWithAggregates(
     .select({
       customerId: invoices.customerId,
       invoiceCount: sql<number>`count(${invoices.id})::int`.mapWith(Number),
-      totalInvoicedCents:
-        sql<number>`coalesce(sum(case when ${invoices.status} <> 'draft' then ${invoices.totalInclTaxCents} else 0 end), 0)::bigint`.mapWith(
-          Number
-        ),
+      totalInvoicedCents: sql<string>`coalesce(sum(case when ${invoices.status} <> 'draft' then ${invoices.totalInclTaxCents} else 0 end), 0)::bigint`,
     })
     .from(invoices)
     .where(and(inArray(invoices.customerId, ids), eq(invoices.organizationId, tenantId)))
@@ -142,7 +134,13 @@ export async function listCustomersWithAggregates(
     aggregatesByCustomerId: new Map(
       aggregateRows.map((row) => [
         row.customerId,
-        { invoiceCount: row.invoiceCount, totalInvoicedCents: row.totalInvoicedCents },
+        {
+          invoiceCount: row.invoiceCount,
+          totalInvoicedCents: toSafeCentsNumber(
+            row.totalInvoicedCents,
+            'customer.aggregate.totalInvoicedCents'
+          ),
+        },
       ])
     ),
     linkedCustomers,
@@ -153,7 +151,7 @@ export async function listCustomersWithAggregates(
       totalPages: paginationWindow.totalPages,
     },
     rows,
-    totalInvoicedCents: Number(totalInvoicedCents ?? 0),
+    totalInvoicedCents: toSafeCentsNumber(totalInvoicedCents, 'customers.totalInvoicedCents'),
   }
 }
 

@@ -143,7 +143,7 @@ export class CustomerService {
         summary: {
           linkedCustomers,
           totalCount: pagination.totalItems,
-          totalInvoiced: fromCents(Number(totalInvoicedCents ?? 0)),
+          totalInvoiced: fromCents(totalInvoicedCents),
         },
       }
     }
@@ -159,7 +159,7 @@ export class CustomerService {
       summary: {
         linkedCustomers,
         totalCount: pagination.totalItems,
-        totalInvoiced: fromCents(Number(totalInvoicedCents ?? 0)),
+        totalInvoiced: fromCents(totalInvoicedCents),
       },
     }
   }
