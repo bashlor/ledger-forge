@@ -5,7 +5,7 @@ import { ErrorBanner } from '~/components/error_banner'
 import { InvoiceTotals } from '~/components/invoice_totals'
 import { StatusBadge } from '~/components/status_badge'
 import { formatCurrency, formatShortDate } from '~/lib/format'
-import { canMarkInvoicePaid } from '~/lib/invoices'
+import { canMarkInvoicePaid, invoiceDisplayStatus } from '~/lib/invoices'
 
 interface Props {
   accountingReadOnly: boolean
@@ -27,7 +27,7 @@ export function InvoiceView({
       <div className="border-b border-border-hairline px-5 py-4 sm:px-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex flex-wrap items-center gap-3">
-            <StatusBadge status={invoice.status} />
+            <StatusBadge status={invoiceDisplayStatus(invoice)} />
             <p className="text-sm leading-6 text-on-surface-variant">
               {invoice.customerCompanyName} · Issued {formatShortDate(invoice.issueDate)} · Due{' '}
               {formatShortDate(invoice.dueDate)}
@@ -109,23 +109,25 @@ export function InvoiceView({
             <thead>
               <tr className="bg-surface-container-low text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
                 <th className="px-4 py-3">Description</th>
-                <th className="px-4 py-3">Qty</th>
-                <th className="px-4 py-3">Unit price</th>
-                <th className="px-4 py-3">VAT</th>
-                <th className="px-4 py-3 text-right">Line total (incl. VAT)</th>
+                <th className="px-4 py-3 text-right tabular-nums">Qty</th>
+                <th className="px-4 py-3 text-right tabular-nums">Unit price</th>
+                <th className="px-4 py-3 text-right">VAT</th>
+                <th className="px-4 py-3 text-right tabular-nums">Line total (incl. VAT)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-hairline bg-white">
               {invoice.lines.map((line) => (
                 <tr key={line.id}>
                   <td className="px-4 py-3 text-sm text-on-surface">{line.description}</td>
-                  <td className="px-4 py-3 text-sm text-on-surface-variant tabular-nums">
+                  <td className="px-4 py-3 text-right text-sm text-on-surface-variant tabular-nums">
                     {line.quantity}
                   </td>
-                  <td className="px-4 py-3 text-sm text-on-surface-variant tabular-nums">
+                  <td className="px-4 py-3 text-right text-sm text-on-surface-variant tabular-nums">
                     {formatCurrency(line.unitPrice)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-on-surface-variant">{line.vatRate}%</td>
+                  <td className="px-4 py-3 text-right text-sm text-on-surface-variant tabular-nums">
+                    {line.vatRate}%
+                  </td>
                   <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums text-on-surface">
                     {formatCurrency(line.lineTotalInclTax)}
                   </td>
