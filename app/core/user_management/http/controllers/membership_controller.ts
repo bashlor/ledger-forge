@@ -121,7 +121,7 @@ export default class MembershipController {
       isActive ? 'Member activated.' : 'Member deactivated.'
     )
 
-    return ctx.response.redirect().toRoute('members.index')
+    return ctx.response.redirect().toRoute('organization.show')
   }
 
   @inject()
@@ -192,6 +192,6 @@ export default class MembershipController {
       role === 'admin' ? 'Member promoted to admin.' : 'Admin demoted to member.'
     )
 
-    return ctx.response.redirect().toRoute('members.index')
+    return ctx.response.redirect().toRoute('organization.show')
   }
 }

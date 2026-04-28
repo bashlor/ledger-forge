@@ -21,6 +21,14 @@ export default class OrganizationController {
     authorizationService.authorize(activeTenant.actor, 'membership.list')
 
     const canViewAuditTrail = authorizationService.allows(activeTenant.actor, 'auditTrail.view')
+    const canManageMembershipRoles = authorizationService.allows(
+      activeTenant.actor,
+      'membership.changeRole'
+    )
+    const canToggleMembershipStatus = authorizationService.allows(
+      activeTenant.actor,
+      'membership.toggleActive'
+    )
     const db = (await app.container.make('drizzle')) as PostgresJsDatabase<typeof schema>
     const [members, auditEvents] = await Promise.all([
       memberService.listMembers(activeTenant.tenantId),
@@ -31,8 +39,12 @@ export default class OrganizationController {
 
     return renderInertiaPage(ctx.inertia, 'app/organization', {
       auditEvents,
+      canManageMembershipRoles,
+      canToggleMembershipStatus,
       canViewAuditTrail,
       members,
+      viewerMembershipRole: activeTenant.actor.membershipRole,
+      viewerUserId: activeTenant.userId,
     })
   }
 }
