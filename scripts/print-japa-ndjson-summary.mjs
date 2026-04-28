@@ -27,7 +27,9 @@ const failedTests = testEvents.filter(
 )
 const skippedTests = testEvents.filter((event) => event.isSkipped)
 const summary =
-  events.findLast((event) => Object.hasOwn(event, 'aggregates') && Object.hasOwn(event, 'hasError')) ?? null
+  events.findLast(
+    (event) => Object.hasOwn(event, 'aggregates') && Object.hasOwn(event, 'hasError')
+  ) ?? null
 
 console.log('E2E report summary:')
 console.log(`  Tests: ${testEvents.length}`)
@@ -42,7 +44,9 @@ if (failedTests.length > 0) {
   console.log('  Failures:')
   for (const event of failedTests) {
     const title =
-      typeof event.title === 'string' ? event.title : (event.title?.expanded ?? event.title?.original)
+      typeof event.title === 'string'
+        ? event.title
+        : (event.title?.expanded ?? event.title?.original)
     console.log(`    - ${title}`)
   }
 }

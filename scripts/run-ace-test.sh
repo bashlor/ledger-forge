@@ -16,13 +16,67 @@ generate_registry() {
   node "$REPO_ROOT/scripts/generate_tuyau_registry.mjs"
 }
 
+pick_available_port() {
+  local requested_port="$1"
+  local requested_host="$2"
+
+  node --input-type=module - "$requested_port" "$requested_host" <<'NODE'
+import net from 'node:net'
+
+const requestedPort = Number(process.argv[2])
+const requestedHost = process.argv[3]
+
+function canListen(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer()
+
+    server.unref()
+    server.on('error', () => resolve(null))
+    server.listen({ host: requestedHost, port }, () => {
+      const address = server.address()
+      const selectedPort = typeof address === 'object' && address ? address.port : null
+      server.close(() => resolve(selectedPort))
+    })
+  })
+}
+
+const preferredPort = await canListen(requestedPort)
+
+if (preferredPort) {
+  console.log(preferredPort)
+  process.exit(0)
+}
+
+const fallbackPort = await canListen(0)
+
+if (!fallbackPort) {
+  process.exit(1)
+}
+
+console.log(fallbackPort)
+NODE
+}
+
 normalize_test_server_env() {
-  export PORT="${PORT:-3333}"
+  local requested_port="${PORT:-3333}"
 
   # Prefer an explicit IPv4 loopback for test runs to avoid distro/runtime
   # differences around localhost and IPv6 resolution.
   if [[ -z "${HOST:-}" || "${HOST}" == "localhost" ]]; then
     export HOST="127.0.0.1"
+  fi
+
+  local selected_port
+  selected_port="$(pick_available_port "$requested_port" "$HOST")"
+
+  if [[ "$selected_port" != "$requested_port" ]]; then
+    echo "Test server port $requested_port is unavailable; using $selected_port instead." >&2
+  fi
+
+  export PORT="$selected_port"
+
+  if [[ -z "${APP_URL:-}" || "${APP_URL}" == "http://localhost:${requested_port}" || "${APP_URL}" == "http://${HOST}:${requested_port}" ]]; then
+    export APP_URL="http://${HOST}:${PORT}"
   fi
 }
 
