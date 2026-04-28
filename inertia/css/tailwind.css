@@ -239,4 +239,9 @@
   .tonal-table.invoice-register-table tbody tr:focus-within {
     background-color: #f1f5f9;
   }
+
+  .tonal-table.expense-register-table tbody tr:hover,
+  .tonal-table.expense-register-table tbody tr:focus-within {
+    background-color: #f1f5f9;
+  }
 }

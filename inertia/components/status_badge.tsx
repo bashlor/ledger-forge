@@ -22,6 +22,8 @@ const BADGE_STYLES: Record<string, string> = {
   paid: 'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
   pending:
     'border border-amber-200/80 bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-900/5',
+  rejected:
+    'border border-red-200/85 bg-red-50 text-red-900 ring-1 ring-inset ring-red-900/8',
   settled:
     'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
 }
@@ -37,6 +39,7 @@ const BADGE_LABELS: Record<string, string> = {
   overdue: 'Overdue',
   paid: 'Paid',
   pending: 'Pending',
+  rejected: 'Rejected',
   settled: 'Settled',
 }
 
