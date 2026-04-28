@@ -57,3 +57,27 @@ export function SecondaryButton({
     </button>
   )
 }
+
+export function GhostButton({
+  children,
+  className,
+  disabled,
+  form,
+  fullWidth,
+  onClick,
+  type = 'button',
+}: ButtonProps) {
+  return (
+    <button
+      className={`rounded-xl border border-transparent bg-transparent px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+        fullWidth ? 'w-full' : ''
+      } ${className ?? ''}`.trim()}
+      disabled={disabled}
+      form={form}
+      onClick={onClick}
+      type={type}
+    >
+      {children}
+    </button>
+  )
+}

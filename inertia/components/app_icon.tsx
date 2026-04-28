@@ -64,6 +64,14 @@ const iconRegistry: Record<string, { filled?: IconComponent; outline: IconCompon
     filled: MonitoringFilledIcon,
     outline: MonitoringIcon,
   },
+  edit: {
+    filled: EditFilledIcon,
+    outline: EditIcon,
+  },
+  more_vert: {
+    filled: MoreVertIcon,
+    outline: MoreVertIcon,
+  },
   notifications: {
     filled: NotificationsFilledIcon,
     outline: NotificationsIcon,
@@ -83,6 +91,10 @@ const iconRegistry: Record<string, { filled?: IconComponent; outline: IconCompon
   send: {
     filled: SendFilledIcon,
     outline: SendIcon,
+  },
+  search: {
+    filled: SearchIcon,
+    outline: SearchIcon,
   },
   settings: {
     filled: SettingsFilledIcon,
@@ -326,6 +338,33 @@ function MonitoringIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+function EditFilledIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} fill="currentColor" stroke="none">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1 1 0 0 0 0-1.41L15.37 2.5a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.87Z" />
+    </svg>
+  )
+}
+
+function EditIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z" />
+    </svg>
+  )
+}
+
+function MoreVertIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} fill="currentColor" stroke="none">
+      <circle cx="12" cy="5" r="1.5" />
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="12" cy="19" r="1.5" />
+    </svg>
+  )
+}
+
 function NotificationsFilledIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...props} fill="currentColor" stroke="none">
@@ -404,6 +443,15 @@ function ReceiptLongIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M8.5 7.5h7" />
       <path d="M8.5 11.5h7" />
       <path d="M8.5 15.5h4" />
+    </svg>
+  )
+}
+
+function SearchIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props}>
+      <circle cx="11" cy="11" r="6" />
+      <path d="m20 20-3-3" />
     </svg>
   )
 }
