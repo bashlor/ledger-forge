@@ -25,7 +25,7 @@ interface AppTopbarProps {
 
 export function AppTopbar({
   displayName,
-  email,
+  email: _email,
   initials,
   pageLabel,
   readOnlyBadge,
@@ -40,23 +40,35 @@ export function AppTopbar({
   useCloseOnOutsideAndEscape(accountMenuOpen, setAccountMenuOpen, accountMenuRef)
 
   return (
-    <header className="sticky top-0 z-40 w-full min-w-0 border-b border-outline-variant/80 bg-surface-container-lowest/92 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full min-w-0 border-b border-slate-200/95 bg-white/90 shadow-sm shadow-slate-900/[0.03] backdrop-blur-md">
       <div className={SHELL_CONTENT_GUTTER_CLASS}>
         <div
           className={`flex h-14 w-full min-w-0 items-center gap-3 sm:h-[3.75rem] sm:gap-4 ${SHELL_MAIN_MAX_WIDTH_CLASS}`}
         >
-          <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 lg:gap-4">
+            <Link
+              aria-label="Ledger Forge — dashboard"
+              className="hidden shrink-0 items-center gap-2.5 rounded-lg border-r border-slate-200/90 py-1 pr-5 mr-2 outline-hidden transition-colors duration-200 hover:bg-slate-50 lg:flex"
+              href="/dashboard"
+            >
+              <LedgerForgeMark className="text-primary" size={22} />
+              <span className="font-headline text-sm font-semibold tracking-tight text-slate-900">
+                Ledger Forge
+              </span>
+            </Link>
+
             <Link
               aria-label="Go to dashboard"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg outline-hidden transition-colors hover:bg-surface-container-low focus-visible:ring-2 focus-visible:ring-primary/25 lg:hidden"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg outline-hidden transition-colors hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-primary/25 lg:hidden"
               href="/dashboard"
             >
               <LedgerForgeMark size={20} />
             </Link>
-            <div className="min-w-0">
+
+            <div className="min-w-0 flex-1">
               {suppressPrimaryTitle && workspace ? (
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                  <p className="truncate font-headline text-sm font-semibold tracking-tight text-on-surface">
+                  <p className="truncate font-headline text-sm font-semibold tracking-tight text-slate-900">
                     {workspace.name}
                   </p>
                   {readOnlyBadge ? (
@@ -65,7 +77,7 @@ export function AppTopbar({
                     </span>
                   ) : null}
                   {workspace.isAnonymousWorkspace ? (
-                    <span className="inline-flex shrink-0 rounded-md border border-outline-variant bg-surface-container-low px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
+                    <span className="inline-flex shrink-0 rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
                       Anonymous
                     </span>
                   ) : null}
@@ -73,7 +85,7 @@ export function AppTopbar({
               ) : (
                 <>
                   <div className="flex min-w-0 items-center gap-2">
-                    <p className="truncate font-headline text-sm font-semibold tracking-tight text-on-surface">
+                    <p className="truncate font-headline text-sm font-semibold tracking-tight text-slate-900">
                       {pageLabel}
                     </p>
                     {readOnlyBadge ? (
@@ -83,16 +95,16 @@ export function AppTopbar({
                     ) : null}
                   </div>
                   {workspace ? (
-                    <p className="mt-0.5 truncate text-[11px] leading-snug text-on-surface-variant">
-                      <span className="font-medium text-on-surface/85">{workspace.name}</span>
+                    <p className="mt-0.5 truncate text-[11px] leading-snug text-slate-600">
+                      <span className="font-medium text-slate-700">{workspace.name}</span>
                       {workspace.isAnonymousWorkspace ? (
-                        <span className="ml-1.5 inline-flex shrink-0 rounded border border-outline-variant bg-surface-container-low px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
+                        <span className="ml-1.5 inline-flex shrink-0 rounded border border-slate-200 bg-slate-50 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-slate-600">
                           Anonymous
                         </span>
                       ) : null}
                     </p>
                   ) : (
-                    <p className="mt-0.5 hidden truncate text-[11px] text-on-surface-variant sm:block">
+                    <p className="mt-0.5 hidden truncate text-[11px] text-slate-600 sm:block">
                       {pageDescriptions[pageLabel] ?? pageDescriptions.Overview}
                     </p>
                   )}
@@ -103,54 +115,49 @@ export function AppTopbar({
 
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             {showDateScopeControls ? (
-              <div className="flex h-9 items-center gap-1 rounded-lg border border-outline-variant/90 bg-surface-container-lowest px-1 shadow-sm ring-1 ring-slate-900/[0.03] transition-shadow duration-200 hover:border-outline-variant hover:shadow-md">
+              <div className="flex h-9 items-center gap-1 rounded-lg border border-slate-200/95 bg-white px-1 shadow-sm ring-1 ring-slate-900/[0.04] transition-shadow duration-200 hover:border-slate-300/90 hover:shadow-md">
                 <span
                   aria-hidden="true"
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-on-surface-variant"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-500"
                 >
                   <AppIcon name="date_range" size={18} />
                 </span>
-                <div className="h-5 w-px shrink-0 bg-outline-variant/70" aria-hidden="true" />
+                <div className="h-5 w-px shrink-0 bg-slate-200" aria-hidden="true" />
                 <DateScopeControls />
               </div>
             ) : (
-              <div className="flex h-9 items-center rounded-lg border border-outline-variant/90 bg-surface-container-low/80 px-2.5 shadow-sm">
-                <p className="font-headline text-[13px] font-medium tabular-nums text-on-surface">
+              <div className="flex h-9 items-center rounded-lg border border-slate-200/95 bg-slate-50/90 px-2.5 shadow-sm">
+                <p className="font-headline text-[13px] font-medium tabular-nums text-slate-900">
                   {todayLine}
                 </p>
               </div>
             )}
 
-            <div
-              aria-hidden="true"
-              className="hidden h-5 w-px shrink-0 bg-outline-variant/60 sm:block"
-            />
+            <div aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block" />
 
             <div className="relative" ref={accountMenuRef}>
               <button
                 aria-controls={accountMenuOpen ? `${accountMenuId}-menu` : undefined}
                 aria-expanded={accountMenuOpen}
                 aria-haspopup="menu"
-                className={`flex items-center gap-1.5 rounded-lg py-0.5 pl-0.5 pr-1.5 outline-hidden transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary/20 sm:gap-2 sm:pr-2 ${
+                aria-label={`Account menu — ${displayName}`}
+                className={`flex items-center gap-2 rounded-xl border border-transparent px-1.5 py-1 outline-hidden transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary/25 sm:px-2 ${
                   accountMenuOpen
-                    ? 'bg-surface-container-low ring-1 ring-outline-variant/70'
-                    : 'hover:bg-surface-container-low/70'
+                    ? 'border-slate-200 bg-slate-50 shadow-sm'
+                    : 'hover:border-slate-200/90 hover:bg-slate-50/80'
                 }`}
                 id={`${accountMenuId}-trigger`}
                 onClick={() => setAccountMenuOpen((openState) => !openState)}
                 type="button"
               >
-                <div className="hidden text-right sm:block">
-                  <p className="text-[13px] font-medium leading-tight text-on-surface">{displayName}</p>
-                  <p className="max-w-[8.5rem] truncate text-[11px] text-on-surface-variant">
-                    {email}
-                  </p>
-                </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-container-high text-[11px] font-semibold text-on-surface ring-1 ring-outline-variant/50">
+                <span className="hidden max-w-[9rem] truncate text-left text-[13px] font-semibold leading-tight text-slate-900 sm:block">
+                  {displayName}
+                </span>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-800 ring-1 ring-slate-200/90">
                   {initials}
                 </div>
                 <AppIcon
-                  className={`hidden text-on-surface-variant/70 transition-transform duration-200 sm:block ${accountMenuOpen ? 'rotate-180' : ''}`}
+                  className={`hidden shrink-0 text-slate-500 transition-transform duration-200 sm:block ${accountMenuOpen ? 'rotate-180' : ''}`}
                   name="expand_more"
                   size={18}
                 />
@@ -159,12 +166,12 @@ export function AppTopbar({
               {accountMenuOpen ? (
                 <div
                   aria-labelledby={`${accountMenuId}-trigger`}
-                  className="absolute right-0 top-full z-50 mt-1.5 min-w-[11.5rem] overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest py-1 shadow-lg shadow-slate-900/10"
+                  className="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-slate-200/95 bg-white py-1 shadow-lg shadow-slate-900/12"
                   id={`${accountMenuId}-menu`}
                   role="menu"
                 >
                   <Link
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-on-surface transition-colors duration-150 hover:bg-surface-container-low focus-visible:bg-surface-container-low"
+                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] font-medium text-slate-800 transition-colors duration-150 hover:bg-slate-50 focus-visible:bg-slate-50"
                     href="/account"
                     onClick={() => setAccountMenuOpen(false)}
                     role="menuitem"
@@ -174,7 +181,7 @@ export function AppTopbar({
                   </Link>
                   <Form className="contents" route="signout.store">
                     <button
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-on-surface transition-colors duration-150 hover:bg-surface-container-low hover:text-error focus-visible:bg-surface-container-low"
+                      className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] font-medium text-slate-800 transition-colors duration-150 hover:bg-slate-50 hover:text-error focus-visible:bg-slate-50"
                       onClick={() => setAccountMenuOpen(false)}
                       role="menuitem"
                       type="submit"

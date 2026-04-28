@@ -25,8 +25,6 @@ describe('app sidebar', () => {
       <AppSidebar
         devToolsEnabled={false}
         devToolsHref="/_dev"
-        displayName="Test User"
-        email="test@example.com"
         initials="TU"
         navLinks={[
           { href: '/customers', icon: 'business', label: 'Customers' },
@@ -34,6 +32,7 @@ describe('app sidebar', () => {
         ]}
         showAccountingNav
         url="/customers"
+        workspaceLabel="Acme Workspace"
       />
     )
 
