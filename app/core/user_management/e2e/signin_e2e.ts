@@ -28,7 +28,7 @@ test.group('Login E2E', (group) => {
     await page.locator('#email').waitFor()
     await page.assertExists(page.locator('#email'))
     await page.assertExists(page.locator('#password'))
-    await page.assertTextContains('h2', 'Secure access')
+    await page.assertTextContains('h1', 'Sign in')
   })
 
   test('logs the user in with valid credentials', async ({ route, visit }) => {

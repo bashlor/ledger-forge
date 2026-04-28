@@ -33,7 +33,7 @@ test.group('Logout E2E', (group) => {
     await page.locator('button[aria-label="Sign out from sidebar"]').click()
     await page.waitForURL('**/signin')
 
-    await page.assertTextContains('h2', 'Secure access')
+    await page.assertTextContains('h1', 'Sign in')
     await page.assertExists(page.locator('a[href="/signup"]'))
   })
 

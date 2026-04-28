@@ -4,9 +4,33 @@ import { Head } from '@inertiajs/react'
 import type { FormErrors } from '~/types'
 
 import { AppIcon } from '~/components/app_icon'
+import { AuthCallout } from '~/components/auth_callout'
+import { AuthMarketingAside } from '~/components/auth_marketing_aside'
 import { AuthPageShell } from '~/components/auth_page_shell'
 import { PrimaryButton } from '~/components/button'
 import { FormField } from '~/components/form_field'
+
+const signupAside = (
+  <AuthMarketingAside
+    description="Provision a workspace in one step—then explore invoicing, expenses, and reporting with realistic constraints."
+    eyebrow="Ledger Forge"
+    headline="Start in a real workspace"
+    points={[
+      {
+        icon: 'person_add',
+        text: 'Your profile becomes the owner of a dedicated demo workspace with sane defaults.',
+      },
+      {
+        icon: 'payments',
+        text: 'Core accounting paths stay wired through the same API and validation as the rest of the app.',
+      },
+      {
+        icon: 'verified_user',
+        text: 'Passwords and sessions follow standard secure auth—suitable for stakeholder walkthroughs.',
+      },
+    ]}
+  />
+)
 
 export default function Signup() {
   return (
@@ -14,20 +38,21 @@ export default function Signup() {
       <Head title="Create account" />
 
       <AuthPageShell
-        description="Set your profile details and get redirected into the workspace immediately."
+        aside={signupAside}
+        description="Add your name and credentials. After registration completes, you will land in your workspace."
         title="Create account"
+        wideForm
       >
         <Form route="signup.store">
           {({ errors }: { errors: FormErrors }) => (
-            <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-5 sm:space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
                 <FormField
                   autoComplete="name"
                   error={errors.fullName}
                   id="fullName"
                   label="Full name"
                   required
-                  variant="ghost"
                 />
                 <FormField
                   autoComplete="email"
@@ -36,7 +61,6 @@ export default function Signup() {
                   label="Email address"
                   required
                   type="email"
-                  variant="ghost"
                 />
                 <FormField
                   autoComplete="new-password"
@@ -45,7 +69,6 @@ export default function Signup() {
                   label="Password"
                   required
                   type="password"
-                  variant="ghost"
                 />
                 <FormField
                   autoComplete="new-password"
@@ -54,26 +77,22 @@ export default function Signup() {
                   label="Confirm password"
                   required
                   type="password"
-                  variant="ghost"
                 />
               </div>
 
-              <div className="flex items-center gap-3 rounded-lg border border-outline-variant/10 bg-surface-container-low p-2.5">
-                <AppIcon className="text-secondary" filled name="verified_user" size={18} />
-                <p className="text-[11px] font-medium leading-tight text-on-surface-variant">
-                  This uses the built-in Better Auth flow from the boilerplate, so signup and
-                  initial session creation stay wired to the backend.
-                </p>
-              </div>
+              <AuthCallout icon={<AppIcon filled name="verified_user" size={16} />}>
+                One account provisions your workspace and signs you in. Choose a strong password;
+                this demo uses the same session model as a production-style rollout.
+              </AuthCallout>
 
               <PrimaryButton
-                className="w-full py-3 font-headline font-bold uppercase tracking-widest"
+                className="w-full min-h-12 text-sm font-semibold shadow-md shadow-primary/15 transition hover:brightness-[1.03] hover:shadow-lg hover:shadow-primary/20 active:scale-[0.99]"
                 type="submit"
               >
-                Create workspace access
+                Create account
               </PrimaryButton>
 
-              <div className="flex items-center justify-center gap-2 text-sm text-on-surface-variant">
+              <div className="flex items-center justify-center gap-2 pt-1 text-sm text-on-surface-variant">
                 <span>Already have an account?</span>
                 <Link
                   className="font-semibold text-primary transition-colors hover:text-primary-dim"
