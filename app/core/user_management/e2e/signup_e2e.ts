@@ -31,7 +31,7 @@ test.group('Signup E2E', (group) => {
     await page.assertExists(page.locator('#email'))
     await page.assertExists(page.locator('#password'))
     await page.assertExists(page.locator('#passwordConfirmation'))
-    await page.assertTextContains('h2', 'Create account')
+    await page.assertTextContains('h1', 'Create account')
   })
 
   test('creates an account with valid data', async ({ browserContext, route, visit }) => {

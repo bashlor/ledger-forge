@@ -33,21 +33,21 @@ describe('signin page', () => {
   it('shows anonymous sign-in only when enabled', () => {
     render(<Signin allowAnonymousAuth />)
 
-    expect(screen.getByRole('button', { name: 'Continue in anonymous mode' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue without an account' })).toBeInTheDocument()
   })
 
   it('hides anonymous sign-in when disabled', () => {
     render(<Signin allowAnonymousAuth={false} />)
 
     expect(
-      screen.queryByRole('button', { name: 'Continue in anonymous mode' })
+      screen.queryByRole('button', { name: 'Continue without an account' })
     ).not.toBeInTheDocument()
   })
 
   it('posts to the anonymous sign-in route when selected', () => {
     render(<Signin allowAnonymousAuth />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue in anonymous mode' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue without an account' }))
 
     expect(routerPostMock).toHaveBeenCalledWith('/signin/anonymous')
   })

@@ -3,7 +3,7 @@ import { Head, router } from '@inertiajs/react'
 
 import type { FormErrors } from '~/types'
 
-import { AppIcon } from '~/components/app_icon'
+import { AuthMarketingAside } from '~/components/auth_marketing_aside'
 import { AuthPageShell } from '~/components/auth_page_shell'
 import { PrimaryButton, SecondaryButton } from '~/components/button'
 import { FormField } from '~/components/form_field'
@@ -12,28 +12,42 @@ interface SigninProps {
   allowAnonymousAuth: boolean
 }
 
+const signinAside = (
+  <AuthMarketingAside
+    description="A focused workspace for invoices, expenses, and balances—built for demos that still feel like real product."
+    eyebrow="Ledger Forge"
+    headline="Clarity for your books"
+    points={[
+      {
+        icon: 'dashboard',
+        text: 'Live dashboard with scoped dates and balances tuned for review sessions.',
+      },
+      {
+        icon: 'receipt_long',
+        text: 'Structured invoicing and expense flows with validation you can trace end to end.',
+      },
+      {
+        icon: 'shield_lock',
+        text: 'Session-backed access with the same auth patterns you would expect in production.',
+      },
+    ]}
+  />
+)
+
 export default function Signin({ allowAnonymousAuth }: SigninProps) {
   return (
     <>
-      <Head title="Secure access" />
+      <Head title="Sign in" />
 
       <AuthPageShell
-        description="Use the credentials you created during signup to open the workspace."
-        footer={
-          <div className="flex flex-wrap items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-widest text-outline sm:gap-5">
-            <span className="transition-colors hover:text-on-surface">Privacy</span>
-            <span className="h-1 w-1 rounded-full bg-outline-variant" />
-            <span className="transition-colors hover:text-on-surface">Security</span>
-            <span className="h-1 w-1 rounded-full bg-outline-variant" />
-            <span className="transition-colors hover:text-on-surface">Compliance</span>
-          </div>
-        }
-        title="Secure access"
+        aside={signinAside}
+        description="Use the email and password for your workspace. You will be redirected after a successful sign-in."
+        title="Sign in"
       >
         <Form route="signin.store">
           {({ errors }: { errors: FormErrors }) => {
             return (
-              <div className="space-y-4">
+              <div className="space-y-5 sm:space-y-6">
                 <FormField
                   autoComplete="username"
                   error={errors.email}
@@ -42,7 +56,6 @@ export default function Signin({ allowAnonymousAuth }: SigninProps) {
                   placeholder="name@organization.com"
                   required
                   type="email"
-                  variant="ghost"
                 />
 
                 <FormField
@@ -52,50 +65,41 @@ export default function Signin({ allowAnonymousAuth }: SigninProps) {
                   label="Password"
                   labelAction={
                     <Link
-                      className="mb-2 text-xs font-semibold text-primary transition-colors hover:text-primary-dim"
+                      className="mb-0.5 text-xs font-semibold text-primary transition-colors hover:text-primary-dim"
                       href="/forgot-password"
                     >
-                      Forgot access?
+                      Forgot password?
                     </Link>
                   }
-                  placeholder="••••••••••••"
+                  placeholder="Enter your password"
                   required
                   type="password"
-                  variant="ghost"
                 />
 
-                <div className="flex items-center gap-3 rounded-lg border border-outline-variant/10 bg-surface-container-low p-2.5">
-                  <AppIcon className="text-secondary" filled name="shield_lock" size={18} />
-                  <p className="text-[11px] font-medium leading-tight text-on-surface-variant">
-                    Enter your signup email and password. If sign-in fails, check the red hint under
-                    the password field and the toast summary.
-                  </p>
-                </div>
-
                 <PrimaryButton
-                  className="w-full py-3 font-headline font-bold uppercase tracking-widest shadow-md hover:shadow-lg active:scale-[0.98]"
+                  className="w-full min-h-12 text-sm font-semibold shadow-md shadow-primary/15 transition hover:brightness-[1.03] hover:shadow-lg hover:shadow-primary/20 active:scale-[0.99]"
                   type="submit"
                 >
-                  Authorize access
+                  Sign in
                 </PrimaryButton>
 
                 {allowAnonymousAuth ? (
                   <SecondaryButton
-                    className="w-full border border-outline-variant/30 py-2.5 text-xs font-bold uppercase tracking-widest"
+                    className="w-full min-h-12 text-sm font-semibold transition hover:bg-surface-container"
                     onClick={() => router.post('/signin/anonymous')}
                     type="button"
                   >
-                    Continue in anonymous mode
+                    Continue without an account
                   </SecondaryButton>
                 ) : null}
 
-                <div className="flex items-center justify-center gap-2 text-sm text-on-surface-variant">
+                <div className="flex items-center justify-center gap-2 pt-1 text-sm text-on-surface-variant">
                   <span>No account yet?</span>
                   <Link
                     className="font-semibold text-primary transition-colors hover:text-primary-dim"
                     href="/signup"
                   >
-                    Create one
+                    Create an account
                   </Link>
                 </div>
               </div>
