@@ -1,19 +1,17 @@
 import type { InvoiceDto, InvoiceSummaryDto, PaginatedList } from '~/lib/types'
 
+import { MetricCard } from '~/components/metric_card'
 import { DataTable } from '~/components/data_table'
 import { SearchForm } from '~/components/search_form'
-import { StatusBadge } from '~/components/status_badge'
-import { Eyebrow, TableHeaderCell, TableHeadRow } from '~/components/ui'
-import { formatCurrency, formatShortDate } from '~/lib/format'
-import { canDeleteInvoice } from '~/lib/invoices'
+
+import { InvoiceTable } from './invoice_table'
 
 interface Props {
   accountingReadOnly: boolean
   appliedSearch: string
-  deleteConfirmId: null | string
   invoices: PaginatedList<InvoiceDto>
-  onCancelDelete: () => void
   onDeleteDraft: (invoice: InvoiceDto) => void
+  onIssueInvoice: (invoice: InvoiceDto) => void
   onPageChange: (page: number) => void
   onPerPageChange: (perPage: number) => void
   onSearchSubmit: (value: string) => void
@@ -25,10 +23,9 @@ interface Props {
 export function InvoiceList({
   accountingReadOnly,
   appliedSearch,
-  deleteConfirmId,
   invoices,
-  onCancelDelete,
   onDeleteDraft,
+  onIssueInvoice,
   onPageChange,
   onPerPageChange,
   onSearchSubmit,
@@ -43,132 +40,66 @@ export function InvoiceList({
   return (
     <>
       {summary ? (
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest px-4 py-4 shadow-sm">
-            <Eyebrow className="text-[10px] tracking-[0.14em]">Drafts</Eyebrow>
-            <p className="mt-2 text-2xl font-headline font-bold tabular-nums tracking-tight text-on-surface">
-              {draftCount}
-            </p>
-            <p className="mt-1 text-xs text-on-surface-variant">Before issue</p>
-          </div>
-          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest px-4 py-4 shadow-sm">
-            <Eyebrow className="text-[10px] tracking-[0.14em]">Issued</Eyebrow>
-            <p className="mt-2 text-2xl font-headline font-bold tabular-nums tracking-tight text-on-surface">
-              {issuedCount}
-            </p>
-            <p className="mt-1 text-xs text-on-surface-variant">Awaiting payment</p>
-          </div>
-          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest px-4 py-4 shadow-sm">
-            <Eyebrow className="text-[10px] tracking-[0.14em]">Overdue</Eyebrow>
-            <p className="mt-2 text-2xl font-headline font-bold tabular-nums tracking-tight text-error">
-              {overdueCount}
-            </p>
-            <p className="mt-1 text-xs text-on-surface-variant">Past due date</p>
-          </div>
-        </div>
+        <section className="grid gap-3 sm:grid-cols-3 sm:gap-4">
+          <MetricCard
+            caption="Before issue"
+            icon="receipt_long"
+            label="Drafts"
+            tone="default"
+            value={String(draftCount)}
+          />
+          <MetricCard
+            caption="Awaiting payment"
+            icon="send"
+            label="Issued"
+            tone="success"
+            value={String(issuedCount)}
+          />
+          <MetricCard
+            caption="Past due date"
+            icon="date_range"
+            label="Overdue"
+            tone="danger"
+            value={String(overdueCount)}
+          />
+        </section>
       ) : (
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-3">
           {[1, 2, 3].map((key) => (
-            <div className="h-24 animate-pulse rounded-lg bg-surface-container-low" key={key} />
+            <div className="h-24 animate-pulse rounded-xl bg-surface-container-low" key={key} />
           ))}
         </div>
       )}
 
       <DataTable
         emptyMessage="No invoices fall within the selected period."
+        headerClassName="border-b border-slate-200/90 bg-white px-5 py-4 sm:px-6"
         headerContent={
           <SearchForm
             ariaLabel="Search invoices"
             onSubmit={onSearchSubmit}
             placeholder="Search invoice, company, contact"
             value={appliedSearch}
+            variant="premium"
           />
         }
         isEmpty={invoices.items.length === 0}
         onPageChange={onPageChange}
         onPerPageChange={onPerPageChange}
         pagination={invoices.pagination}
+        panelClassName="overflow-hidden rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]"
         title="Invoice register"
+        titleClassName="text-slate-950 lg:text-base"
+        toolbarClassName="gap-3"
       >
-        <table className="tonal-table w-full min-w-[640px] border-collapse text-left text-sm">
-          <thead>
-            <TableHeadRow>
-              <TableHeaderCell>Invoice</TableHeaderCell>
-              <TableHeaderCell>Customer</TableHeaderCell>
-              <TableHeaderCell>Status</TableHeaderCell>
-              <TableHeaderCell>Due</TableHeaderCell>
-              <TableHeaderCell className="text-right tabular-nums">
-                Amount <span className="font-normal normal-case tracking-normal text-on-surface-variant">(incl. VAT)</span>
-              </TableHeaderCell>
-              <TableHeaderCell className="w-px px-2 text-right">
-                <span className="sr-only">Actions</span>
-              </TableHeaderCell>
-            </TableHeadRow>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/80">
-            {invoices.items.map((invoice) => (
-              <tr
-                className="cursor-pointer transition-colors duration-150 hover:bg-surface-container-low/90"
-                key={invoice.id}
-                onClick={() => onSelectInvoice(invoice)}
-              >
-                <td className="whitespace-nowrap px-4 py-3.5 font-medium tabular-nums text-on-surface">
-                  {invoice.invoiceNumber}
-                </td>
-                <td className="max-w-[220px] truncate px-4 py-3.5 text-on-surface">
-                  {invoice.customerCompanyName}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3">
-                  <StatusBadge status={invoice.status} />
-                </td>
-                <td className="whitespace-nowrap px-4 py-3.5 tabular-nums text-on-surface-variant">
-                  {formatShortDate(invoice.dueDate)}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-on-surface">
-                  {formatCurrency(invoice.totalInclTax)}
-                </td>
-                <td
-                  className="whitespace-nowrap px-2 py-3.5 text-right"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  {canDeleteInvoice(invoice) ? (
-                    deleteConfirmId === invoice.id ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <button
-                          aria-label={`Confirm delete draft ${invoice.invoiceNumber}`}
-                          className="rounded border border-error px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/40 disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={accountingReadOnly || saving}
-                          onClick={() => onDeleteDraft(invoice)}
-                          type="button"
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          aria-label="Cancel delete"
-                          className="rounded border border-outline-variant/35 px-2 py-1 text-xs font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-low"
-                          onClick={onCancelDelete}
-                          type="button"
-                        >
-                          Cancel
-                        </button>
-                      </span>
-                    ) : (
-                      <button
-                        aria-label={`Delete draft ${invoice.invoiceNumber}`}
-                        className="rounded border border-error/20 px-2 py-1 text-xs font-semibold text-error transition-colors hover:bg-error-container/25 disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={accountingReadOnly || saving}
-                        onClick={() => onDeleteDraft(invoice)}
-                        type="button"
-                      >
-                        Delete draft
-                      </button>
-                    )
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <InvoiceTable
+          accountingReadOnly={accountingReadOnly}
+          invoices={invoices.items}
+          onDeleteDraft={onDeleteDraft}
+          onIssueInvoice={onIssueInvoice}
+          onSelectInvoice={onSelectInvoice}
+          saving={saving}
+        />
       </DataTable>
     </>
   )

@@ -5,14 +5,16 @@ interface StatusBadgeProps {
 const BADGE_STYLES: Record<string, string> = {
   booked:
     'border border-slate-200/80 bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-900/5',
+  cancelled:
+    'border border-slate-200/80 bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-900/8',
   confirmed:
     'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
   draft:
-    'border border-indigo-200/80 bg-indigo-50 text-indigo-800 ring-1 ring-inset ring-indigo-900/5',
+    'border border-violet-200/85 bg-violet-50 text-violet-900 ring-1 ring-inset ring-violet-900/8',
   good_payer:
     'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
   issued:
-    'border border-violet-200/80 bg-violet-50 text-violet-800 ring-1 ring-inset ring-violet-900/5',
+    'border border-blue-200/85 bg-blue-50 text-blue-900 ring-1 ring-inset ring-blue-900/8',
   no_activity:
     'border border-slate-200/80 bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-900/5',
   overdue:
@@ -26,6 +28,7 @@ const BADGE_STYLES: Record<string, string> = {
 
 const BADGE_LABELS: Record<string, string> = {
   booked: 'Booked',
+  cancelled: 'Cancelled',
   confirmed: 'Confirmed',
   draft: 'Draft',
   good_payer: 'Good payer',

@@ -231,7 +231,6 @@ function InvoicesContent({
     initialState.selectedInvoiceId
   )
   const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false)
-  const [deleteConfirmId, setDeleteConfirmId] = useState<null | string>(null)
   const [issueForm, setIssueForm] = useState(createInitialIssueForm())
   const [historyState, setHistoryState] = useState(INITIAL_HISTORY_STATE)
   const [invoicePreview, setInvoicePreview] = useState<InvoicePreviewDto>(() =>
@@ -646,12 +645,7 @@ function InvoicesContent({
 
   function handleDeleteDraftFromList(invoice: InvoiceDto) {
     if (accountingReadOnly) return
-    if (deleteConfirmId !== invoice.id) {
-      setDeleteConfirmId(invoice.id)
-      return
-    }
     resetHistoryState()
-    setDeleteConfirmId(null)
     router.delete(
       invoicesUrl(
         `/invoices/${invoice.id}`,
@@ -663,6 +657,30 @@ function InvoicesContent({
       {
         onFinish: () => setSaving(false),
         onStart: () => setSaving(true),
+        preserveScroll: true,
+      }
+    )
+  }
+
+  function handleIssueFromList(invoice: InvoiceDto) {
+    if (accountingReadOnly || !canIssueInvoice(invoice)) return
+    resetHistoryState()
+    setIssueForm(createInitialIssueForm(invoice))
+    router.get(
+      '/invoices',
+      {
+        ...(initialCustomerId ? { customer: initialCustomerId } : {}),
+        endDate: scope.endDate,
+        invoice: invoice.id,
+        ...(invoices.pagination.page > 1 ? { page: invoices.pagination.page } : {}),
+        ...(invoices.pagination.perPage !== DEFAULT_PAGE_SIZE
+          ? { perPage: invoices.pagination.perPage }
+          : {}),
+        ...(appliedSearch ? { search: appliedSearch } : {}),
+        startDate: scope.startDate,
+      },
+      {
+        onSuccess: () => setIsIssueDialogOpen(true),
         preserveScroll: true,
       }
     )
@@ -778,10 +796,9 @@ function InvoicesContent({
           <InvoiceList
             accountingReadOnly={accountingReadOnly}
             appliedSearch={appliedSearch}
-            deleteConfirmId={deleteConfirmId}
             invoices={invoices}
-            onCancelDelete={() => setDeleteConfirmId(null)}
             onDeleteDraft={handleDeleteDraftFromList}
+            onIssueInvoice={handleIssueFromList}
             onPageChange={handlePageChange}
             onPerPageChange={handlePerPageChange}
             onSearchSubmit={handleSearchSubmit}
@@ -790,7 +807,7 @@ function InvoicesContent({
             summary={summary}
           />
         ) : (
-          <section className="overflow-hidden rounded-xl border border-border-default bg-surface-container-lowest shadow-ambient-tight ring-1 ring-black/[0.03]">
+          <section className="panel-elevated overflow-hidden shadow-card-sm ring-1 ring-black/[0.03]">
             {isCreating || editingInvoice ? (
               <InvoiceDraftEditor
                 accountingReadOnly={accountingReadOnly}

@@ -1,4 +1,13 @@
+import { todayDateOnlyUtc } from './date'
 import type { InvoiceDto, InvoiceLineInput } from './types'
+
+/** Resolved row/status label: issued invoices past due surface as overdue for badges and scans. */
+export function invoiceDisplayStatus(invoice: Pick<InvoiceDto, 'dueDate' | 'status'>): string {
+  if (invoice.status === 'issued' && invoice.dueDate < todayDateOnlyUtc()) {
+    return 'overdue'
+  }
+  return invoice.status
+}
 
 export function canDeleteInvoice(invoice: Pick<InvoiceDto, 'status'>) {
   return invoice.status === 'draft'
