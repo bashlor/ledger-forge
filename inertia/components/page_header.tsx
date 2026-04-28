@@ -30,7 +30,7 @@ export function PageHeader({
     <div className={`flex flex-col gap-3 sm:gap-3.5 ${className ?? ''}`.trim()}>
       {breadcrumb?.length ? (
         <nav aria-label="Breadcrumb">
-          <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
+          <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
             {breadcrumb.map((segment, index) => {
               const isLast = index === breadcrumb.length - 1
 
@@ -50,7 +50,7 @@ export function PageHeader({
                     </Link>
                   ) : (
                     <span
-                      className={`truncate ${isLast ? 'text-on-surface/80' : 'text-on-surface-variant'}`}
+                      className={`truncate ${isLast ? 'text-slate-700' : 'text-slate-500'}`}
                     >
                       {segment.label}
                     </span>
@@ -64,10 +64,10 @@ export function PageHeader({
       {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
         <div className="min-w-0 flex-1 space-y-2 sm:max-w-3xl">
-          <h1 className="font-headline text-[1.65rem] font-bold leading-[1.15] tracking-tight text-on-surface sm:text-3xl sm:leading-tight">
+          <h1 className="font-headline text-[1.65rem] font-bold leading-[1.12] tracking-tight text-slate-950 sm:text-3xl sm:leading-tight">
             {title}
           </h1>
-          <Caption className="max-w-2xl text-sm leading-relaxed text-on-surface-variant sm:text-[15px]">
+          <Caption className="max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-[15px]">
             {description}
           </Caption>
         </div>

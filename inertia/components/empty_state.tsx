@@ -14,24 +14,24 @@ export function EmptyState({ action, className, icon, message, title }: EmptySta
   if (title || icon || action) {
     return (
       <div
-        className={`flex flex-col items-center justify-center px-4 py-14 text-center sm:px-8 ${className ?? ''}`.trim()}
+        className={`flex flex-col items-center justify-center px-5 py-8 text-center sm:px-6 sm:py-9 ${className ?? ''}`.trim()}
       >
         {icon ? (
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container/90 text-primary shadow-sm ring-1 ring-primary/10">
-            <AppIcon name={icon} size={26} />
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-container/95 text-primary shadow-sm ring-1 ring-primary/12">
+            <AppIcon name={icon} size={24} />
           </div>
         ) : null}
         {title ? (
-          <h3 className="max-w-md text-base font-semibold tracking-tight text-on-surface sm:text-lg">
+          <h3 className="max-w-sm text-base font-semibold tracking-tight text-slate-950 sm:text-lg">
             {title}
           </h3>
         ) : null}
         <p
-          className={`max-w-md text-sm leading-relaxed text-on-surface-variant ${title ? 'mt-2' : ''}`}
+          className={`max-w-sm text-sm leading-relaxed text-slate-600 ${title ? 'mt-1.5' : ''}`}
         >
           {message}
         </p>
-        {action ? <div className="mt-8 w-full max-w-xs sm:w-auto">{action}</div> : null}
+        {action ? <div className="mt-5 w-full max-w-[14rem] sm:w-auto">{action}</div> : null}
       </div>
     )
   }

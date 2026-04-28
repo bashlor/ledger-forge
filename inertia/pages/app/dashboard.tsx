@@ -64,24 +64,21 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard?: 
 
         <DateScopeSummary />
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
+        <section className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-5">
           <MetricCard
-            caption="Issued and paid invoices in this workspace."
-            footnote="Workspace totals (not filtered by the period control)."
+            caption="Issued and paid — workspace total (all periods)."
             icon="receipt_long"
             label="Revenue"
             value={formatCurrency(data.summary.totalRevenue)}
           />
           <MetricCard
-            caption="Cash recorded when invoices are marked paid."
-            footnote="Workspace totals (not filtered by the period control)."
+            caption="Cash when invoices are marked paid."
             icon="payments"
             label="Collected"
             value={formatCurrency(data.summary.totalCollected)}
           />
           <MetricCard
-            caption="Confirmed expenses deducted from revenue."
-            footnote="Workspace totals (not filtered by the period control)."
+            caption="Confirmed expenses only."
             icon="shopping_bag"
             label="Expenses"
             tone="danger"
@@ -89,7 +86,6 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard?: 
           />
           <MetricCard
             caption="Revenue minus confirmed expenses."
-            footnote="Workspace totals (not filtered by the period control)."
             icon="monitoring"
             label="Profit"
             tone={profitTone}
@@ -97,18 +93,19 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard?: 
           />
         </section>
 
-        <section className="overflow-hidden rounded-xl border border-outline-variant/90 bg-surface-container-lowest shadow-sm ring-1 ring-slate-900/[0.02]">
-          <div className="border-b border-outline-variant/90 px-5 py-5 sm:px-6">
-            <h2 className="text-lg font-semibold tracking-tight text-on-surface sm:text-xl">
+        <section className="overflow-hidden rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]">
+          <div className="border-b border-slate-200/90 px-5 py-4 sm:px-6 sm:py-5">
+            <h2 className="text-lg font-semibold tracking-tight text-slate-950 sm:text-xl">
               Recent invoices
             </h2>
-            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-600">
               Latest issued, paid, or draft invoices in the selected period.
             </p>
           </div>
 
           {scopedInvoices.length === 0 ? (
             <EmptyState
+              className="py-8 sm:py-9"
               action={
                 <Link
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-sm shadow-primary/20 transition-colors duration-200 hover:bg-primary-dim focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2"
@@ -176,27 +173,24 @@ function DashboardSkeleton() {
 
   return (
     <>
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
+      <section className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-5">
         {metricPlaceholders.map((_, i) => (
           <div
-            className="flex min-h-[148px] animate-pulse flex-col rounded-xl border border-outline-variant/90 bg-surface-container-lowest p-5 shadow-sm ring-1 ring-slate-900/[0.02]"
+            className="flex animate-pulse flex-col rounded-xl border border-slate-200/95 bg-white p-4 shadow-md shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03] sm:p-[1.125rem]"
             key={i}
           >
             <div className="flex justify-between gap-3">
-              <div className="h-3 w-20 rounded bg-surface-container-high" />
-              <div className="h-10 w-10 shrink-0 rounded-lg bg-surface-container-high" />
+              <div className="h-2.5 w-16 rounded bg-slate-200" />
+              <div className="h-9 w-9 shrink-0 rounded-lg bg-slate-200" />
             </div>
-            <div className="mt-4 h-9 w-32 rounded-lg bg-surface-container-high" />
-            <div className="mt-3 h-3 w-full max-w-[12rem] rounded bg-surface-container-high" />
-            <div className="mt-auto space-y-2 pt-5">
-              <div className="h-3 w-28 rounded bg-surface-container-high" />
-            </div>
+            <div className="mt-3 h-8 w-28 rounded-lg bg-slate-200" />
+            <div className="mt-3 h-3 w-full max-w-[11rem] rounded bg-slate-200" />
           </div>
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-outline-variant/90 bg-surface-container-lowest shadow-sm ring-1 ring-slate-900/[0.02]">
-        <div className="border-b border-outline-variant/90 px-5 py-5 sm:px-6">
+      <section className="overflow-hidden rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]">
+        <div className="border-b border-slate-200/90 px-5 py-4 sm:px-6 sm:py-5">
           <div className="h-6 w-44 rounded-lg bg-surface-container-high" />
           <div className="mt-3 h-4 w-72 max-w-full rounded-lg bg-surface-container-high" />
         </div>

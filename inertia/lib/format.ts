@@ -5,9 +5,11 @@ export const DISPLAY_LOCALE = 'fr-FR' as const
 
 const currencyFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
   currency: 'EUR',
+  currencyDisplay: 'symbol',
   maximumFractionDigits: 2,
   minimumFractionDigits: 2,
   style: 'currency',
+  useGrouping: true,
 })
 
 const shortDateFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
