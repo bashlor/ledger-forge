@@ -25,9 +25,9 @@ const triggerSurfaceClass =
 const triggerSurfaceCompactModifier =
   'h-9 rounded-lg px-2 py-1 text-xs font-semibold leading-snug shadow-sm ring-1 ring-slate-900/[0.05]'
 
-/** Radix default `item-aligned` keeps the list anchored to the trigger (popper mode often mispositions here). */
+/** Popper positioning avoids misalignment inside flex toolbars (vs default item-aligned). */
 const contentBaseClass =
-  'z-[100] max-h-[min(22rem,70dvh)] min-w-0 max-w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-border-default bg-white py-1 shadow-lg shadow-slate-900/12 ring-1 ring-slate-900/[0.05] transition-[opacity,transform] duration-150 ease-out data-[side=bottom]:origin-top data-[side=top]:origin-bottom data-[state=closed]:scale-[0.98] data-[state=closed]:opacity-0 data-[state=open]:scale-100 data-[state=open]:opacity-100'
+  'box-border min-w-[var(--radix-select-trigger-width)] max-h-[min(22rem,70dvh)] max-w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-border-default bg-white py-1 shadow-lg shadow-slate-900/12 ring-1 ring-slate-900/[0.05] transition-[opacity,transform] duration-150 ease-out data-[side=bottom]:origin-top data-[side=top]:origin-bottom data-[state=closed]:scale-[0.98] data-[state=closed]:opacity-0 data-[state=open]:scale-100 data-[state=open]:opacity-100 z-[100]'
 
 const itemBaseClass =
   'relative flex min-w-0 cursor-pointer select-none items-center rounded-lg py-2 pr-3 pl-9 text-sm font-medium text-slate-800 outline-hidden data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[highlighted]:bg-slate-50 data-[state=checked]:bg-slate-50/80'
@@ -116,7 +116,15 @@ export function Select({
       )}
 
       <SelectPrimitive.Portal>
-        <SelectPrimitive.Content className={`${contentBaseClass} ${contentClassName ?? ''}`.trim()}>
+        <SelectPrimitive.Content
+          align="center"
+          avoidCollisions
+          className={`${contentBaseClass} ${contentClassName ?? ''}`.trim()}
+          collisionPadding={8}
+          position="popper"
+          side="bottom"
+          sideOffset={8}
+        >
           <SelectPrimitive.Viewport className="min-w-0 p-1">
             {options.map((option) => (
               <SelectPrimitive.Item
