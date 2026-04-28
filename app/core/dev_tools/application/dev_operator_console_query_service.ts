@@ -17,6 +17,7 @@ import {
   metadataResult,
   selectedTenantOptions,
 } from '#core/dev_tools/application/dev_operator_console_utils'
+import { ensureDevToolsEnabled } from '#core/dev_tools/application/dev_tools_access'
 import { type AuthorizationService } from '#core/user_management/application/authorization_service'
 import { and, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 
@@ -27,6 +28,7 @@ export class DevOperatorConsoleQueryService {
     tenantId: string,
     requestedInvoiceId?: string
   ): Promise<null | { id: string }> {
+    await this.ensureDevToolsEnabled()
     const [row] = await this.db
       .select({ id: schema.invoices.id })
       .from(schema.invoices)
@@ -48,6 +50,7 @@ export class DevOperatorConsoleQueryService {
     tenantId: string,
     requestedExpenseId?: string
   ): Promise<null | { id: string; label: string }> {
+    await this.ensureDevToolsEnabled()
     const [row] = await this.db
       .select({
         id: schema.expenses.id,
@@ -71,6 +74,7 @@ export class DevOperatorConsoleQueryService {
     tenantId: string,
     requestedCustomerId?: string
   ): Promise<null | { company: string; id: string }> {
+    await this.ensureDevToolsEnabled()
     const [row] = await this.db
       .select({
         company: schema.customers.company,
@@ -93,6 +97,7 @@ export class DevOperatorConsoleQueryService {
     tenantId: string,
     requestedExpenseId?: string
   ): Promise<null | { id: string; label: string }> {
+    await this.ensureDevToolsEnabled()
     const [row] = await this.db
       .select({
         id: schema.expenses.id,
@@ -116,6 +121,7 @@ export class DevOperatorConsoleQueryService {
     tenantId: string,
     requestedInvoiceId?: string
   ): Promise<null | { id: string; invoiceNumber: string }> {
+    await this.ensureDevToolsEnabled()
     const [row] = await this.db
       .select({
         id: schema.invoices.id,
@@ -139,6 +145,7 @@ export class DevOperatorConsoleQueryService {
     tenantId: string,
     requestedExpenseId?: string
   ): Promise<null | { id: string; label: string }> {
+    await this.ensureDevToolsEnabled()
     const [row] = await this.db
       .select({
         id: schema.expenses.id,
@@ -161,6 +168,7 @@ export class DevOperatorConsoleQueryService {
     tenantId: string,
     requestedInvoiceId?: string
   ): Promise<null | { id: string; invoiceNumber: string; status: 'draft' | 'issued' | 'paid' }> {
+    await this.ensureDevToolsEnabled()
     const baseCondition = and(
       eq(schema.invoices.organizationId, tenantId),
       requestedInvoiceId ? eq(schema.invoices.id, requestedInvoiceId) : sql`true`
@@ -205,6 +213,7 @@ export class DevOperatorConsoleQueryService {
     role: 'admin' | 'member' | 'owner'
     userId: string
   }> {
+    await this.ensureDevToolsEnabled()
     const [row] = await this.db
       .select({
         id: schema.member.id,
@@ -233,6 +242,7 @@ export class DevOperatorConsoleQueryService {
   }
 
   async listAccessibleTenantIds(userId: string): Promise<string[]> {
+    await this.ensureDevToolsEnabled()
     const rows = await this.db
       .select({ organizationId: schema.member.organizationId })
       .from(schema.member)
@@ -256,6 +266,7 @@ export class DevOperatorConsoleQueryService {
     filters: { action: string; actorId: string; search: string; tenantId: string }
     tenants: { id: string; label: string }[]
   }> {
+    await this.ensureDevToolsEnabled()
     const searchPattern = input.filters.search ? `%${input.filters.search}%` : null
     const inspectableTenantIds = input.inspectableTenants.map((tenant) => tenant.id)
     const selectedTenantIds =
@@ -341,6 +352,7 @@ export class DevOperatorConsoleQueryService {
   }
 
   async listCustomers(tenantId: string): Promise<DevInspectorCustomerDto[]> {
+    await this.ensureDevToolsEnabled()
     const rows = await this.db
       .select({
         company: schema.customers.company,
@@ -359,6 +371,7 @@ export class DevOperatorConsoleQueryService {
   }
 
   async listExpenses(tenantId: string): Promise<DevInspectorExpenseDto[]> {
+    await this.ensureDevToolsEnabled()
     const rows = await this.db
       .select({
         amountCents: schema.expenses.amountCents,
@@ -381,6 +394,7 @@ export class DevOperatorConsoleQueryService {
   }
 
   async listInspectableTenants(authSession: AuthResult): Promise<DevInspectorTenantOptionDto[]> {
+    await this.ensureDevToolsEnabled()
     const sessionTenantId = authSession.session.activeOrganizationId
     const rows = await this.db
       .select({
@@ -414,6 +428,7 @@ export class DevOperatorConsoleQueryService {
   }
 
   async listInvoices(tenantId: string) {
+    await this.ensureDevToolsEnabled()
     const rows = await this.db
       .select({
         createdAt: schema.invoices.createdAt,
@@ -449,6 +464,7 @@ export class DevOperatorConsoleQueryService {
       userId: string
     }[]
   > {
+    await this.ensureDevToolsEnabled()
     const query = this.db
       .select({
         email: schema.user.email,
@@ -479,6 +495,7 @@ export class DevOperatorConsoleQueryService {
     authSession: AuthResult,
     authorizationService: AuthorizationService
   ): Promise<DevInspectorMembershipDto[]> {
+    await this.ensureDevToolsEnabled()
     const rows = await this.db
       .select({
         id: schema.member.id,
@@ -535,6 +552,7 @@ export class DevOperatorConsoleQueryService {
   }
 
   async loadMetrics(tenantId: string): Promise<DevInspectorMetricsDto> {
+    await this.ensureDevToolsEnabled()
     const [invoiceCount, expenseCount, customerCount, auditEventCount, memberCount] =
       await Promise.all([
         this.countForTable(schema.invoices, tenantId),
@@ -556,6 +574,7 @@ export class DevOperatorConsoleQueryService {
   async loadOrganization(
     organizationId: string
   ): Promise<{ id: string; name: string; slug: string }> {
+    await this.ensureDevToolsEnabled()
     const [row] = await this.db
       .select({
         id: schema.organization.id,
@@ -574,6 +593,7 @@ export class DevOperatorConsoleQueryService {
   }
 
   async loadUserLabel(userId: string): Promise<string> {
+    await this.ensureDevToolsEnabled()
     const [row] = await this.db
       .select({ email: schema.user.email, name: schema.user.name })
       .from(schema.user)
@@ -584,12 +604,17 @@ export class DevOperatorConsoleQueryService {
   }
 
   private async countForTable(table: any, tenantId: string): Promise<number> {
+    await this.ensureDevToolsEnabled()
     const [row] = await this.db
       .select({ value: count() })
       .from(table)
       .where(eq(table.organizationId, tenantId))
 
     return Number(row?.value ?? 0)
+  }
+
+  private async ensureDevToolsEnabled(): Promise<void> {
+    await ensureDevToolsEnabled()
   }
 }
 

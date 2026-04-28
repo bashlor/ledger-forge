@@ -22,6 +22,7 @@ import {
   type DevOperatorActionInput,
 } from '#core/dev_tools/application/dev_operator_console_types'
 import { DevOperatorTenantFactoryService } from '#core/dev_tools/application/dev_operator_tenant_factory_service'
+import { ensureDevToolsEnabled } from '#core/dev_tools/application/dev_tools_access'
 import { LocalDevDestructiveToolsService } from '#core/user_management/application/local_dev_destructive_tools_service'
 import { MemberService } from '#core/user_management/application/member_service'
 import { isSingleTenantMode } from '#core/user_management/support/tenant_mode'
@@ -114,6 +115,7 @@ export class DevOperatorConsoleService {
     authorizationService: import('#core/user_management/application/authorization_service').AuthorizationService,
     filters: DevInspectorFilters = {}
   ): Promise<DevInspectorPageDto> {
+    await this.ensureDevToolsEnabled()
     return this.pageService.getPageData(authSession, authorizationService, filters)
   }
 
@@ -124,6 +126,7 @@ export class DevOperatorConsoleService {
     input: DevOperatorActionInput = {},
     auth?: AuthenticationPort
   ): Promise<string> {
+    await this.ensureDevToolsEnabled()
     const scenario = await this.scenarioService.resolveScenario(
       authSession,
       input.tenantId,
@@ -237,6 +240,11 @@ export class DevOperatorConsoleService {
     sessionToken: string,
     tenantId: string
   ): Promise<void> {
+    await this.ensureDevToolsEnabled()
     await this.scenarioService.switchActiveTenant(authSession, sessionToken, tenantId)
+  }
+
+  private async ensureDevToolsEnabled(): Promise<void> {
+    await ensureDevToolsEnabled()
   }
 }
