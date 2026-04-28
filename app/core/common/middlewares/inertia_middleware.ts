@@ -100,7 +100,7 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
               fullName: authUser.name,
               id: authUser.publicId,
               image: authUser.image ?? null,
-              initials: this.getInitials(authUser.name, authUser.email),
+              initials: this.getInitials(authUser.name, authUser.email, authUser.isAnonymous),
               isAnonymous: authUser.isAnonymous,
               isDevOperator,
             }
@@ -110,7 +110,11 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
     }
   }
 
-  private getInitials(name: null | string, email: string): string {
+  private getInitials(name: null | string, email: string, isAnonymous: boolean): string {
+    if (isAnonymous && !name?.trim()) {
+      return 'AN'
+    }
+
     const [first, last] = name ? name.split(' ') : email.split('@')
     if (first && last) {
       return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase()

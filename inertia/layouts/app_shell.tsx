@@ -7,7 +7,7 @@ import { toast, Toaster } from 'sonner'
 
 import { DateScopeProvider } from '~/components/date_scope_provider'
 import { todayDateOnlyUtc } from '~/lib/date'
-import { formatTopbarDate, getInitials } from '~/lib/format'
+import { formatTopbarDate, getInitials, resolveTopbarDisplayName } from '~/lib/format'
 
 import {
   pageLabelForUrl,
@@ -47,8 +47,9 @@ function AppShellFrame({ children }: { children: ReactNode }) {
   const user = page.props.user
   const notification = page.props.flash?.notification
   const email = user?.email ?? ''
-  const displayName =
-    (user?.fullName && user.fullName.trim()) || (email ? email.split('@')[0] : '') || 'Account'
+  const displayName = user
+    ? resolveTopbarDisplayName(user.fullName, email, user.isAnonymous)
+    : ''
   const initials = user?.initials ?? getInitials(displayName || email || 'PL')
   const pageLabel = pageLabelForUrl(url)
   const workspace = page.props.workspace

@@ -49,3 +49,30 @@ export function getInitials(value: string) {
 
   return initials || 'PL'
 }
+
+const TOPBAR_EMAIL_LOCAL_PLACEHOLDERS = new Set(['anonymous', 'guest', 'noreply', 'temp'])
+
+/**
+ * Topbar display name: never show disposable email local parts (e.g. "temp") as the user's name.
+ */
+export function resolveTopbarDisplayName(
+  fullName: string | null | undefined,
+  email: string,
+  isAnonymous: boolean | undefined
+): string {
+  const trimmed = fullName?.trim()
+  if (trimmed) {
+    return trimmed
+  }
+  if (isAnonymous) {
+    return 'Anonymous'
+  }
+  const localPart = email.split('@')[0]?.toLowerCase() ?? ''
+  if (!localPart) {
+    return 'Account'
+  }
+  if (TOPBAR_EMAIL_LOCAL_PLACEHOLDERS.has(localPart)) {
+    return 'Account'
+  }
+  return localPart
+}

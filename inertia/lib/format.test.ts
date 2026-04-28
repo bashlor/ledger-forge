@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatCurrency, formatShortDate, formatSignedCurrency, formatTopbarDate } from './format'
+import { formatCurrency, formatShortDate, formatSignedCurrency, formatTopbarDate, resolveTopbarDisplayName } from './format'
 
 describe('format helpers', () => {
   it('formats currency values', () => {
@@ -12,5 +12,12 @@ describe('format helpers', () => {
   it('formats date labels', () => {
     expect(formatShortDate('2026-04-20')).toBe('20 avr.')
     expect(formatTopbarDate('2026-04-20')).toBe('20 avril')
+  })
+
+  it('resolves topbar display name for anonymous and placeholder emails', () => {
+    expect(resolveTopbarDisplayName('', 'temp@throwaway.test', true)).toBe('Anonymous')
+    expect(resolveTopbarDisplayName('  ', 'temp@throwaway.test', false)).toBe('Account')
+    expect(resolveTopbarDisplayName('', 'jane@example.com', false)).toBe('jane')
+    expect(resolveTopbarDisplayName('Jane Doe', 'j@e.com', false)).toBe('Jane Doe')
   })
 })
