@@ -57,7 +57,12 @@ export class AnonymousDemoWorkspaceService {
         userId: authSession.user.id,
       })
 
-      authSession = await this.refreshSession(input.auth, input.sessionToken, authSession)
+      authSession = await this.refreshSession(
+        input.auth,
+        input.sessionToken,
+        authSession,
+        provisioning.organizationId ?? null
+      )
 
       await this.seedDemoWorkspace({
         activitySink: input.activitySink,

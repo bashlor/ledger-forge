@@ -176,4 +176,26 @@ test.group('AnonymousDemoWorkspaceService', () => {
       'seed:org-anonymous',
     ])
   })
+
+  test('falls back to the provisioned anonymous workspace when refresh after provisioning returns null', async ({
+    assert,
+  }) => {
+    const service = new AnonymousDemoWorkspaceServiceStub({})
+    const auth = {
+      getSession: async () => null,
+    }
+
+    const resolved = await service.ensureWorkspace({
+      auth,
+      authSession: createAuthSession(null),
+      path: '/dashboard',
+      sessionToken: 'session-token',
+    })
+
+    assert.equal(resolved.session.activeOrganizationId, 'org-anonymous')
+    assert.deepEqual(service.clearedTokens, [])
+    assert.deepEqual(service.provisionedUsers, ['user-1'])
+    assert.deepEqual(service.seededOrganizations, ['org-anonymous'])
+    assert.deepEqual(service.operationLog, ['provision:user-1', 'seed:org-anonymous'])
+  })
 })

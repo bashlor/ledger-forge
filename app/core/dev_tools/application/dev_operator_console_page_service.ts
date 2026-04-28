@@ -13,6 +13,7 @@ import {
   resolveMemberStatus,
   resolveProbeType,
 } from '#core/dev_tools/application/dev_operator_console_utils'
+import { ensureDevToolsEnabled } from '#core/dev_tools/application/dev_tools_access'
 import { type AuthorizationService } from '#core/user_management/application/authorization_service'
 import { isSingleTenantMode } from '#core/user_management/support/tenant_mode'
 
@@ -37,6 +38,7 @@ export class DevOperatorConsolePageService {
     authorizationService: AuthorizationService,
     filters: DevInspectorFilters = {}
   ): Promise<DevInspectorPageDto> {
+    await this.ensureDevToolsEnabled()
     const memberships = await this.queryService.listMemberships(authSession, authorizationService)
     const inspectableTenants = await this.queryService.listInspectableTenants(authSession)
     const tenantSelection = await this.resolveTenantSelection(
@@ -324,6 +326,10 @@ export class DevOperatorConsolePageService {
     return [
       `Multiple personal workspaces share the same name: ${duplicateNames.join(', ')}. They may be legacy local provisioning rows.`,
     ]
+  }
+
+  private async ensureDevToolsEnabled(): Promise<void> {
+    await ensureDevToolsEnabled()
   }
 
   private resolveSelectedMember(

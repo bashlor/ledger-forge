@@ -146,4 +146,115 @@ test.group('BetterAuthAdapter logging behavior', () => {
     )
     assert.equal(sessionLookups, 0)
   })
+
+  test('prefers the Better Auth get-session endpoint when it returns a full session payload', async ({
+    assert,
+  }) => {
+    const drizzle = {
+      query: {
+        session: {
+          findFirst: async () => {
+            throw new Error('database fallback should not be used when get-session succeeds')
+          },
+        },
+        user: {
+          findFirst: async () => {
+            throw new Error('database fallback should not be used when get-session succeeds')
+          },
+        },
+      },
+    } as unknown as BetterAuthDrizzle
+    const auth = {
+      handler: async () =>
+        Response.json({
+          session: {
+            activeOrganizationId: 'org-handler',
+            createdAt: '2024-01-01T00:00:00.000Z',
+            expiresAt: '2030-01-01T00:00:00.000Z',
+            token: 'handler-token',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+            userId: 'user_handler',
+          },
+          user: {
+            createdAt: '2024-01-01T00:00:00.000Z',
+            email: 'handler@example.com',
+            emailVerified: true,
+            id: 'user_handler',
+            image: null,
+            isAnonymous: false,
+            name: 'Handler User',
+            publicId: 'pub_user_handler',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        }),
+    }
+    const adapter = new BetterAuthAdapter(auth as never, drizzle)
+
+    const result = await adapter.getSession('handler-token')
+
+    assert.isNotNull(result)
+    assert.equal(result!.session.activeOrganizationId, 'org-handler')
+    assert.equal(result!.user.publicId, 'pub_user_handler')
+  })
+
+  test('falls back to the database when the Better Auth get-session payload is incomplete', async ({
+    assert,
+  }) => {
+    let sessionLookups = 0
+    let userLookups = 0
+    const session = {
+      activeOrganizationId: 'org-db',
+      createdAt: new Date('2024-01-01T00:00:00.000Z'),
+      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+      id: 'session_db',
+      ipAddress: null,
+      token: 'db-token',
+      updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+      userAgent: null,
+      userId: 'user_db',
+    }
+    const user = {
+      createdAt: new Date('2024-01-01T00:00:00.000Z'),
+      email: 'db@example.com',
+      emailVerified: true,
+      id: 'user_db',
+      image: null,
+      isAnonymous: false,
+      name: 'Database User',
+      publicId: 'pub_user_db',
+      updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+    }
+    const drizzle = {
+      query: {
+        session: {
+          findFirst: async () => {
+            sessionLookups += 1
+            return session
+          },
+        },
+        user: {
+          findFirst: async () => {
+            userLookups += 1
+            return user
+          },
+        },
+      },
+    } as unknown as BetterAuthDrizzle
+    const auth = {
+      handler: async () =>
+        Response.json({
+          session: { token: 'db-token' },
+          user: { id: 'user_db' },
+        }),
+    }
+    const adapter = new BetterAuthAdapter(auth as never, drizzle)
+
+    const result = await adapter.getSession('db-token')
+
+    assert.isNotNull(result)
+    assert.equal(result!.session.activeOrganizationId, 'org-db')
+    assert.equal(result!.user.publicId, 'pub_user_db')
+    assert.equal(sessionLookups, 1)
+    assert.equal(userLookups, 1)
+  })
 })

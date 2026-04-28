@@ -8,6 +8,7 @@ import { test } from '@japa/runner'
 
 import type { AuthenticationPort, AuthResult } from '../../domain/authentication.js'
 
+import { AUTH_SESSION_TOKEN_COOKIE_NAME } from '../../auth_session_cookie.js'
 import WorkspaceShareMiddleware from './workspace_share_middleware.js'
 
 type AppDrizzleDb = PostgresJsDatabase<typeof DrizzleSchema>
@@ -210,7 +211,7 @@ function createContext(input: {
           return input.accept ?? null
         }
         if (name.toLowerCase() === 'cookie' && input.cookie) {
-          return `__Secure-better-auth.session_token=${input.cookie}`
+          return `${AUTH_SESSION_TOKEN_COOKIE_NAME}=${input.cookie}`
         }
         return null
       },
@@ -367,7 +368,10 @@ test.group('WorkspaceShareMiddleware', () => {
       },
     } satisfies Pick<AuthenticationPort, 'getSession'>
 
-    const middleware = new WorkspaceShareMiddleware(auth as unknown as AuthenticationPort)
+    const middleware = new WorkspaceTestMiddleware(auth as unknown as AuthenticationPort, {
+      hasActiveTenantMembership: async () => false,
+      isSingleTenantMode: false,
+    })
     const ctx = createContext({
       authSession: createAuthSession('org-stale'),
       cookie: 'session-token',
@@ -681,6 +685,52 @@ test.group('WorkspaceShareMiddleware', () => {
       level: 'warn',
       outcome: 'failure',
     })
+  })
+
+  test('personal workspace mode keeps the provisioned active organization when session refresh fails', async ({
+    assert,
+  }) => {
+    app.container.bindValue('drizzle', {
+      query: {
+        organization: {
+          findFirst: async () => ({
+            id: 'org-personal',
+            logo: null,
+            metadata: JSON.stringify({ workspaceKind: 'personal' }),
+            name: 'User workspace',
+            slug: 'user-workspace',
+          }),
+        },
+      },
+    } as unknown as AppDrizzleDb)
+
+    const auth = {
+      getSession: async () => null,
+    } satisfies Pick<AuthenticationPort, 'getSession'>
+
+    const middleware = new WorkspaceTestMiddleware(auth as unknown as AuthenticationPort, {
+      hasActiveTenantMembership: async () => true,
+      isSingleTenantMode: false,
+      provisionPersonalWorkspace: async () => ({
+        organizationId: 'org-personal',
+        wasProvisioned: true,
+      }),
+    })
+
+    const ctx = createContext({
+      authSession: createAuthSession(null),
+      cookie: 'session-token',
+      path: '/app/dashboard',
+    })
+    let nextCalled = false
+
+    await middleware.handle(ctx as never, async () => {
+      nextCalled = true
+    })
+
+    assert.isTrue(nextCalled)
+    assert.equal(ctx.authSession.session.activeOrganizationId, 'org-personal')
+    assert.deepEqual(ctx.redirects, [])
   })
 
   test('single-tenant mode logs a visible configuration error and clears the active organization', async ({

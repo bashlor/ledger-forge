@@ -4,6 +4,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { DomainError } from '#core/common/errors/domain_error'
 import { type DevOperatorConsoleQueryService } from '#core/dev_tools/application/dev_operator_console_query_service'
+import { ensureDevToolsEnabled } from '#core/dev_tools/application/dev_tools_access'
 import { type AuthorizationService } from '#core/user_management/application/authorization_service'
 import { setActiveOrganizationForSession } from '#core/user_management/application/workspace_provisioning'
 
@@ -40,6 +41,7 @@ export class DevOperatorConsoleScenarioService {
     requestedTenantId?: string,
     requestedMemberId?: string
   ): Promise<DevOperatorScenarioContext> {
+    await this.ensureDevToolsEnabled()
     const inspectableTenants = await this.queryService.listInspectableTenants(authSession)
     const requestedTenant = requestedTenantId?.trim() || ''
     const tenantId = requestedTenant || authSession.session.activeOrganizationId
@@ -93,6 +95,7 @@ export class DevOperatorConsoleScenarioService {
     sessionToken: string,
     tenantId: string
   ): Promise<void> {
+    await this.ensureDevToolsEnabled()
     if (tenantId !== authSession.session.activeOrganizationId) {
       throw new DomainError(
         'Dev operator session tenant stays pinned to its dedicated workspace.',
@@ -103,5 +106,9 @@ export class DevOperatorConsoleScenarioService {
     await setActiveOrganizationForSession(this.db, sessionToken, tenantId, {
       userId: authSession.user.id,
     })
+  }
+
+  private async ensureDevToolsEnabled(): Promise<void> {
+    await ensureDevToolsEnabled()
   }
 }

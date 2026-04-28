@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '#core/common/drizzle/index'
 import { DomainError } from '#core/common/errors/domain_error'
 import { getDefaultStructuredLogFields, toIsoTimestamp } from '#core/common/logging/structured_log'
+import env from '#start/env'
 import { eq } from 'drizzle-orm'
 
 import type { AuthProviderUser, AuthResult, AuthSession } from '../../domain/authentication.js'
@@ -56,9 +57,11 @@ export class BetterAuthAdapter extends AuthenticationPort {
     }
 
     try {
-      // Query directly via Drizzle to avoid Better Auth internal cookie parsing
-      // expectations. The browser stores the raw session token and we validate it
-      // against the persisted session row.
+      const viaHandler = await this.loadAuthResultFromBetterAuthHandler(sessionToken)
+      if (viaHandler) {
+        return viaHandler
+      }
+
       return await this.loadAuthResultBySessionToken(sessionToken, {
         logExpectedFailures: true,
       })
@@ -308,6 +311,88 @@ export class BetterAuthAdapter extends AuthenticationPort {
     return this.toAuthResult(session, user)
   }
 
+  private async loadAuthResultFromBetterAuthHandler(
+    sessionToken: string
+  ): Promise<AuthResult | null> {
+    try {
+      const response = await this.auth.handler(
+        new Request(new URL('/api/auth/get-session', env.get('APP_URL')), {
+          headers: this.createAuthHeaders(sessionToken),
+          method: 'GET',
+        })
+      )
+
+      if (!response.ok) {
+        return null
+      }
+
+      const payload = (await response.json()) as unknown
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return null
+      }
+
+      const candidate = payload as {
+        session?: Record<string, unknown>
+        user?: Record<string, unknown>
+      }
+
+      const session = candidate.session
+      const user = candidate.user
+      if (!session || !user) {
+        return null
+      }
+
+      const activeOrganizationId = this.readOptionalNullableString(session.activeOrganizationId)
+      const expiresAt = this.readDate(session.expiresAt)
+      const token = this.readString(session.token)
+      const userId = this.readString(session.userId)
+      const createdAt = this.readDate(user.createdAt)
+      const email = this.readString(user.email)
+      const emailVerified = this.readBoolean(user.emailVerified)
+      const id = this.readString(user.id)
+      const isAnonymous = this.readBoolean(user.isAnonymous)
+      const publicId = this.readString(user.publicId)
+      const name = this.readNullableString(user.name)
+      const image = this.readNullableString(user.image)
+
+      if (
+        activeOrganizationId === undefined ||
+        !expiresAt ||
+        !token ||
+        !userId ||
+        !createdAt ||
+        !email ||
+        !id ||
+        !publicId ||
+        emailVerified === undefined ||
+        isAnonymous === undefined
+      ) {
+        return null
+      }
+
+      return {
+        session: {
+          activeOrganizationId,
+          expiresAt,
+          token,
+          userId,
+        },
+        user: {
+          createdAt,
+          email,
+          emailVerified,
+          id,
+          image,
+          isAnonymous,
+          name,
+          publicId,
+        },
+      }
+    } catch {
+      return null
+    }
+  }
+
   private async loadRequiredAuthResultBySessionToken(
     sessionToken: string,
     missingSessionMessage: string
@@ -342,6 +427,47 @@ export class BetterAuthAdapter extends AuthenticationPort {
       name: user.name ?? null,
       publicId: user.publicId,
     }
+  }
+
+  private readBoolean(value: unknown): boolean | undefined {
+    return typeof value === 'boolean' ? value : undefined
+  }
+
+  private readDate(value: unknown): Date | null {
+    if (value instanceof Date) {
+      return value
+    }
+
+    if (typeof value === 'string' || typeof value === 'number') {
+      const parsed = new Date(value)
+      return Number.isNaN(parsed.getTime()) ? null : parsed
+    }
+
+    return null
+  }
+
+  private readNullableString(value: unknown): null | string {
+    if (value === undefined || value === null) {
+      return null
+    }
+
+    return typeof value === 'string' ? value : null
+  }
+
+  private readOptionalNullableString(value: unknown): null | string | undefined {
+    if (value === undefined) {
+      return undefined
+    }
+
+    if (value === null) {
+      return null
+    }
+
+    return typeof value === 'string' ? value : undefined
+  }
+
+  private readString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.length > 0 ? value : undefined
   }
 
   private recordAuthEvent(
