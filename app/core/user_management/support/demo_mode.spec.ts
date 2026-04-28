@@ -3,21 +3,34 @@ import { test } from '@japa/runner'
 import { isAnonymousDemoAuthEnabled, isDemoModeEnabled } from './demo_mode.js'
 
 test.group('demo mode', () => {
-  test('reads demo mode as an explicit boolean flag', ({ assert }) => {
-    assert.isTrue(isDemoModeEnabled(true))
-    assert.isFalse(isDemoModeEnabled(false))
+  test('reads demo mode as an explicit boolean flag outside production', ({ assert }) => {
+    assert.isTrue(isDemoModeEnabled(true, { nodeEnv: 'development' }))
+    assert.isFalse(isDemoModeEnabled(false, { nodeEnv: 'development' }))
   })
 
-  test('allows anonymous auth only in demo mode outside tests', ({ assert }) => {
+  test('requires DEMO_PRODUCTION_FORCE in production when demo flag is set', ({ assert }) => {
+    assert.isFalse(isDemoModeEnabled(true, { nodeEnv: 'production', demoProductionForce: false }))
+    assert.isTrue(isDemoModeEnabled(true, { nodeEnv: 'production', demoProductionForce: true }))
+    assert.isFalse(isDemoModeEnabled(false, { nodeEnv: 'production', demoProductionForce: true }))
+  })
+
+  test('allows anonymous auth only when effective demo mode is on outside tests', ({ assert }) => {
     assert.isTrue(
       isAnonymousDemoAuthEnabled({
         demoModeEnabled: true,
         nodeEnv: 'development',
       })
     )
+    assert.isFalse(
+      isAnonymousDemoAuthEnabled({
+        demoModeEnabled: true,
+        nodeEnv: 'production',
+      })
+    )
     assert.isTrue(
       isAnonymousDemoAuthEnabled({
         demoModeEnabled: true,
+        demoProductionForce: true,
         nodeEnv: 'production',
       })
     )
