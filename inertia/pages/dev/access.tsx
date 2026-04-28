@@ -30,7 +30,7 @@ export default function DevAccessPage({ bootstrap }: Props) {
     <>
       <Head title="Dev tools access" />
 
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-10">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
         <PageHeader
           description="Development-only bootstrap page for a local dev operator. It can create the account if it does not exist yet, then grant access to the Dev Inspector."
           eyebrow="Development"

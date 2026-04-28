@@ -160,7 +160,7 @@ export default function CustomersPage({
     <>
       <Head title="Customers" />
 
-      <div className="space-y-4 lg:space-y-5">
+      <div className="space-y-5">
         {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
 
         <PageHeader
@@ -171,7 +171,6 @@ export default function CustomersPage({
               </PrimaryButton>
             ) : null
           }
-          className="gap-3"
           description="Customers are your billable contacts. Deletion is blocked once an invoice references a customer."
           eyebrow="Directory"
           title="Customers"
@@ -194,7 +193,7 @@ export default function CustomersPage({
         <DataTable
           emptyMessage="No customers yet."
           headerContent={
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <>
               <SearchForm
                 ariaLabel="Search customers"
                 key={appliedSearch}
@@ -204,7 +203,7 @@ export default function CustomersPage({
               />
               <select
                 aria-label="Filter customers"
-                className="h-9 rounded-lg border border-outline-variant/35 bg-surface px-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary"
+                className="h-9 w-full shrink-0 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-hidden transition-colors focus:border-primary focus:ring-1 focus:ring-primary/20 sm:w-auto"
                 onChange={(event) =>
                   setFilter(event.target.value as 'all' | 'no_invoices' | 'with_invoices')
                 }
@@ -214,7 +213,7 @@ export default function CustomersPage({
                 <option value="with_invoices">With invoices</option>
                 <option value="no_invoices">No invoices</option>
               </select>
-            </div>
+            </>
           }
           isEmpty={!hasPageItems}
           onPageChange={(nextPage) =>

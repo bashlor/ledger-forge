@@ -23,7 +23,7 @@ export function CustomerTable({
   const canInteract = canManageCustomers && !readOnly
 
   return (
-    <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+    <table className="tonal-table w-full min-w-[860px] border-collapse text-left text-sm">
       <thead>
         <TableHeadRow>
           <TableHeaderCell>Company</TableHeaderCell>
@@ -35,11 +35,11 @@ export function CustomerTable({
           <TableHeaderCell className="text-right">Actions</TableHeaderCell>
         </TableHeadRow>
       </thead>
-      <tbody className="divide-y divide-outline-variant/10">
+      <tbody className="divide-y divide-outline-variant/80">
         {items.map((customer) => (
           <tr
-            className={`group transition-colors focus-within:bg-surface-container-low/70 ${
-              canInteract ? 'cursor-pointer hover:bg-surface-container-low/60' : ''
+            className={`group transition-colors duration-150 focus-within:bg-surface-container-low/70 ${
+              canInteract ? 'cursor-pointer hover:bg-surface-container-low/80' : ''
             }`}
             key={customer.id}
             onClick={() => {
@@ -54,22 +54,22 @@ export function CustomerTable({
             }}
             tabIndex={canInteract ? 0 : -1}
           >
-            <td className="px-4 py-2.5 font-medium text-on-surface">
+            <td className="px-4 py-3.5 font-medium text-on-surface">
               <div>{customer.company}</div>
               {customer.note ? (
                 <div className="text-xs text-on-surface-variant">{customer.note}</div>
               ) : null}
             </td>
-            <td className="px-4 py-2.5 text-on-surface">{customer.name}</td>
-            <td className="px-4 py-2.5 text-on-surface-variant">{customer.email}</td>
-            <td className="px-4 py-2.5 text-on-surface-variant">{customer.phone}</td>
-            <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-on-surface">
+            <td className="px-4 py-3.5 text-on-surface">{customer.name}</td>
+            <td className="px-4 py-3.5 text-on-surface-variant">{customer.email}</td>
+            <td className="px-4 py-3.5 text-on-surface-variant">{customer.phone}</td>
+            <td className="px-4 py-3.5 text-right font-semibold tabular-nums text-on-surface">
               {customer.invoiceCount}
             </td>
-            <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-on-surface">
+            <td className="px-4 py-3.5 text-right font-semibold tabular-nums text-on-surface">
               {formatCurrency(customer.totalInvoiced)}
             </td>
-            <td className="px-4 py-2.5 text-right">
+            <td className="px-4 py-3.5 text-right">
               <div
                 className="flex flex-wrap items-center justify-end gap-2"
                 onClick={(event) => event.stopPropagation()}

@@ -43,27 +43,27 @@ export function InvoiceList({
   return (
     <>
       {summary ? (
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg bg-surface-container-low px-3 py-3">
-            <Eyebrow className="text-[10px] tracking-[0.18em]">Drafts</Eyebrow>
-            <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-on-surface">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest px-4 py-4 shadow-sm">
+            <Eyebrow className="text-[10px] tracking-[0.14em]">Drafts</Eyebrow>
+            <p className="mt-2 text-2xl font-headline font-bold tabular-nums tracking-tight text-on-surface">
               {draftCount}
             </p>
-            <p className="mt-0.5 text-xs text-on-surface-variant">Before issue</p>
+            <p className="mt-1 text-xs text-on-surface-variant">Before issue</p>
           </div>
-          <div className="rounded-lg bg-surface-container-low px-3 py-3">
-            <Eyebrow className="text-[10px] tracking-[0.18em]">Issued</Eyebrow>
-            <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-on-surface">
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest px-4 py-4 shadow-sm">
+            <Eyebrow className="text-[10px] tracking-[0.14em]">Issued</Eyebrow>
+            <p className="mt-2 text-2xl font-headline font-bold tabular-nums tracking-tight text-on-surface">
               {issuedCount}
             </p>
-            <p className="mt-0.5 text-xs text-on-surface-variant">Awaiting payment</p>
+            <p className="mt-1 text-xs text-on-surface-variant">Awaiting payment</p>
           </div>
-          <div className="rounded-lg bg-surface-container-low px-3 py-3">
-            <Eyebrow className="text-[10px] tracking-[0.18em]">Overdue</Eyebrow>
-            <p className="mt-1.5 text-2xl font-headline font-extrabold tabular-nums text-error">
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest px-4 py-4 shadow-sm">
+            <Eyebrow className="text-[10px] tracking-[0.14em]">Overdue</Eyebrow>
+            <p className="mt-2 text-2xl font-headline font-bold tabular-nums tracking-tight text-error">
               {overdueCount}
             </p>
-            <p className="mt-0.5 text-xs text-on-surface-variant">Past due date</p>
+            <p className="mt-1 text-xs text-on-surface-variant">Past due date</p>
           </div>
         </div>
       ) : (
@@ -91,45 +91,45 @@ export function InvoiceList({
         pagination={invoices.pagination}
         title="Invoice register"
       >
-        <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+        <table className="tonal-table w-full min-w-[640px] border-collapse text-left text-sm">
           <thead>
             <TableHeadRow>
-              <TableHeaderCell className="py-2">Invoice</TableHeaderCell>
-              <TableHeaderCell className="py-2">Customer</TableHeaderCell>
-              <TableHeaderCell className="py-2">Status</TableHeaderCell>
-              <TableHeaderCell className="py-2">Due</TableHeaderCell>
-              <TableHeaderCell className="py-2 text-right tabular-nums">
-                Amount <span className="font-normal text-on-surface-variant">(incl. VAT)</span>
+              <TableHeaderCell>Invoice</TableHeaderCell>
+              <TableHeaderCell>Customer</TableHeaderCell>
+              <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell>Due</TableHeaderCell>
+              <TableHeaderCell className="text-right tabular-nums">
+                Amount <span className="font-normal normal-case tracking-normal text-on-surface-variant">(incl. VAT)</span>
               </TableHeaderCell>
-              <TableHeaderCell className="w-px px-2 py-2 text-right">
+              <TableHeaderCell className="w-px px-2 text-right">
                 <span className="sr-only">Actions</span>
               </TableHeaderCell>
             </TableHeadRow>
           </thead>
-          <tbody className="divide-y divide-outline-variant/10">
+          <tbody className="divide-y divide-outline-variant/80">
             {invoices.items.map((invoice) => (
               <tr
-                className="cursor-pointer transition-colors hover:bg-surface-container-low/90"
+                className="cursor-pointer transition-colors duration-150 hover:bg-surface-container-low/90"
                 key={invoice.id}
                 onClick={() => onSelectInvoice(invoice)}
               >
-                <td className="whitespace-nowrap px-4 py-2 font-medium tabular-nums text-on-surface">
+                <td className="whitespace-nowrap px-4 py-3.5 font-medium tabular-nums text-on-surface">
                   {invoice.invoiceNumber}
                 </td>
-                <td className="max-w-[220px] truncate px-4 py-2 text-on-surface">
+                <td className="max-w-[220px] truncate px-4 py-3.5 text-on-surface">
                   {invoice.customerCompanyName}
                 </td>
-                <td className="whitespace-nowrap px-4 py-1.5">
+                <td className="whitespace-nowrap px-4 py-3">
                   <StatusBadge status={invoice.status} />
                 </td>
-                <td className="whitespace-nowrap px-4 py-2 tabular-nums text-on-surface-variant">
+                <td className="whitespace-nowrap px-4 py-3.5 tabular-nums text-on-surface-variant">
                   {formatShortDate(invoice.dueDate)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2 text-right font-semibold tabular-nums text-on-surface">
+                <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-on-surface">
                   {formatCurrency(invoice.totalInclTax)}
                 </td>
                 <td
-                  className="whitespace-nowrap px-2 py-2 text-right"
+                  className="whitespace-nowrap px-2 py-3.5 text-right"
                   onClick={(event) => event.stopPropagation()}
                 >
                   {canDeleteInvoice(invoice) ? (

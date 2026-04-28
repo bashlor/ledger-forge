@@ -8,6 +8,7 @@ import { DateScopeSummary } from '~/components/date_scope_summary'
 import { MetricCard } from '~/components/metric_card'
 import { PageHeader } from '~/components/page_header'
 import { StatusBadge } from '~/components/status_badge'
+import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { isDateWithinScope } from '~/lib/date_scope'
 import { formatCurrency, formatShortDate } from '~/lib/format'
 
@@ -27,7 +28,7 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard?: 
       <>
         <Head title="Overview" />
 
-        <div className="space-y-8">
+        <div className="space-y-4">
           <PageHeader
             description="The dashboard aggregates revenue, cash collected, expenses, and profit, derived from invoices and expenses."
             eyebrow="Summary"
@@ -52,7 +53,7 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard?: 
     <>
       <Head title="Overview" />
 
-      <div className="space-y-8">
+      <div className="space-y-4">
         <PageHeader
           description="The dashboard aggregates revenue, cash collected, expenses, and profit, derived from invoices and expenses."
           eyebrow="Summary"
@@ -86,64 +87,59 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard?: 
           />
         </section>
 
-        <section className="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-ambient-tight">
-          <div className="flex items-center justify-between border-b border-outline-variant/10 px-4 py-3">
+        <section className="rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+          <div className="flex items-center justify-between border-b border-outline-variant px-4 py-3.5 sm:px-5">
             <div>
-              <h2 className="text-base font-semibold text-on-surface">Recent invoices</h2>
-              <p className="text-sm text-on-surface-variant">
+              <h2 className="text-lg font-semibold tracking-tight text-on-surface">
+                Recent invoices
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-on-surface-variant">
                 Latest issued, paid, or draft invoices.
               </p>
             </div>
           </div>
 
           {scopedInvoices.length === 0 ? (
-            <div className="px-4 py-8">
-              <div className="rounded-lg border border-dashed border-outline-variant/35 bg-surface-container-low px-4 py-5 text-sm text-on-surface-variant">
+            <div className="px-5 py-10 sm:px-6">
+              <div className="rounded-xl border border-dashed border-outline-variant bg-surface px-5 py-6 text-sm text-on-surface-variant">
                 No recent invoices fall within the selected period.
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+            <div className="overflow-x-auto rounded-b-xl">
+              <table className="tonal-table w-full min-w-[760px] border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-outline-variant/15 bg-surface-container-low text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
-                    <th className="px-4 py-3 font-medium" scope="col">
-                      Invoice
-                    </th>
-                    <th className="px-4 py-3 font-medium" scope="col">
-                      Client
-                    </th>
-                    <th className="px-4 py-3 font-medium" scope="col">
-                      Issued
-                    </th>
-                    <th className="px-4 py-3 font-medium" scope="col">
-                      Due
-                    </th>
-                    <th className="px-4 py-3 font-medium" scope="col">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-right font-medium tabular-nums" scope="col">
+                  <TableHeadRow>
+                    <TableHeaderCell scope="col">Invoice</TableHeaderCell>
+                    <TableHeaderCell scope="col">Client</TableHeaderCell>
+                    <TableHeaderCell scope="col">Issued</TableHeaderCell>
+                    <TableHeaderCell scope="col">Due</TableHeaderCell>
+                    <TableHeaderCell scope="col">Status</TableHeaderCell>
+                    <TableHeaderCell className="text-right tabular-nums" scope="col">
                       Total (incl. VAT)
-                    </th>
-                  </tr>
+                    </TableHeaderCell>
+                  </TableHeadRow>
                 </thead>
-                <tbody className="divide-y divide-outline-variant/10">
+                <tbody className="divide-y divide-outline-variant/80">
                   {scopedInvoices.map((invoice) => (
-                    <tr key={invoice.id}>
-                      <td className="whitespace-nowrap px-4 py-3 font-medium tabular-nums text-on-surface">
+                    <tr
+                      className="transition-colors duration-150 hover:bg-surface-container-low/90"
+                      key={invoice.id}
+                    >
+                      <td className="whitespace-nowrap px-4 py-3.5 font-medium tabular-nums text-on-surface">
                         {invoice.invoiceNumber}
                       </td>
-                      <td className="px-4 py-3 text-on-surface">{invoice.customerCompanyName}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-on-surface-variant">
+                      <td className="px-4 py-3.5 text-on-surface">{invoice.customerCompanyName}</td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-on-surface-variant">
                         {formatShortDate(invoice.date)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-on-surface-variant">
+                      <td className="whitespace-nowrap px-4 py-3.5 text-on-surface-variant">
                         {formatShortDate(invoice.dueDate)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3">
+                      <td className="whitespace-nowrap px-4 py-3.5">
                         <StatusBadge status={invoice.status} />
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-on-surface">
+                      <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-on-surface">
                         {formatCurrency(invoice.totalInclTax)}
                       </td>
                     </tr>
@@ -167,26 +163,26 @@ function DashboardSkeleton() {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metricPlaceholders.map((_, i) => (
           <div
-            className="flex min-h-[120px] animate-pulse flex-col justify-between rounded-xl border-b-2 border-outline-variant/20 bg-surface-container-lowest p-5 shadow-ambient-tight"
+            className="flex min-h-[118px] animate-pulse flex-col justify-end rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm"
             key={i}
           >
-            <div className="h-10 w-28 rounded bg-surface-container-high" />
+            <div className="mb-3 h-10 w-28 rounded-lg bg-surface-container-high" />
             <div className="h-3 w-20 rounded bg-surface-container-high" />
           </div>
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-ambient-tight">
-        <div className="flex items-center justify-between border-b border-outline-variant/10 px-4 py-3">
+      <section className="rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+        <div className="flex items-center justify-between border-b border-outline-variant px-4 py-3.5 sm:px-5">
           <div>
-            <div className="h-5 w-40 animate-pulse rounded bg-surface-container-high" />
-            <div className="mt-2 h-4 w-64 animate-pulse rounded bg-surface-container-high" />
+            <div className="h-5 w-40 animate-pulse rounded-lg bg-surface-container-high" />
+            <div className="mt-2 h-4 w-64 animate-pulse rounded-lg bg-surface-container-high" />
           </div>
         </div>
-        <div className="overflow-x-auto px-4 py-4">
+        <div className="overflow-x-auto rounded-b-xl px-4 py-4 sm:px-5">
           <table className="w-full min-w-[760px] border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b border-outline-variant/15 bg-surface-container-low">
+              <tr className="border-b border-outline-variant bg-surface-container-lowest">
                 {Array.from({ length: 6 }).map((__, j) => (
                   <th className="px-4 py-3" key={j} scope="col">
                     <div className="h-3 w-16 animate-pulse rounded bg-surface-container-high" />
@@ -194,11 +190,11 @@ function DashboardSkeleton() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant/10">
+            <tbody className="divide-y divide-outline-variant/80">
               {rowPlaceholders.map((_, r) => (
                 <tr key={r}>
                   {Array.from({ length: 6 }).map((__, c) => (
-                    <td className="px-4 py-3" key={c}>
+                    <td className="px-4 py-3.5" key={c}>
                       <div className="h-4 w-full max-w-[8rem] animate-pulse rounded bg-surface-container-high" />
                     </td>
                   ))}

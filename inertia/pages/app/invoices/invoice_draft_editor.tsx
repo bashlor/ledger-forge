@@ -326,7 +326,7 @@ export function InvoiceDraftEditor({
               </button>
               {!isCreating && selectedInvoice && canIssueInvoice(selectedInvoice) ? (
                 <button
-                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-on-primary milled-steel-gradient transition-all hover:opacity-95 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-sm shadow-primary/20 transition-colors hover:bg-primary-dim disabled:opacity-60"
                   disabled={accountingReadOnly || saving}
                   onClick={onIssueInvoice}
                   type="button"

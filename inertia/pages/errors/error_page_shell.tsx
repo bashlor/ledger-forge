@@ -52,7 +52,7 @@ export function ErrorPageShell({ code, description, icon, title }: ErrorPageShel
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <ErrorHomeLink className="inline-flex items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-on-primary shadow-sm milled-steel-gradient transition-all hover:opacity-95" />
+            <ErrorHomeLink className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-on-primary shadow-md shadow-primary/25 transition-colors hover:bg-primary-dim" />
             <span className="text-xs font-medium text-on-surface-variant">
               Routing adapts to your current access level.
             </span>

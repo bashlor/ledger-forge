@@ -246,10 +246,10 @@ export default function ExpensesPage({
           <>
             <SecondaryButton onClick={() => setPendingAction(null)}>Cancel</SecondaryButton>
             <button
-              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors ${
                 pendingAction?.kind === 'delete'
                   ? 'bg-error text-on-error hover:bg-error/90'
-                  : 'text-on-primary milled-steel-gradient hover:opacity-95'
+                  : 'bg-primary text-on-primary shadow-primary/20 hover:bg-primary-dim'
               }`}
               disabled={accountingReadOnly}
               onClick={executeAction}

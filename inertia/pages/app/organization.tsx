@@ -3,13 +3,6 @@ import { Head, usePage } from '@inertiajs/react'
 import { useMemo, useState } from 'react'
 
 import { DataTable } from '~/components/data_table'
-import { PageHeader } from '~/components/page_header'
-import { StatusBadge } from '~/components/status_badge'
-import { TableHeaderCell, TableHeadRow } from '~/components/ui'
-
-import type { InertiaProps } from '../../types'
-
-import { formatTimestamp, humanizeAuditAction } from '../dev/inspector_display_helpers'
 import {
   buttonClass,
   inputClass,
@@ -17,7 +10,14 @@ import {
   ScrollableTable,
   ToneBadge,
   toneForAuditResult,
-} from '../dev/inspector_ui_primitives'
+} from '~/components/operator_ui'
+import { PageHeader } from '~/components/page_header'
+import { StatusBadge } from '~/components/status_badge'
+import { TableHeaderCell, TableHeadRow } from '~/components/ui'
+
+import type { InertiaProps } from '../../types'
+
+import { formatTimestamp, humanizeAuditAction } from '../dev/inspector_display_helpers'
 
 type AuditContextFilter = 'accounting' | 'all' | 'user_management'
 type MemberRoleFilter = 'admin' | 'all' | 'member' | 'owner'
