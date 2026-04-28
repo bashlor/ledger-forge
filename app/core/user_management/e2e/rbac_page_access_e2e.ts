@@ -48,8 +48,7 @@ test.group('RBAC Page Access E2E', (group) => {
 
     await context.db.update(member).set({ role: 'member' }).where(eq(member.userId, memberUserId))
 
-    await page.goto(route('home'))
-    await page.waitForURL('**/customers')
+    await page.goto(route('customers.page'))
     await page.assertPath(route('customers.page'))
     await page.assertTextContains('body', 'Customers')
 

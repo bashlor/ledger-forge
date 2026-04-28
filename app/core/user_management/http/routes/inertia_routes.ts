@@ -12,6 +12,10 @@ const SignupController = () => import('../controllers/signup_controller.js')
 const UpdateAccountController = () => import('../controllers/update_account_controller.js')
 const UpdatePasswordController = () => import('../controllers/update_password_controller.js')
 
+// Keep signout available even when the session has already expired,
+// so the client can always clear cookies and return to the public landing page.
+router.post('signout', [SignoutController, 'store']).as('signout.store')
+
 router
   .group(() => {
     router.get('signup', [SignupController, 'show']).as('signup.show')
@@ -31,8 +35,6 @@ router
 
 router
   .group(() => {
-    router.post('signout', [SignoutController, 'store']).as('signout.store')
-
     router.get('account', [UpdateAccountController, 'show']).as('account.show')
     router.post('account', [UpdateAccountController, 'store']).as('account.store')
     router

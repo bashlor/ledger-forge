@@ -8,7 +8,7 @@ import { readSessionToken } from '../session/session_token.js'
 
 @inject()
 export default class GuestMiddleware {
-  redirectTo = '/'
+  redirectTo = '/dashboard'
 
   constructor(protected auth: AuthenticationPort) {}
 

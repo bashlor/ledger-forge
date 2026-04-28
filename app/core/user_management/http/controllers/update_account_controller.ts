@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
+import { AuthorizationService } from '#core/user_management/application/authorization_service'
 import { inject } from '@adonisjs/core'
 
 import { AuthenticationPort } from '../../domain/authentication.js'
@@ -10,17 +11,14 @@ import { readSessionToken } from '../session/session_token.js'
 import { updateProfileValidator } from '../validators/user.js'
 
 export default class UpdateAccountController {
-  async show({ authSession, inertia }: HttpContext) {
-    const user = authSession?.user
+  @inject()
+  async show({ authSession, inertia }: HttpContext, authorizationService: AuthorizationService) {
+    const actor = authSession?.session.activeOrganizationId
+      ? await authorizationService.actorFromSession(authSession)
+      : null
+
     return inertia.render('account/settings', {
-      user: user
-        ? {
-            email: user.email,
-            image: user.image ?? null,
-            isAnonymous: user.isAnonymous,
-            name: user.name,
-          }
-        : null,
+      activeWorkspaceRole: actor?.membershipIsActive ? actor.membershipRole : null,
     })
   }
 

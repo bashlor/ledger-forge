@@ -6,10 +6,10 @@ const CustomersController = () => import('../http/controllers/customers_controll
 const ExpensesController = () => import('../http/controllers/expenses_controller.js')
 const InvoicesController = () => import('../http/controllers/invoices_controller.js')
 
+router.get('/', ({ view }) => view.render('landing')).as('landing')
+
 router
   .group(() => {
-    router.get('/', [DashboardController, 'home']).as('home')
-
     router.get('/dashboard', [DashboardController, 'dashboard']).as('dashboard')
 
     router.get('/customers', [CustomersController, 'index']).as('customers.page')

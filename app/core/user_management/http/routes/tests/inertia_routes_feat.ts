@@ -38,6 +38,8 @@ class RouteAuthenticationStub extends AuthenticationPort {
   requestPasswordResetEmail: null | string = null
   resetPasswordCalls = 0
   resetPasswordInput: null | { newPassword: string; token: string } = null
+  signOutCalls = 0
+  signOutSessionToken: null | string = null
   updateUserCalls = 0
 
   constructor(
@@ -97,7 +99,10 @@ class RouteAuthenticationStub extends AuthenticationPort {
       user: anonymousUser,
     }
   }
-  async signOut(_sessionToken: string): Promise<void> {}
+  async signOut(sessionToken: string): Promise<void> {
+    this.signOutCalls += 1
+    this.signOutSessionToken = sessionToken
+  }
   async signUp(_email: string, _password: string, _name?: string): Promise<AuthResult> {
     return {
       session: {
@@ -165,7 +170,7 @@ test.group('Auth inertia routes', (group) => {
       .form({ email: 'sam@example.com', password: 'SecureP@ss123' })
 
     response.assertStatus(302)
-    response.assertHeader('location', '/')
+    response.assertHeader('location', '/dashboard')
     const setCookies = response.headers()['set-cookie']
     const serializedCookies = Array.isArray(setCookies) ? setCookies.join('; ') : (setCookies ?? '')
     assert.include(serializedCookies, `${AUTH_SESSION_TOKEN_COOKIE_NAME}=`)
@@ -213,7 +218,7 @@ test.group('Auth inertia routes', (group) => {
     })
 
     response.assertStatus(302)
-    response.assertHeader('location', '/')
+    response.assertHeader('location', '/dashboard')
     const setCookies = response.headers()['set-cookie']
     const serializedCookies = Array.isArray(setCookies) ? setCookies.join('; ') : (setCookies ?? '')
     assert.include(serializedCookies, `${AUTH_SESSION_TOKEN_COOKIE_NAME}=`)
@@ -224,11 +229,43 @@ test.group('Auth inertia routes', (group) => {
     const response = await client.post('/signin/anonymous').redirects(0).form({})
 
     response.assertStatus(302)
-    response.assertHeader('location', '/')
+    response.assertHeader('location', '/dashboard')
     const setCookies = response.headers()['set-cookie']
     const serializedCookies = Array.isArray(setCookies) ? setCookies.join('; ') : (setCookies ?? '')
     assert.include(serializedCookies, `${AUTH_SESSION_TOKEN_COOKIE_NAME}=`)
     assert.notInclude(serializedCookies, 'e:')
+  })
+
+  test('signs out from an Inertia form and forces a full landing page visit', async ({
+    assert,
+    client,
+  }) => {
+    const auth = new RouteAuthenticationStub({
+      session: {
+        activeOrganizationId: null,
+        expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+        token: 'session_token',
+        userId: guestUser.id,
+      },
+      user: guestUser,
+    })
+    app.container.bindValue(AuthenticationPort, auth)
+    app.container.bindValue('authAdapter', auth)
+
+    const response = await inertiaHeaders(client.post('/signout').redirects(0)).cookie(
+      AUTH_SESSION_TOKEN_COOKIE_NAME,
+      'session_token'
+    )
+
+    response.assertStatus(409)
+    response.assertHeader('x-inertia-location', '/')
+    assert.equal(auth.signOutCalls, 1)
+    assert.equal(auth.signOutSessionToken, 'session_token')
+
+    const setCookies = response.headers()['set-cookie']
+    const serializedCookies = Array.isArray(setCookies) ? setCookies.join('; ') : (setCookies ?? '')
+    assert.include(serializedCookies, `${AUTH_SESSION_TOKEN_COOKIE_NAME}=;`)
+    assert.include(serializedCookies, 'Expires=Thu, 01 Jan 1970 00:00:00 GMT')
   })
 
   test('renders forgot-password for guests', async ({ assert, client }) => {
@@ -356,11 +393,11 @@ test.group('Auth inertia routes', (group) => {
 
     response.assertStatus(200)
     assert.equal(response.body().component, 'account/settings')
-    assert.deepEqual(response.body().props.user, {
+    assert.isNull(response.body().props.activeWorkspaceRole)
+    assert.include(response.body().props.user, {
       email: anonymousUser.email,
-      image: anonymousUser.image,
+      fullName: anonymousUser.name,
       isAnonymous: true,
-      name: anonymousUser.name,
     })
   })
 
@@ -387,11 +424,11 @@ test.group('Auth inertia routes', (group) => {
 
     response.assertStatus(200)
     assert.equal(response.body().component, 'account/settings')
-    assert.deepEqual(response.body().props.user, {
+    assert.isNull(response.body().props.activeWorkspaceRole)
+    assert.include(response.body().props.user, {
       email: guestUser.email,
-      image: guestUser.image,
+      fullName: guestUser.name,
       isAnonymous: false,
-      name: guestUser.name,
     })
   })
 

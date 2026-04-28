@@ -173,28 +173,11 @@ test.group('Dashboard routes', (group) => {
     response.assertStatus(403)
   })
 
-  test('GET / redirects regular members to customers', async ({ client }) => {
-    const db = (await app.container.make('drizzle')) as any
-    await db
-      .update(member)
-      .set({ isActive: true, role: 'member' })
-      .where(eq(member.userId, TEST_ACCOUNTING_USER_ID))
+  test('GET / renders the public landing page without authentication', async ({ client }) => {
+    const response = await client.get('/')
 
-    const response = await client.get('/').header('cookie', authCookie()).redirects(0)
-
-    response.assertStatus(302)
-    response.assertHeader('location', '/customers')
-  })
-
-  test('GET / redirects dev operators to dev tools instead of accounting pages', async ({
-    client,
-  }) => {
-    const db = (await app.container.make('drizzle')) as any
-    await db.insert(devOperatorAccess).values({ userId: TEST_ACCOUNTING_USER_ID })
-
-    const response = await client.get('/').header('cookie', authCookie()).redirects(0)
-
-    response.assertStatus(302)
-    response.assertHeader('location', '/_dev')
+    response.assertStatus(200)
+    response.assertTextIncludes('Ledger Forge')
+    response.assertTextIncludes('Backend portfolio project')
   })
 })
