@@ -18,36 +18,6 @@ const historyDateFormatter = new Intl.DateTimeFormat('en-GB', {
   timeStyle: 'short',
 })
 
-function actorLabel(event: InvoiceAuditEventDto): string {
-  if (event.actorName?.trim()) {
-    return event.actorName.trim()
-  }
-  if (event.actorEmail?.trim()) {
-    return event.actorEmail.trim()
-  }
-  if (event.actorId) {
-    return event.actorId
-  }
-  return 'System'
-}
-
-function iconForAuditAction(action: string): string {
-  switch (action) {
-    case 'create_draft':
-      return 'add'
-    case 'delete_draft':
-      return 'delete'
-    case 'issue':
-      return 'send'
-    case 'mark_paid':
-      return 'task_alt'
-    case 'update_draft':
-      return 'edit'
-    default:
-      return 'receipt_long'
-  }
-}
-
 export function InvoiceHistoryDrawer({
   errorMessage,
   events,
@@ -170,6 +140,36 @@ export function InvoiceHistoryDrawer({
       )}
     </DrawerPanel>
   )
+}
+
+function actorLabel(event: InvoiceAuditEventDto): string {
+  if (event.actorName?.trim()) {
+    return event.actorName.trim()
+  }
+  if (event.actorEmail?.trim()) {
+    return event.actorEmail.trim()
+  }
+  if (event.actorId) {
+    return event.actorId
+  }
+  return 'System'
+}
+
+function iconForAuditAction(action: string): string {
+  switch (action) {
+    case 'create_draft':
+      return 'add'
+    case 'delete_draft':
+      return 'delete'
+    case 'issue':
+      return 'send'
+    case 'mark_paid':
+      return 'task_alt'
+    case 'update_draft':
+      return 'edit'
+    default:
+      return 'receipt_long'
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

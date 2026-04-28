@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 
 import type { InvoiceDto } from '~/lib/types'
 
@@ -16,6 +16,10 @@ interface InvoiceRowActionsMenuProps {
   readOnly: boolean
 }
 
+interface MenuState {
+  open: boolean
+  step: MenuStep
+}
 type MenuStep = 'actions' | 'confirm-delete'
 
 export function InvoiceRowActionsMenu({
@@ -27,30 +31,30 @@ export function InvoiceRowActionsMenu({
   processing,
   readOnly,
 }: InvoiceRowActionsMenuProps) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [step, setStep] = useState<MenuStep>('actions')
+  const [menuState, setMenuState] = useState<MenuState>({ open: false, step: 'actions' })
   const wrapRef = useRef<HTMLDivElement>(null)
   const baseId = useId()
   const menuId = `${baseId}-menu`
   const confirmTitleId = `${baseId}-confirm-title`
+  const menuOpen = menuState.open
+  const step = menuState.step
 
-  useCloseOnOutsideAndEscape(menuOpen, setMenuOpen, wrapRef)
-
-  useEffect(() => {
-    if (!menuOpen) {
-      setStep('actions')
-    }
-  }, [menuOpen])
+  useCloseOnOutsideAndEscape(menuOpen, closeMenu, wrapRef)
 
   const editDisabled = processing || readOnly || !canEditInvoice(invoice)
   const issueDisabled = processing || readOnly || !canIssueInvoice(invoice)
   const deleteDisabled = processing || readOnly || !canDeleteInvoice(invoice)
 
   function toggleMenu() {
-    setMenuOpen((openState) => {
-      if (!openState) setStep('actions')
-      return !openState
-    })
+    setMenuState((state) => ({ open: !state.open, step: 'actions' }))
+  }
+
+  function closeMenu() {
+    setMenuState({ open: false, step: 'actions' })
+  }
+
+  function showDeleteConfirmation() {
+    setMenuState({ open: true, step: 'confirm-delete' })
   }
 
   return (
@@ -92,7 +96,7 @@ export function InvoiceRowActionsMenu({
               <button
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 transition-colors duration-150 hover:bg-slate-50"
                 onClick={() => {
-                  setMenuOpen(false)
+                  closeMenu()
                   onOpen(invoice)
                 }}
                 role="menuitem"
@@ -105,7 +109,7 @@ export function InvoiceRowActionsMenu({
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={editDisabled}
                 onClick={() => {
-                  setMenuOpen(false)
+                  closeMenu()
                   onEdit(invoice)
                 }}
                 role="menuitem"
@@ -118,7 +122,7 @@ export function InvoiceRowActionsMenu({
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={issueDisabled}
                 onClick={() => {
-                  setMenuOpen(false)
+                  closeMenu()
                   onIssue(invoice)
                 }}
                 role="menuitem"
@@ -132,7 +136,7 @@ export function InvoiceRowActionsMenu({
                 disabled={deleteDisabled}
                 onClick={() => {
                   if (deleteDisabled) return
-                  setStep('confirm-delete')
+                  showDeleteConfirmation()
                 }}
                 role="menuitem"
                 type="button"
@@ -143,15 +147,21 @@ export function InvoiceRowActionsMenu({
             </>
           ) : (
             <div className="space-y-1">
-              <p className="text-[15px] font-medium leading-relaxed text-slate-800" id={confirmTitleId}>
+              <p
+                className="text-[15px] font-medium leading-relaxed text-slate-800"
+                id={confirmTitleId}
+              >
                 Delete draft invoice{' '}
-                <span className="font-semibold text-slate-950">&ldquo;{invoice.invoiceNumber}&rdquo;</span>?
+                <span className="font-semibold text-slate-950">
+                  &ldquo;{invoice.invoiceNumber}&rdquo;
+                </span>
+                ?
               </p>
               <p className="text-sm leading-relaxed text-slate-600">This cannot be undone.</p>
               <div className="flex flex-wrap justify-end gap-2.5 pt-4">
                 <button
                   className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors duration-150 hover:bg-slate-100"
-                  onClick={() => setStep('actions')}
+                  onClick={() => setMenuState({ open: true, step: 'actions' })}
                   type="button"
                 >
                   Cancel
@@ -161,7 +171,7 @@ export function InvoiceRowActionsMenu({
                   className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-rose-900/15 transition-colors duration-150 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={processing}
                   onClick={() => {
-                    setMenuOpen(false)
+                    closeMenu()
                     onDelete(invoice)
                   }}
                   type="button"

@@ -42,14 +42,27 @@ const defaultPermissions = {
   canViewOverview: true,
 }
 
+const defaultUser = {
+  email: 'anon@example.com',
+  fullName: '',
+  id: 'user-anon',
+  image: null,
+  initials: 'AN',
+  isAnonymous: true,
+  isDevOperator: false,
+}
+
 function mockSharedPage(overrides?: {
   permissions?: typeof defaultPermissions
+  user?: null | typeof defaultUser
   workspace?: null | typeof defaultWorkspace
 }) {
   usePageMock.mockReturnValue({
     props: {
       permissions: overrides?.permissions ?? defaultPermissions,
-      workspace: overrides?.workspace === null ? undefined : (overrides?.workspace ?? defaultWorkspace),
+      user: overrides?.user === null ? undefined : (overrides?.user ?? defaultUser),
+      workspace:
+        overrides?.workspace === null ? undefined : (overrides?.workspace ?? defaultWorkspace),
     },
   })
 }
@@ -58,16 +71,7 @@ describe('Settings page', () => {
   it('shows anonymous badge when session is anonymous', () => {
     mockSharedPage()
 
-    render(
-      <Settings
-        user={{
-          email: 'anon@example.com',
-          image: null,
-          isAnonymous: true,
-          name: '',
-        }}
-      />,
-    )
+    render(<Settings activeWorkspaceRole={null} />)
 
     expect(screen.getByText('Anonymous session')).toBeInTheDocument()
     expect(screen.getByText(/Anonymous sessions are read-only/i)).toBeInTheDocument()
@@ -77,16 +81,7 @@ describe('Settings page', () => {
     const user = userEvent.setup()
     mockSharedPage()
 
-    render(
-      <Settings
-        user={{
-          email: 'anon@example.com',
-          image: null,
-          isAnonymous: true,
-          name: '',
-        }}
-      />,
-    )
+    render(<Settings activeWorkspaceRole={null} />)
 
     await user.click(screen.getByRole('button', { name: /^workspace$/i }))
     expect(screen.getByRole('heading', { name: 'Active workspace' })).toBeInTheDocument()
@@ -104,16 +99,7 @@ describe('Settings page', () => {
       },
     })
 
-    render(
-      <Settings
-        user={{
-          email: 'anon@example.com',
-          image: null,
-          isAnonymous: true,
-          name: '',
-        }}
-      />,
-    )
+    render(<Settings activeWorkspaceRole={null} />)
 
     expect(screen.getByRole('button', { name: /^profile$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^security$/i })).toBeInTheDocument()
@@ -125,6 +111,15 @@ describe('Settings page', () => {
   it('shows profile and security actions when session is registered', async () => {
     const user = userEvent.setup()
     mockSharedPage({
+      user: {
+        email: 'jane@example.com',
+        fullName: 'Jane Doe',
+        id: 'user-jane',
+        image: null,
+        initials: 'JD',
+        isAnonymous: false,
+        isDevOperator: false,
+      },
       workspace: {
         id: 'ws',
         isAnonymousWorkspace: false,
@@ -133,18 +128,11 @@ describe('Settings page', () => {
       },
     })
 
-    render(
-      <Settings
-        user={{
-          email: 'jane@example.com',
-          image: null,
-          isAnonymous: false,
-          name: 'Jane Doe',
-        }}
-      />,
-    )
+    render(<Settings activeWorkspaceRole="owner" />)
 
     expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument()
+    expect(screen.getByText('Registered account')).toBeInTheDocument()
+    expect(screen.getByText('Owner')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /^security$/i }))
     expect(screen.getByRole('button', { name: /update password/i })).toBeInTheDocument()

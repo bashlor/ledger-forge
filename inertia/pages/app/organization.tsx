@@ -9,12 +9,12 @@ import { PageHeader } from '~/components/page_header'
 import { SearchForm } from '~/components/search_form'
 
 import type { InertiaProps } from '../../types'
+import type { OrganizationAuditEvent } from './organization/audit_types'
+import type { OrganizationMemberRow } from './organization/member_row_actions_menu'
 
 import { AuditEventDetailDrawer } from './organization/audit_event_detail_drawer'
 import { AuditTrailTable } from './organization/audit_trail_table'
-import type { OrganizationAuditEvent } from './organization/audit_types'
 import { MembersTable } from './organization/members_table'
-import type { OrganizationMemberRow } from './organization/member_row_actions_menu'
 
 type AuditContextFilter = 'accounting' | 'all' | 'user_management'
 type MemberRoleFilter = 'admin' | 'all' | 'member' | 'owner'
@@ -49,30 +49,6 @@ interface OrganizationPageProps {
   viewerUserId: string
 }
 
-function compactDetailsForSearch(event: OrganizationAuditEvent): null | string {
-  const details: Record<string, unknown> = {}
-  if (event.changes && typeof event.changes === 'object') {
-    details.changes = event.changes
-  }
-  if (event.metadata && typeof event.metadata === 'object') {
-    details.metadata = event.metadata
-  }
-
-  return Object.keys(details).length > 0 ? JSON.stringify(details) : null
-}
-
-function auditContextForFilter(event: OrganizationAuditEvent): 'accounting' | 'user_management' {
-  if (event.boundedContext) {
-    return event.boundedContext
-  }
-
-  return event.entityType === 'customer' ||
-    event.entityType === 'expense' ||
-    event.entityType === 'invoice'
-    ? 'accounting'
-    : 'user_management'
-}
-
 export default function OrganizationPage({
   auditEvents,
   canManageMembershipRoles,
@@ -83,7 +59,9 @@ export default function OrganizationPage({
   viewerUserId,
 }: InertiaProps<OrganizationPageProps>) {
   const activeMembers = members.filter((member) => member.isActive).length
-  const admins = members.filter((member) => member.role === 'admin' || member.role === 'owner').length
+  const admins = members.filter(
+    (member) => member.role === 'admin' || member.role === 'owner'
+  ).length
 
   const [memberSearch, setMemberSearch] = useState('')
   const [memberRoleFilter, setMemberRoleFilter] = useState<MemberRoleFilter>('all')
@@ -224,7 +202,9 @@ export default function OrganizationPage({
           headerClassName="border-b border-slate-200/90 bg-white px-5 py-4 sm:px-6"
           headerContent={
             <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">{membersToolbar}</div>
+              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+                {membersToolbar}
+              </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <PrimaryButton
                   className="rounded-xl px-4 py-2.5 opacity-90"
@@ -313,4 +293,28 @@ export default function OrganizationPage({
       <AuditEventDetailDrawer event={auditDetail} onClose={() => setAuditDetail(null)} />
     </>
   )
+}
+
+function auditContextForFilter(event: OrganizationAuditEvent): 'accounting' | 'user_management' {
+  if (event.boundedContext) {
+    return event.boundedContext
+  }
+
+  return event.entityType === 'customer' ||
+    event.entityType === 'expense' ||
+    event.entityType === 'invoice'
+    ? 'accounting'
+    : 'user_management'
+}
+
+function compactDetailsForSearch(event: OrganizationAuditEvent): null | string {
+  const details: Record<string, unknown> = {}
+  if (event.changes && typeof event.changes === 'object') {
+    details.changes = event.changes
+  }
+  if (event.metadata && typeof event.metadata === 'object') {
+    details.metadata = event.metadata
+  }
+
+  return Object.keys(details).length > 0 ? JSON.stringify(details) : null
 }

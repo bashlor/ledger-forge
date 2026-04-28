@@ -35,10 +35,7 @@ export function DataTable({
   titleClassName,
   toolbarClassName,
 }: DataTableProps) {
-  const headerClasses = [
-    'border-b border-outline-variant px-4 py-3 sm:px-5',
-    headerClassName,
-  ]
+  const headerClasses = ['border-b border-outline-variant px-4 py-3 sm:px-5', headerClassName]
     .filter(Boolean)
     .join(' ')
 

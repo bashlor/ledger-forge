@@ -2,6 +2,7 @@
 
 @import 'tailwindcss';
 @source "../**/*.{ts,tsx}";
+@source "../../app/core/common/resources/views/**/*.edge";
 
 @theme {
   /** Main scroll region behind cards (slightly cooler than pure white). */

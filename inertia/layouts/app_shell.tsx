@@ -47,9 +47,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
   const user = page.props.user
   const notification = page.props.flash?.notification
   const email = user?.email ?? ''
-  const displayName = user
-    ? resolveTopbarDisplayName(user.fullName, email, user.isAnonymous)
-    : ''
+  const displayName = user ? resolveTopbarDisplayName(user.fullName, email, user.isAnonymous) : ''
   const initials = user?.initials ?? getInitials(displayName || email || 'PL')
   const pageLabel = pageLabelForUrl(url)
   const workspace = page.props.workspace

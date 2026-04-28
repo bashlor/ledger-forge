@@ -7,15 +7,13 @@ import { PrimaryButton } from '~/components/button'
 import { FormField } from '~/components/form_field'
 import { PageHeader } from '~/components/page_header'
 
+import { OrganizationRoleBadge } from '../app/organization/organization_role_badge'
+
+type ActiveWorkspaceRole = 'admin' | 'member' | 'owner'
 type SettingsPermissions = Data.SharedProps['permissions']
 
 interface SettingsProps {
-  user: null | {
-    email: string
-    image: null | string
-    isAnonymous: boolean
-    name: string
-  }
+  activeWorkspaceRole: ActiveWorkspaceRole | null
 }
 type SettingsSection = 'billing' | 'danger' | 'profile' | 'security' | 'workspace'
 
@@ -49,8 +47,17 @@ const CARD_CLASS =
 const FIELD_CLASS =
   'h-10 min-h-10 w-full rounded-xl border border-border-default bg-white px-3 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors duration-150 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60'
 
-export default function Settings({ user }: SettingsProps) {
+export default function Settings({ activeWorkspaceRole }: SettingsProps) {
   const page = usePage<Data.SharedProps>()
+  const sharedUser = page.props.user
+  const user = sharedUser
+    ? {
+        email: sharedUser.email,
+        image: sharedUser.image,
+        isAnonymous: sharedUser.isAnonymous,
+        name: sharedUser.fullName ?? '',
+      }
+    : null
   const workspace = page.props.workspace
   const permissions = page.props.permissions
   const sectionNav = SECTION_NAV.filter((item) => isSectionVisible(item, permissions, user))
@@ -166,7 +173,7 @@ export default function Settings({ user }: SettingsProps) {
                 <div className="mt-6 space-y-5">
                   <div>
                     <p className="form-label-caps">Account status</p>
-                    <div className="mt-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                       <span
                         className={`inline-flex rounded-lg border px-2.5 py-1 text-[11px] font-semibold tracking-wide ring-1 ring-inset ${
                           isAnonymous
@@ -176,6 +183,9 @@ export default function Settings({ user }: SettingsProps) {
                       >
                         {isAnonymous ? 'Anonymous session' : 'Registered account'}
                       </span>
+                      {!isAnonymous && activeWorkspaceRole ? (
+                        <OrganizationRoleBadge role={activeWorkspaceRole} />
+                      ) : null}
                     </div>
                   </div>
 
@@ -452,7 +462,7 @@ export default function Settings({ user }: SettingsProps) {
 function isSectionVisible(
   item: (typeof SECTION_NAV)[number],
   permissions: SettingsPermissions,
-  user: SettingsProps['user']
+  user: null | { isAnonymous: boolean }
 ): boolean {
   if (item.registeredOnly && user?.isAnonymous !== false) {
     return false

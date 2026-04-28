@@ -2,30 +2,6 @@ import { DrawerPanel } from '~/components/drawer_panel'
 
 import type { OrganizationAuditEvent } from './audit_types'
 
-function formatPayload(event: OrganizationAuditEvent): string {
-  const payload: Record<string, unknown> = {
-    action: event.action,
-    actorEmail: event.actorEmail,
-    actorId: event.actorId,
-    actorName: event.actorName,
-    entityId: event.entityId,
-    entityType: event.entityType,
-    id: event.id,
-  }
-  if (event.changes !== undefined && event.changes !== null) {
-    payload.changes = event.changes as unknown
-  }
-  if (event.metadata !== undefined && event.metadata !== null) {
-    payload.metadata = event.metadata as unknown
-  }
-
-  try {
-    return JSON.stringify(payload, null, 2)
-  } catch {
-    return String(payload)
-  }
-}
-
 interface AuditEventDetailDrawerProps {
   event: null | OrganizationAuditEvent
   onClose: () => void
@@ -68,4 +44,28 @@ export function AuditEventDetailDrawer({ event, onClose }: AuditEventDetailDrawe
       )}
     </DrawerPanel>
   )
+}
+
+function formatPayload(event: OrganizationAuditEvent): string {
+  const payload: Record<string, unknown> = {
+    action: event.action,
+    actorEmail: event.actorEmail,
+    actorId: event.actorId,
+    actorName: event.actorName,
+    entityId: event.entityId,
+    entityType: event.entityType,
+    id: event.id,
+  }
+  if (event.changes !== undefined && event.changes !== null) {
+    payload.changes = event.changes as unknown
+  }
+  if (event.metadata !== undefined && event.metadata !== null) {
+    payload.metadata = event.metadata as unknown
+  }
+
+  try {
+    return JSON.stringify(payload, null, 2)
+  } catch {
+    return String(payload)
+  }
 }

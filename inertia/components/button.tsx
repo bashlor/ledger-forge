@@ -7,6 +7,7 @@ interface ButtonProps {
   form?: string
   fullWidth?: boolean
   onClick?: () => void
+  title?: string
   type?: 'button' | 'submit'
 }
 
@@ -17,6 +18,7 @@ export function GhostButton({
   form,
   fullWidth,
   onClick,
+  title,
   type = 'button',
 }: ButtonProps) {
   return (
@@ -27,6 +29,7 @@ export function GhostButton({
       disabled={disabled}
       form={form}
       onClick={onClick}
+      title={title}
       type={type}
     >
       {children}
@@ -41,6 +44,7 @@ export function PrimaryButton({
   form,
   fullWidth,
   onClick,
+  title,
   type = 'button',
 }: ButtonProps) {
   return (
@@ -51,6 +55,7 @@ export function PrimaryButton({
       disabled={disabled}
       form={form}
       onClick={onClick}
+      title={title}
       type={type}
     >
       {children}
@@ -65,6 +70,7 @@ export function SecondaryButton({
   form,
   fullWidth,
   onClick,
+  title,
   type = 'button',
 }: ButtonProps) {
   return (
@@ -75,6 +81,7 @@ export function SecondaryButton({
       disabled={disabled}
       form={form}
       onClick={onClick}
+      title={title}
       type={type}
     >
       {children}

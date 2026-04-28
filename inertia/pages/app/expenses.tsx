@@ -218,8 +218,8 @@ export default function ExpensesPage({
               replace: true,
             })
           }
-          panelClassName="overflow-hidden rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]"
           pagination={expenses.pagination}
+          panelClassName="overflow-hidden rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]"
           title="Expense register"
           titleClassName="text-slate-950 lg:text-base"
           toolbarClassName="gap-3"

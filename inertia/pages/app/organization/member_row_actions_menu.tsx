@@ -23,6 +23,8 @@ interface MemberRowActionsMenuProps {
   viewerUserId: string
 }
 
+type PatchPayload = NonNullable<Parameters<typeof router.patch>[1]>
+
 export function MemberRowActionsMenu({
   canManageMembershipRoles,
   canToggleMembershipStatus,
@@ -58,7 +60,7 @@ export function MemberRowActionsMenu({
   const busy = patchingId === member.id
   const anyPatch = patchingId !== null
 
-  function runPatch(url: string, data: Record<string, unknown>) {
+  function runPatch(url: string, data: PatchPayload) {
     setPatchingId(member.id)
     setMenuOpen(false)
     router.patch(url, data, {

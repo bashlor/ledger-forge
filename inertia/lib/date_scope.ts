@@ -1,7 +1,7 @@
 import type { DateRange, DateScope } from '~/lib/types'
 
-import { DISPLAY_LOCALE } from '~/lib/format'
 import { parseDateOnlyUtc, toDateOnlyUtc } from '~/lib/date'
+import { DISPLAY_LOCALE } from '~/lib/format'
 
 const monthFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
   month: 'long',

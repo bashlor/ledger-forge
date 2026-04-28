@@ -44,13 +44,17 @@ const iconRegistry: Record<string, { filled?: IconComponent; outline: IconCompon
     filled: DashboardFilledIcon,
     outline: DashboardIcon,
   },
+  date_range: {
+    filled: DateRangeFilledIcon,
+    outline: DateRangeIcon,
+  },
   delete: {
     filled: DeleteFilledIcon,
     outline: DeleteIcon,
   },
-  date_range: {
-    filled: DateRangeFilledIcon,
-    outline: DateRangeIcon,
+  edit: {
+    filled: EditFilledIcon,
+    outline: EditIcon,
   },
   expand_more: {
     filled: ChevronDownIcon,
@@ -67,10 +71,6 @@ const iconRegistry: Record<string, { filled?: IconComponent; outline: IconCompon
   monitoring: {
     filled: MonitoringFilledIcon,
     outline: MonitoringIcon,
-  },
-  edit: {
-    filled: EditFilledIcon,
-    outline: EditIcon,
   },
   more_vert: {
     filled: MoreVertIcon,
@@ -92,13 +92,13 @@ const iconRegistry: Record<string, { filled?: IconComponent; outline: IconCompon
     filled: ReceiptLongFilledIcon,
     outline: ReceiptLongIcon,
   },
-  send: {
-    filled: SendFilledIcon,
-    outline: SendIcon,
-  },
   search: {
     filled: SearchIcon,
     outline: SearchIcon,
+  },
+  send: {
+    filled: SendFilledIcon,
+    outline: SendIcon,
   },
   settings: {
     filled: SettingsFilledIcon,
@@ -272,6 +272,25 @@ function DashboardIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+function DateRangeFilledIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} fill="currentColor" stroke="none">
+      <path d="M7 2.75a.75.75 0 0 1 .75.75V5h8.5V3.5a.75.75 0 0 1 1.5 0V5h.75A2.5 2.5 0 0 1 21 7.5v10A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-10A2.5 2.5 0 0 1 5.5 5h.75V3.5A.75.75 0 0 1 7 2.75Zm10.5 6.5h-13v8.25c0 .55.45 1 1 1h13c.55 0 1-.45 1-1V9.25Z" />
+    </svg>
+  )
+}
+
+function DateRangeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props}>
+      <rect height="15" rx="2.5" width="18" x="3" y="5.5" />
+      <path d="M7 3.5v4" />
+      <path d="M17 3.5v4" />
+      <path d="M3 9.5h18" />
+    </svg>
+  )
+}
+
 function DeleteFilledIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...props} fill="currentColor" stroke="none">
@@ -292,21 +311,19 @@ function DeleteIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
-function DateRangeFilledIcon(props: SVGProps<SVGSVGElement>) {
+function EditFilledIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...props} fill="currentColor" stroke="none">
-      <path d="M7 2.75a.75.75 0 0 1 .75.75V5h8.5V3.5a.75.75 0 0 1 1.5 0V5h.75A2.5 2.5 0 0 1 21 7.5v10A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-10A2.5 2.5 0 0 1 5.5 5h.75V3.5A.75.75 0 0 1 7 2.75Zm10.5 6.5h-13v8.25c0 .55.45 1 1 1h13c.55 0 1-.45 1-1V9.25Z" />
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1 1 0 0 0 0-1.41L15.37 2.5a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.87Z" />
     </svg>
   )
 }
 
-function DateRangeIcon(props: SVGProps<SVGSVGElement>) {
+function EditIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...props}>
-      <rect height="15" rx="2.5" width="18" x="3" y="5.5" />
-      <path d="M7 3.5v4" />
-      <path d="M17 3.5v4" />
-      <path d="M3 9.5h18" />
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z" />
     </svg>
   )
 }
@@ -358,23 +375,6 @@ function MonitoringIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M6 16V9" />
       <path d="M12 16V5" />
       <path d="M18 16v-4" />
-    </svg>
-  )
-}
-
-function EditFilledIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...props} fill="currentColor" stroke="none">
-      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1 1 0 0 0 0-1.41L15.37 2.5a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.87Z" />
-    </svg>
-  )
-}
-
-function EditIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...props}>
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z" />
     </svg>
   )
 }

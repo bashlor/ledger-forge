@@ -6,12 +6,12 @@ import type { DateRange } from '~/lib/types'
 
 import { AppIcon } from '~/components/app_icon'
 import { useDateScope } from '~/components/date_scope_provider'
+import { useCloseOnOutsideAndEscape } from '~/hooks/use_close_on_outside_and_escape'
 import {
   createCurrentMonthDateScope,
   createMonthDateScope,
   isValidDateRange,
 } from '~/lib/date_scope'
-import { useCloseOnOutsideAndEscape } from '~/hooks/use_close_on_outside_and_escape'
 
 export function DateScopeControls() {
   const { jumpToMonth, resetToCurrentMonth, scope, setCustomRange, shiftBackward, shiftForward } =
@@ -68,7 +68,7 @@ export function DateScopeControls() {
 
   return (
     <div className="relative" ref={containerRef}>
-        <div className="flex items-center gap-0">
+      <div className="flex items-center gap-0">
         <button
           aria-label="Previous period"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-on-surface-variant transition-colors duration-200 hover:bg-surface-container-low hover:text-on-surface"
@@ -103,11 +103,11 @@ export function DateScopeControls() {
 
       {panelOpen ? (
         <div
-          className="absolute left-1/2 top-full z-50 mt-1.5 w-[min(calc(100vw-1.5rem),18.5rem)] -translate-x-1/2 rounded-lg border border-outline-variant bg-surface-container-lowest py-3 shadow-lg shadow-slate-900/10"
+          aria-label="Select period"
           aria-modal="false"
+          className="absolute left-1/2 top-full z-50 mt-1.5 w-[min(calc(100vw-1.5rem),18.5rem)] -translate-x-1/2 rounded-lg border border-outline-variant bg-surface-container-lowest py-3 shadow-lg shadow-slate-900/10"
           id={panelId}
           role="dialog"
-          aria-label="Select period"
         >
           <div className="border-b border-outline-variant px-3 pb-3">
             <label className="grid gap-1.5">

@@ -38,10 +38,18 @@ export function ExpenseTable({
     <table className="tonal-table expense-register-table w-full min-w-[760px] border-collapse text-left text-sm">
       <thead>
         <TableHeadRow className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-          <TableHeaderCell className="w-[28%] cursor-default py-3 select-none">Label</TableHeaderCell>
-          <TableHeaderCell className="w-[18%] cursor-default py-3 select-none">Category</TableHeaderCell>
-          <TableHeaderCell className="w-[14%] cursor-default py-3 select-none">Date</TableHeaderCell>
-          <TableHeaderCell className="w-[14%] cursor-default py-3 select-none">Status</TableHeaderCell>
+          <TableHeaderCell className="w-[28%] cursor-default py-3 select-none">
+            Label
+          </TableHeaderCell>
+          <TableHeaderCell className="w-[18%] cursor-default py-3 select-none">
+            Category
+          </TableHeaderCell>
+          <TableHeaderCell className="w-[14%] cursor-default py-3 select-none">
+            Date
+          </TableHeaderCell>
+          <TableHeaderCell className="w-[14%] cursor-default py-3 select-none">
+            Status
+          </TableHeaderCell>
           <TableHeaderCell className="w-[14%] cursor-default py-3 text-right select-none tabular-nums">
             Amount
           </TableHeaderCell>
@@ -68,7 +76,9 @@ export function ExpenseTable({
             >
               <td className="px-5 py-4 font-medium text-slate-950">{expense.label}</td>
               <td className="px-5 py-4 text-slate-700">{expense.category}</td>
-              <td className="px-5 py-4 tabular-nums text-slate-600">{formatShortDate(expense.date)}</td>
+              <td className="px-5 py-4 tabular-nums text-slate-600">
+                {formatShortDate(expense.date)}
+              </td>
               <td className="px-5 py-4">
                 <StatusBadge status={expense.status} />
               </td>

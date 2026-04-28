@@ -1,7 +1,7 @@
 import type { InvoiceDto, InvoiceSummaryDto, PaginatedList } from '~/lib/types'
 
-import { MetricCard } from '~/components/metric_card'
 import { DataTable } from '~/components/data_table'
+import { MetricCard } from '~/components/metric_card'
 import { SearchForm } from '~/components/search_form'
 
 import { InvoiceTable } from './invoice_table'

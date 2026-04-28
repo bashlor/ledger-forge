@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatCurrency, formatShortDate, formatSignedCurrency, formatTopbarDate, resolveTopbarDisplayName } from './format'
+import {
+  formatCurrency,
+  formatShortDate,
+  formatSignedCurrency,
+  formatTopbarDate,
+  resolveTopbarDisplayName,
+} from './format'
 
 describe('format helpers', () => {
   it('formats currency values', () => {

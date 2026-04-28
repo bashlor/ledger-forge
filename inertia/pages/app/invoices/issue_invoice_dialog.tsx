@@ -23,7 +23,9 @@ export function IssueInvoiceDialog({
         className="w-full max-w-xl rounded-2xl border border-slate-200/95 bg-white p-6 shadow-2xl shadow-slate-900/15 ring-1 ring-slate-900/[0.06] sm:p-8"
         role="dialog"
       >
-        <h3 className="font-headline text-lg font-bold tracking-tight text-slate-950">Issue invoice</h3>
+        <h3 className="font-headline text-lg font-bold tracking-tight text-slate-950">
+          Issue invoice
+        </h3>
         <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
           Provide company identity to snapshot this issued invoice.
         </p>

@@ -87,7 +87,9 @@ export function DrawerPanel({
               <AppIcon name="close" size={20} />
             </button>
           </div>
-          <h3 className="font-headline text-2xl font-bold tracking-tight text-slate-950">{title}</h3>
+          <h3 className="font-headline text-2xl font-bold tracking-tight text-slate-950">
+            {title}
+          </h3>
           {description ? (
             <p className="mt-2 max-w-lg text-sm leading-relaxed text-slate-600">{description}</p>
           ) : null}

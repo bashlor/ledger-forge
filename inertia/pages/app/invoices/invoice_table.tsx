@@ -35,7 +35,10 @@ export function InvoiceTable({
           <TableHeaderCell className="cursor-default select-none">Status</TableHeaderCell>
           <TableHeaderCell className="cursor-default select-none">Due</TableHeaderCell>
           <TableHeaderCell className="cursor-default select-none text-right tabular-nums">
-            Amount <span className="font-normal normal-case tracking-normal text-slate-500">(incl. VAT)</span>
+            Amount{' '}
+            <span className="font-normal normal-case tracking-normal text-slate-500">
+              (incl. VAT)
+            </span>
           </TableHeaderCell>
           <TableHeaderCell className="w-px cursor-default px-2 text-right select-none">
             <span className="sr-only">Actions</span>
@@ -64,7 +67,9 @@ export function InvoiceTable({
             <td className="whitespace-nowrap px-5 py-4 font-medium tabular-nums text-slate-950">
               {invoice.invoiceNumber}
             </td>
-            <td className="max-w-[220px] truncate px-5 py-4 text-slate-900">{invoice.customerCompanyName}</td>
+            <td className="max-w-[220px] truncate px-5 py-4 text-slate-900">
+              {invoice.customerCompanyName}
+            </td>
             <td className="whitespace-nowrap px-5 py-4">
               <StatusBadge status={invoiceDisplayStatus(invoice)} />
             </td>

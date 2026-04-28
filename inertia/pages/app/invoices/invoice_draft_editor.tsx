@@ -195,9 +195,13 @@ export function InvoiceDraftEditor({
                   <TableHeadRow className="text-[11px] tracking-[0.18em]">
                     <TableHeaderCell className="py-3">Description</TableHeaderCell>
                     <TableHeaderCell className="py-3 text-right tabular-nums">Qty</TableHeaderCell>
-                    <TableHeaderCell className="py-3 text-right tabular-nums">Unit price</TableHeaderCell>
+                    <TableHeaderCell className="py-3 text-right tabular-nums">
+                      Unit price
+                    </TableHeaderCell>
                     <TableHeaderCell className="py-3 text-right">VAT</TableHeaderCell>
-                    <TableHeaderCell className="py-3 text-right tabular-nums">Line total</TableHeaderCell>
+                    <TableHeaderCell className="py-3 text-right tabular-nums">
+                      Line total
+                    </TableHeaderCell>
                     <TableHeaderCell className="w-px py-3 text-right">
                       <span className="sr-only">Remove line</span>
                     </TableHeaderCell>

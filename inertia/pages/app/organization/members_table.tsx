@@ -48,7 +48,9 @@ export function MembersTable({
                 <MemberAvatar name={member.name} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-slate-950">{member.name}</p>
-                  <p className="mt-0.5 truncate text-xs leading-snug text-slate-500">{member.email}</p>
+                  <p className="mt-0.5 truncate text-xs leading-snug text-slate-500">
+                    {member.email}
+                  </p>
                 </div>
               </div>
             </td>

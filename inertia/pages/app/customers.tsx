@@ -263,8 +263,8 @@ export default function CustomersPage({
               { only: ['customers', 'filters'], preserveScroll: true, replace: true }
             )
           }
-          panelClassName="overflow-hidden rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]"
           pagination={pagination}
+          panelClassName="overflow-hidden rounded-xl border border-slate-200/95 bg-white shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04]"
           title="Customer register"
           titleClassName="text-slate-950 lg:text-base"
           toolbarClassName="gap-3"

@@ -44,12 +44,6 @@ const CAPTION_CLASS: Record<MetricTone, string> = {
   success: 'text-slate-600',
 }
 
-function formatTrendPercent(value: number): string {
-  const rounded = Math.round(value * 10) / 10
-  const prefix = rounded > 0 ? '+' : ''
-  return `${prefix}${rounded}%`
-}
-
 export function MetricCard({
   caption,
   icon,
@@ -88,7 +82,9 @@ export function MetricCard({
       </p>
 
       {caption ? (
-        <p className={`mt-2 line-clamp-2 text-[11px] leading-snug sm:text-xs ${CAPTION_CLASS[tone]}`}>
+        <p
+          className={`mt-2 line-clamp-2 text-[11px] leading-snug sm:text-xs ${CAPTION_CLASS[tone]}`}
+        >
           {caption}
         </p>
       ) : null}
@@ -96,11 +92,7 @@ export function MetricCard({
       {trend !== null && trend !== undefined ? (
         <p
           className={`mt-3 flex items-center gap-1.5 text-[11px] font-semibold tabular-nums sm:text-xs ${
-            trendPositive
-              ? 'text-emerald-600'
-              : trendNegative
-                ? 'text-rose-600'
-                : 'text-slate-500'
+            trendPositive ? 'text-emerald-600' : trendNegative ? 'text-rose-600' : 'text-slate-500'
           }`}
         >
           {trendPositive ? (
@@ -118,4 +110,10 @@ export function MetricCard({
       ) : null}
     </article>
   )
+}
+
+function formatTrendPercent(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+  const prefix = rounded > 0 ? '+' : ''
+  return `${prefix}${rounded}%`
 }

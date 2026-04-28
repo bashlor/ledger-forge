@@ -22,7 +22,7 @@ export default function Layout({ children }: { children: ReactElement }) {
       <header>
         <div>
           <div>
-            <Link route="home">
+            <Link route="landing">
               <svg
                 fill="none"
                 height="24"

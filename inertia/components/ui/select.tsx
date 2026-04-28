@@ -74,7 +74,12 @@ export function Select({
   const selected = options.find((option) => option.value === value)
   const valueDisplay = selected ? (selected.triggerLabel ?? selected.label) : undefined
   const triggerToneClass = tone === 'surface' ? triggerSurfaceClass : triggerBaseClass
-  const compactClass = size === 'compact' ? (tone === 'surface' ? triggerSurfaceCompactModifier : triggerCompactModifier) : ''
+  const compactClass =
+    size === 'compact'
+      ? tone === 'surface'
+        ? triggerSurfaceCompactModifier
+        : triggerCompactModifier
+      : ''
   const iconSize = size === 'compact' ? 16 : 18
   const itemSizeClass = size === 'compact' ? itemCompactClass : ''
 
@@ -86,7 +91,10 @@ export function Select({
       id={id}
       type="button"
     >
-      <SelectPrimitive.Value className="min-w-0 flex-1 truncate text-left" placeholder={placeholder}>
+      <SelectPrimitive.Value
+        className="min-w-0 flex-1 truncate text-left"
+        placeholder={placeholder}
+      >
         {valueDisplay}
       </SelectPrimitive.Value>
       <SelectPrimitive.Icon aria-hidden className="shrink-0 text-slate-500">
@@ -136,7 +144,11 @@ export function Select({
               >
                 <span className="absolute left-2.5 flex h-4 w-4 shrink-0 items-center justify-center">
                   <SelectPrimitive.ItemIndicator>
-                    <AppIcon className="text-primary" name="task_alt" size={size === 'compact' ? 14 : 16} />
+                    <AppIcon
+                      className="text-primary"
+                      name="task_alt"
+                      size={size === 'compact' ? 14 : 16}
+                    />
                   </SelectPrimitive.ItemIndicator>
                 </span>
                 <SelectPrimitive.ItemText className="min-w-0 flex-1 truncate pr-1">

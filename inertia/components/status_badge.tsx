@@ -13,17 +13,14 @@ const BADGE_STYLES: Record<string, string> = {
     'border border-violet-200/85 bg-violet-50 text-violet-900 ring-1 ring-inset ring-violet-900/8',
   good_payer:
     'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
-  issued:
-    'border border-blue-200/85 bg-blue-50 text-blue-900 ring-1 ring-inset ring-blue-900/8',
+  issued: 'border border-blue-200/85 bg-blue-50 text-blue-900 ring-1 ring-inset ring-blue-900/8',
   no_activity:
     'border border-slate-200/80 bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-900/5',
-  overdue:
-    'border border-red-200/80 bg-red-50 text-red-800 ring-1 ring-inset ring-red-900/5',
+  overdue: 'border border-red-200/80 bg-red-50 text-red-800 ring-1 ring-inset ring-red-900/5',
   paid: 'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
   pending:
     'border border-amber-200/80 bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-900/5',
-  rejected:
-    'border border-red-200/85 bg-red-50 text-red-900 ring-1 ring-inset ring-red-900/8',
+  rejected: 'border border-red-200/85 bg-red-50 text-red-900 ring-1 ring-inset ring-red-900/8',
   settled:
     'border border-emerald-200/80 bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-900/5',
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
 const DEBOUNCE_MS = 350
 
@@ -20,12 +20,7 @@ export function SearchForm({
   value,
   variant = 'default',
 }: SearchFormProps) {
-  const [searchQuery, setSearchQuery] = useState(value)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    setSearchQuery(value)
-  }, [value])
+  const timeoutRef = useRef<null | ReturnType<typeof setTimeout>>(null)
 
   useEffect(() => {
     return () => {
@@ -59,28 +54,28 @@ export function SearchForm({
           <input
             aria-label={ariaLabel}
             className="h-10 w-full min-w-0 rounded-xl border-0 bg-transparent px-3 py-2 text-sm text-slate-900 outline-hidden placeholder:text-slate-400 focus-visible:ring-0"
+            defaultValue={value}
+            key={value}
             onChange={(event) => {
               const next = event.target.value
-              setSearchQuery(next)
               scheduleSubmit(next)
             }}
             placeholder={placeholder}
             type="search"
-            value={searchQuery}
           />
         </div>
       ) : (
         <input
           aria-label={ariaLabel}
           className={defaultInputClass}
+          defaultValue={value}
+          key={value}
           onChange={(event) => {
             const next = event.target.value
-            setSearchQuery(next)
             scheduleSubmit(next)
           }}
           placeholder={placeholder}
           type="search"
-          value={searchQuery}
         />
       )}
     </div>

@@ -105,7 +105,6 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard?: 
 
           {scopedInvoices.length === 0 ? (
             <EmptyState
-              className="py-8 sm:py-9"
               action={
                 <Link
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-sm shadow-primary/20 transition-colors duration-200 hover:bg-primary-dim focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2"
@@ -114,6 +113,7 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard?: 
                   Go to invoices
                 </Link>
               }
+              className="py-8 sm:py-9"
               icon="receipt_long"
               message={`Nothing in this list for ${scope.label}. Try another month or open Invoices to create or issue one.`}
               title="No invoices in this period"

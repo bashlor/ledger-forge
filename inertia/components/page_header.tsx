@@ -35,7 +35,10 @@ export function PageHeader({
               const isLast = index === breadcrumb.length - 1
 
               return (
-                <li className="flex min-w-0 items-center gap-x-1.5" key={`${segment.label}-${index}`}>
+                <li
+                  className="flex min-w-0 items-center gap-x-1.5"
+                  key={`${segment.label}-${index}`}
+                >
                   {index > 0 ? (
                     <span aria-hidden className="font-normal text-on-surface-variant/45">
                       /
@@ -49,9 +52,7 @@ export function PageHeader({
                       {segment.label}
                     </Link>
                   ) : (
-                    <span
-                      className={`truncate ${isLast ? 'text-slate-700' : 'text-slate-500'}`}
-                    >
+                    <span className={`truncate ${isLast ? 'text-slate-700' : 'text-slate-500'}`}>
                       {segment.label}
                     </span>
                   )}

@@ -34,22 +34,24 @@ export function AuditTrailTable({ events, onViewDetails }: AuditTrailTableProps)
               {formatTimestamp(String(event.timestamp))}
             </td>
             <td className="max-w-[11rem] truncate px-5 py-4 text-sm text-slate-900">
-              {event.actorName?.trim() ||
-                event.actorEmail?.trim() ||
-                event.actorId ||
-                'system'}
+              {event.actorName?.trim() || event.actorEmail?.trim() || event.actorId || 'system'}
             </td>
             <td className="whitespace-nowrap px-5 py-4 font-medium text-slate-950">
               {humanizeAuditAction(event.action)}
             </td>
             <td className="max-w-[14rem] px-5 py-4 font-mono text-xs text-slate-600">
-              <span className="text-slate-500">{auditContextLabel(auditContextForEvent(event))}</span>{' '}
+              <span className="text-slate-500">
+                {auditContextLabel(auditContextForEvent(event))}
+              </span>{' '}
               <span className="text-slate-400">·</span> {event.entityType}
               <span className="text-slate-400">:</span>
               {shortEntityId(event.entityId)}
             </td>
             <td className="whitespace-nowrap px-5 py-4">
-              <ToneBadge label={auditResultLabel(event.metadata)} tone={auditTone(event.metadata)} />
+              <ToneBadge
+                label={auditResultLabel(event.metadata)}
+                tone={auditTone(event.metadata)}
+              />
             </td>
             <td className="whitespace-nowrap px-5 py-4 text-right">
               <GhostButton
@@ -83,13 +85,6 @@ function auditContextLabel(context: 'accounting' | 'user_management'): string {
   return context === 'accounting' ? 'Accounting' : 'User mgmt'
 }
 
-function shortEntityId(id: string): string {
-  if (id.length <= 14) {
-    return id
-  }
-  return `${id.slice(0, 10)}…`
-}
-
 function auditResultFromMetadata(metadata: unknown): 'denied' | 'error' | 'success' | 'warning' {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
     return 'success'
@@ -100,17 +95,6 @@ function auditResultFromMetadata(metadata: unknown): 'denied' | 'error' | 'succe
     return 'warning'
   }
   return candidate === 'denied' || candidate === 'error' ? candidate : 'success'
-}
-
-function auditTone(metadata: unknown): 'danger' | 'success' | 'warning' {
-  const r = auditResultFromMetadata(metadata)
-  if (r === 'warning' || r === 'denied') {
-    return 'warning'
-  }
-  if (r === 'error') {
-    return 'danger'
-  }
-  return 'success'
 }
 
 function auditResultLabel(metadata: unknown): string {
@@ -125,4 +109,22 @@ function auditResultLabel(metadata: unknown): string {
     return 'Denied'
   }
   return 'Failed'
+}
+
+function auditTone(metadata: unknown): 'danger' | 'success' | 'warning' {
+  const r = auditResultFromMetadata(metadata)
+  if (r === 'warning' || r === 'denied') {
+    return 'warning'
+  }
+  if (r === 'error') {
+    return 'danger'
+  }
+  return 'success'
+}
+
+function shortEntityId(id: string): string {
+  if (id.length <= 14) {
+    return id
+  }
+  return `${id.slice(0, 10)}…`
 }

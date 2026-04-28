@@ -80,7 +80,9 @@ export function FilterSelect({
                 type="button"
               >
                 <span className="absolute left-2.5 flex h-4 w-4 shrink-0 items-center justify-center">
-                  {isSelected ? <AppIcon className="text-primary" name="task_alt" size={14} /> : null}
+                  {isSelected ? (
+                    <AppIcon className="text-primary" name="task_alt" size={14} />
+                  ) : null}
                 </span>
                 <span className="min-w-0 flex-1 truncate pr-1">{option.label}</span>
               </button>

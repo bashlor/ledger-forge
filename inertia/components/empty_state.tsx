@@ -26,9 +26,7 @@ export function EmptyState({ action, className, icon, message, title }: EmptySta
             {title}
           </h3>
         ) : null}
-        <p
-          className={`max-w-sm text-sm leading-relaxed text-slate-600 ${title ? 'mt-1.5' : ''}`}
-        >
+        <p className={`max-w-sm text-sm leading-relaxed text-slate-600 ${title ? 'mt-1.5' : ''}`}>
           {message}
         </p>
         {action ? <div className="mt-5 w-full max-w-[14rem] sm:w-auto">{action}</div> : null}

@@ -47,13 +47,7 @@ export function ScrollableTable({
   return <div className={`overflow-auto ${maxHeightClass}`}>{children}</div>
 }
 
-export function ToneBadge({
-  label,
-  tone,
-}: {
-  label: string
-  tone: BadgeTone
-}) {
+export function ToneBadge({ label, tone }: { label: string; tone: BadgeTone }) {
   return (
     <span
       className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${toneBadgeClass(tone)}`}

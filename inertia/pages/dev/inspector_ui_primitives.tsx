@@ -133,25 +133,6 @@ export function OperationPanel({
   )
 }
 
-function operationButtonDisabled(
-  operation: GlobalOperation,
-  processingAction: null | string
-): boolean {
-  return !operation.available || !operation.action || processingAction === operation.action
-}
-
-function operationButtonLabel(operation: GlobalOperation, processingAction: null | string): string {
-  if (!operation.available) {
-    return operation.unavailableLabel ?? 'Unavailable'
-  }
-
-  if (processingAction === operation.action) {
-    return 'Running...'
-  }
-
-  return 'Run'
-}
-
 export function PermissionChip({ active, label }: { active: boolean; label: string }) {
   return (
     <span
@@ -238,3 +219,21 @@ export function StickyTabs({
   )
 }
 
+function operationButtonDisabled(
+  operation: GlobalOperation,
+  processingAction: null | string
+): boolean {
+  return !operation.available || !operation.action || processingAction === operation.action
+}
+
+function operationButtonLabel(operation: GlobalOperation, processingAction: null | string): string {
+  if (!operation.available) {
+    return operation.unavailableLabel ?? 'Unavailable'
+  }
+
+  if (processingAction === operation.action) {
+    return 'Running...'
+  }
+
+  return 'Run'
+}

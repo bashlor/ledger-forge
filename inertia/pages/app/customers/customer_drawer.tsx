@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import type { CreateCustomerInput, CustomerDto } from '~/lib/types'
 import type { FormErrors } from '~/types'
@@ -46,11 +46,21 @@ export function CustomerDrawer({
   target,
 }: CustomerDrawerProps) {
   const isView = mode === 'view'
-  const [form, setForm] = useState<CreateCustomerInput>(() => formFromTarget(target))
+  const formKey = target?.id ?? 'new'
+  const [draft, setDraft] = useState(() => ({
+    form: formFromTarget(target),
+    formKey,
+  }))
 
-  useEffect(() => {
-    setForm(formFromTarget(target))
-  }, [target])
+  let form = draft.form
+  if (draft.formKey !== formKey) {
+    form = formFromTarget(target)
+    setDraft({ form, formKey })
+  }
+
+  function setForm(updater: (form: CreateCustomerInput) => CreateCustomerInput) {
+    setDraft((current) => ({ ...current, form: updater(current.form) }))
+  }
 
   function handleClose() {
     onClose()
@@ -65,7 +75,11 @@ export function CustomerDrawer({
   const fieldsLocked = readOnly || isView
 
   const title =
-    mode === 'create' ? 'Create customer' : mode === 'view' ? (target?.company ?? 'Customer') : `Edit ${target?.company ?? ''}`
+    mode === 'create'
+      ? 'Create customer'
+      : mode === 'view'
+        ? (target?.company ?? 'Customer')
+        : `Edit ${target?.company ?? ''}`
 
   const description =
     mode === 'create'
@@ -74,36 +88,34 @@ export function CustomerDrawer({
         ? 'Read-only summary. Use Edit to change details.'
         : 'Update contact details. Draft invoices show the new company name; issued invoices keep their original label.'
 
-  const icon =
-    mode === 'view' ? 'monitoring' : mode === 'edit' ? 'edit' : 'person_add'
+  const icon = mode === 'view' ? 'monitoring' : mode === 'edit' ? 'edit' : 'person_add'
 
-  const footer =
-    isView ? (
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <GhostButton className="py-2.5" onClick={handleClose} type="button">
-          Close
-        </GhostButton>
-        {!readOnly && onRequestEditMode ? (
-          <SecondaryButton className="py-2.5" onClick={onRequestEditMode} type="button">
-            Edit customer
-          </SecondaryButton>
-        ) : null}
-      </div>
-    ) : (
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <GhostButton className="py-2.5" onClick={handleClose} type="button">
-          Cancel
-        </GhostButton>
-        <PrimaryButton
-          className="py-2.5"
-          disabled={processing || readOnly}
-          form="customer-form"
-          type="submit"
-        >
-          {processing ? 'Saving…' : target ? 'Update' : 'Save'}
-        </PrimaryButton>
-      </div>
-    )
+  const footer = isView ? (
+    <div className="flex flex-wrap items-center justify-end gap-3">
+      <GhostButton className="py-2.5" onClick={handleClose} type="button">
+        Close
+      </GhostButton>
+      {!readOnly && onRequestEditMode ? (
+        <SecondaryButton className="py-2.5" onClick={onRequestEditMode} type="button">
+          Edit customer
+        </SecondaryButton>
+      ) : null}
+    </div>
+  ) : (
+    <div className="flex flex-wrap items-center justify-end gap-3">
+      <GhostButton className="py-2.5" onClick={handleClose} type="button">
+        Cancel
+      </GhostButton>
+      <PrimaryButton
+        className="py-2.5"
+        disabled={processing || readOnly}
+        form="customer-form"
+        type="submit"
+      >
+        {processing ? 'Saving…' : target ? 'Update' : 'Save'}
+      </PrimaryButton>
+    </div>
+  )
 
   return (
     <DrawerPanel

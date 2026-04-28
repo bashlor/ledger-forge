@@ -56,7 +56,7 @@ const TOPBAR_EMAIL_LOCAL_PLACEHOLDERS = new Set(['anonymous', 'guest', 'noreply'
  * Topbar display name: never show disposable email local parts (e.g. "temp") as the user's name.
  */
 export function resolveTopbarDisplayName(
-  fullName: string | null | undefined,
+  fullName: null | string | undefined,
   email: string,
   isAnonymous: boolean | undefined
 ): string {

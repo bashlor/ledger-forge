@@ -6,8 +6,7 @@ interface Props {
   totalVat: number
 }
 
-const rowClass =
-  'flex items-baseline justify-between gap-6 text-sm text-on-surface'
+const rowClass = 'flex items-baseline justify-between gap-6 text-sm text-on-surface'
 
 export function InvoiceTotals({ subtotalExclTax, totalInclTax, totalVat }: Props) {
   return (
