@@ -64,6 +64,8 @@ describe('search highlighting in tables', () => {
         items={[
           {
             amount: 250,
+            canConfirm: false,
+            canDelete: false,
             category: 'Office',
             date: '2026-04-01',
             id: 'expense-1',
