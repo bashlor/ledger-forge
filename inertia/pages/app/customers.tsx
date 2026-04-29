@@ -9,6 +9,7 @@ import type {
 } from '~/lib/types'
 import type { FormErrors } from '~/types'
 
+import { ActiveSearchFilter } from '~/components/active_search_filter'
 import { PrimaryButton } from '~/components/button'
 import { DataTable } from '~/components/data_table'
 import { EmptyState } from '~/components/empty_state'
@@ -176,6 +177,10 @@ export default function CustomersPage({
     )
   }
 
+  function clearSearch() {
+    submitSearch('')
+  }
+
   return (
     <>
       <Head title="Customers" />
@@ -214,26 +219,33 @@ export default function CustomersPage({
         />
 
         <DataTable
-          emptyMessage="No customers yet."
+          emptyMessage={
+            appliedSearch
+              ? `No customers match "${appliedSearch}" on this page.`
+              : 'No customers yet.'
+          }
           headerClassName="border-b border-slate-200/90 bg-white px-5 py-4 sm:px-6"
           headerContent={
-            <>
-              <SearchForm
-                ariaLabel="Search customers"
-                onSubmit={submitSearch}
-                placeholder="Search company, contact, email, phone"
-                value={appliedSearch}
-                variant="premium"
-              />
-              <FilterSelect
-                aria-label="Filter customers"
-                onChange={(event) =>
-                  setFilter(event.target.value as 'all' | 'no_invoices' | 'with_invoices')
-                }
-                options={CUSTOMER_FILTER_OPTIONS}
-                value={filter}
-              />
-            </>
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
+                <SearchForm
+                  ariaLabel="Search customers"
+                  onSubmit={submitSearch}
+                  placeholder="Search company, contact, email, phone"
+                  value={appliedSearch}
+                  variant="premium"
+                />
+                <FilterSelect
+                  aria-label="Filter customers"
+                  onChange={(event) =>
+                    setFilter(event.target.value as 'all' | 'no_invoices' | 'with_invoices')
+                  }
+                  options={CUSTOMER_FILTER_OPTIONS}
+                  value={filter}
+                />
+              </div>
+              <ActiveSearchFilter onClear={clearSearch} query={appliedSearch} />
+            </div>
           }
           isEmpty={!hasPageItems}
           onPageChange={(nextPage) =>
@@ -280,6 +292,7 @@ export default function CustomersPage({
               onView={openView}
               processing={processing}
               readOnly={accountingReadOnly}
+              searchQuery={appliedSearch}
             />
           )}
         </DataTable>

@@ -14,8 +14,8 @@ describe('Pagination', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Précédent' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Suivant' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Previous' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
     expect(onPageChange).toHaveBeenNthCalledWith(1, 1)
     expect(onPageChange).toHaveBeenNthCalledWith(2, 3)
@@ -33,7 +33,7 @@ describe('Pagination', () => {
       />
     )
 
-    await user.click(screen.getByRole('combobox', { name: /Nombre d’éléments par page/i }))
+    await user.click(screen.getByRole('combobox', { name: /Items per page/i }))
     await user.click(await screen.findByRole('option', { name: '25' }))
 
     expect(onPerPageChange).toHaveBeenCalledWith(25)

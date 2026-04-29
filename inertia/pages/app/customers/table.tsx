@@ -1,5 +1,6 @@
 import type { CustomerListItemDto } from '~/lib/types'
 
+import { SearchHighlight } from '~/components/search_highlight'
 import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatCurrency } from '~/lib/format'
 
@@ -13,6 +14,7 @@ interface CustomerTableProps {
   onView: (customer: CustomerListItemDto) => void
   processing: boolean
   readOnly: boolean
+  searchQuery?: string
 }
 
 export function CustomerTable({
@@ -23,6 +25,7 @@ export function CustomerTable({
   onView,
   processing,
   readOnly,
+  searchQuery = '',
 }: CustomerTableProps) {
   const canInteract = canManageCustomers && !readOnly
 
@@ -59,14 +62,24 @@ export function CustomerTable({
             tabIndex={canInteract ? 0 : -1}
           >
             <td className="px-5 py-4 font-medium text-slate-950">
-              <div>{customer.company}</div>
+              <div>
+                <SearchHighlight query={searchQuery} text={customer.company} />
+              </div>
               {customer.note ? (
-                <div className="mt-0.5 text-xs leading-snug text-slate-500">{customer.note}</div>
+                <div className="mt-0.5 text-xs leading-snug text-slate-500">
+                  <SearchHighlight query={searchQuery} text={customer.note} />
+                </div>
               ) : null}
             </td>
-            <td className="px-5 py-4 text-slate-900">{customer.name}</td>
-            <td className="px-5 py-4 text-slate-600">{customer.email}</td>
-            <td className="px-5 py-4 text-slate-600">{customer.phone}</td>
+            <td className="px-5 py-4 text-slate-900">
+              <SearchHighlight query={searchQuery} text={customer.name} />
+            </td>
+            <td className="px-5 py-4 text-slate-600">
+              <SearchHighlight query={searchQuery} text={customer.email} />
+            </td>
+            <td className="px-5 py-4 text-slate-600">
+              <SearchHighlight query={searchQuery} text={customer.phone} />
+            </td>
             <td className="px-5 py-4 text-right text-sm font-semibold tabular-nums text-slate-900">
               {customer.invoiceCount}
             </td>

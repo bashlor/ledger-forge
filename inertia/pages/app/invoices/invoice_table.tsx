@@ -1,5 +1,6 @@
 import type { InvoiceDto } from '~/lib/types'
 
+import { SearchHighlight } from '~/components/search_highlight'
 import { StatusBadge } from '~/components/status_badge'
 import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatCurrency, formatShortDate } from '~/lib/format'
@@ -14,6 +15,7 @@ interface InvoiceTableProps {
   onIssueInvoice: (invoice: InvoiceDto) => void
   onSelectInvoice: (invoice: InvoiceDto) => void
   saving: boolean
+  searchQuery?: string
 }
 
 export function InvoiceTable({
@@ -23,6 +25,7 @@ export function InvoiceTable({
   onIssueInvoice,
   onSelectInvoice,
   saving,
+  searchQuery = '',
 }: InvoiceTableProps) {
   const canInteract = !accountingReadOnly
 
@@ -65,10 +68,10 @@ export function InvoiceTable({
             tabIndex={canInteract ? 0 : -1}
           >
             <td className="whitespace-nowrap px-5 py-4 font-medium tabular-nums text-slate-950">
-              {invoice.invoiceNumber}
+              <SearchHighlight query={searchQuery} text={invoice.invoiceNumber} />
             </td>
             <td className="max-w-[220px] truncate px-5 py-4 text-slate-900">
-              {invoice.customerCompanyName}
+              <SearchHighlight query={searchQuery} text={invoice.customerCompanyName} />
             </td>
             <td className="whitespace-nowrap px-5 py-4">
               <StatusBadge status={invoiceDisplayStatus(invoice)} />

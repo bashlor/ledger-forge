@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { CreateExpenseInput, ExpenseDto, ExpenseSummaryDto, PaginatedList } from '~/lib/types'
 
+import { ActiveSearchFilter } from '~/components/active_search_filter'
 import { PrimaryButton, SecondaryButton } from '~/components/button'
 import { DataTable } from '~/components/data_table'
 import { useDateScope } from '~/components/date_scope_provider'
@@ -95,6 +96,10 @@ export default function ExpensesPage({
       preserveState: true,
       replace: true,
     })
+  }
+
+  function clearSearch() {
+    submitSearch('')
   }
 
   function handleCreate(input: CreateExpenseInput) {
@@ -191,16 +196,23 @@ export default function ExpensesPage({
         />
 
         <DataTable
-          emptyMessage="No expenses found."
+          emptyMessage={
+            appliedSearch
+              ? `No expenses match "${appliedSearch}" in the selected period.`
+              : 'No expenses found.'
+          }
           headerClassName="border-b border-slate-200/90 bg-white px-5 py-4 sm:px-6"
           headerContent={
-            <SearchForm
-              ariaLabel="Search expenses"
-              onSubmit={submitSearch}
-              placeholder="Search label or category"
-              value={appliedSearch}
-              variant="premium"
-            />
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              <SearchForm
+                ariaLabel="Search expenses"
+                onSubmit={submitSearch}
+                placeholder="Search label or category"
+                value={appliedSearch}
+                variant="premium"
+              />
+              <ActiveSearchFilter onClear={clearSearch} query={appliedSearch} />
+            </div>
           }
           isEmpty={expenses.items.length === 0}
           onPageChange={(page) =>
@@ -231,6 +243,7 @@ export default function ExpensesPage({
             onDelete={performDelete}
             onOpen={openExpenseDrawer}
             processingId={processingId}
+            searchQuery={appliedSearch}
           />
         </DataTable>
       </div>

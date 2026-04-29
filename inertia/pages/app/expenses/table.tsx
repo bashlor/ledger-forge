@@ -2,6 +2,7 @@ import type { KeyboardEvent } from 'react'
 
 import type { ExpenseDto } from '~/lib/types'
 
+import { SearchHighlight } from '~/components/search_highlight'
 import { StatusBadge } from '~/components/status_badge'
 import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 import { formatShortDate, formatSignedCurrency } from '~/lib/format'
@@ -15,6 +16,7 @@ interface ExpenseTableProps {
   onDelete: (expense: ExpenseDto) => void
   onOpen: (expense: ExpenseDto) => void
   processingId: null | string
+  searchQuery?: string
 }
 
 export function ExpenseTable({
@@ -24,6 +26,7 @@ export function ExpenseTable({
   onDelete,
   onOpen,
   processingId,
+  searchQuery = '',
 }: ExpenseTableProps) {
   const canInteract = !accountingReadOnly
 
@@ -74,8 +77,12 @@ export function ExpenseTable({
               onKeyDown={(event) => handleRowKeyDown(event, expense)}
               tabIndex={canInteract ? 0 : -1}
             >
-              <td className="px-5 py-4 font-medium text-slate-950">{expense.label}</td>
-              <td className="px-5 py-4 text-slate-700">{expense.category}</td>
+              <td className="px-5 py-4 font-medium text-slate-950">
+                <SearchHighlight query={searchQuery} text={expense.label} />
+              </td>
+              <td className="px-5 py-4 text-slate-700">
+                <SearchHighlight query={searchQuery} text={expense.category} />
+              </td>
               <td className="px-5 py-4 tabular-nums text-slate-600">
                 {formatShortDate(expense.date)}
               </td>
