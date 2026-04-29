@@ -30,12 +30,17 @@ export default class OrganizationController {
       'membership.toggleActive'
     )
     const db = (await app.container.make('drizzle')) as PostgresJsDatabase<typeof schema>
-    const [members, auditEvents] = await Promise.all([
-      memberService.listMembers(activeTenant.tenantId),
-      canViewAuditTrail
-        ? listRecentAuditEventsForTenant(db, { limit: 20, tenantId: activeTenant.tenantId })
-        : Promise.resolve([]),
-    ])
+    const members = await memberService.listMembers(activeTenant.tenantId)
+    const auditEvents = canViewAuditTrail
+      ? (ctx.inertia.defer(
+          () =>
+            listRecentAuditEventsForTenant(db, {
+              limit: 20,
+              tenantId: activeTenant.tenantId,
+            }) as never,
+          'auditEvents'
+        ) as never)
+      : ([] as never)
 
     return renderInertiaPage(ctx.inertia, 'app/organization', {
       auditEvents,
