@@ -156,6 +156,40 @@ test.group('Expenses routes | boundary contract', (group) => {
     confirmResponse.assertStatus(302)
   })
 
+  test('contract:PUT /expenses/:id happy path updates draft and returns redirect', async ({
+    assert,
+    client,
+  }) => {
+    await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
+      amount: 12,
+      category: 'Office',
+      date: '2026-04-16',
+      label: 'Draft to update',
+    })
+
+    const [draft] = await db.select().from(expenses)
+
+    const updateResponse = await client
+      .put(`/expenses/${draft.id}`)
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({
+        amount: 34.56,
+        category: 'Travel',
+        date: '2026-04-20',
+        label: 'Updated draft',
+      })
+
+    updateResponse.assertStatus(302)
+
+    const [updated] = await db.select().from(expenses).where(eq(expenses.id, draft.id))
+    assert.equal(updated.amountCents, 3456)
+    assert.equal(updated.category, 'Travel')
+    assert.equal(updated.date, '2026-04-20')
+    assert.equal(updated.label, 'Updated draft')
+    assert.equal(updated.status, 'draft')
+  })
+
   test('contract:DELETE /expenses/:id happy path returns redirect', async ({ client }) => {
     await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
       amount: 12,
@@ -240,6 +274,31 @@ test.group('Expenses routes | boundary contract', (group) => {
 
     const [draft] = await db.select().from(expenses)
 
+    const updateResponse = await client
+      .put(`/expenses/${draft.id}`)
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({
+        amount: 100,
+        category: 'Software',
+        date: '2026-04-12',
+        endDate: '2026-04-30',
+        label: 'Updated redirect',
+        page: 5,
+        perPage: 25,
+        search: 'updated',
+        startDate: '2026-04-01',
+      })
+
+    updateResponse.assertStatus(302)
+    assertExpensesRedirectQuery(assert, updateResponse.header('location'), {
+      endDate: '2026-04-30',
+      page: '5',
+      perPage: '25',
+      search: 'updated',
+      startDate: '2026-04-01',
+    })
+
     const confirmResponse = await client
       .post(`/expenses/${draft.id}/confirm-draft`)
       .header('cookie', authCookie())
@@ -297,6 +356,61 @@ test.group('Expenses routes | boundary contract', (group) => {
     response.assertStatus(404)
   })
 
+  test('contract:PUT /expenses/:id returns 404 when expense does not exist', async ({ client }) => {
+    const missingId = uuidv7()
+    const response = await client
+      .put(`/expenses/${missingId}`)
+      .header('accept', 'application/json')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({
+        amount: 42.5,
+        category: 'Software',
+        date: '2026-04-01',
+        label: 'Missing draft',
+      })
+
+    response.assertStatus(404)
+  })
+
+  test('contract:PUT /expenses/:id rejects confirmed expense updates without changing row', async ({
+    assert,
+    client,
+  }) => {
+    await client.post('/expenses').header('cookie', authCookie()).redirects(0).form({
+      amount: 99.99,
+      category: 'Infrastructure',
+      date: '2026-04-10',
+      label: 'Confirmed hosting',
+    })
+
+    const [draft] = await db.select().from(expenses)
+    await client
+      .post(`/expenses/${draft.id}/confirm-draft`)
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({})
+
+    const response = await client
+      .put(`/expenses/${draft.id}`)
+      .header('accept', 'application/json')
+      .header('cookie', authCookie())
+      .redirects(0)
+      .form({
+        amount: 12,
+        category: 'Office',
+        date: '2026-04-12',
+        label: 'Should not update',
+      })
+
+    response.assertStatus(302)
+
+    const [unchanged] = await db.select().from(expenses).where(eq(expenses.id, draft.id))
+    assert.equal(unchanged.status, 'confirmed')
+    assert.equal(unchanged.amountCents, 9999)
+    assert.equal(unchanged.label, 'Confirmed hosting')
+  })
+
   test('contract:DELETE /expenses/:id returns 404 when expense does not exist', async ({
     client,
   }) => {
@@ -340,6 +454,13 @@ test.group('Expenses routes | authorization', (group) => {
       .form({ amount: 10, category: 'Software', date: '2026-04-01', label: 'Test' })
     postResponse.assertStatus(302)
     postResponse.assertHeader('location', '/signin')
+
+    const putResponse = await client
+      .put(`/expenses/${fakeId}`)
+      .redirects(0)
+      .form({ amount: 10, category: 'Software', date: '2026-04-01', label: 'Test' })
+    putResponse.assertStatus(302)
+    putResponse.assertHeader('location', '/signin')
 
     const confirmResponse = await client
       .post(`/expenses/${fakeId}/confirm-draft`)

@@ -66,6 +66,7 @@ test.group('ExpenseService | createExpense', (group) => {
     assert.equal(result.amount, 18.5)
     assert.equal(result.canConfirm, true)
     assert.equal(result.canDelete, true)
+    assert.equal(result.canEdit, true)
     assert.equal(result.label, 'Test expense')
     assert.equal(result.category, 'Software')
     assert.equal(result.date, '2026-04-01')
@@ -132,6 +133,7 @@ test.group('ExpenseService | confirmExpense', (group) => {
     assert.equal(confirmed.status, 'confirmed')
     assert.equal(confirmed.canConfirm, false)
     assert.equal(confirmed.canDelete, false)
+    assert.equal(confirmed.canEdit, false)
     assert.equal(confirmed.amount, 12.34)
   })
 
@@ -244,6 +246,91 @@ test.group('ExpenseService | confirmExpense + journal atomicity', (group) => {
       .where(eq(journalEntries.expenseId, created.id))
 
     assert.equal(entries.length, 1, 'only the first confirmation created an entry')
+  })
+})
+
+test.group('ExpenseService | updateExpense', (group) => {
+  let cleanup: () => Promise<void>
+
+  group.setup(async () => {
+    const ctx = await setupTestDatabaseForGroup()
+    cleanup = ctx.cleanup
+    db = await app.container.make('drizzle')
+    await seedTestOrganization(db)
+    service = new ExpenseService(db)
+  })
+
+  group.each.setup(async () => truncateExpenses())
+  group.teardown(async () => cleanup())
+
+  test('updates a draft expense', async ({ assert }) => {
+    const created = await service.createExpense(makeInput(), TEST_ACCOUNTING_ACCESS_CONTEXT)
+    const updated = await service.updateExpense(
+      created.id,
+      makeInput({
+        amount: 45.67,
+        category: 'Travel',
+        date: '2026-04-15',
+        label: 'Train ticket',
+      }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    assert.equal(updated.id, created.id)
+    assert.equal(updated.status, 'draft')
+    assert.equal(updated.canEdit, true)
+    assert.equal(updated.amount, 45.67)
+    assert.equal(updated.category, 'Travel')
+    assert.equal(updated.date, '2026-04-15')
+    assert.equal(updated.label, 'Train ticket')
+  })
+
+  test('throws not_found when expense does not exist', async ({ assert }) => {
+    const error = await service
+      .updateExpense('nonexistent-id', makeInput(), TEST_ACCOUNTING_ACCESS_CONTEXT)
+      .catch((e) => e)
+
+    assert.instanceOf(error, DomainError)
+    assert.equal(error.type, 'not_found')
+  })
+
+  test('throws business_logic_error when expense is confirmed', async ({ assert }) => {
+    const created = await service.createExpense(makeInput(), TEST_ACCOUNTING_ACCESS_CONTEXT)
+    await service.confirmExpense(created.id, TEST_ACCOUNTING_ACCESS_CONTEXT)
+
+    const error = await service
+      .updateExpense(
+        created.id,
+        makeInput({ amount: 44, label: 'Should not update' }),
+        TEST_ACCOUNTING_ACCESS_CONTEXT
+      )
+      .catch((e) => e)
+
+    assert.instanceOf(error, DomainError)
+    assert.equal(error.type, 'business_logic_error')
+  })
+
+  test('audit:update expense event is emitted on happy path', async ({ assert }) => {
+    const created = await service.createExpense(
+      makeInput({ amount: 25, label: 'Audit update path' }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+    await service.updateExpense(
+      created.id,
+      makeInput({ amount: 30, label: 'Audit update changed' }),
+      TEST_ACCOUNTING_ACCESS_CONTEXT
+    )
+
+    const events = await listAuditEventsForEntity(db, {
+      entityId: created.id,
+      entityType: 'expense',
+      tenantId: TEST_TENANT_ID,
+    })
+
+    assert.deepEqual(
+      events.map((event) => event.action),
+      ['update', 'create']
+    )
   })
 })
 
