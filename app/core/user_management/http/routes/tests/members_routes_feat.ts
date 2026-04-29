@@ -330,6 +330,47 @@ test.group('Organization page route | GET /organization', (group) => {
     assert.equal(response.body().component, 'app/organization')
     assert.lengthOf(response.body().props.members, 4)
     assert.isTrue(response.body().props.canViewAuditTrail)
+    assert.deepEqual(response.body().deferredProps, { auditEvents: ['auditEvents'] })
+    assert.isUndefined(response.body().props.auditEvents)
+  })
+
+  test('owner can load deferred audit events for organization page', async ({ assert, client }) => {
+    await db.insert(auditEvents).values([
+      {
+        action: 'member_role_changed',
+        actorId: ownerUser.id,
+        changes: { after: { role: 'admin' }, before: { role: 'member' } },
+        createdAt: new Date('2026-04-20T10:00:00.000Z'),
+        entityId: MEMBER_IDS.regular,
+        entityType: 'member',
+        id: 'audit_org_page_owner',
+        metadata: { result: 'success' },
+        organizationId: TEST_TENANT_ID,
+      },
+      {
+        action: 'sign_in_success',
+        actorId: ownerUser.id,
+        createdAt: new Date('2026-04-20T10:01:00.000Z'),
+        entityId: 'session_org_page_owner',
+        entityType: 'auth',
+        id: 'audit_org_page_sign_in',
+        metadata: { result: 'success' },
+        organizationId: TEST_TENANT_ID,
+      },
+    ])
+
+    const response = await withCookie(
+      withInertiaHeaders(
+        client
+          .get('/organization')
+          .header('x-inertia-partial-component', 'app/organization')
+          .header('x-inertia-partial-data', 'auditEvents')
+      ),
+      ownerSession
+    )
+
+    response.assertStatus(200)
+    assert.equal(response.body().component, 'app/organization')
     assert.lengthOf(response.body().props.auditEvents, 2)
     assert.equal(response.body().props.auditEvents[0].action, 'sign_in_success')
     assert.equal(response.body().props.auditEvents[0].boundedContext, 'user_management')

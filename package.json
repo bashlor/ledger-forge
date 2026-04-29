@@ -14,6 +14,7 @@
     "setup": "bash ./first-easy-start.sh",
     "start": "node bin/server.js",
     "build": "rm -rf build && NODE_ENV=production node ace build",
+    "build:analyze": "rm -rf build && BUILD_ANALYZE_BUNDLE=true NODE_ENV=production node ace build",
     "check:prod-safety": "bash ./scripts/check-production-safety.sh",
     "verify:prod-build-no-dev-tools": "node scripts/verify-prod-build-no-dev-tools.mjs",
     "postbuild": "node scripts/prune-dev-only-build-artifacts.mjs",
@@ -125,7 +126,6 @@
     "@adonisjs/vite": "^5.1.0",
     "@better-auth/drizzle-adapter": "^1.6.9",
     "@inertiajs/react": "^2.3.21",
-    "@radix-ui/react-select": "^2.2.6",
     "@tuyau/core": "^1.2.2",
     "@vinejs/vine": "^4.3.1",
     "better-auth": "^1.6.9",
@@ -136,6 +136,7 @@
     "postgres": "^3.4.9",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-select": "^5.10.2",
     "reflect-metadata": "^0.2.2",
     "sonner": "^2.0.7",
     "uuid": "^14.0.0"

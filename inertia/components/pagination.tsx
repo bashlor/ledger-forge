@@ -10,7 +10,7 @@ interface PaginationProps {
 }
 
 const perPageOptions = PAGE_SIZE_OPTIONS.map((option) => ({
-  label: `${option} lignes par page`,
+  label: String(option),
   triggerLabel: String(option),
   value: String(option),
 }))
@@ -54,12 +54,14 @@ export function Pagination({ onPageChange, onPerPageChange, pagination }: Pagina
         </div>
         {onPerPageChange ? (
           <Select
+            align="end"
             aria-label="Nombre d’éléments par page"
             label="Lignes par page"
             onValueChange={(next) => onPerPageChange(Number(next))}
             options={perPageOptions}
-            size="compact"
-            triggerClassName="min-w-[2.75rem] justify-center tabular-nums sm:min-w-12"
+            size="default"
+            tone="surface"
+            triggerClassName="min-w-[4.5rem] tabular-nums sm:min-w-20"
             value={String(perPage)}
           />
         ) : null}

@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import { PrimaryButton } from '~/components/button'
 import { DataTable } from '~/components/data_table'
@@ -7,6 +7,7 @@ import { FilterSelect } from '~/components/filter_select'
 import { MetricCard } from '~/components/metric_card'
 import { PageHeader } from '~/components/page_header'
 import { SearchForm } from '~/components/search_form'
+import { TableHeaderCell, TableHeadRow } from '~/components/ui'
 
 import type { InertiaProps } from '../../types'
 import type { OrganizationAuditEvent } from './organization/audit_types'
@@ -40,7 +41,7 @@ const AUDIT_CONTEXT_OPTIONS = [
 ] as const
 
 interface OrganizationPageProps {
-  auditEvents: OrganizationAuditEvent[]
+  auditEvents?: OrganizationAuditEvent[]
   canManageMembershipRoles: boolean
   canToggleMembershipStatus: boolean
   canViewAuditTrail: boolean
@@ -62,6 +63,12 @@ export default function OrganizationPage({
   const admins = members.filter(
     (member) => member.role === 'admin' || member.role === 'owner'
   ).length
+
+  const cachedAuditEvents = useRef<null | OrganizationAuditEvent[]>(null)
+  if (auditEvents) {
+    cachedAuditEvents.current = auditEvents
+  }
+  const resolvedAuditEvents = auditEvents ?? cachedAuditEvents.current
 
   const [memberSearch, setMemberSearch] = useState('')
   const [memberRoleFilter, setMemberRoleFilter] = useState<MemberRoleFilter>('all')
@@ -99,9 +106,13 @@ export default function OrganizationPage({
   }, [memberRoleFilter, memberSearch, memberStatusFilter, members])
 
   const filteredAuditEvents = useMemo(() => {
+    if (!resolvedAuditEvents) {
+      return []
+    }
+
     const q = auditSearch.trim().toLowerCase()
     const actionNeedle = auditActionFilter.trim().toLowerCase()
-    return auditEvents.filter((event) => {
+    return resolvedAuditEvents.filter((event) => {
       if (auditContextFilter !== 'all' && auditContextForFilter(event) !== auditContextFilter) {
         return false
       }
@@ -122,10 +133,11 @@ export default function OrganizationPage({
         details.includes(q)
       )
     })
-  }, [auditActionFilter, auditContextFilter, auditEvents, auditSearch])
+  }, [auditActionFilter, auditContextFilter, auditSearch, resolvedAuditEvents])
 
   const visibleMembers = filteredMembers.slice(0, memberVisibleCount)
   const visibleAuditEvents = filteredAuditEvents.slice(0, auditVisibleCount)
+  const auditTrailLoading = canViewAuditTrail && !resolvedAuditEvents
 
   const membersToolbar = (
     <>
@@ -266,26 +278,30 @@ export default function OrganizationPage({
             titleClassName="text-slate-600 lg:text-[15px]"
             toolbarClassName="gap-3"
           >
-            <>
-              <AuditTrailTable
-                events={visibleAuditEvents}
-                onViewDetails={(event) => setAuditDetail(event)}
-              />
+            {auditTrailLoading ? (
+              <AuditTrailSkeleton />
+            ) : (
+              <>
+                <AuditTrailTable
+                  events={visibleAuditEvents}
+                  onViewDetails={(event) => setAuditDetail(event)}
+                />
 
-              {filteredAuditEvents.length > auditVisibleCount ? (
-                <div className="border-t border-slate-200/80 px-5 py-4 sm:px-6">
-                  <div className="flex justify-end">
-                    <button
-                      className="rounded-xl border border-slate-200/95 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition-colors duration-150 hover:bg-slate-50"
-                      onClick={() => setAuditVisibleCount((count) => count + 20)}
-                      type="button"
-                    >
-                      Load more
-                    </button>
+                {filteredAuditEvents.length > auditVisibleCount ? (
+                  <div className="border-t border-slate-200/80 px-5 py-4 sm:px-6">
+                    <div className="flex justify-end">
+                      <button
+                        className="rounded-xl border border-slate-200/95 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition-colors duration-150 hover:bg-slate-50"
+                        onClick={() => setAuditVisibleCount((count) => count + 20)}
+                        type="button"
+                      >
+                        Load more
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </>
+                ) : null}
+              </>
+            )}
           </DataTable>
         ) : null}
       </div>
@@ -305,6 +321,52 @@ function auditContextForFilter(event: OrganizationAuditEvent): 'accounting' | 'u
     event.entityType === 'invoice'
     ? 'accounting'
     : 'user_management'
+}
+
+function AuditTrailSkeleton() {
+  return (
+    <div className="overflow-x-auto">
+      <table className="tonal-table organization-audit-table w-full min-w-[960px] border-collapse text-left text-sm">
+        <thead>
+          <TableHeadRow className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+            <TableHeaderCell>Time</TableHeaderCell>
+            <TableHeaderCell>Actor</TableHeaderCell>
+            <TableHeaderCell>Action</TableHeaderCell>
+            <TableHeaderCell>Entity</TableHeaderCell>
+            <TableHeaderCell>Result</TableHeaderCell>
+            <TableHeaderCell className="text-right">Details</TableHeaderCell>
+          </TableHeadRow>
+        </thead>
+        <tbody className="divide-y divide-slate-200/80">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <tr
+              className="group transition-colors duration-150 ease-out hover:bg-slate-50/60"
+              key={index}
+            >
+              <td className="px-5 py-4">
+                <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+              </td>
+              <td className="px-5 py-4">
+                <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+              </td>
+              <td className="px-5 py-4">
+                <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+              </td>
+              <td className="px-5 py-4">
+                <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+              </td>
+              <td className="px-5 py-4">
+                <div className="h-6 w-20 animate-pulse rounded-full bg-slate-200" />
+              </td>
+              <td className="px-5 py-4 text-right">
+                <div className="ml-auto h-9 w-24 animate-pulse rounded-xl bg-slate-200" />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 function compactDetailsForSearch(event: OrganizationAuditEvent): null | string {

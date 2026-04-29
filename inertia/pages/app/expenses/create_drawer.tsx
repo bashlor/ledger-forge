@@ -106,6 +106,7 @@ export function CreateDrawer({
           <div className="space-y-2">
             <FormLabel htmlFor="expense-category">Category</FormLabel>
             <Select
+              align="end"
               aria-label="Expense category"
               disabled={fieldDisabled}
               id="expense-category"

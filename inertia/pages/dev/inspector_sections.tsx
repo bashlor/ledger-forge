@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import { DataTable } from '~/components/data_table'
 import { StatusBadge } from '~/components/status_badge'
-import { TableHeaderCell, TableHeadRow } from '~/components/ui'
+import { Select, TableHeaderCell, TableHeadRow } from '~/components/ui'
 
 import type {
   ActionTone,
@@ -74,29 +74,24 @@ export function AuditTrailSection({
             placeholder="Filter action"
             value={audit.filters.action}
           />
-          <select
-            className={inputClass()}
-            onChange={(event) => onActorFilterChange(event.target.value)}
+          <Select
+            aria-label="Actor filter"
+            onValueChange={onActorFilterChange}
+            options={audit.actors.map((actor) => ({ label: actor.label, value: actor.id }))}
+            placeholder="All actors"
+            size="compact"
+            tone="surface"
             value={audit.filters.actorId}
-          >
-            <option value="">All actors</option>
-            {audit.actors.map((actor) => (
-              <option key={actor.id} value={actor.id}>
-                {actor.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className={inputClass()}
-            onChange={(event) => onTenantFilterChange(event.target.value)}
+          />
+          <Select
+            aria-label="Tenant filter"
+            onValueChange={onTenantFilterChange}
+            options={audit.tenants.map((tenant) => ({ label: tenant.label, value: tenant.id }))}
+            placeholder="All tenants"
+            size="compact"
+            tone="surface"
             value={audit.filters.tenantId}
-          >
-            {audit.tenants.map((tenant) => (
-              <option key={tenant.id} value={tenant.id}>
-                {tenant.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       }
       isEmpty={visibleEvents.length === 0}
@@ -203,17 +198,17 @@ export function DataGeneratorSection({
         <div className="grid gap-2 xl:grid-cols-[220px_220px_minmax(0,1fr)]">
           <label className="space-y-1.5">
             <span className={labelClass}>Actor</span>
-            <select
-              className={inputClass()}
-              onChange={(event) => onActorChange(event.target.value)}
+            <Select
+              aria-label="Actor"
+              onValueChange={onActorChange}
+              options={members.map((member) => ({
+                label: `${member.name} (${member.role})`,
+                value: member.id,
+              }))}
+              size="compact"
+              tone="surface"
               value={actorId}
-            >
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name} ({member.role})
-                </option>
-              ))}
-            </select>
+            />
           </label>
 
           <label className="space-y-1.5">
@@ -313,25 +308,31 @@ export function MembersPermissionsSection({
             placeholder="Search name, email, user id"
             value={memberSearch}
           />
-          <select
-            className={inputClass()}
-            onChange={(event) => onRoleFilterChange(event.target.value as MemberRoleFilter)}
+          <Select
+            aria-label="Role filter"
+            onValueChange={(next) => onRoleFilterChange(next as MemberRoleFilter)}
+            options={[
+              { label: 'All roles', value: 'all' },
+              { label: 'Owner', value: 'owner' },
+              { label: 'Admin', value: 'admin' },
+              { label: 'Member', value: 'member' },
+            ]}
+            size="compact"
+            tone="surface"
             value={memberRoleFilter}
-          >
-            <option value="all">All roles</option>
-            <option value="owner">Owner</option>
-            <option value="admin">Admin</option>
-            <option value="member">Member</option>
-          </select>
-          <select
-            className={inputClass()}
-            onChange={(event) => onStatusFilterChange(event.target.value as MemberStatusFilter)}
+          />
+          <Select
+            aria-label="Status filter"
+            onValueChange={(next) => onStatusFilterChange(next as MemberStatusFilter)}
+            options={[
+              { label: 'All statuses', value: 'all' },
+              { label: 'Active', value: 'active' },
+              { label: 'Inactive', value: 'inactive' },
+            ]}
+            size="compact"
+            tone="surface"
             value={memberStatusFilter}
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+          />
         </div>
       }
       isEmpty={filteredMembers.length === 0}
@@ -623,17 +624,17 @@ export function TenantFactorySection({
         <div className="grid gap-2 lg:grid-cols-[280px_auto_minmax(0,1fr)]">
           <label className="space-y-1.5">
             <span className={labelClass}>Tenant selector</span>
-            <select
-              className={inputClass()}
-              onChange={(event) => onSelectTenant(event.target.value)}
+            <Select
+              aria-label="Tenant selector"
+              onValueChange={onSelectTenant}
+              options={inspectableTenants.map((tenant) => ({
+                label: tenantOptionLabel(tenant),
+                value: tenant.id,
+              }))}
+              size="compact"
+              tone="surface"
               value={selectedTenantId}
-            >
-              {inspectableTenants.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenantOptionLabel(tenant)}
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <div className="flex items-end">
             <button
@@ -729,31 +730,31 @@ export function WorkflowProbesSection({
         <div className="grid gap-2 xl:grid-cols-[220px_260px_220px_auto_auto]">
           <label className="space-y-1.5">
             <span className={labelClass}>Selected actor</span>
-            <select
-              className={inputClass()}
-              onChange={(event) => onSelectActor(event.target.value)}
+            <Select
+              aria-label="Selected actor"
+              onValueChange={onSelectActor}
+              options={members.map((member) => ({
+                label: `${member.name} (${member.role})`,
+                value: member.id,
+              }))}
+              size="compact"
+              tone="surface"
               value={context.selectedMemberId}
-            >
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name} ({member.role})
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <label className="space-y-1.5">
             <span className={labelClass}>Selected tenant</span>
-            <select
-              className={inputClass()}
-              onChange={(event) => onSelectTenant(event.target.value)}
+            <Select
+              aria-label="Selected tenant"
+              onValueChange={onSelectTenant}
+              options={inspectableTenants.map((tenant) => ({
+                label: tenantOptionLabel(tenant),
+                value: tenant.id,
+              }))}
+              size="compact"
+              tone="surface"
               value={context.selectedTenantId}
-            >
-              {inspectableTenants.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenantOptionLabel(tenant)}
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <label className="space-y-1.5">
             <span className={labelClass}>Unauthorized mode</span>
