@@ -30,6 +30,13 @@ vi.mock('@inertiajs/react', () => ({
 }))
 
 describe('signin page', () => {
+  it('uses semantic input types for credentials', () => {
+    render(<Signin allowAnonymousAuth />)
+
+    expect(screen.getByLabelText('Email address')).toHaveAttribute('type', 'email')
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
+  })
+
   it('shows anonymous sign-in only when enabled', () => {
     render(<Signin allowAnonymousAuth />)
 
