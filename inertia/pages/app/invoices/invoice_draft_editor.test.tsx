@@ -70,8 +70,13 @@ describe('InvoiceDraftEditor', () => {
       />
     )
 
-    expect(screen.getAllByText(/59,98\s*€/)).toHaveLength(2)
-    expect(screen.getByText(/49,98\s*€/)).toBeInTheDocument()
+    expect(screen.getAllByText(/59,98\s*€/)).toHaveLength(3)
+    expect(screen.getAllByText(/49,98\s*€/)).toHaveLength(1)
     expect(screen.getByText(/10,00\s*€/)).toBeInTheDocument()
+    expect(screen.getByText('Issuer / Seller')).toBeInTheDocument()
+    expect(screen.getByText('Buyer / Customer')).toBeInTheDocument()
+    expect(screen.getByText('Captured when issued')).toBeInTheDocument()
+    expect(screen.getByText('Line total (with VAT)')).toBeInTheDocument()
+    expect(screen.getAllByText('Totals')).toHaveLength(2)
   })
 })
