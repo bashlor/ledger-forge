@@ -125,8 +125,8 @@ export function InvoiceDraftEditor({
                 Customer
               </label>
               <Select
+                align="end"
                 aria-label="Invoice customer"
-                contentClassName="z-[120]"
                 disabled={accountingReadOnly}
                 id="invoice-client"
                 onValueChange={(next) => onFormChange('customerId', next)}
@@ -256,8 +256,8 @@ export function InvoiceDraftEditor({
                         <td className="px-4 py-3 text-right align-middle">
                           <div className="flex justify-end">
                             <Select
+                              align="end"
                               aria-label="VAT rate"
-                              contentClassName="z-[120]"
                               disabled={accountingReadOnly}
                               onValueChange={(next) => onLineUpdate(line.key, 'vatRate', next)}
                               options={vatOptions}

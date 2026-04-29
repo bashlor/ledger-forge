@@ -12,10 +12,6 @@ function manualChunks(id: string) {
     return
   }
 
-  if (id.includes('@radix-ui/react-select')) {
-    return 'radix-select'
-  }
-
   if (id.includes('sonner')) {
     return 'sonner'
   }
