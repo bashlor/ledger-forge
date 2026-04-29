@@ -34,7 +34,7 @@ describe('Pagination', () => {
     )
 
     await user.click(screen.getByRole('combobox', { name: /Nombre d’éléments par page/i }))
-    await user.click(screen.getByRole('option', { name: '25 lignes par page' }))
+    await user.click(await screen.findByRole('option', { name: '25' }))
 
     expect(onPerPageChange).toHaveBeenCalledWith(25)
     expect(onPageChange).not.toHaveBeenCalled()

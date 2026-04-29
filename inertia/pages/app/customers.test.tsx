@@ -255,8 +255,8 @@ describe('customers page', () => {
       ]),
     })
 
-    await user.click(screen.getByRole('button', { name: /Filter customers/i }))
-    await user.click(screen.getByRole('option', { name: 'With invoices' }))
+    await user.click(screen.getByRole('combobox', { name: /Filter customers/i }))
+    await user.click(await screen.findByRole('option', { name: 'With invoices' }))
 
     expect(
       screen.getByText('No customers match the current filters on this page.')
