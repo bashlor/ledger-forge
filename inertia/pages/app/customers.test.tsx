@@ -284,6 +284,21 @@ describe('customers page', () => {
     }
   })
 
+  it('shows the active search indicator and clears the search from the toolbar', () => {
+    renderPage()
+
+    expect(screen.getByText('Active search')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear search' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+
+    expect(routerGetMock).toHaveBeenCalledWith(
+      '/customers',
+      { perPage: 25 },
+      { only: ['customers', 'filters'], preserveScroll: true, replace: true }
+    )
+  })
+
   it('opens the drawer when customer validation errors are present', () => {
     renderPage({}, { company: 'Company is required.' })
 

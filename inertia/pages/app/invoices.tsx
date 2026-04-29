@@ -523,6 +523,10 @@ function InvoicesContent({
     )
   }
 
+  function handleClearSearch() {
+    handleSearchSubmit('')
+  }
+
   // --- Form ---
 
   function handleFormChange(field: 'customerId' | 'dueDate' | 'issueDate', value: string) {
@@ -797,6 +801,7 @@ function InvoicesContent({
             accountingReadOnly={accountingReadOnly}
             appliedSearch={appliedSearch}
             invoices={invoices}
+            onClearSearch={handleClearSearch}
             onDeleteDraft={handleDeleteDraftFromList}
             onIssueInvoice={handleIssueFromList}
             onPageChange={handlePageChange}

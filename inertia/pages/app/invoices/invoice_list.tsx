@@ -1,5 +1,6 @@
 import type { InvoiceDto, InvoiceSummaryDto, PaginatedList } from '~/lib/types'
 
+import { ActiveSearchFilter } from '~/components/active_search_filter'
 import { DataTable } from '~/components/data_table'
 import { MetricCard } from '~/components/metric_card'
 import { SearchForm } from '~/components/search_form'
@@ -10,6 +11,7 @@ interface Props {
   accountingReadOnly: boolean
   appliedSearch: string
   invoices: PaginatedList<InvoiceDto>
+  onClearSearch: () => void
   onDeleteDraft: (invoice: InvoiceDto) => void
   onIssueInvoice: (invoice: InvoiceDto) => void
   onPageChange: (page: number) => void
@@ -24,6 +26,7 @@ export function InvoiceList({
   accountingReadOnly,
   appliedSearch,
   invoices,
+  onClearSearch,
   onDeleteDraft,
   onIssueInvoice,
   onPageChange,
@@ -72,16 +75,23 @@ export function InvoiceList({
       )}
 
       <DataTable
-        emptyMessage="No invoices fall within the selected period."
+        emptyMessage={
+          appliedSearch
+            ? `No invoices match "${appliedSearch}" in the selected period.`
+            : 'No invoices fall within the selected period.'
+        }
         headerClassName="border-b border-slate-200/90 bg-white px-5 py-4 sm:px-6"
         headerContent={
-          <SearchForm
-            ariaLabel="Search invoices"
-            onSubmit={onSearchSubmit}
-            placeholder="Search invoice, company, contact"
-            value={appliedSearch}
-            variant="premium"
-          />
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <SearchForm
+              ariaLabel="Search invoices"
+              onSubmit={onSearchSubmit}
+              placeholder="Search invoice, company, contact"
+              value={appliedSearch}
+              variant="premium"
+            />
+            <ActiveSearchFilter onClear={onClearSearch} query={appliedSearch} />
+          </div>
         }
         isEmpty={invoices.items.length === 0}
         onPageChange={onPageChange}
@@ -99,6 +109,7 @@ export function InvoiceList({
           onIssueInvoice={onIssueInvoice}
           onSelectInvoice={onSelectInvoice}
           saving={saving}
+          searchQuery={appliedSearch}
         />
       </DataTable>
     </>
