@@ -22,13 +22,13 @@ describe('mobile nav', () => {
   it('renders the dev tools link when dev tools are enabled', () => {
     render(<MobileNav devToolsEnabled devToolsHref="/_dev" url="/dashboard" />)
 
-    expect(screen.getByRole('link', { name: 'Dev' })).toHaveAttribute('href', '/_dev')
+    expect(screen.getByRole('link', { name: 'Dev tools' })).toHaveAttribute('href', '/_dev')
   })
 
   it('hides the dev tools link when dev tools are disabled', () => {
     render(<MobileNav devToolsEnabled={false} devToolsHref="/_dev" url="/dashboard" />)
 
-    expect(screen.queryByRole('link', { name: 'Dev' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Dev tools' })).not.toBeInTheDocument()
   })
 
   it('hides accounting nav links in dev operator mode', () => {
@@ -42,7 +42,7 @@ describe('mobile nav', () => {
     )
 
     expect(screen.queryByRole('link', { name: 'Overview' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Dev' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Dev tools' })).toBeInTheDocument()
   })
 
   it('renders only the nav links passed by the shell permissions filter', () => {

@@ -66,7 +66,6 @@ export function AppSidebar({
               href={devToolsHref}
               icon="tune"
               label="Dev Tools"
-              secondaryIcon="monitoring"
             />
           ) : null}
         </nav>
@@ -80,13 +79,11 @@ function SidebarLink({
   href,
   icon,
   label,
-  secondaryIcon,
 }: {
   active: boolean
   href: string
   icon: string
   label: string
-  secondaryIcon?: string
 }) {
   return (
     <Link
@@ -104,16 +101,6 @@ function SidebarLink({
           name={icon}
           size={20}
         />
-        {secondaryIcon ? (
-          <span className="absolute -bottom-px -right-px flex h-3.5 w-3.5 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
-            <AppIcon
-              className={active ? 'text-primary' : 'text-slate-500'}
-              filled={active}
-              name={secondaryIcon}
-              size={9}
-            />
-          </span>
-        ) : null}
       </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </Link>
