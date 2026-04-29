@@ -91,6 +91,7 @@ export interface ExpenseDto {
   amount: number
   canConfirm: boolean
   canDelete: boolean
+  canEdit: boolean
   category: string
   date: string
   id: string

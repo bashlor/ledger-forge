@@ -7,6 +7,7 @@ export function toExpenseDto(row: ExpenseRow): ExpenseDto {
     amount: fromCents(row.amountCents),
     canConfirm: row.status === 'draft',
     canDelete: row.status === 'draft',
+    canEdit: row.status === 'draft',
     category: row.category,
     date: row.date,
     id: row.id,

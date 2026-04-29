@@ -36,7 +36,7 @@ Main modules in `app/core`:
 The accounting bounded context is intentionally asymmetrical:
 
 - `customers` stays close to CRUD with business safeguards.
-- `expenses` stays a linear draft/confirmed workflow.
+- `expenses` stays a linear draft/confirmed workflow; drafts remain editable until confirmation.
 - `invoices` is richer because it carries lifecycle, money, snapshots, journal, audit, and concurrency concerns.
 
 ## Request lifecycle
@@ -56,7 +56,7 @@ Examples:
 
 - customer deletion protection when linked invoices exist
 - invoice lifecycle constraints (`draft -> issued -> paid`)
-- expense confirmation constraints with transactional side effects
+- expense draft-edit/confirmation constraints with transactional confirmation side effects
 - monetary consistency based on integer cents
 - degraded audit trail handling (writes blocked while reads stay available)
 

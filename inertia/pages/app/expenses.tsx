@@ -15,7 +15,7 @@ import { DEFAULT_PAGE_SIZE } from '~/lib/pagination'
 
 import type { InertiaProps } from '../../types'
 
-import { CreateDrawer } from './expenses/create_drawer'
+import { CreateDrawer, type ExpenseDrawerMode } from './expenses/create_drawer'
 import { SummaryCards, SummaryCardsSkeleton } from './expenses/summary_cards'
 import { ExpenseTable } from './expenses/table'
 
@@ -40,6 +40,7 @@ export default function ExpensesPage({
 }: Props) {
   const { scope } = useDateScope()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerMode, setDrawerMode] = useState<ExpenseDrawerMode>('create')
   const [selectedExpense, setSelectedExpense] = useState<ExpenseDto | null>(null)
   const [processing, setProcessing] = useState(false)
   const [processingId, setProcessingId] = useState<null | string>(null)
@@ -102,30 +103,40 @@ export default function ExpensesPage({
     submitSearch('')
   }
 
-  function handleCreate(input: CreateExpenseInput) {
+  function handleSubmit(input: CreateExpenseInput, editingId: null | string) {
     if (accountingReadOnly) return
-    router.post('/expenses', { ...input, ...listQs() } as never, {
+    const payload = { ...input, ...listQs() } as never
+    const options = {
       onFinish: () => setProcessing(false),
       onStart: () => setProcessing(true),
       onSuccess: () => setDrawerOpen(false),
       preserveScroll: true,
-    })
+    }
+
+    if (editingId) {
+      router.put(`/expenses/${editingId}`, payload, options)
+    } else {
+      router.post('/expenses', payload, options)
+    }
   }
 
   function openCreateDrawer() {
     if (accountingReadOnly) return
     setSelectedExpense(null)
+    setDrawerMode('create')
     setDrawerOpen(true)
   }
 
   function openExpenseDrawer(expense: ExpenseDto) {
     setSelectedExpense(expense)
+    setDrawerMode(!accountingReadOnly && expense.canEdit ? 'edit' : 'view')
     setDrawerOpen(true)
   }
 
   function closeDrawer() {
     setDrawerOpen(false)
     setSelectedExpense(null)
+    setDrawerMode('create')
   }
 
   function requestConfirm(id: string) {
@@ -189,8 +200,9 @@ export default function ExpensesPage({
           accountingReadOnlyMessage={accountingReadOnlyMessage}
           categories={categories}
           expense={selectedExpense}
+          mode={drawerMode}
           onClose={closeDrawer}
-          onSubmit={handleCreate}
+          onSubmit={handleSubmit}
           open={drawerOpen}
           processing={processing}
         />

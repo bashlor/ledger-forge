@@ -40,6 +40,8 @@ export function ExpenseRowActionsMenu({
 
   const confirmDisabled = processing || readOnly || !expense.canConfirm
   const deleteDisabled = processing || readOnly || !expense.canDelete
+  const canEditDraft = !readOnly && expense.canEdit
+  const primaryActionIsEdit = expense.status === 'draft' && canEditDraft
 
   function toggleMenu() {
     setMenuState((state) => ({ open: !state.open, step: 'actions' }))
@@ -91,7 +93,8 @@ export function ExpenseRowActionsMenu({
           {step === 'actions' ? (
             <>
               <button
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 transition-colors duration-150 hover:bg-slate-50"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={processing}
                 onClick={() => {
                   closeMenu()
                   onOpen(expense)
@@ -99,8 +102,12 @@ export function ExpenseRowActionsMenu({
                 role="menuitem"
                 type="button"
               >
-                <AppIcon className="text-slate-500" name="monitoring" size={18} />
-                Open
+                <AppIcon
+                  className="text-slate-500"
+                  name={primaryActionIsEdit ? 'edit' : 'monitoring'}
+                  size={18}
+                />
+                {primaryActionIsEdit ? 'Edit' : 'Open'}
               </button>
               <button
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 transition-colors duration-150 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"

@@ -29,6 +29,7 @@ import {
   deleteDraftExpense,
   insertDraftExpense,
   insertExpenseJournalEntry,
+  updateDraftExpense,
 } from './commands.js'
 import { toExpenseDto } from './mappers.js'
 import { findExpenseById, getExpenseSummary, listExpenseRows } from './queries.js'
@@ -207,5 +208,67 @@ export class ExpenseService {
       items: rows.map(toExpenseDto),
       pagination,
     }
+  }
+
+  async updateExpense(
+    id: string,
+    input: CreateExpenseInput,
+    access: AccountingAccessContext,
+    hooks?: ExpenseConcurrencyHooks
+  ): Promise<ExpenseDto> {
+    const normalized = normalizeExpenseInput(input)
+    const updatedRow = await this.db.transaction(async (tx) => {
+      const existing = await findExpenseById(tx, id, access.tenantId)
+      if (!existing) {
+        throw new DomainError('Expense not found.', 'not_found')
+      }
+      await hooks?.afterRead?.()
+
+      const updated = await updateDraftExpense(tx, id, normalized, access.tenantId)
+
+      if (!updated) {
+        const again = await findExpenseById(tx, id, access.tenantId)
+        if (!again) {
+          throw new DomainError('Expense not found.', 'not_found')
+        }
+        throw new DomainError('Only draft expenses can be updated.', 'business_logic_error')
+      }
+
+      await this.auditTrail.record(tx, {
+        action: 'update',
+        actorId: access.actorId,
+        changes: {
+          after: {
+            amountCents: normalized.amountCents,
+            category: normalized.category,
+            date: normalized.date,
+            label: normalized.label,
+          },
+          before: {
+            amountCents: existing.amountCents,
+            category: existing.category,
+            date: existing.date,
+            label: existing.label,
+          },
+        },
+        entityId: id,
+        entityType: 'expense',
+        tenantId: access.tenantId,
+      })
+
+      return updated
+    })
+
+    await this.activitySink?.record({
+      actorId: access.actorId,
+      boundedContext: 'accounting',
+      isAnonymous: access.isAnonymous,
+      operation: 'update_expense',
+      outcome: 'success',
+      resourceId: id,
+      resourceType: 'expense',
+    })
+
+    return toExpenseDto(updatedRow)
   }
 }

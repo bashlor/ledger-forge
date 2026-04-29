@@ -33,8 +33,12 @@ export function InvoiceTable({
     <table className="tonal-table invoice-register-table w-full min-w-[640px] border-collapse text-left text-sm">
       <thead>
         <TableHeadRow className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-          <TableHeaderCell className="cursor-default text-left select-none">Invoice</TableHeaderCell>
-          <TableHeaderCell className="cursor-default text-left select-none">Customer</TableHeaderCell>
+          <TableHeaderCell className="cursor-default text-left select-none">
+            Invoice
+          </TableHeaderCell>
+          <TableHeaderCell className="cursor-default text-left select-none">
+            Customer
+          </TableHeaderCell>
           <TableHeaderCell className="cursor-default text-left select-none">Status</TableHeaderCell>
           <TableHeaderCell className="cursor-default text-left select-none">Due</TableHeaderCell>
           <TableHeaderCell className="cursor-default select-none text-right tabular-nums">

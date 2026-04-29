@@ -11,13 +11,16 @@ import { todayDateOnlyUtc } from '~/lib/date'
 const FIELD_CLASS =
   'h-10 min-h-10 w-full rounded-xl border border-border-default bg-white px-3 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors duration-150 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60'
 
+export type ExpenseDrawerMode = 'create' | 'edit' | 'view'
+
 interface CreateDrawerProps {
   accountingReadOnly: boolean
   accountingReadOnlyMessage: string
   categories: string[]
   expense?: ExpenseDto | null
+  mode: ExpenseDrawerMode
   onClose: () => void
-  onSubmit: (input: CreateExpenseInput) => void
+  onSubmit: (input: CreateExpenseInput, editingId: null | string) => void
   open: boolean
   processing: boolean
 }
@@ -27,37 +30,64 @@ export function CreateDrawer({
   accountingReadOnlyMessage,
   categories,
   expense = null,
+  mode,
   onClose,
   onSubmit,
   open,
   processing,
 }: CreateDrawerProps) {
-  const [createForm, setCreateForm] = useState<CreateExpenseInput>(() => freshForm(categories))
-  const detailsMode = Boolean(expense)
+  const formKey = expense?.id ?? 'new'
+  const [draft, setDraft] = useState(() => ({
+    form: formFromExpense(expense, categories),
+    formKey,
+  }))
+  let form = draft.form
+  if (draft.formKey !== formKey) {
+    form = formFromExpense(expense, categories)
+    setDraft({ form, formKey })
+  }
+
+  const editMode = mode === 'edit'
+  const viewMode = mode === 'view'
   const confirmedExpense = expense?.status === 'confirmed'
-  const fieldDisabled = detailsMode || accountingReadOnly
-  const form = detailsMode && expense ? toFormInput(expense) : createForm
+  const fieldDisabled = viewMode || accountingReadOnly
+
+  function setForm(updater: (form: CreateExpenseInput) => CreateExpenseInput) {
+    setDraft((current) => ({ ...current, form: updater(current.form) }))
+  }
 
   function handleClose() {
     onClose()
-    setCreateForm(freshForm(categories))
+    if (mode === 'create') {
+      setDraft({ form: freshForm(categories), formKey: 'new' })
+    }
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (detailsMode || accountingReadOnly) return
-    onSubmit(form)
+    if (viewMode || accountingReadOnly) return
+    onSubmit(form, editMode ? (expense?.id ?? null) : null)
   }
+
+  const title =
+    mode === 'create'
+      ? 'Create expense'
+      : editMode
+        ? `Edit ${expense?.label ?? 'expense'}`
+        : 'Expense details'
+
+  const description =
+    mode === 'create'
+      ? 'Add an expense. It will be created as a draft and can later be confirmed.'
+      : editMode
+        ? 'Update this draft before confirming it.'
+        : confirmedExpense
+          ? 'Confirmed expenses are locked to preserve accounting integrity.'
+          : 'Draft details are shown for review in this panel.'
 
   return (
     <DrawerPanel
-      description={
-        detailsMode
-          ? confirmedExpense
-            ? 'Confirmed expenses are locked to preserve accounting integrity.'
-            : 'Draft details are shown for review in this panel.'
-          : 'Add an expense. It will be created as a draft and can later be confirmed.'
-      }
+      description={description}
       footer={
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           {confirmedExpense ? (
@@ -66,25 +96,25 @@ export function CreateDrawer({
             </p>
           ) : null}
           <SecondaryButton className="py-3" onClick={handleClose}>
-            {detailsMode ? 'Close' : 'Cancel'}
+            {viewMode ? 'Close' : 'Cancel'}
           </SecondaryButton>
-          {detailsMode ? null : (
+          {viewMode ? null : (
             <PrimaryButton
               className="py-3"
               disabled={accountingReadOnly || processing}
               form="expense-form"
               type="submit"
             >
-              {processing ? 'Saving…' : 'Save draft'}
+              {processing ? 'Saving…' : editMode ? 'Update draft' : 'Save draft'}
             </PrimaryButton>
           )}
         </div>
       }
-      icon="payments"
+      icon={editMode ? 'edit' : 'payments'}
       onClose={handleClose}
       open={open}
       panelClassName="border-l border-slate-200/90"
-      title={detailsMode ? 'Expense details' : 'Create expense'}
+      title={title}
     >
       {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
 
@@ -95,7 +125,7 @@ export function CreateDrawer({
             className={FIELD_CLASS}
             disabled={fieldDisabled}
             id="expense-label"
-            onChange={(event) => setCreateForm((f) => ({ ...f, label: event.target.value }))}
+            onChange={(event) => setForm((f) => ({ ...f, label: event.target.value }))}
             required={!fieldDisabled}
             type="text"
             value={form.label}
@@ -110,7 +140,7 @@ export function CreateDrawer({
               aria-label="Expense category"
               disabled={fieldDisabled}
               id="expense-category"
-              onValueChange={(next) => setCreateForm((f) => ({ ...f, category: next }))}
+              onValueChange={(next) => setForm((f) => ({ ...f, category: next }))}
               options={categories.map((c) => ({ label: c, value: c }))}
               tone="surface"
               triggerClassName="h-10 min-h-10 py-0 text-sm font-medium"
@@ -130,9 +160,7 @@ export function CreateDrawer({
                 disabled={fieldDisabled}
                 id="expense-amount"
                 min="0.01"
-                onChange={(event) =>
-                  setCreateForm((f) => ({ ...f, amount: Number(event.target.value) }))
-                }
+                onChange={(event) => setForm((f) => ({ ...f, amount: Number(event.target.value) }))}
                 required={!fieldDisabled}
                 step="0.01"
                 type="number"
@@ -150,7 +178,7 @@ export function CreateDrawer({
               className={FIELD_CLASS}
               disabled={fieldDisabled}
               id="expense-date"
-              onChange={(event) => setCreateForm((f) => ({ ...f, date: event.target.value }))}
+              onChange={(event) => setForm((f) => ({ ...f, date: event.target.value }))}
               required={!fieldDisabled}
               type="date"
               value={form.date}
@@ -162,20 +190,21 @@ export function CreateDrawer({
   )
 }
 
+function formFromExpense(expense: ExpenseDto | null, categories: string[]): CreateExpenseInput {
+  if (!expense) return freshForm(categories)
+  return {
+    amount: expense.amount,
+    category: expense.category,
+    date: expense.date,
+    label: expense.label,
+  }
+}
+
 function freshForm(categories: string[]): CreateExpenseInput {
   return {
     amount: 0,
     category: categories[0] ?? '',
     date: todayDateOnlyUtc(),
     label: '',
-  }
-}
-
-function toFormInput(expense: ExpenseDto): CreateExpenseInput {
-  return {
-    amount: expense.amount,
-    category: expense.category,
-    date: expense.date,
-    label: expense.label,
   }
 }

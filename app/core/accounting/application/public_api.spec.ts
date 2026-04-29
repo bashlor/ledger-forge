@@ -39,6 +39,7 @@ test.group('Accounting application public API', () => {
       amount: 12.5,
       canConfirm: true,
       canDelete: true,
+      canEdit: true,
       category: EXPENSE_CATEGORIES[0],
       date: '2026-04-01',
       id: 'expense-1',
