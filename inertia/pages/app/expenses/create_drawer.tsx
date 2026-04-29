@@ -160,9 +160,7 @@ export function CreateDrawer({
                 disabled={fieldDisabled}
                 id="expense-amount"
                 min="0.01"
-                onChange={(event) =>
-                  setForm((f) => ({ ...f, amount: Number(event.target.value) }))
-                }
+                onChange={(event) => setForm((f) => ({ ...f, amount: Number(event.target.value) }))}
                 required={!fieldDisabled}
                 step="0.01"
                 type="number"
