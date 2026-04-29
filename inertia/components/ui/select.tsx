@@ -5,7 +5,6 @@ import SelectBase, {
   type DropdownIndicatorProps,
   type FormatOptionLabelMeta,
   components as reactSelectComponents,
-  type StylesConfig,
 } from 'react-select'
 
 import { AppIcon } from '~/components/app_icon'
@@ -39,13 +38,6 @@ export interface SelectProps {
   value: string
 }
 
-const portalStyles: StylesConfig<SelectOption, false> = {
-  menuPortal: (base) => ({
-    ...base,
-    zIndex: 80,
-  }),
-}
-
 export function Select({
   align = 'center',
   'aria-label': ariaLabel,
@@ -67,7 +59,6 @@ export function Select({
   const selected = options.find((option) => option.value === value)
   const selectValue = selected ?? (placeholder ? null : (options[0] ?? null))
   const instanceId = id ?? name ?? ariaLabel?.toLowerCase().replace(/\s+/g, '-')
-  const menuPortalTarget = typeof document === 'undefined' ? null : document.body
 
   const rootClassName = [
     label ? 'min-w-0' : tone === 'surface' ? 'w-full min-w-0' : 'inline-block min-w-0',
@@ -122,13 +113,13 @@ export function Select({
     indicatorSeparator: () => 'hidden',
     input: () => 'm-0 p-0 text-inherit',
     menu: () =>
-      'mt-2 overflow-hidden rounded-xl border border-border-default bg-white shadow-lg shadow-slate-900/12 ring-1 ring-slate-900/[0.05]',
+      'z-50 mt-2 overflow-hidden rounded-xl border border-border-default bg-white shadow-lg shadow-slate-900/12 ring-1 ring-slate-900/[0.05]',
     menuList: () => 'max-h-60 py-1',
     noOptionsMessage: () => 'px-3 py-2 text-sm text-slate-500',
     option: ({ isDisabled, isFocused, isSelected }) => {
       const optionText = size === 'compact' ? 'text-xs font-medium' : 'text-sm font-medium'
       return [
-        'cursor-pointer px-3 py-2 transition-colors duration-150',
+        'cursor-pointer px-3 py-2 text-left transition-colors duration-150',
         optionText,
         isDisabled ? 'cursor-not-allowed opacity-40' : 'text-slate-800',
         isSelected ? 'bg-slate-50 text-slate-900' : '',
@@ -172,13 +163,10 @@ export function Select({
               isOptionDisabled={(option) => Boolean(option.disabled)}
               isSearchable={false}
               menuPlacement="auto"
-              menuPortalTarget={menuPortalTarget}
-              menuPosition="fixed"
               onChange={(next) => onValueChange(next?.value ?? '')}
               options={options}
               placeholder={placeholder}
               required={required}
-              styles={portalStyles}
               unstyled
               value={selectValue}
             />
@@ -197,13 +185,10 @@ export function Select({
           isOptionDisabled={(option) => Boolean(option.disabled)}
           isSearchable={false}
           menuPlacement="auto"
-          menuPortalTarget={menuPortalTarget}
-          menuPosition="fixed"
           onChange={(next) => onValueChange(next?.value ?? '')}
           options={options}
           placeholder={placeholder}
           required={required}
-          styles={portalStyles}
           unstyled
           value={selectValue}
         />

@@ -19,6 +19,13 @@ const FIELD_DATE_CLASS =
   'h-10 min-h-10 w-full rounded-xl border border-border-default bg-white px-3 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors duration-150 focus:border-primary focus:ring-2 focus:ring-primary/20'
 const LINE_INPUT_CLASS =
   'h-10 min-h-10 w-full rounded-xl border border-border-default bg-surface-container-lowest px-3 text-sm text-on-surface shadow-sm outline-hidden ring-1 ring-slate-900/[0.05] transition-colors duration-150 focus:border-primary focus:ring-2 focus:ring-primary/20'
+const FIELD_GROUP_CLASS = 'grid min-w-0 grid-rows-[1rem_2.5rem] gap-2'
+const FIELD_LABEL_CLASS =
+  'block h-4 text-[11px] font-semibold uppercase leading-4 tracking-[0.14em] text-on-surface-variant'
+const QTY_COLUMN_CLASS = 'w-14'
+const UNIT_PRICE_COLUMN_CLASS = 'w-24'
+const VAT_COLUMN_CLASS = 'w-[5.5rem]'
+const LINE_TOTAL_COLUMN_CLASS = 'w-36'
 
 export type EditableInvoiceLine = InvoiceLineInput & { key: string }
 
@@ -83,6 +90,20 @@ export function InvoiceDraftEditor({
     () => vatRates.map((rate) => ({ label: `${rate}%`, value: String(rate) })),
     [vatRates]
   )
+  const selectedCustomer = customers.find((customer) => customer.id === effectiveCustomerId)
+  const sellerName = selectedInvoice?.issuedCompanyName || 'Captured when issued'
+  const sellerAddress = selectedInvoice?.issuedCompanyAddress || 'Seller identity is set at issue.'
+  const buyerName =
+    selectedCustomer?.company ?? selectedInvoice?.customerCompanyName ?? 'No customer selected'
+  const buyerContact =
+    selectedCustomer?.name ?? selectedInvoice?.customerPrimaryContactSnapshot ?? 'No contact'
+  const buyerDetails = [
+    selectedCustomer?.email ?? selectedInvoice?.customerEmailSnapshot,
+    selectedCustomer?.phone ?? selectedInvoice?.customerPhoneSnapshot,
+  ].filter(Boolean)
+  const buyerAddress = selectedInvoice?.customerCompanyAddressSnapshot
+  const quantityTotal = form.lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0)
+  const unitPriceTotal = form.lines.reduce((sum, line) => sum + Number(line.unitPrice || 0), 0)
 
   return (
     <div>
@@ -119,13 +140,13 @@ export function InvoiceDraftEditor({
         <div className="space-y-6 px-5 py-6 sm:px-6">
           {accountingReadOnly ? <ErrorBanner message={accountingReadOnlyMessage} /> : null}
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-1">
-              <label className="form-label-caps" htmlFor="invoice-client">
+          <div className="grid items-start gap-4 md:grid-cols-[minmax(18rem,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+            <div className={FIELD_GROUP_CLASS}>
+              <label className={FIELD_LABEL_CLASS} htmlFor="invoice-client">
                 Customer
               </label>
               <Select
-                align="end"
+                align="start"
                 aria-label="Invoice customer"
                 disabled={accountingReadOnly}
                 id="invoice-client"
@@ -136,8 +157,8 @@ export function InvoiceDraftEditor({
                 value={effectiveCustomerId}
               />
             </div>
-            <div>
-              <label className="form-label-caps" htmlFor="invoice-issue-date">
+            <div className={FIELD_GROUP_CLASS}>
+              <label className={FIELD_LABEL_CLASS} htmlFor="invoice-issue-date">
                 Issue date
               </label>
               <input
@@ -149,25 +170,44 @@ export function InvoiceDraftEditor({
                 value={form.issueDate}
               />
             </div>
-            <div>
-              <label className="form-label-caps" htmlFor="invoice-due-date">
-                Due date
-              </label>
-              <input
-                className={FIELD_DATE_CLASS}
-                disabled={accountingReadOnly}
-                id="invoice-due-date"
-                min={minDueDate}
-                onChange={(event) => onFormChange('dueDate', event.target.value)}
-                type="date"
-                value={form.dueDate}
-              />
+            <div className="grid min-w-0 gap-2">
+              <div className={FIELD_GROUP_CLASS}>
+                <label className={FIELD_LABEL_CLASS} htmlFor="invoice-due-date">
+                  Due date
+                </label>
+                <input
+                  className={FIELD_DATE_CLASS}
+                  disabled={accountingReadOnly}
+                  id="invoice-due-date"
+                  min={minDueDate}
+                  onChange={(event) => onFormChange('dueDate', event.target.value)}
+                  type="date"
+                  value={form.dueDate}
+                />
+              </div>
               {form.dueDate && form.dueDate < minDueDate ? (
-                <p className="mt-2 text-xs font-medium text-error">
+                <p className="text-xs font-medium text-error">
                   Due date must be on or after {minDueDate}.
                 </p>
               ) : null}
             </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <InvoicePartyBlock
+              eyebrow="Issuer / Seller"
+              name={sellerName}
+              primaryDetail={sellerAddress}
+              tone="seller"
+            />
+            <InvoicePartyBlock
+              eyebrow="Buyer / Customer"
+              name={buyerName}
+              primaryDetail={buyerContact}
+              secondaryDetail={buyerDetails.join(' / ')}
+              tertiaryDetail={buyerAddress}
+              tone="buyer"
+            />
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-border-default shadow-sm ring-1 ring-slate-900/[0.04]">
@@ -190,17 +230,33 @@ export function InvoiceDraftEditor({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-[740px]">
+              <table className="table-fixed">
+                <colgroup>
+                  <col className="w-[28rem]" />
+                  <col className="w-[5.5rem]" />
+                  <col className="w-[7.5rem]" />
+                  <col className="w-[7rem]" />
+                  <col className="w-[10rem]" />
+                  <col className="w-12" />
+                </colgroup>
                 <thead>
                   <TableHeadRow className="text-[11px] tracking-[0.18em]">
                     <TableHeaderCell className="py-3">Description</TableHeaderCell>
-                    <TableHeaderCell className="py-3 text-right tabular-nums">Qty</TableHeaderCell>
-                    <TableHeaderCell className="py-3 text-right tabular-nums">
-                      Unit price
+                    <TableHeaderCell className="py-3 tabular-nums text-center">
+                      <span className={`mx-auto block ${QTY_COLUMN_CLASS} text-center`}>Qty</span>
                     </TableHeaderCell>
-                    <TableHeaderCell className="py-3 text-right">VAT</TableHeaderCell>
-                    <TableHeaderCell className="py-3 text-right tabular-nums">
-                      Line total
+                    <TableHeaderCell className="py-3 text-center tabular-nums">
+                      <span className={`mx-auto block ${UNIT_PRICE_COLUMN_CLASS} text-center`}>
+                        Unit price
+                      </span>
+                    </TableHeaderCell>
+                    <TableHeaderCell className="py-3 text-center">
+                      <span className={`mx-auto block ${VAT_COLUMN_CLASS} text-center`}>VAT</span>
+                    </TableHeaderCell>
+                    <TableHeaderCell className="py-3 text-center tabular-nums">
+                      <span className={`mx-auto block ${LINE_TOTAL_COLUMN_CLASS} text-center`}>
+                        Line total (with VAT)
+                      </span>
                     </TableHeaderCell>
                     <TableHeaderCell className="w-px py-3 text-right">
                       <span className="sr-only">Remove line</span>
@@ -225,10 +281,10 @@ export function InvoiceDraftEditor({
                             value={line.description}
                           />
                         </td>
-                        <td className="px-4 py-3 text-right align-middle">
+                        <td className="px-4 py-3 text-center align-middle">
                           <input
                             aria-label="Quantity"
-                            className={`${LINE_INPUT_CLASS} ml-auto block w-24`}
+                            className={`${LINE_INPUT_CLASS} mx-auto block ${QTY_COLUMN_CLASS} text-center`}
                             disabled={accountingReadOnly}
                             min="0"
                             onChange={(event) =>
@@ -239,10 +295,10 @@ export function InvoiceDraftEditor({
                             value={line.quantity}
                           />
                         </td>
-                        <td className="px-4 py-3 text-right align-middle">
+                        <td className="px-4 py-3 text-center align-middle">
                           <input
                             aria-label="Unit price"
-                            className={`${LINE_INPUT_CLASS} ml-auto block w-32`}
+                            className={`${LINE_INPUT_CLASS} mx-auto block ${UNIT_PRICE_COLUMN_CLASS} text-center`}
                             disabled={accountingReadOnly}
                             min="0"
                             onChange={(event) =>
@@ -253,23 +309,25 @@ export function InvoiceDraftEditor({
                             value={line.unitPrice}
                           />
                         </td>
-                        <td className="px-4 py-3 text-right align-middle">
-                          <div className="flex justify-end">
+                        <td className="px-4 py-3 text-center align-middle">
+                          <div className="flex justify-center">
                             <Select
-                              align="end"
+                              align="center"
                               aria-label="VAT rate"
                               disabled={accountingReadOnly}
                               onValueChange={(next) => onLineUpdate(line.key, 'vatRate', next)}
                               options={vatOptions}
                               size="compact"
                               tone="surface"
-                              triggerClassName="h-10 min-h-10 w-[5.5rem] shrink-0 tabular-nums"
+                              triggerClassName={`h-10 min-h-10 ${VAT_COLUMN_CLASS} shrink-0 tabular-nums`}
                               value={String(line.vatRate)}
                             />
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right align-middle text-sm font-semibold tabular-nums text-on-surface">
-                          {calculated ? formatCurrency(calculated.lineTotalInclTax) : '—'}
+                          <span className={`mx-auto block ${LINE_TOTAL_COLUMN_CLASS} text-center`}>
+                            {calculated ? formatCurrency(calculated.lineTotalInclTax) : '—'}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-right align-middle">
                           <button
@@ -286,6 +344,32 @@ export function InvoiceDraftEditor({
                     )
                   })}
                 </tbody>
+                <tfoot className="border-t border-border-default bg-slate-50">
+                  <tr>
+                    <td className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                      Totals
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-on-surface">
+                      <span className={`mx-auto block ${QTY_COLUMN_CLASS} text-center`}>
+                        {quantityTotal}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-on-surface">
+                      <span className={`mx-auto block ${UNIT_PRICE_COLUMN_CLASS} text-center`}>
+                        {formatCurrency(unitPriceTotal)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                      <span className={`mx-auto block ${VAT_COLUMN_CLASS} text-center`}>—</span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-on-surface">
+                      <span className={`mx-auto block ${LINE_TOTAL_COLUMN_CLASS} text-center`}>
+                        {formatCurrency(totals.totalInclTax)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3" />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
@@ -354,5 +438,48 @@ export function InvoiceDraftEditor({
         </div>
       )}
     </div>
+  )
+}
+
+function InvoicePartyBlock({
+  eyebrow,
+  name,
+  primaryDetail,
+  secondaryDetail,
+  tertiaryDetail,
+  tone,
+}: {
+  eyebrow: string
+  name: string
+  primaryDetail: string
+  secondaryDetail?: string
+  tertiaryDetail?: string
+  tone: 'buyer' | 'seller'
+}) {
+  const accent =
+    tone === 'seller'
+      ? 'border-l-primary/55 bg-primary-container/35'
+      : 'border-l-slate-300 bg-slate-50/90'
+
+  return (
+    <section
+      className={`min-w-0 rounded-2xl border border-slate-200/90 border-l-[3px] ${accent} px-4 py-3.5 shadow-sm ring-1 ring-slate-900/[0.03]`}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant">
+        {eyebrow}
+      </p>
+      <p className="mt-1 truncate text-sm font-semibold text-on-surface">{name}</p>
+      <p className="mt-1 text-xs leading-5 text-on-surface-variant">{primaryDetail}</p>
+      {secondaryDetail ? (
+        <p className="mt-0.5 truncate text-xs leading-5 text-on-surface-variant">
+          {secondaryDetail}
+        </p>
+      ) : null}
+      {tertiaryDetail ? (
+        <p className="mt-0.5 truncate text-xs leading-5 text-on-surface-variant">
+          {tertiaryDetail}
+        </p>
+      ) : null}
+    </section>
   )
 }
