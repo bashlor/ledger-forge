@@ -88,3 +88,28 @@ export async function insertExpenseJournalEntry(
     type: 'expense',
   })
 }
+
+export async function updateDraftExpense(
+  executor: DrizzleExecutor,
+  id: string,
+  input: NormalizedExpenseInput,
+  organizationId: string
+) {
+  const [updated] = await executor
+    .update(expenses)
+    .set({
+      amountCents: input.amountCents,
+      category: input.category,
+      date: input.date,
+      label: input.label,
+    })
+    .where(
+      and(
+        eq(expenses.id, id),
+        eq(expenses.status, 'draft'),
+        eq(expenses.organizationId, organizationId)
+      )
+    )
+    .returning()
+  return updated
+}

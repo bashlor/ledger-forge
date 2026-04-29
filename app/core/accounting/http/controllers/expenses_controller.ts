@@ -122,6 +122,29 @@ export default class ExpensesController {
 
     return this.redirectToExpenses(ctx)
   }
+
+  @inject()
+  async updateDraftExpense(
+    ctx: HttpContext,
+    authorizationService: AuthorizationService,
+    expenseService: ExpenseService
+  ) {
+    const { params } = await ctx.request.validateUsing(expenseParamsValidator)
+    const payload = await ctx.request.validateUsing(createExpenseValidator)
+    const activeTenant = await resolveActiveTenantContext(ctx.authSession, authorizationService)
+    const access = accountingAccessFromActiveTenant(activeTenant, getRequestIdFromHttpContext(ctx))
+
+    await flashAction(
+      ctx,
+      () => {
+        authorizationService.authorize(activeTenant.actor, 'accounting.writeDrafts')
+        return expenseService.updateExpense(params.id, payload, access)
+      },
+      'Draft expense updated.'
+    )
+
+    return this.redirectToExpenses(ctx)
+  }
   private redirectToExpenses(ctx: HttpContext) {
     const page = Number(ctx.request.input('page'))
     const perPage = Number(ctx.request.input('perPage'))

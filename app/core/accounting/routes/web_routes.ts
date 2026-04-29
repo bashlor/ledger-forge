@@ -27,6 +27,9 @@ router
 
         router.post('/expenses', [ExpensesController, 'store']).as('expenses.store')
         router
+          .put('/expenses/:id', [ExpensesController, 'updateDraftExpense'])
+          .as('expenses.update_draft')
+        router
           .post('/expenses/:id/confirm-draft', [ExpensesController, 'confirmDraftExpense'])
           .as('expenses.confirm_draft')
         router
