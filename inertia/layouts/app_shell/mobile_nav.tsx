@@ -61,18 +61,8 @@ export function MobileNav({
             }`}
             href={devToolsHref}
           >
-            <span className="relative flex h-8 w-full items-center justify-center">
-              <AppIcon filled={devToolsActive} name="tune" size={17} />
-              <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest shadow-sm">
-                <AppIcon
-                  className={devToolsActive ? 'text-primary' : 'text-on-surface-variant'}
-                  filled={devToolsActive}
-                  name="monitoring"
-                  size={10}
-                />
-              </span>
-            </span>
-            <span>Dev</span>
+            <AppIcon filled={devToolsActive} name="tune" size={18} />
+            <span className="whitespace-nowrap">Dev tools</span>
           </Link>
         ) : null}
       </div>

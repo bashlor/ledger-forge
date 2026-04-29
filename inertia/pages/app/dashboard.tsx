@@ -50,6 +50,15 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard?: 
   const scopedInvoices = data.recentInvoices.filter((invoice) =>
     isDateWithinScope(invoice.date, scope)
   )
+  const invoiceHref = (invoiceId: string) => {
+    const params = new URLSearchParams({
+      endDate: scope.endDate,
+      invoice: invoiceId,
+      startDate: scope.startDate,
+    })
+
+    return `/invoices?${params.toString()}`
+  }
 
   return (
     <>
@@ -136,24 +145,42 @@ export default function DashboardPage({ dashboard }: InertiaProps<{ dashboard?: 
                 <tbody className="divide-y divide-outline-variant/80">
                   {scopedInvoices.map((invoice) => (
                     <tr
-                      className="transition-colors duration-150 hover:bg-surface-container-low/90"
+                      className="group transition-colors duration-150 hover:bg-surface-container-low/90"
                       key={invoice.id}
                     >
-                      <td className="whitespace-nowrap px-5 py-3.5 font-medium tabular-nums text-on-surface">
-                        {invoice.invoiceNumber}
+                      <td className="whitespace-nowrap font-medium tabular-nums text-on-surface">
+                        <Link
+                          aria-label={`Open invoice ${invoice.invoiceNumber}`}
+                          className="block px-5 py-3.5 transition-colors group-hover:text-primary"
+                          href={invoiceHref(invoice.id)}
+                        >
+                          {invoice.invoiceNumber}
+                        </Link>
                       </td>
-                      <td className="px-5 py-3.5 text-on-surface">{invoice.customerCompanyName}</td>
-                      <td className="whitespace-nowrap px-5 py-3.5 text-on-surface-variant">
-                        {formatShortDate(invoice.date)}
+                      <td className="text-on-surface">
+                        <Link className="block px-5 py-3.5" href={invoiceHref(invoice.id)}>
+                          {invoice.customerCompanyName}
+                        </Link>
                       </td>
-                      <td className="whitespace-nowrap px-5 py-3.5 text-on-surface-variant">
-                        {formatShortDate(invoice.dueDate)}
+                      <td className="whitespace-nowrap text-on-surface-variant">
+                        <Link className="block px-5 py-3.5" href={invoiceHref(invoice.id)}>
+                          {formatShortDate(invoice.date)}
+                        </Link>
                       </td>
-                      <td className="whitespace-nowrap px-5 py-3.5">
-                        <StatusBadge status={invoice.status} />
+                      <td className="whitespace-nowrap text-on-surface-variant">
+                        <Link className="block px-5 py-3.5" href={invoiceHref(invoice.id)}>
+                          {formatShortDate(invoice.dueDate)}
+                        </Link>
                       </td>
-                      <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold tabular-nums text-on-surface">
-                        {formatCurrency(invoice.totalInclTax)}
+                      <td className="whitespace-nowrap">
+                        <Link className="block px-5 py-3.5" href={invoiceHref(invoice.id)}>
+                          <StatusBadge status={invoice.status} />
+                        </Link>
+                      </td>
+                      <td className="whitespace-nowrap text-right font-semibold tabular-nums text-on-surface">
+                        <Link className="block px-5 py-3.5" href={invoiceHref(invoice.id)}>
+                          {formatCurrency(invoice.totalInclTax)}
+                        </Link>
                       </td>
                     </tr>
                   ))}

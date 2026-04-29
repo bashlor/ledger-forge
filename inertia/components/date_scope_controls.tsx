@@ -60,21 +60,9 @@ export function DateScopeControls() {
     scope.endDate === createCurrentMonthDateScope().endDate &&
     scope.mode === 'month'
 
-  /** YYYY-MM for native month input */
-  const monthInputValue = scope.startDate.slice(0, 7)
   const activeMonthDate = new Date(`${scope.startDate}T00:00:00.000Z`)
   const activeMonth = activeMonthDate.getUTCMonth()
   const activeYear = activeMonthDate.getUTCFullYear()
-
-  function handleMonthChange(value: string) {
-    if (!value) return
-    const [y, m] = value.split('-').map(Number)
-    if (!y || !m) return
-    jumpToMonth(y, m - 1)
-    const next = createMonthDateScope(y, m - 1)
-    setForm({ endDate: next.endDate, startDate: next.startDate })
-    setPanelOpen(false)
-  }
 
   function handleYearChange(delta: -1 | 1) {
     const next = createMonthDateScope(activeYear + delta, activeMonth)
@@ -114,11 +102,10 @@ export function DateScopeControls() {
           aria-expanded={panelOpen}
           aria-haspopup="dialog"
           aria-label="Open date picker"
-          className="inline-flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-center transition-colors duration-200 hover:bg-surface-container-low/80"
+          className="inline-flex min-w-0 items-center rounded-lg px-2.5 py-1.5 text-center transition-colors duration-200 hover:bg-surface-container-low/80"
           onClick={togglePanel}
           type="button"
         >
-          <AppIcon className="shrink-0 text-primary" name="date_range" size={16} />
           <p className="truncate font-headline text-[13px] font-medium tabular-nums text-on-surface">
             {scope.label}
           </p>
@@ -189,21 +176,7 @@ export function DateScopeControls() {
             })}
           </div>
 
-          <div className="border-t border-slate-200/80 pt-3">
-            <label className="grid gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Exact month
-              </span>
-              <input
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 shadow-sm outline-hidden ring-1 ring-slate-900/[0.03] transition-colors hover:border-slate-300 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                onChange={(event) => handleMonthChange(event.target.value)}
-                type="month"
-                value={monthInputValue}
-              />
-            </label>
-          </div>
-
-          <form className="pt-3" onSubmit={handleSubmit}>
+          <form className="border-t border-slate-200/80 pt-3" onSubmit={handleSubmit}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
               Custom range
             </p>
