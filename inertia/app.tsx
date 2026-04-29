@@ -15,8 +15,8 @@ const appName = import.meta.env.VITE_APP_NAME || 'Ledger Forge'
 const includeDevToolsPages =
   import.meta.env.DEV || import.meta.env.VITE_INCLUDE_DEV_TOOLS === 'true'
 const pageModules = includeDevToolsPages
-  ? import.meta.glob('./pages/**/*.tsx')
-  : import.meta.glob(['./pages/**/*.tsx', '!./pages/dev/**/*.tsx'])
+  ? import.meta.glob(['./pages/**/*.tsx', '!./pages/**/*.test.tsx'])
+  : import.meta.glob(['./pages/**/*.tsx', '!./pages/**/*.test.tsx', '!./pages/dev/**/*.tsx'])
 
 function wrapPage(name: string, page: ReactElement<Data.SharedProps>) {
   const usesShell =

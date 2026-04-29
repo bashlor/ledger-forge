@@ -14,6 +14,7 @@
     "setup": "bash ./first-easy-start.sh",
     "start": "node bin/server.js",
     "build": "rm -rf build && NODE_ENV=production node ace build",
+    "build:analyze": "rm -rf build && BUILD_ANALYZE_BUNDLE=true NODE_ENV=production node ace build",
     "check:prod-safety": "bash ./scripts/check-production-safety.sh",
     "verify:prod-build-no-dev-tools": "node scripts/verify-prod-build-no-dev-tools.mjs",
     "postbuild": "node scripts/prune-dev-only-build-artifacts.mjs",
