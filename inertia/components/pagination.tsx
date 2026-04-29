@@ -24,10 +24,10 @@ export function Pagination({ onPageChange, onPerPageChange, pagination }: Pagina
     <div className="flex flex-col gap-3 border-t border-outline-variant/10 px-4 py-3.5 text-sm text-on-surface-variant sm:flex-row sm:items-center sm:justify-between">
       <p className="tabular-nums">
         {totalItems === 0 ? (
-          <>Aucun résultat</>
+          <>No results</>
         ) : (
           <>
-            {from} à {to} sur {totalItems}
+            {from} to {to} of {totalItems}
             <span className="text-on-surface-variant/70"> · </span>
             Page {page} / {totalPages}
           </>
@@ -41,7 +41,7 @@ export function Pagination({ onPageChange, onPerPageChange, pagination }: Pagina
             onClick={() => onPageChange(page - 1)}
             type="button"
           >
-            Précédent
+            Previous
           </button>
           <button
             className="rounded-lg border border-outline-variant/20 px-3 py-2 text-sm font-medium text-on-surface transition-colors duration-150 hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50"
@@ -49,14 +49,14 @@ export function Pagination({ onPageChange, onPerPageChange, pagination }: Pagina
             onClick={() => onPageChange(page + 1)}
             type="button"
           >
-            Suivant
+            Next
           </button>
         </div>
         {onPerPageChange ? (
           <Select
             align="end"
-            aria-label="Nombre d’éléments par page"
-            label="Lignes par page"
+            aria-label="Items per page"
+            label="ROWS PER PAGE"
             onValueChange={(next) => onPerPageChange(Number(next))}
             options={perPageOptions}
             size="default"
