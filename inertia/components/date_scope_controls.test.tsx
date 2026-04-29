@@ -22,5 +22,6 @@ describe('DateScopeControls', () => {
     expect(screen.getByText('Select period')).toBeInTheDocument()
     expect(screen.getByText('Custom range')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Jan' })).toBeInTheDocument()
+    expect(screen.queryByText('Exact month')).not.toBeInTheDocument()
   })
 })
