@@ -139,7 +139,7 @@ Routes
 
 - Invoice lifecycle (`draft -> issued -> paid`) with server-authoritative totals
 - Invoice audit history endpoint (`/invoices/:id/history`)
-- Expense confirmation workflow with transactional journal write
+- Editable draft expenses with transactional confirmation journal write
 - Degraded audit trail mode switches accounting writes to read-only
 - Database-backed invariants and constraints
 
