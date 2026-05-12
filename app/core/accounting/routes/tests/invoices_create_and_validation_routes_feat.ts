@@ -9,6 +9,7 @@ import { setupTestDatabaseForGroup } from '../../../../../tests/helpers/testcont
 import {
   authCookie,
   bindInvoiceAuth,
+  createBusinessDateFactory,
   resetInvoiceAuthContext,
   resetInvoiceFixtures,
   seedInvoiceActor,
@@ -38,14 +39,18 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
   group.teardown(async () => cleanup())
 
   test('contract:POST /invoices happy path returns redirect', async ({ assert, client }) => {
+    const businessDates = createBusinessDateFactory()
+    const issueDate = businessDates.today()
+    const dueDate = businessDates.offset(30)
+
     const response = await client
       .post('/invoices')
       .header('cookie', authCookie())
       .redirects(0)
       .form({
         customerId: TEST_CUSTOMER_ID,
-        dueDate: '2026-04-30',
-        issueDate: '2026-04-01',
+        dueDate,
+        issueDate,
         'lines[0][description]': 'Consulting',
         'lines[0][quantity]': 2,
         'lines[0][unitPrice]': 500,
@@ -53,6 +58,10 @@ test.group('Invoices routes | POST /invoices, PUT /invoices/:id', (group) => {
       })
 
     response.assertStatus(302)
+
+    const location = response.header('location')
+    assert.include(location, '/invoices')
+    assert.include(location, 'invoice=')
 
     const [{ total }] = await db.select({ total: count() }).from(invoices)
     assert.equal(total, 1)
