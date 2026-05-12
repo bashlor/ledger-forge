@@ -19,8 +19,9 @@ import {
 import {
   authCookie,
   bindInvoiceAuth,
+  createBusinessDateFactory,
   createDraftViaService,
-  dateOffsetFromTodayUtc,
+  dateOffsetFromBusinessToday,
   issuePayload,
   resetInvoiceAuthContext,
   resetInvoiceFixtures,
@@ -76,8 +77,9 @@ test.group('Invoices routes | GET /invoices/:id/history', (group) => {
     assert,
     client,
   }) => {
-    const issueDate = dateOffsetFromTodayUtc(10)
-    const dueDate = dateOffsetFromTodayUtc(20)
+    const businessDates = createBusinessDateFactory()
+    const issueDate = businessDates.offset(10)
+    const dueDate = businessDates.offset(20)
     const service = new InvoiceService(db)
     const invoice = await createDraftViaService(service, { issueDate })
 
@@ -110,7 +112,9 @@ test.group('Invoices routes | GET /invoices/:id/history', (group) => {
   test('regular member is forbidden from reading invoice history', async ({ client }) => {
     await db.update(member).set({ role: 'member' }).where(eq(member.userId, TEST_USER_ID))
     const service = new InvoiceService(db)
-    const invoice = await createDraftViaService(service, { issueDate: dateOffsetFromTodayUtc(10) })
+    const invoice = await createDraftViaService(service, {
+      issueDate: dateOffsetFromBusinessToday(10),
+    })
 
     const response = await client
       .get(`/invoices/${invoice.id}/history`)
@@ -130,7 +134,9 @@ test.group('Invoices routes | GET /invoices/:id/history', (group) => {
       return new AuthorizationService(drizzle, false)
     })
     const service = new InvoiceService(db)
-    const invoice = await createDraftViaService(service, { issueDate: dateOffsetFromTodayUtc(10) })
+    const invoice = await createDraftViaService(service, {
+      issueDate: dateOffsetFromBusinessToday(10),
+    })
 
     const response = await client
       .get(`/invoices/${invoice.id}/history`)
@@ -158,8 +164,9 @@ test.group('Invoices routes | GET /invoices/:id/history', (group) => {
     })
 
     const service = new InvoiceService(db)
-    const issueDate = dateOffsetFromTodayUtc(10)
-    const dueDate = dateOffsetFromTodayUtc(20)
+    const businessDates = createBusinessDateFactory()
+    const issueDate = businessDates.offset(10)
+    const dueDate = businessDates.offset(20)
     const invoice = await service.createDraft(
       {
         customerId: 'audit-history-customer-b',

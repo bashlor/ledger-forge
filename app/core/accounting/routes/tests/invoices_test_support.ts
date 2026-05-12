@@ -1,9 +1,11 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { type InvoiceService } from '#core/accounting/application/invoices/index'
+import { SystemAccountingBusinessCalendar } from '#core/accounting/application/support/business_calendar'
 import { auditEvents, customers, invoices, journalEntries } from '#core/accounting/drizzle/schema'
 import { member } from '#core/user_management/drizzle/schema'
 import { eq } from 'drizzle-orm'
+import { type DateTime } from 'luxon'
 
 import {
   dateOnlyUtcFromDate as sharedDateOnlyUtcFromDate,
@@ -36,21 +38,40 @@ export const TEST_INVOICE_USER_EMAIL = TEST_ACCOUNTING_USER_EMAIL
 
 export { seedTestOrganization }
 
+type BusinessDateOptions = {
+  now?: () => DateTime
+  timezone?: string
+}
+
+export { authCookie, TEST_ACCOUNTING_ACCESS_CONTEXT }
+
 export function addDaysDateOnlyUtc(value: string, days: number): string {
   const [year, month, day] = value.split('-').map(Number)
   const date = new Date(Date.UTC(year, month - 1, day + days))
   return dateOnlyUtcFromDate(date)
 }
 
-export { authCookie, TEST_ACCOUNTING_ACCESS_CONTEXT }
-
 export function bindInvoiceAuth() {
   bindAccountingAuth()
 }
 
+export function createBusinessDateFactory(options: BusinessDateOptions = {}) {
+  const baseDate = resolveBusinessToday(options)
+
+  return {
+    offset(days: number) {
+      return addDaysDateOnlyUtc(baseDate, days)
+    },
+    today() {
+      return baseDate
+    },
+  }
+}
+
 export async function createDraftViaHttp(db: PostgresJsDatabase<any>, client: any) {
-  const issueDate = dateOffsetFromTodayUtc(0)
-  const dueDate = dateOffsetFromTodayUtc(30)
+  const businessDates = createBusinessDateFactory()
+  const issueDate = businessDates.today()
+  const dueDate = businessDates.offset(30)
 
   await client.post('/invoices').header('cookie', authCookie()).redirects(0).form({
     customerId: TEST_CUSTOMER_ID,
@@ -94,15 +115,18 @@ export async function createDraftViaService(
   )
 }
 
+export function dateOffsetFromBusinessToday(
+  days: number,
+  options: BusinessDateOptions = {}
+): string {
+  return createBusinessDateFactory(options).offset(days)
+}
+
 export function dateOffsetFromDateUtc(date: Date, days: number): string {
   const utcDate = new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days)
   )
   return dateOnlyUtcFromDate(utcDate)
-}
-
-export function dateOffsetFromTodayUtc(days: number): string {
-  return dateOffsetFromDateUtc(new Date(), days)
 }
 
 export function dateOnlyUtcFromDate(date: Date): string {
@@ -163,6 +187,10 @@ export async function resetInvoiceFixtures(db: PostgresJsDatabase<any>) {
   })
 }
 
+export function resolveBusinessToday(options: BusinessDateOptions = {}): string {
+  return createBusinessCalendar(options).today()
+}
+
 export async function seedInvoiceActor(
   db: PostgresJsDatabase<any>,
   role: 'admin' | 'member' | 'owner' = 'admin'
@@ -191,4 +219,8 @@ export async function setInvoiceActorRole(
 
 export function setInvoiceAuthContext(overrides: Partial<InvoiceAuthContext> = {}) {
   setAccountingAuthContext(overrides)
+}
+
+function createBusinessCalendar(options: BusinessDateOptions = {}) {
+  return new SystemAccountingBusinessCalendar(options.timezone, options.now)
 }
