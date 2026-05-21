@@ -12,11 +12,11 @@ import env from '#start/env'
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 
 export default class ObsLoadTest extends BaseCommand {
-  static commandName = 'obs:load-test'
-  static description =
+  static readonly commandName = 'obs:load-test'
+  static readonly description =
     'Simulate HTTP and accounting load for V8 / event-loop observability. Creates demo records; use demo:reset after long runs.'
 
-  static options: CommandOptions = { startApp: true }
+  static readonly options: CommandOptions = { startApp: true }
 
   @flags.number({ description: 'Duration in seconds' })
   declare duration: number
@@ -80,77 +80,61 @@ export default class ObsLoadTest extends BaseCommand {
     const logFirstError = (error: unknown, actionType: string) => {
       if (loggedFirstError) return
       loggedFirstError = true
-      const message = error instanceof Error ? error.message : String(error)
+      const message = error instanceof Error ? error.message : JSON.stringify(error)
       this.logger.warning(`First ${actionType} load-test error: ${message}`)
+    }
+
+    const performDbAction = async (action: number) => {
+      try {
+        if (action < 0.8) {
+          await accountingActions.createInvoiceBatch(access, 1)
+        } else if (action < 0.9) {
+          await accountingActions.createExpenseBatch(access, 1)
+        } else {
+          await accountingActions.createCustomerBatch(access, 1)
+        }
+        totalRequests++
+      } catch (error) {
+        dbErrors++
+        logFirstError(error, action < 0.8 ? 'invoice' : action < 0.9 ? 'expense' : 'customer')
+      }
+    }
+
+    const performHttpAction = async (userId: number, action: number) => {
+      try {
+        let url = `${appUrl}/health/live`
+        let method = 'GET'
+        let body: string | undefined
+        let headers: Record<string, string> = {}
+
+        if (action >= 0.2 && action < 0.4) {
+          url = `${appUrl}/`
+        } else if (action >= 0.4) {
+          url = `${appUrl}/signin`
+          method = 'POST'
+          headers = { 'Content-Type': 'application/json' }
+          body = JSON.stringify({
+            email: `fake-${userId}-${Date.now()}@example.com`,
+            password: 'wrongpassword-trigger-hash',
+          })
+        }
+
+        const response = await fetch(url, { body, headers, method })
+        await response.text()
+        totalRequests++
+      } catch (error) {
+        httpErrors++
+        logFirstError(error, 'http')
+      }
     }
 
     const simulateUser = async (userId: number) => {
       while (isRunning) {
-        try {
-          // Pick a random action to mix load types
-          const action = Math.random()
-          let url = ''
-          let method = 'GET'
-          let body: string | undefined
-          let headers: Record<string, string> = {}
-
-          if (action < 0.2) {
-            // Fast request (20%): Live check
-            url = `${appUrl}/health/live`
-          } else if (action < 0.4) {
-            // Medium request (20%): Landing page (renders Edge template)
-            url = `${appUrl}/`
-          } else if (action < 0.7) {
-            // Heavy request (30%): Fake login.
-            // This triggers Argon2/Bcrypt password hashing, which blocks the event loop and burns CPU.
-            // Perfect to observe lag in /health/v8 metrics.
-            url = `${appUrl}/signin`
-            method = 'POST'
-            headers = { 'Content-Type': 'application/json' }
-            body = JSON.stringify({
-              email: `fake-${userId}-${Date.now()}@example.com`,
-              password: 'wrongpassword-trigger-hash',
-            })
-          } else if (action < 0.8) {
-            // Credible Background Activity (10%): Create Invoices
-            try {
-              await accountingActions.createInvoiceBatch(access, 1)
-              totalRequests++
-            } catch (error) {
-              dbErrors++
-              logFirstError(error, 'invoice')
-            }
-            continue
-          } else if (action < 0.9) {
-            // Credible Background Activity (10%): Create Expenses
-            try {
-              await accountingActions.createExpenseBatch(access, 1)
-              totalRequests++
-            } catch (error) {
-              dbErrors++
-              logFirstError(error, 'expense')
-            }
-            continue
-          } else {
-            // Credible Background Activity (10%): Create Customers
-            try {
-              await accountingActions.createCustomerBatch(access, 1)
-              totalRequests++
-            } catch (error) {
-              dbErrors++
-              logFirstError(error, 'customer')
-            }
-            continue
-          }
-
-          const response = await fetch(url, { body, headers, method })
-          // Consume text to prevent memory leaks from unread response bodies
-          await response.text()
-
-          totalRequests++
-        } catch (error) {
-          httpErrors++
-          logFirstError(error, 'http')
+        const action = Math.random()
+        if (action < 0.7) {
+          await performHttpAction(userId, action)
+        } else {
+          await performDbAction(action)
         }
       }
     }
