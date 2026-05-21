@@ -68,7 +68,16 @@ const loggerConfig = defineConfig({
        * Configure where logs are written.
        */
       transport: {
-        targets: [targets.file({ destination: 1 })],
+        targets: [
+          targets.file({ destination: 1 }),
+          ...(!app.inProduction
+            ? [
+                targets.file({
+                  destination: app.tmpPath('logs/app.log'),
+                }),
+              ]
+            : []),
+        ],
       },
     },
   },

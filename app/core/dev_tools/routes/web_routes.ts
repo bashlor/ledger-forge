@@ -26,3 +26,14 @@ router
   })
   .prefix('/_dev')
   .use([middleware.auth(), middleware.ensureActiveTenant()])
+
+const V8ObservabilityController = () => import('../http/controllers/v8_observability_controller.js')
+
+router.get('/health/v8', [V8ObservabilityController, 'index']).as('health.v8')
+router.post('/health/v8/gc', [V8ObservabilityController, 'gc']).as('health.v8.gc')
+router
+  .post('/health/v8/heap-snapshot', [V8ObservabilityController, 'heapSnapshot'])
+  .as('health.v8.heapSnapshot')
+router
+  .post('/health/v8/cpu-profile', [V8ObservabilityController, 'cpuProfile'])
+  .as('health.v8.cpuProfile')

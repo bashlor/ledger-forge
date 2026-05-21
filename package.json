@@ -18,7 +18,7 @@
     "check:prod-safety": "bash ./scripts/check-production-safety.sh",
     "verify:prod-build-no-dev-tools": "node scripts/verify-prod-build-no-dev-tools.mjs",
     "postbuild": "node scripts/prune-dev-only-build-artifacts.mjs",
-    "dev": "node ace migration:run && node ace serve --hmr",
+    "dev": "node ace migration:run && node ace serve --hmr --node-args=\"--expose-gc\"",
     "services:up": "bash ./scripts/services.sh up",
     "services:down": "bash ./scripts/services.sh down",
     "db:up": "bash ./scripts/services.sh up postgres",
