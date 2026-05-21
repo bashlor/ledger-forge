@@ -1,6 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
-import env from '#start/env'
 import app from '@adonisjs/core/services/app'
 import fs from 'node:fs'
 import inspector from 'node:inspector'
@@ -19,13 +18,6 @@ export default class V8ObservabilityController {
    * Records a Node CPU Profile using inspector for a given duration.
    */
   async cpuProfile({ request, response }: HttpContext) {
-    if (!this.isAuthorized(request)) {
-      return response.status(403).json({
-        error: 'Unauthorized',
-        message: 'Invalid or missing X-Observability-Token header',
-      })
-    }
-
     const duration = request.input('duration', 5000) // Default to 5 seconds
     if (typeof duration !== 'number' || duration <= 0 || duration > 60000) {
       return response.status(400).json({
@@ -102,14 +94,7 @@ export default class V8ObservabilityController {
    * POST /health/v8/gc
    * Triggers manual Garbage Collection. Requires Node to be started with --expose-gc.
    */
-  async gc({ request, response }: HttpContext) {
-    if (!this.isAuthorized(request)) {
-      return response.status(403).json({
-        error: 'Unauthorized',
-        message: 'Invalid or missing X-Observability-Token header',
-      })
-    }
-
+  async gc({ response }: HttpContext) {
     if (typeof global.gc !== 'function') {
       return response.status(400).json({
         error: 'GC Expose Disabled',
@@ -142,14 +127,7 @@ export default class V8ObservabilityController {
    * POST /health/v8/heap-snapshot
    * Writes a V8 heap snapshot to the tmp/diagnostics directory.
    */
-  async heapSnapshot({ request, response }: HttpContext) {
-    if (!this.isAuthorized(request)) {
-      return response.status(403).json({
-        error: 'Unauthorized',
-        message: 'Invalid or missing X-Observability-Token header',
-      })
-    }
-
+  async heapSnapshot({ response }: HttpContext) {
     try {
       const diagnosticsDir = app.tmpPath('diagnostics')
       if (!fs.existsSync(diagnosticsDir)) {
@@ -189,14 +167,7 @@ export default class V8ObservabilityController {
    * GET /health/v8
    * Returns application-level metrics, V8 heap statistics, active handles and event loop lag.
    */
-  async index({ request, response }: HttpContext) {
-    if (!this.isAuthorized(request)) {
-      return response.status(403).json({
-        error: 'Unauthorized',
-        message: 'Invalid or missing X-Observability-Token header',
-      })
-    }
-
+  async index({ response }: HttpContext) {
     // Process uptime and Node info
     const uptime = process.uptime()
     const nodeVersion = process.version
@@ -300,31 +271,5 @@ export default class V8ObservabilityController {
         })),
       },
     })
-  }
-
-  /**
-   * Helper to verify safety token in non-development environments.
-   * Returns true if authorized, false otherwise.
-   */
-  private isAuthorized(request: HttpContext['request']): boolean {
-    const nodeEnv = env.get('NODE_ENV')
-    if (nodeEnv === 'development' || nodeEnv === 'test') {
-      return true
-    }
-
-    const expectedToken = env.get('OBSERVABILITY_TOKEN')
-    if (!expectedToken) {
-      // In production, if no token is configured, fail closed.
-      return false
-    }
-
-    const authHeader = request.header('X-Observability-Token') || request.header('Authorization')
-    if (!authHeader) {
-      return false
-    }
-
-    // Support both header types (direct token or Bearer token)
-    const token = authHeader.replace(/^Bearer\s+/i, '')
-    return token === expectedToken
   }
 }

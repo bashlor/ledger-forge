@@ -108,9 +108,10 @@ assert_env_value() {
 assert_http_status() {
   local expected="$1"
   local path="$2"
+  local method="${3:-GET}"
   local actual
 
-  actual="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HOST_PORT}${path}")"
+  actual="$(curl -sS -o /dev/null -w '%{http_code}' -X "$method" "http://127.0.0.1:${HOST_PORT}${path}")"
   if [[ "$actual" != "$expected" ]]; then
     echo "Unexpected HTTP status for ${path}: expected ${expected}, got ${actual}" >&2
     exit 1
@@ -308,6 +309,8 @@ assert_http_status "200" "/health/live"
 assert_http_status "404" "/_dev"
 assert_http_status "404" "/_dev/access"
 assert_http_status "404" "/_dev/inspector"
+assert_http_status "404" "/health/v8"
+assert_http_status "404" "/health/v8/gc" POST
 check_inertia_dev_tools_disabled
 
 echo 'Production safety check passed.'

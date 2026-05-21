@@ -25,12 +25,12 @@ services:
     image: ghcr.io/kolapsis/maintenant:latest
     container_name: ${MAINTENANT_CONTAINER_NAME:-accounting-maintenant-test-prod}
     ports:
-      - "127.0.0.1:${MAINTENANT_PORT:-8080}:8080"
+      - '127.0.0.1:${MAINTENANT_PORT:-8080}:8080'
     read_only: true
     security_opt:
       - no-new-privileges:true
     group_add:
-      - "${DOCKER_GID:-983}"
+      - '${DOCKER_GID:-983}'
     tmpfs:
       - /tmp:noexec,nosuid,size=64m
     volumes:
@@ -38,8 +38,8 @@ services:
       - /proc:/host/proc:ro
       - maintenant_test_data:/data
     environment:
-      MAINTENANT_ADDR: "0.0.0.0:8080"
-      MAINTENANT_DB: "/data/maintenant.db"
+      MAINTENANT_ADDR: '0.0.0.0:8080'
+      MAINTENANT_DB: '/data/maintenant.db'
     restart: unless-stopped
     networks:
       - accounting_test_internal
