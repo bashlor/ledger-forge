@@ -7,6 +7,7 @@ import { InvoiceService } from '#core/accounting/application/invoices/index'
 import { systemAccessContext } from '#core/accounting/application/support/access_context'
 import { DomainError } from '#core/common/errors/domain_error'
 import { DevOperatorConsoleAccountingActions } from '#core/dev_tools/application/dev_operator_console_accounting_actions'
+import { generateDevPassword } from '#core/dev_tools/application/dev_password'
 import { DemoCommandGuardService } from '#core/user_management/application/demo_command_guard_service'
 import env from '#start/env'
 import { BaseCommand, flags } from '@adonisjs/core/ace'
@@ -115,7 +116,7 @@ export default class ObsLoadTest extends BaseCommand {
           headers = { 'Content-Type': 'application/json' }
           body = JSON.stringify({
             email: `fake-${userId}-${Date.now()}@example.com`,
-            password: 'wrongpassword-trigger-hash',
+            password: generateDevPassword(),
           })
         }
 
