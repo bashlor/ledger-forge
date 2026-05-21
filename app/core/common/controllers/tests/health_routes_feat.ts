@@ -75,26 +75,26 @@ test.group('Health routes', (group) => {
     const response = await client.get('/health/v8')
     response.assertStatus(200)
     response.assertBodyContains({
+      eventLoop: {
+        latencyMs: {},
+      },
       meta: {
         nodeVersion: process.version,
       },
       process: {
-        memory: {},
         handles: {},
+        memory: {},
       },
       v8: {
-        heap: {},
         code: {},
-      },
-      eventLoop: {
-        latencyMs: {},
+        heap: {},
       },
     })
   })
 
   test('POST /health/v8/gc triggers garbage collection successfully', async ({ client }) => {
     const response = await client.post('/health/v8/gc')
-    
+
     if (typeof global.gc !== 'function') {
       // If GC is not exposed in this test process, expect a 400 with a clear message
       response.assertStatus(400)
@@ -102,18 +102,26 @@ test.group('Health routes', (group) => {
     } else {
       // If GC is exposed, expect a successful response
       response.assertStatus(200)
-      response.assertBodyContains({ status: 'success', message: 'Garbage collection triggered successfully' })
+      response.assertBodyContains({
+        message: 'Garbage collection triggered successfully',
+        status: 'success',
+      })
     }
   })
 
-  test('POST /health/v8/heap-snapshot generates heapsnapshot file and returns path', async ({ client }) => {
+  test('POST /health/v8/heap-snapshot generates heapsnapshot file and returns path', async ({
+    client,
+  }) => {
     const response = await client.post('/health/v8/heap-snapshot')
     response.assertStatus(200)
-    response.assertBodyContains({ status: 'success', message: 'Heap snapshot generated successfully' })
-    
+    response.assertBodyContains({
+      message: 'Heap snapshot generated successfully',
+      status: 'success',
+    })
+
     const body = response.body() as any
     const filePath = body?.data?.filePath
-    
+
     // Clean up the created snapshot file to avoid bloating the disk during tests
     const fs = await import('node:fs')
     if (filePath && fs.existsSync(filePath)) {
@@ -126,10 +134,10 @@ test.group('Health routes', (group) => {
     const response = await client.post('/health/v8/cpu-profile').json({ duration: 50 })
     response.assertStatus(200)
     response.assertBodyContains({ status: 'success' })
-    
+
     const body = response.body() as any
     const filePath = body?.data?.filePath
-    
+
     // Clean up the created profile file
     const fs = await import('node:fs')
     if (filePath && fs.existsSync(filePath)) {
@@ -137,4 +145,3 @@ test.group('Health routes', (group) => {
     }
   })
 })
-
