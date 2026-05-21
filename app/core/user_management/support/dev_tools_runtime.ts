@@ -10,7 +10,13 @@ export function isDevToolsRuntimeEnabled(
     'production'
   const enabled = input.enabled ?? parseBooleanEnv(process.env.DEV_TOOLS_ENABLED) ?? false
 
-  if (nodeEnv !== 'development' && nodeEnv !== 'test') {
+  if (nodeEnv === 'production') {
+    const appUrl = process.env.APP_URL ?? ''
+    const isLocalProd = appUrl.includes('localhost') || appUrl.includes('127.0.0.1')
+    if (!isLocalProd) {
+      return false
+    }
+  } else if (nodeEnv !== 'development' && nodeEnv !== 'test') {
     return false
   }
 

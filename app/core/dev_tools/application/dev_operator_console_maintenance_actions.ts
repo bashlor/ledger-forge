@@ -7,6 +7,7 @@ import { type DeferredDatabaseResetLauncher } from '#core/dev_tools/application/
 import { type DevOperatorTenantFactoryService } from '#core/dev_tools/application/dev_operator_tenant_factory_service'
 import { type AuthorizationService } from '#core/user_management/application/authorization_service'
 import { type LocalDevDestructiveToolsService } from '#core/user_management/application/local_dev_destructive_tools_service'
+import { exec } from 'node:child_process'
 
 export interface DevOperatorConsoleCreateTenantInput {
   ownerEmail: string
@@ -69,6 +70,16 @@ export class DevOperatorConsoleMaintenanceActions {
     authorizationService.authorize(scenario.actor, 'invoice.markPaid')
     await this.demoDatasetService.resetTenant(scenario.access)
     return 'Selected tenant dataset reset and re-seeded.'
+  }
+
+  async runLoadTest(scenario: DevOperatorScenarioContext): Promise<string> {
+    const tenantId = scenario.tenantId
+    exec(`node ace obs:load-test --tenant=${tenantId}`, (error) => {
+      if (error) {
+        console.error('Background load test failed:', error)
+      }
+    })
+    return `Load test started in the background for tenant ${tenantId}. Check metrics in a few seconds.`
   }
 }
 

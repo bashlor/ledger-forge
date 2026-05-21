@@ -35,7 +35,23 @@ test.group('isDevToolsRuntimeEnabled', () => {
     }
   })
 
-  test('is disabled in production even when the flag is on', ({ assert }) => {
-    assert.isFalse(isDevToolsRuntimeEnabled({ enabled: true, nodeEnv: 'production' }))
+  test('is disabled in production even when the flag is on and URL is public', ({ assert }) => {
+    const previousAppUrl = process.env.APP_URL
+    process.env.APP_URL = 'https://app.maintenant.dev'
+    try {
+      assert.isFalse(isDevToolsRuntimeEnabled({ enabled: true, nodeEnv: 'production' }))
+    } finally {
+      process.env.APP_URL = previousAppUrl
+    }
+  })
+
+  test('is enabled in production when the flag is on and URL is local', ({ assert }) => {
+    const previousAppUrl = process.env.APP_URL
+    process.env.APP_URL = 'http://127.0.0.1:3333'
+    try {
+      assert.isTrue(isDevToolsRuntimeEnabled({ enabled: true, nodeEnv: 'production' }))
+    } finally {
+      process.env.APP_URL = previousAppUrl
+    }
   })
 })

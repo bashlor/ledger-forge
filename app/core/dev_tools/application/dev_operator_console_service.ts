@@ -207,6 +207,8 @@ export class DevOperatorConsoleService {
         return this.maintenanceActions.resetDatabase()
       case 'reset-tenant':
         return this.maintenanceActions.resetTenant(scenario, authorizationService)
+      case 'run-load-test':
+        return this.maintenanceActions.runLoadTest(scenario)
       case 'switch-tenant':
         throw new DomainError(
           'Use the active tenant switch endpoint for this action.',

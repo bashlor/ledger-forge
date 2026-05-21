@@ -172,6 +172,17 @@ export class DevOperatorConsolePageService {
         tone: 'danger',
         unavailableLabel: 'Unavailable',
       },
+      {
+        action: 'run-load-test',
+        available: true,
+        id: 'run-load-test',
+        impact:
+          'Runs a background load test against the HTTP server and database to simulate credible activity and measure system behavior.',
+        label: 'Run load test',
+        section: 'danger_zone',
+        tone: 'neutral',
+        unavailableLabel: 'Unavailable',
+      },
     ]
   }
 

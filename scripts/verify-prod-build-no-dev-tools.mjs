@@ -12,6 +12,7 @@ const forbiddenPaths = [
   'public/assets/pages/dev',
   'commands/reset_demo.js',
   'commands/seed_demo.js',
+  'commands/obs_load_test.js',
 ]
 const forbiddenAssetPathTerms = ['dev/inspector', 'dev/access', 'dev_tools', 'inspector']
 

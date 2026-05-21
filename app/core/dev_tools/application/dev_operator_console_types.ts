@@ -15,6 +15,7 @@ export type ActionName =
   | 'generate-demo-data'
   | 'reset-database'
   | 'reset-tenant'
+  | 'run-load-test'
   | 'switch-tenant'
   | 'toggle-member-active'
   | 'update-customer'
@@ -273,6 +274,7 @@ const ACTION_NAMES: readonly ActionName[] = [
   'toggle-member-active',
   'update-customer',
   'update-invoice-draft',
+  'run-load-test',
 ]
 
 export function isDevOperatorActionName(value: string): value is ActionName {
