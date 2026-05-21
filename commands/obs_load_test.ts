@@ -85,6 +85,16 @@ export default class ObsLoadTest extends BaseCommand {
       this.logger.warning(`First ${actionType} load-test error: ${message}`)
     }
 
+    const resolveDbActionType = (action: number): 'customer' | 'expense' | 'invoice' => {
+      if (action < 0.8) {
+        return 'invoice'
+      }
+      if (action < 0.9) {
+        return 'expense'
+      }
+      return 'customer'
+    }
+
     const performDbAction = async (action: number) => {
       try {
         if (action < 0.8) {
@@ -97,7 +107,7 @@ export default class ObsLoadTest extends BaseCommand {
         totalRequests++
       } catch (error) {
         dbErrors++
-        logFirstError(error, action < 0.8 ? 'invoice' : action < 0.9 ? 'expense' : 'customer')
+        logFirstError(error, resolveDbActionType(action))
       }
     }
 
