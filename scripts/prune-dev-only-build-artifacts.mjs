@@ -9,6 +9,8 @@ const targets = [
   'build/commands/reset_demo.js.map',
   'build/commands/seed_demo.js',
   'build/commands/seed_demo.js.map',
+  'build/commands/obs_load_test.js',
+  'build/commands/obs_load_test.js.map',
 ]
 
 if (!includeDevTools) {
