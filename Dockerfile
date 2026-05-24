@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:24@sha256:80fc934952c8f1b2b4d39907af7211f8a9fff1a4c2cf673fb49099292c251cec AS base
+FROM node:24@sha256:8530f76a96d88820d288761f022e318970dda93d01536919fbc16076b7983e63 AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -62,7 +62,7 @@ RUN pnpm install --prod --frozen-lockfile
 # ----------------------------
 # Stage 3: Production runtime (distroless)
 # ----------------------------
-FROM cgr.dev/chainguard/node:latest@sha256:f05865c39e39728adbd1dd5b418e853694631e8818cf1468a5b6b73d65889b15 AS production
+FROM cgr.dev/chainguard/node:latest@sha256:3e212e37f83e078397dd8431964a4d703b5ecba9ed508c2748ad24a11930a746 AS production
 WORKDIR /app
 ENV NODE_ENV=production
 
