@@ -113,7 +113,7 @@
     "playwright": "^1.59.1",
     "prettier": "^3.8.2",
     "tailwindcss": "^4.2.2",
-    "testcontainers": "^11.14.0",
+    "testcontainers": "^12.0.0",
     "typescript": "~5.9.3",
     "vite": "^7.3.2",
     "vitest": "^4.1.5",
