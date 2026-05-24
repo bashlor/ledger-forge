@@ -6,5 +6,5 @@ updates:
       interval: weekly
     groups:
       npm-security:
+        applies-to: security-updates
         patterns: ["*"]
-        update-types: ["security"]
