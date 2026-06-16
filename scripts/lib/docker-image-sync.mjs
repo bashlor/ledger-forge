@@ -1,11 +1,27 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const REPO_ROOT = join(__dirname, '../..')
 export const LOCK_PATH = join(REPO_ROOT, 'docker', 'images.lock.yaml')
+
+const SAFE_EXECUTABLE_DIRS = [
+  '/usr/local/sbin',
+  '/usr/local/bin',
+  '/usr/sbin',
+  '/usr/bin',
+  '/sbin',
+  '/bin',
+]
+
+const SAFE_EXECUTABLE_PATH = SAFE_EXECUTABLE_DIRS.join(':')
+
+const SAFE_EXEC_ENV = {
+  ...process.env,
+  PATH: SAFE_EXECUTABLE_PATH,
+}
 
 export const POSTGRES_DEFAULT_PATTERN =
   /\$\{POSTGRES_TEST_IMAGE:-[^}]+\}/g
@@ -170,25 +186,28 @@ export function writeText(relativePath, content) {
   writeFileSync(resolveRepoPath(relativePath), content)
 }
 
-function commandExists(cmd) {
-  try {
-    execFileSync('command', ['-v', cmd], { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
+function execTool(executable, args) {
+  return execFileSync(executable, args, {
+    encoding: 'utf8',
+    env: SAFE_EXEC_ENV,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim()
 }
 
 function inspectDigest(tagRef) {
   const tag = tagRef.split('@sha256:')[0]
 
-  if (commandExists('docker')) {
+  const docker = resolveExecutable('docker')
+  if (docker) {
     try {
-      const digest = execFileSync(
-        'docker',
-        ['buildx', 'imagetools', 'inspect', tag, '--format', '{{index .Manifest.Digest}}'],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-      ).trim()
+      const digest = execTool(docker, [
+        'buildx',
+        'imagetools',
+        'inspect',
+        tag,
+        '--format',
+        '{{index .Manifest.Digest}}',
+      ])
       if (digest) {
         return digest
       }
@@ -197,12 +216,9 @@ function inspectDigest(tagRef) {
     }
   }
 
-  if (commandExists('skopeo')) {
-    const digest = execFileSync(
-      'skopeo',
-      ['inspect', '--format', '{{.Digest}}', `docker://${tag}`],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-    ).trim()
+  const skopeo = resolveExecutable('skopeo')
+  if (skopeo) {
+    const digest = execTool(skopeo, ['inspect', '--format', '{{.Digest}}', `docker://${tag}`])
     if (digest) {
       return digest
     }
@@ -211,4 +227,18 @@ function inspectDigest(tagRef) {
   throw new Error(
     `Could not resolve digest for ${tag}. Install docker buildx or skopeo with registry access.`
   )
+}
+
+function resolveExecutable(name) {
+  for (const directory of SAFE_EXECUTABLE_DIRS) {
+    const executable = join(directory, name)
+    try {
+      accessSync(executable, constants.X_OK)
+      return executable
+    } catch {
+      continue
+    }
+  }
+
+  return null
 }
