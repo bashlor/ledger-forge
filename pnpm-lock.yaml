@@ -33,7 +33,7 @@ importers:
         version: 3.0.0(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))
       '@adonisjs/inertia':
         specifier: ^4.2.0
-        version: 4.2.0(caaeeb0ad599930352ca3b6899c96475)
+        version: 4.2.0(8d780f75e6bf49378c3794b3b8f0fcb5)
       '@adonisjs/session':
         specifier: ^8.1.0
         version: 8.1.0(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))(@japa/api-client@3.2.1(@japa/assert@4.2.0(@japa/runner@5.3.0))(@japa/runner@5.3.0))(@japa/browser-client@2.3.0(@japa/assert@4.2.0(@japa/runner@5.3.0))(@japa/runner@5.3.0)(playwright@1.59.1))(@japa/plugin-adonisjs@5.2.0(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))(@japa/api-client@3.2.1(@japa/assert@4.2.0(@japa/runner@5.3.0))(@japa/runner@5.3.0))(@japa/browser-client@2.3.0(@japa/assert@4.2.0(@japa/runner@5.3.0))(@japa/runner@5.3.0)(playwright@1.59.1))(@japa/runner@5.3.0)(playwright@1.59.1))(edge.js@6.5.0)
@@ -44,8 +44,8 @@ importers:
         specifier: ^2.0.1
         version: 2.0.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))
       '@adonisjs/vite':
-        specifier: ^5.1.0
-        version: 5.1.0(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))(@adonisjs/shield@9.0.0(003dd7d2ea14a16022d3994ddea37a85))(edge.js@6.5.0)(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+        specifier: ^5.1.1
+        version: 5.1.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))(@adonisjs/shield@9.0.0(003dd7d2ea14a16022d3994ddea37a85))(edge.js@6.5.0)(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
       '@better-auth/drizzle-adapter':
         specifier: ^1.6.19
         version: 1.6.19(@better-auth/core@1.6.19(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.3.6(zod@4.3.6))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.2.0))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(kysely@0.28.17)(pg@8.20.0)(postgres@3.4.9))
@@ -100,7 +100,7 @@ importers:
         version: 8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3)
       '@adonisjs/eslint-config':
         specifier: ^3.0.0
-        version: 3.0.0(eslint@10.2.0(jiti@2.6.1))(prettier@3.8.2)(typescript@5.9.3)
+        version: 3.0.0(eslint@10.2.0(jiti@2.6.1))(prettier@3.8.4)(typescript@5.9.3)
       '@adonisjs/prettier-config':
         specifier: ^1.4.5
         version: 1.4.5
@@ -177,8 +177,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       jsdom:
-        specifier: ^29.0.2
-        version: 29.0.2(@noble/hashes@2.2.0)
+        specifier: ^29.1.1
+        version: 29.1.1(@noble/hashes@2.2.0)
       pino-pretty:
         specifier: ^13.1.3
         version: 13.1.3
@@ -186,8 +186,8 @@ importers:
         specifier: ^1.59.1
         version: 1.59.1
       prettier:
-        specifier: ^3.8.2
-        version: 3.8.2
+        specifier: ^3.8.4
+        version: 3.8.4
       tailwindcss:
         specifier: ^4.2.2
         version: 4.2.2
@@ -202,7 +202,7 @@ importers:
         version: 7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.11.2)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.2(@noble/hashes@2.2.0))(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.11.2)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
       youch:
         specifier: ^4.1.1
         version: 4.1.1
@@ -466,8 +466,8 @@ packages:
   '@adonisjs/tsconfig@2.0.0':
     resolution: {integrity: sha512-Uz8qvB6KR9otCh9zei2VEj7tPwdsrT7R+voYoN4tUfEijWRdTNgJ8d1CtyLKHaggCCOwZIwZLVklV/h2FDHgNw==}
 
-  '@adonisjs/vite@5.1.0':
-    resolution: {integrity: sha512-lwscbYC/lvudof1uesxb7oqRkk7Kb82TaJuZvCk2UaSRvU9RtCqOBlhU/wxdb5Urt5aBUFVruEAoPnBkpy+1ag==}
+  '@adonisjs/vite@5.1.1':
+    resolution: {integrity: sha512-UeDHMTWPLhWcisnNRcTfo4ib17QXlGepnvN+peei5Vm6USx/9KP50fZPfyf/8+Bqu68ur/6wjTEUpf62/SqlzQ==}
     engines: {node: '>=24.0.0'}
     peerDependencies:
       '@adonisjs/assembler': ^8.0.0-next.10 || ^8.0.0
@@ -490,12 +490,16 @@ packages:
     resolution: {integrity: sha512-UQFQ6SgyJ6LX42W8rHCs8KVc0JS0tzVL9ct4XYedJukskYVWTo49tNiMEK9C2HTyarbNiT/RVIRSY82vH+6sTg==}
     engines: {node: '>=4'}
 
-  '@asamuzakjp/css-color@5.1.10':
-    resolution: {integrity: sha512-02OhhkKtgNRuicQ/nF3TRnGsxL9wp0r3Y7VlKWyOHHGmGyvXv03y+PnymU8FKFJMTjIr1Bk8U2g1HWSLrpAHww==}
+  '@asamuzakjp/css-color@5.1.11':
+    resolution: {integrity: sha512-KVw6qIiCTUQhByfTd78h2yD1/00waTmm9uy/R7Ck/ctUyAPj+AEDLkQIdJW0T8+qGgj3j5bpNKK7Q3G+LedJWg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
 
-  '@asamuzakjp/dom-selector@7.0.9':
-    resolution: {integrity: sha512-r3ElRr7y8ucyN2KdICwGsmj19RoN13CLCa/pvGydghWK6ZzeKQ+TcDjVdtEZz2ElpndM5jXw//B9CEee0mWnVg==}
+  '@asamuzakjp/dom-selector@7.1.1':
+    resolution: {integrity: sha512-67RZDnYRc8H/8MLDgQCDE//zoqVFwajkepHZgmXrbwybzXOEwOWGPYGmALYl9J2DOLfFPPs6kKCqmbzV895hTQ==}
+    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
+
+  '@asamuzakjp/generational-cache@1.0.1':
+    resolution: {integrity: sha512-wajfB8KqzMCN2KGNFdLkReeHncd0AslUSrvHVvvYWuU8ghncRJoA50kT3zP9MVL0+9g4/67H+cdvBskj9THPzg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
 
   '@asamuzakjp/nwsapi@2.3.9':
@@ -2663,9 +2667,9 @@ packages:
     resolution: {integrity: sha512-rRqJg/6gd538VHvR3PSrdRBb/1Vy2YfzHqzvbhGIQpDRKIa4FgV/54b5Q1xYSxOOwKvjXweS26E0Q+nAMwp2pQ==}
     engines: {node: '>=8.6'}
 
-  entities@6.0.1:
-    resolution: {integrity: sha512-aN97NXWF6AWBTahfVOIrB/NShkzi5H7F9r1s9mD3cDj4Ko5f2qhhVoYMibXF7GlLveb/D2ioWay8lxI97Ven3g==}
-    engines: {node: '>=0.12'}
+  entities@8.0.0:
+    resolution: {integrity: sha512-zwfzJecQ/Uej6tusMqwAqU/6KL2XaB2VZ2Jg54Je6ahNBGNH6Ek6g3jjNCF0fG9EWQKGZNddNjU5F1ZQn/sBnA==}
+    engines: {node: '>=20.19.0'}
 
   environment@1.1.0:
     resolution: {integrity: sha512-xUtoPkMggbz0MPyPiIWr1Kp4aeWJjDZ6SMvURhimjdZgsRuDplF5/s9hcgGhyXMhs+6vpnuoiZ2kFiu3FMnS8Q==}
@@ -3236,8 +3240,8 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  jsdom@29.0.2:
-    resolution: {integrity: sha512-9VnGEBosc/ZpwyOsJBCQ/3I5p7Q5ngOY14a9bf5btenAORmZfDse1ZEheMiWcJ3h81+Fv7HmJFdS0szo/waF2w==}
+  jsdom@29.1.1:
+    resolution: {integrity: sha512-ECi4Fi2f7BdJtUKTflYRTiaMxIB0O6zfR1fX0GXpUrf6flp8QIYn1UT20YQqdSOfk2dfkCwS8LAFoJDEppNK5Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24.0.0}
     peerDependencies:
       canvas: ^3.0.0
@@ -3602,8 +3606,8 @@ packages:
     resolution: {integrity: sha512-TXfryirbmq34y8QBwgqCVLi+8oA3oWx2eAnSn62ITyEhEYaWRlVZ2DvMM9eZbMs/RfxPu/PK/aBLyGj4IrqMHw==}
     engines: {node: '>=18'}
 
-  parse5@8.0.0:
-    resolution: {integrity: sha512-9m4m5GSgXjL4AjumKzq1Fgfp3Z8rsvjRNbnkVwfu2ImRqE5D0LnY2QfDen18FSY9C573YU5XxSapdHZTZ2WolA==}
+  parse5@8.0.1:
+    resolution: {integrity: sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==}
 
   parseurl@1.3.3:
     resolution: {integrity: sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ==}
@@ -3752,6 +3756,11 @@ packages:
 
   prettier@3.8.2:
     resolution: {integrity: sha512-8c3mgTe0ASwWAJK+78dpviD+A8EqhndQPUBpNUIPt6+xWlIigCwfN01lWr9MAede4uqXGTEKeQWTvzb3vjia0Q==}
+    engines: {node: '>=14'}
+    hasBin: true
+
+  prettier@3.8.4:
+    resolution: {integrity: sha512-N2MylSdi48+5N/6S5j+maeHbUSIzzZ5uOcX5Hm4QpV8Dkb1HFjfAKTKX6yNPJQD9AhcT3ifHNB66tWTTJDi11Q==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -4740,15 +4749,15 @@ snapshots:
       '@poppinss/validator-lite': 2.1.2
       split-lines: 3.0.0
 
-  '@adonisjs/eslint-config@3.0.0(eslint@10.2.0(jiti@2.6.1))(prettier@3.8.2)(typescript@5.9.3)':
+  '@adonisjs/eslint-config@3.0.0(eslint@10.2.0(jiti@2.6.1))(prettier@3.8.4)(typescript@5.9.3)':
     dependencies:
       '@adonisjs/eslint-plugin': 2.2.2(eslint@10.2.0(jiti@2.6.1))(typescript@5.9.3)
       '@stylistic/eslint-plugin': 5.10.0(eslint@10.2.0(jiti@2.6.1))
       eslint: 10.2.0(jiti@2.6.1)
       eslint-config-prettier: 10.1.8(eslint@10.2.0(jiti@2.6.1))
-      eslint-plugin-prettier: 5.5.5(eslint-config-prettier@10.1.8(eslint@10.2.0(jiti@2.6.1)))(eslint@10.2.0(jiti@2.6.1))(prettier@3.8.2)
+      eslint-plugin-prettier: 5.5.5(eslint-config-prettier@10.1.8(eslint@10.2.0(jiti@2.6.1)))(eslint@10.2.0(jiti@2.6.1))(prettier@3.8.4)
       eslint-plugin-unicorn: 63.0.0(eslint@10.2.0(jiti@2.6.1))
-      prettier: 3.8.2
+      prettier: 3.8.4
       typescript-eslint: 8.58.2(eslint@10.2.0(jiti@2.6.1))(typescript@5.9.3)
     transitivePeerDependencies:
       - '@types/eslint'
@@ -4822,11 +4831,11 @@ snapshots:
       '@poppinss/exception': 1.2.3
       '@poppinss/types': 1.2.1
 
-  '@adonisjs/inertia@4.2.0(caaeeb0ad599930352ca3b6899c96475)':
+  '@adonisjs/inertia@4.2.0(8d780f75e6bf49378c3794b3b8f0fcb5)':
     dependencies:
       '@adonisjs/core': 7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1)
       '@adonisjs/session': 8.1.0(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))(@japa/api-client@3.2.1(@japa/assert@4.2.0(@japa/runner@5.3.0))(@japa/runner@5.3.0))(@japa/browser-client@2.3.0(@japa/assert@4.2.0(@japa/runner@5.3.0))(@japa/runner@5.3.0)(playwright@1.59.1))(@japa/plugin-adonisjs@5.2.0(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))(@japa/api-client@3.2.1(@japa/assert@4.2.0(@japa/runner@5.3.0))(@japa/runner@5.3.0))(@japa/browser-client@2.3.0(@japa/assert@4.2.0(@japa/runner@5.3.0))(@japa/runner@5.3.0)(playwright@1.59.1))(@japa/runner@5.3.0)(playwright@1.59.1))(edge.js@6.5.0)
-      '@adonisjs/vite': 5.1.0(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))(@adonisjs/shield@9.0.0(003dd7d2ea14a16022d3994ddea37a85))(edge.js@6.5.0)(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+      '@adonisjs/vite': 5.1.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))(@adonisjs/shield@9.0.0(003dd7d2ea14a16022d3994ddea37a85))(edge.js@6.5.0)(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
       '@poppinss/utils': 7.0.1
       edge-error: 4.0.2
       edge.js: 6.5.0
@@ -4890,7 +4899,7 @@ snapshots:
 
   '@adonisjs/tsconfig@2.0.0': {}
 
-  '@adonisjs/vite@5.1.0(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))(@adonisjs/shield@9.0.0(003dd7d2ea14a16022d3994ddea37a85))(edge.js@6.5.0)(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))':
+  '@adonisjs/vite@5.1.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@adonisjs/core@7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1))(@adonisjs/shield@9.0.0(003dd7d2ea14a16022d3994ddea37a85))(edge.js@6.5.0)(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))':
     dependencies:
       '@adonisjs/core': 7.3.1(@adonisjs/assembler@8.4.0(babel-plugin-macros@3.1.0)(typescript@5.9.3))(@vinejs/vine@4.3.1)(edge.js@6.5.0)(pino-pretty@13.1.3)(youch@4.1.1)
       '@poppinss/utils': 7.0.1
@@ -4909,19 +4918,23 @@ snapshots:
 
   '@arr/every@1.0.1': {}
 
-  '@asamuzakjp/css-color@5.1.10':
+  '@asamuzakjp/css-color@5.1.11':
     dependencies:
+      '@asamuzakjp/generational-cache': 1.0.1
       '@csstools/css-calc': 3.2.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-color-parser': 4.1.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-tokenizer': 4.0.0
 
-  '@asamuzakjp/dom-selector@7.0.9':
+  '@asamuzakjp/dom-selector@7.1.1':
     dependencies:
+      '@asamuzakjp/generational-cache': 1.0.1
       '@asamuzakjp/nwsapi': 2.3.9
       bidi-js: 1.0.3
       css-tree: 3.2.1
       is-potential-custom-element-name: 1.0.1
+
+  '@asamuzakjp/generational-cache@1.0.1': {}
 
   '@asamuzakjp/nwsapi@2.3.9': {}
 
@@ -4966,7 +4979,7 @@ snapshots:
 
   '@babel/code-frame@7.29.0':
     dependencies:
-      '@babel/helper-validator-identifier': 7.28.5
+      '@babel/helper-validator-identifier': 7.29.7
       js-tokens: 4.0.0
       picocolors: 1.1.1
 
@@ -6238,7 +6251,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.11.2)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.2(@noble/hashes@2.2.0))(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+      vitest: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.11.2)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
 
   '@vitest/expect@4.1.5':
     dependencies:
@@ -6463,7 +6476,7 @@ snapshots:
       pg: 8.20.0
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
-      vitest: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.11.2)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.2(@noble/hashes@2.2.0))(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+      vitest: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.11.2)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
     transitivePeerDependencies:
       - '@cloudflare/workers-types'
       - '@opentelemetry/api'
@@ -6849,7 +6862,7 @@ snapshots:
       ansi-colors: 4.1.3
       strip-ansi: 6.0.1
 
-  entities@6.0.1: {}
+  entities@8.0.0: {}
 
   environment@1.1.0: {}
 
@@ -6932,10 +6945,10 @@ snapshots:
       - supports-color
       - typescript
 
-  eslint-plugin-prettier@5.5.5(eslint-config-prettier@10.1.8(eslint@10.2.0(jiti@2.6.1)))(eslint@10.2.0(jiti@2.6.1))(prettier@3.8.2):
+  eslint-plugin-prettier@5.5.5(eslint-config-prettier@10.1.8(eslint@10.2.0(jiti@2.6.1)))(eslint@10.2.0(jiti@2.6.1))(prettier@3.8.4):
     dependencies:
       eslint: 10.2.0(jiti@2.6.1)
-      prettier: 3.8.2
+      prettier: 3.8.4
       prettier-linter-helpers: 1.0.1
       synckit: 0.11.12
     optionalDependencies:
@@ -7334,7 +7347,7 @@ snapshots:
 
   is-core-module@2.16.1:
     dependencies:
-      hasown: 2.0.2
+      hasown: 2.0.4
 
   is-docker@3.0.0: {}
 
@@ -7406,10 +7419,10 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  jsdom@29.0.2(@noble/hashes@2.2.0):
+  jsdom@29.1.1(@noble/hashes@2.2.0):
     dependencies:
-      '@asamuzakjp/css-color': 5.1.10
-      '@asamuzakjp/dom-selector': 7.0.9
+      '@asamuzakjp/css-color': 5.1.11
+      '@asamuzakjp/dom-selector': 7.1.1
       '@bramus/specificity': 2.4.2
       '@csstools/css-syntax-patches-for-csstree': 1.1.3(css-tree@3.2.1)
       '@exodus/bytes': 1.15.0(@noble/hashes@2.2.0)
@@ -7419,7 +7432,7 @@ snapshots:
       html-encoding-sniffer: 6.0.0(@noble/hashes@2.2.0)
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.3.5
-      parse5: 8.0.0
+      parse5: 8.0.1
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.1
@@ -7721,9 +7734,9 @@ snapshots:
 
   parse-ms@4.0.0: {}
 
-  parse5@8.0.0:
+  parse5@8.0.1:
     dependencies:
-      entities: 6.0.1
+      entities: 8.0.0
 
   parseurl@1.3.3: {}
 
@@ -7866,6 +7879,8 @@ snapshots:
       uglify-js: 3.19.3
 
   prettier@3.8.2: {}
+
+  prettier@3.8.4: {}
 
   pretty-format@27.5.1:
     dependencies:
@@ -8623,7 +8638,7 @@ snapshots:
       tsx: 4.21.0
       yaml: 2.8.3
 
-  vitest@4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.11.2)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.2(@noble/hashes@2.2.0))(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)):
+  vitest@4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.11.2)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)):
     dependencies:
       '@vitest/expect': 4.1.5
       '@vitest/mocker': 4.1.5(vite@7.3.5(@types/node@24.11.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
@@ -8649,7 +8664,7 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       '@types/node': 24.11.2
       '@vitest/coverage-v8': 4.1.5(vitest@4.1.5)
-      jsdom: 29.0.2(@noble/hashes@2.2.0)
+      jsdom: 29.1.1(@noble/hashes@2.2.0)
     transitivePeerDependencies:
       - msw
 
