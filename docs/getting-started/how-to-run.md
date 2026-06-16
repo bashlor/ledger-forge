@@ -70,6 +70,19 @@ If you use rootless Podman for tests, make sure the user socket is available:
 systemctl --user enable --now podman.socket
 ```
 
+## Pinned Container Images
+
+Third-party runtime images (PostgreSQL, Redis, Node build bases, Maintenant, and related
+references) are defined in `docker/images.lock.yaml` using `tag@sha256` refs.
+
+- Do not edit `@sha256` digests directly in `docker-compose*.yml` or `Dockerfile` files.
+- After changing the lock file, propagate with `./scripts/sync-docker-images.sh sync`.
+- To refresh digests from upstream registries, run `./scripts/sync-docker-images.sh refresh`
+  (requires `docker buildx` or `skopeo` with registry access).
+
+CI runs `./scripts/sync-docker-images.sh verify` to ensure consumers stay aligned with the
+lock file.
+
 ## Docker Secrets
 
 Compose does not read database and Redis passwords directly from `.env`.

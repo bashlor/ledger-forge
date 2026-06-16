@@ -27,6 +27,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Verify pinned Docker image refs
+        run: ./scripts/sync-docker-images.sh verify
+
       - name: Lint
         run: pnpm lint
 
