@@ -1,0 +1,16 @@
+# Single source of truth for pinned container images (tag@sha256).
+# Update via: ./scripts/sync-docker-images.sh refresh
+# Propagate via: ./scripts/sync-docker-images.sh sync
+# Do not edit @sha256 digests in compose/Dockerfiles by hand.
+images:
+  postgres:
+    ref: docker.io/postgres:17-alpine@sha256:979c4379dd698aba0b890599a6104e082035f98ef31d9b9291ec22f2b13059ca
+  redis:
+    ref: docker.io/redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+  node:
+    ref: docker.io/library/node:24@sha256:8530f76a96d88820d288761f022e318970dda93d01536919fbc16076b7983e63
+  # Tag "latest" is documentary; the digest is authoritative.
+  chainguard_node:
+    ref: cgr.dev/chainguard/node:latest@sha256:3e212e37f83e078397dd8431964a4d703b5ecba9ed508c2748ad24a11930a746
+  maintenant:
+    ref: ghcr.io/kolapsis/maintenant:latest@sha256:2493b59e2993eb4e75ba82bf7c04931a4dd5f280d7bbe887d48fe2ebe7e38e48
